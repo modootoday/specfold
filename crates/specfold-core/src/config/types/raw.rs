@@ -1,0 +1,44 @@
+//! spec.toml as written, one field per section.
+
+use super::{
+    AliasSection, AuditSection, CheckSection, CitesSection, ExternalRoot, FilesSection, ForbidSection, GuardDef,
+    LocalSection, OwnersSection, PluginDef, PublicSection, SpecSection, VerifySection,
+};
+use crate::model::registry::TypeOverride;
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
+
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct RawConfig {
+    #[serde(default)]
+    pub spec: SpecSection,
+    #[serde(default)]
+    pub owners: OwnersSection,
+    #[serde(default)]
+    pub public: PublicSection,
+    #[serde(default)]
+    pub local: LocalSection,
+    #[serde(default)]
+    pub external: BTreeMap<String, ExternalRoot>,
+    #[serde(default)]
+    pub files: FilesSection,
+    #[serde(default)]
+    pub types: BTreeMap<String, TypeOverride>,
+    #[serde(default)]
+    pub forbid: ForbidSection,
+    #[serde(default)]
+    pub aliases: AliasSection,
+    #[serde(default)]
+    pub guards: Vec<GuardDef>,
+    #[serde(default)]
+    pub plugins: Vec<PluginDef>,
+    #[serde(default)]
+    pub audit: AuditSection,
+    #[serde(default)]
+    pub verify: VerifySection,
+    #[serde(default)]
+    pub check: CheckSection,
+    #[serde(default)]
+    pub cites: CitesSection,
+}

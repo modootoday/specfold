@@ -3,7 +3,6 @@
 
 pub mod audit;
 pub mod authoring;
-pub mod census;
 pub mod check;
 pub mod config;
 pub mod corpus;
@@ -17,10 +16,10 @@ pub mod placement;
 pub mod plugins;
 pub mod runner;
 pub mod search;
-pub mod trace;
 pub mod workspace;
 
 pub use config::Config;
 pub use corpus::{Corpus, LoadOptions};
+pub use corpus::{census, trace};
 pub use graph::Graph;
 pub use model::{Doc, DocId};

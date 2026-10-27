@@ -2,10 +2,9 @@
 
 use super::cache::ScanCache;
 use super::types::{Corpus, LoadOptions, SpecRoot};
-use super::{aliases, assemble, roots, walk};
+use super::{aliases, assemble, roots, trace, walk};
 use crate::config::Config;
 use crate::markdown::body;
-use crate::trace;
 use crate::workspace::Owners;
 
 impl Corpus {

@@ -2,27 +2,21 @@
 //! says how it is verified. X1 and G1 only run when asked (`spec verify`,
 //! `spec check --run-commands`), because they execute project code.
 
+mod select;
+
 use super::support::key_line;
 use crate::check::context::Ctx;
 use crate::check::finding::Finding;
 use crate::check::rule::{Rule, RuleInfo};
-use crate::graph::query;
 use crate::model::Doc;
 use crate::runner::{self, Job, Outcome, Settings, Verdict};
-use crate::workspace::owners::matcher;
 use regex::Regex;
+use select::{selected, verify_commands};
 use std::time::Duration;
 
 pub struct VerifyPasses;
 pub struct VerifyDeclared;
 pub struct GeneratedInSync;
-
-/// The marker for a rule that has no runnable check and is verified by people.
-const MANUAL: &str = "manual";
-
-fn verify_commands(d: &Doc) -> Vec<String> {
-    d.list_field("verify").into_iter().filter(|c| !c.trim().eq_ignore_ascii_case(MANUAL)).collect()
-}
 
 fn settings(ctx: &Ctx) -> Settings {
     let v = &ctx.corpus.cfg.raw.verify;
@@ -32,41 +26,6 @@ fn settings(ctx: &Ctx) -> Settings {
 fn timeout(ctx: &Ctx, d: &Doc) -> Duration {
     let own = d.fm().and_then(|m| m.get("verify_timeout_ms")).and_then(|v| v.as_u64());
     Duration::from_millis(own.unwrap_or(ctx.corpus.cfg.raw.verify.timeout_ms))
-}
-
-fn is_gitlink(ctx: &Ctx, path: &str) -> bool {
-    ctx.corpus.cfg.root.join(path).join(".git").exists()
-}
-
-/// Documents a run reaches: every one for a full run or when a path in `full_run_on` changed;
-/// otherwise those governing a changed path (a changed submodule reaches globs inside it), those
-/// whose command names a changed file, and those edited themselves.
-fn selected(ctx: &Ctx) -> Vec<usize> {
-    let all = || (0..ctx.corpus.docs.len()).collect();
-    if ctx.scope.is_all() {
-        return all();
-    }
-    let full: Vec<_> = ctx.corpus.cfg.raw.verify.full_run_on.iter().filter_map(|p| matcher(p)).collect();
-    if ctx.scope.paths.iter().any(|p| full.iter().any(|m| m.is_match(p))) {
-        return all();
-    }
-    let mut out: Vec<usize> =
-        ctx.scope.paths.iter().flat_map(|p| query::governing(ctx.corpus, p).into_iter().map(|g| g.idx)).collect();
-    for (i, d) in ctx.corpus.docs.iter().enumerate() {
-        let commands = verify_commands(d);
-        let governs = d.rel().get("governs").cloned().unwrap_or_default();
-        let reached = ctx.scope.paths.iter().any(|p| {
-            commands.iter().any(|c| c.contains(p.as_str()))
-                || (is_gitlink(ctx, p) && governs.iter().any(|g| g.starts_with(&format!("{p}/"))))
-        });
-        if reached {
-            out.push(i);
-        }
-    }
-    out.extend(ctx.scope.touched.iter().copied());
-    out.sort();
-    out.dedup();
-    out
 }
 
 fn report(rule: &'static str, ctx: &Ctx, d: &Doc, key: &str, cmd: &str, o: &Outcome) -> Option<Finding> {

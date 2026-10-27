@@ -2,7 +2,7 @@
 //! line it must pass is passed. A pattern that silently stopped matching would otherwise turn
 //! the gate green over everything.
 
-use super::scan::Compiled;
+use super::compile::Compiled;
 use crate::config::GuardDef;
 use anyhow::{Result, bail};
 

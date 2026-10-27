@@ -1,6 +1,7 @@
 //! Guards: named checks over any file in the repository and over commit messages, such as the
 //! gate that keeps internal names out of a public package.
 
+mod compile;
 mod prove;
 pub mod range;
 mod scan;
@@ -29,7 +30,7 @@ fn select<'a>(cfg: &'a Config, names: &[String]) -> Result<Vec<&'a GuardDef>> {
 }
 
 fn scan_one(cfg: &Config, g: &GuardDef, range: Option<&GuardRange>) -> Result<scan::Scanned> {
-    let c = scan::compile(cfg, g)?;
+    let c = compile::compile(cfg, g)?;
     prove::prove(g, &c)?;
     let r = range.cloned().unwrap_or_else(|| GuardRange::parse(&g.range));
     scan::run(cfg, g, &c, &range::resolve(&cfg.root, &r)?)

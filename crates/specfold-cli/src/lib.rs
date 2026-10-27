@@ -2,11 +2,11 @@
 
 pub mod cli;
 pub mod commands;
-pub mod execute;
 pub mod mcp;
 pub mod output;
-pub mod session;
 
+pub use cli::execute;
+pub use commands::session;
 use output::render;
 use std::io::Write;
 use std::process::ExitCode;

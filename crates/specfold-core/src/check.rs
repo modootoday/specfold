@@ -7,6 +7,7 @@ pub mod rule;
 pub mod rules;
 pub mod runner;
 pub mod scope;
+pub mod severity;
 
 pub use context::Options;
 pub use finding::{Finding, Fix, Severity};
