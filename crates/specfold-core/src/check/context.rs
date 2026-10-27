@@ -13,6 +13,8 @@ pub struct Options {
     pub external: bool,
     /// Ask stores whether attachments exist (network, slow).
     pub online: bool,
+    /// Run guards over the whole tree in a full run; staged and ranged runs always run them.
+    pub guards: bool,
 }
 
 pub struct Ctx<'a> {

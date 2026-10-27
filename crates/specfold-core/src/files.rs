@@ -4,5 +4,6 @@
 pub mod attach;
 pub mod fetch;
 pub mod hash;
+pub mod hash_cache;
 pub mod ignore_file;
 pub mod store;

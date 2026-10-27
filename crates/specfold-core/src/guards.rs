@@ -1,10 +1,12 @@
 //! Guards: named checks over any file in the repository and over commit messages, such as the
 //! gate that keeps internal names out of a public package.
 
+mod cache;
 mod code_spans;
 mod compile;
 mod jslex;
 mod pattern;
+mod prefilter;
 mod prove;
 pub mod range;
 mod scan;
@@ -36,7 +38,7 @@ fn scan_one(cfg: &Config, g: &GuardDef, range: Option<&GuardRange>) -> Result<sc
     let c = compile::compile(cfg, g)?;
     prove::prove(g, &c)?;
     let r = range.cloned().unwrap_or_else(|| GuardRange::parse(&g.range));
-    scan::run(cfg, g, &c, &range::resolve(&cfg.root, &r)?)
+    scan::run(cfg, g, &c, &range::resolve(&cfg.root, &r, &c.bases)?)
 }
 
 /// Runs the named guards (all of them when `names` is empty). A guard without an explicit range

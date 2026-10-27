@@ -32,7 +32,7 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
         (None, true) => Range::Staged,
         (None, false) => Range::All,
     };
-    let opts = Options { run_commands: a.run_commands, external: a.external, online: a.online };
+    let opts = Options { run_commands: a.run_commands, external: a.external, online: a.online, guards: a.guards };
     let report =
         check::run(&s.corpus, &s.graph, range, &opts, &Selection { only: a.rules.clone(), skip: a.skip.clone() })?;
     if a.write_baseline {

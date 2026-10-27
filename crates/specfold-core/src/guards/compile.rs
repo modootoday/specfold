@@ -3,6 +3,7 @@
 //! terms, patterns, secrets) after allow-list exemptions.
 
 use super::pattern::{self, Pattern, Spans};
+use super::prefilter::Prefilter;
 use super::{secrets, terms};
 use crate::config::{Config, GuardDef};
 use crate::workspace::exposure;
@@ -18,12 +19,25 @@ pub struct Compiled {
     deny_files: Vec<PathMatch>,
     terms: Option<Regex>,
     pub patterns: Vec<Pattern>,
+    prefilter: Prefilter,
     pub path_patterns: Vec<Pattern>,
     allow: Vec<String>,
     /// Published paths that do not exist.
     pub missing: Vec<String>,
     /// Published paths that exist; each must yield at least one file in a whole-tree run.
     pub published: Vec<String>,
+    /// Directories a whole-tree run walks; empty means the whole repository.
+    pub bases: Vec<String>,
+}
+
+/// The fixed leading directories of the guard's paths, or nothing when any path can match
+/// anywhere (an unlimited guard, or a pattern that starts with a wildcard).
+fn bases_of(limited: bool, patterns: &[String]) -> Vec<String> {
+    let bases: Vec<String> = patterns.iter().map(|p| crate::placement::literal_base(p)).collect();
+    if !limited || bases.iter().any(|b| b.is_empty()) {
+        return vec![];
+    }
+    bases
 }
 
 pub fn compile(cfg: &Config, g: &GuardDef) -> Result<Compiled> {
@@ -31,6 +45,7 @@ pub fn compile(cfg: &Config, g: &GuardDef) -> Result<Compiled> {
         rules.iter().map(|r| pattern::compile(&g.name, r.spec())).collect()
     };
     let mut paths: Vec<PathMatch> = g.paths.iter().filter_map(|p| matcher(p)).collect();
+    let mut scope_patterns = g.paths.clone();
     let (mut missing, mut published) = (vec![], vec![]);
     if g.public {
         for e in exposure::scan(cfg).exposed {
@@ -39,15 +54,21 @@ pub fn compile(cfg: &Config, g: &GuardDef) -> Result<Compiled> {
                 false => missing.push(e.path.clone()),
             }
             paths.extend(matcher(&e.path));
+            scope_patterns.push(e.path);
         }
     }
+    let limited = !g.paths.is_empty() || g.public;
+    let patterns = compile_all(&g.deny_regex)?;
+    let sources: Vec<&str> = patterns.iter().map(|p| p.re.as_str()).collect();
     Ok(Compiled {
-        limited: !g.paths.is_empty() || g.public,
+        bases: bases_of(limited, &scope_patterns),
+        limited,
         paths,
         exclude: g.exclude.iter().filter_map(|p| matcher(p)).collect(),
         deny_files: g.deny_files.iter().filter_map(|p| matcher(p)).collect(),
         terms: terms::matcher(&terms::load(cfg, g)?),
-        patterns: compile_all(&g.deny_regex)?,
+        prefilter: Prefilter::new(&sources),
+        patterns,
         path_patterns: compile_all(&g.deny_path_regex)?,
         allow: g.allow.iter().map(|a| a.to_lowercase()).collect(),
         missing,
@@ -76,8 +97,13 @@ impl Compiled {
             }
         }
         let mut spans = Spans::default();
-        for p in self.patterns.iter().filter(|p| p.applies_to(path)) {
-            for (at, hit) in p.hits(path, text, &mut spans) {
+        for i in self.prefilter.candidates(text) {
+            let p = &self.patterns[i];
+            if !p.applies_to(path) {
+                continue;
+            }
+            let lines = self.prefilter.lines(i, text).unwrap_or_else(|| vec![(0, text.len())]);
+            for (at, hit) in p.hits_in(path, text, &lines, &mut spans) {
                 if !self.allowed(hit) {
                     out.push((line_of(&newlines, at), format!("matches {}", p.label)));
                 }
@@ -110,5 +136,10 @@ impl Compiled {
 
     pub fn denies_file(&self, path: &str) -> bool {
         self.deny_files.iter().any(|m| m.is_match(path))
+    }
+
+    /// The compiled denied-term pattern, which a cache key must cover without storing it.
+    pub fn terms_source(&self) -> &str {
+        self.terms.as_ref().map(|t| t.as_str()).unwrap_or("")
     }
 }

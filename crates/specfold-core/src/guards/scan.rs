@@ -1,15 +1,17 @@
 //! Runs one compiled guard over a resolved range and reports hits as findings (rule U1).
 
+use super::cache::GuardCache;
 use super::compile::Compiled;
 use super::range::{Resolved, Source, read};
 use crate::check::finding::{Finding, Severity};
 use crate::config::{Config, GuardDef};
 use crate::workspace::vcs;
 use anyhow::Result;
+use rayon::prelude::*;
 use std::io::Read;
 
 /// The most a compressed file may expand to before the rest is ignored.
-const MAX_INFLATED: u64 = 64 * 1024 * 1024;
+const MAX_INFLATED: u64 = 16 * 1024 * 1024;
 const GZIP_MAGIC: [u8; 2] = [0x1f, 0x8b];
 
 fn severity(g: &GuardDef) -> Severity {
@@ -52,35 +54,69 @@ pub struct Scanned {
     pub files: Vec<String>,
 }
 
+/// Everything one file trips: its presence, its path and its content.
+fn scan_file(cfg: &Config, g: &GuardDef, c: &Compiled, range: &Resolved, path: &str) -> Vec<Finding> {
+    let mut out = vec![];
+    if c.denies_file(path) {
+        out.push(hit(g, path, 1, "this file may not be here".into()));
+    }
+    for m in c.path_hits(path) {
+        out.push(hit(g, path, 1, m));
+    }
+    let Some(mut bytes) = read(&cfg.root, &range.source, path) else { return out };
+    if let Some(max) = g.max_file_bytes
+        && bytes.len() as u64 > max
+    {
+        out.push(hit(g, path, 1, format!("{} bytes is over {max}", bytes.len())));
+    }
+    if g.decompress && bytes.starts_with(&GZIP_MAGIC) {
+        match inflate(&bytes) {
+            Some(b) => bytes = b,
+            None => out.push(hit(g, path, 1, "cannot be decompressed".into())),
+        }
+    }
+    if let Some(text) = as_text(g, &bytes) {
+        scan_text(g, c, path, &text, &mut out);
+    }
+    out
+}
+
+/// Half the machine at most, so a guard on a busy host leaves room for everything else.
+/// `RAYON_NUM_THREADS` overrides it.
+fn workers() -> rayon::ThreadPool {
+    let half = std::thread::available_parallelism().map(|n| (n.get() / 2).max(1)).unwrap_or(1);
+    let n = std::env::var("RAYON_NUM_THREADS").ok().and_then(|v| v.parse().ok()).unwrap_or(half);
+    rayon::ThreadPoolBuilder::new().num_threads(n).build().unwrap_or_else(|_| {
+        rayon::ThreadPoolBuilder::new().num_threads(1).build().expect("a one-thread pool always builds")
+    })
+}
+
 pub fn run(cfg: &Config, g: &GuardDef, c: &Compiled, range: &Resolved) -> Result<Scanned> {
     let mut out = vec![];
     let mut files = vec![];
     for p in &c.missing {
         out.push(hit(g, p, 1, "a published path is not present, so nothing reads it".into()));
     }
+    let whole_tree = matches!(range.source, Source::WorkTree);
+    let mut cache = whole_tree.then(|| GuardCache::open(&cfg.root, g, c.terms_source()));
+    let mut misses = vec![];
     for path in range.files.iter().filter(|p| c.in_scope(p)) {
         files.push(path.clone());
-        if c.denies_file(path) {
-            out.push(hit(g, path, 1, "this file may not be here".into()));
+        match cache.as_mut().and_then(|k| k.lookup(&cfg.root, path)) {
+            Some(found) => out.extend(found),
+            None => misses.push(path.as_str()),
         }
-        for m in c.path_hits(path) {
-            out.push(hit(g, path, 1, m));
+    }
+    let scanned: Vec<(&str, Vec<Finding>)> =
+        workers().install(|| misses.par_iter().map(|p| (*p, scan_file(cfg, g, c, range, p))).collect());
+    for (path, found) in scanned {
+        if let Some(k) = cache.as_mut() {
+            k.put(&cfg.root, path, &found);
         }
-        let Some(mut bytes) = read(&cfg.root, &range.source, path) else { continue };
-        if let Some(max) = g.max_file_bytes
-            && bytes.len() as u64 > max
-        {
-            out.push(hit(g, path, 1, format!("{} bytes is over {max}", bytes.len())));
-        }
-        if g.decompress && bytes.starts_with(&GZIP_MAGIC) {
-            match inflate(&bytes) {
-                Some(b) => bytes = b,
-                None => out.push(hit(g, path, 1, "cannot be decompressed".into())),
-            }
-        }
-        if let Some(text) = as_text(g, &bytes) {
-            scan_text(g, c, path, &text, &mut out);
-        }
+        out.extend(found);
+    }
+    if let Some(k) = cache {
+        k.save();
     }
     if g.commit_messages
         && let Some(r) = &range.commits

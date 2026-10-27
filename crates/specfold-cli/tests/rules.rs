@@ -170,6 +170,19 @@ fn severity_turns_a_rule_down_or_off() {
     assert_eq!(r.json(&["check", "--rule", "S2"]).1["warnings"], 0);
 }
 
+#[test]
+fn a_full_check_leaves_whole_tree_guards_to_spec_guard() {
+    let r = common::repo();
+    let toml = r.read("spec.toml")
+        + "[[guards]]\nname = \"g\"\npaths = [\"services/**\"]\nrange = \"all\"\ndeny_terms = [\"acme-internal\"]\n";
+    r.write("spec.toml", &toml);
+    r.write("services/shop/notes.txt", "acme-internal\n");
+    assert!(rules_hit(&r.json(&["check", "--rule", "U1"]).1).is_empty());
+    assert_eq!(rules_hit(&r.json(&["check", "--rule", "U1", "--guards"]).1), ["U1"]);
+    r.git(&["add", "-A"]);
+    assert_eq!(rules_hit(&r.json(&["check", "--staged", "--rule", "U1"]).1), ["U1"]);
+}
+
 #[cfg(unix)]
 #[test]
 fn verify_reports_timeouts_missing_programs_and_undeclared_checks() {

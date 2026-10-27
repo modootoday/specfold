@@ -5,7 +5,8 @@ use super::support::quote;
 use crate::check::context::Ctx;
 use crate::check::finding::Finding;
 use crate::check::rule::{Rule, RuleInfo};
-use crate::files::{hash, ignore_file, store};
+use crate::files::hash_cache::HashCache;
+use crate::files::{ignore_file, store};
 
 pub struct Registered;
 pub struct SizeLimit;
@@ -70,10 +71,10 @@ impl Rule for SizeLimit {
             if !ctx.scope.covers(i) {
                 continue;
             }
+            let stored: Vec<String> = d.files().into_iter().filter(|e| e.store == "store").map(|e| e.path).collect();
             for f in &d.bundle_files {
                 let Ok(meta) = std::fs::metadata(ctx.corpus.cfg.root.join(f)) else { continue };
-                let stored = d.files().iter().any(|e| e.store == "store" && f.ends_with(&e.path));
-                if !stored && meta.len() > limit {
+                if meta.len() > limit && !stored.iter().any(|p| f.ends_with(p.as_str())) {
                     out.push(
                         Finding::error(
                             "P3",
@@ -100,6 +101,7 @@ impl Rule for HashesMatch {
     }
 
     fn run(&self, ctx: &Ctx, out: &mut Vec<Finding>) {
+        let mut hashes = HashCache::open(&ctx.corpus.cfg.root);
         for (i, d) in ctx.corpus.docs.iter().enumerate() {
             if !ctx.scope.covers(i) {
                 continue;
@@ -118,7 +120,7 @@ impl Rule for HashesMatch {
                 if e.store != "repo" {
                     continue;
                 }
-                if let Ok((got, bytes)) = hash::file(&base.join(&e.path))
+                if let Ok((got, bytes)) = hashes.file(&base.join(&e.path))
                     && (got != e.sha256 || bytes != e.bytes)
                 {
                     out.push(
@@ -129,6 +131,7 @@ impl Rule for HashesMatch {
                 }
             }
         }
+        hashes.save();
     }
 }
 

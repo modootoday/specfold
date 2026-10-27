@@ -58,9 +58,23 @@ impl Pattern {
 
     /// Matches in `text` (offset and matched text) that count for `path`.
     pub fn hits<'t>(&self, path: &str, text: &'t str, spans: &mut Spans) -> Vec<(usize, &'t str)> {
+        self.hits_in(path, text, &[(0, text.len())], spans)
+    }
+
+    /// Like `hits`, searching only the byte ranges given (the lines a prefilter kept); offsets
+    /// stay relative to the whole text so exemptions see the full context.
+    pub fn hits_in<'t>(
+        &self,
+        path: &str,
+        text: &'t str,
+        ranges: &[(usize, usize)],
+        spans: &mut Spans,
+    ) -> Vec<(usize, &'t str)> {
         let mut out = vec![];
-        for m in self.re.find_iter(text).flatten() {
-            let at = m.start();
+        let found = ranges
+            .iter()
+            .flat_map(|&(s, e)| self.re.find_iter(&text[s..e]).flatten().map(move |m| (s + m.start(), s + m.end())));
+        for (at, end) in found {
             if self.not_in_url && inside_url(text, at) {
                 continue;
             }
@@ -76,7 +90,7 @@ impl Pattern {
                     continue;
                 }
             }
-            out.push((at, m.as_str()));
+            out.push((at, &text[at..end]));
         }
         out
     }

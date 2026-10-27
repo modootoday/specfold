@@ -13,13 +13,13 @@ impl Rule for GuardsPass {
         &RuleInfo {
             id: "U1",
             title: "guards pass",
-            explain: "Guards are named checks in spec.toml over any file and over commit messages: denied terms (inline, from a private file, or from an environment variable), regexes, file patterns, size limits and built-in secret formats. Terms are masked in output. Run one with `spec guard <name>`.",
+            explain: "Guards are named checks in spec.toml over any file and over commit messages: denied terms (inline, from a private file, or from an environment variable), regexes, file patterns, size limits and built-in secret formats. Terms are masked in output. Staged and ranged checks run them over what changed; a full `spec check` runs them only with --guards, since reading every published file belongs to `spec guard`.",
             on_commit: true,
         }
     }
 
     fn run(&self, ctx: &Ctx, out: &mut Vec<Finding>) {
-        if ctx.corpus.cfg.raw.guards.is_empty() {
+        if ctx.corpus.cfg.raw.guards.is_empty() || (ctx.scope.is_all() && !ctx.opts.guards) {
             return;
         }
         let range = match &ctx.scope.range {
