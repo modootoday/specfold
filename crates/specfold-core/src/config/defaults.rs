@@ -54,6 +54,10 @@ pub fn guard_level() -> String {
     "error".into()
 }
 
+pub fn yes() -> bool {
+    true
+}
+
 pub fn plugin_timeout_ms() -> u64 {
     30_000
 }

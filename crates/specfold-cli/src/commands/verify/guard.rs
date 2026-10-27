@@ -4,10 +4,19 @@ use crate::cli::args::{global::Global, verify::GuardArgs};
 use crate::output::{Code, Output, findings};
 use crate::session;
 use anyhow::Result;
+use serde_json::json;
 use specfold_core::guards::{self, GuardRange};
 
 pub fn run(g: &Global, a: &GuardArgs) -> Result<Output> {
     let cfg = session::config(g)?;
+    if a.write_baseline {
+        let mut o = Output::new("guard");
+        for (name, rel, hits) in guards::write_baselines(&cfg, &a.names)? {
+            o = o
+                .item(json!({"guard": name, "baseline": rel, "hits": hits}), format!("{name}: {hits} hit(s) in {rel}"));
+        }
+        return Ok(o.next("git add <baseline files>"));
+    }
     let range = if a.staged {
         Some(GuardRange::Staged)
     } else if a.all {

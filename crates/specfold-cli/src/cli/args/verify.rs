@@ -65,6 +65,9 @@ pub struct GuardArgs {
     /// Scan the whole working tree.
     #[arg(long)]
     pub all: bool,
+    /// Record each guard's current hits in its baseline file; a clean tree only.
+    #[arg(long, conflicts_with_all = ["staged", "range", "all"])]
+    pub write_baseline: bool,
 }
 
 #[derive(Debug, Clone, Args)]

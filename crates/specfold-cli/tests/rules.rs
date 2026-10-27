@@ -149,9 +149,9 @@ fn a_visibility_manifest_older_than_gitmodules_is_reported() {
     let toml = r.read("spec.toml").replace("[public]\n", "[public]\nsubmodules_manifest = \"vis.json\"\n");
     r.write("spec.toml", &toml);
     r.new_doc("plan", "services/shop", "Ship");
-    let blog_doc = r.path().join("services/blog/.spec/plan/20260101000000-x.plan.md");
+    let blog_doc = r.path().join("services/blog/.spec/research/20260101000000-x.research.md");
     std::fs::create_dir_all(blog_doc.parent().unwrap()).unwrap();
-    std::fs::write(&blog_doc, "---\nid: plan:blog/20260101000000\n---\n# X\n").unwrap();
+    std::fs::write(&blog_doc, "---\nid: research:blog/20260101000000\n---\n# X\n").unwrap();
     let (code, v) = r.json(&["check", "--rule", "V1"]);
     assert_eq!(code, 1, "{v}");
     let text = v.to_string();

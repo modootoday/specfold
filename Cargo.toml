@@ -25,6 +25,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 yaml-rust2 = { version = "0.13", default-features = false }
 sha2 = "0.11"
+flate2 = { version = "1.1", default-features = false, features = ["rust_backend"] }
 toml = "1"
 time = { version = "0.3", features = ["formatting", "parsing", "macros"] }
 tempfile = "3"

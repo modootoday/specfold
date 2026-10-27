@@ -166,7 +166,7 @@ pub struct GuardDef {
     /// An environment variable holding terms separated by newlines or commas.
     pub deny_terms_env: Option<String>,
     #[serde(default)]
-    pub deny_regex: Vec<String>,
+    pub deny_regex: Vec<RegexRule>,
     #[serde(default)]
     pub deny_files: Vec<String>,
     pub max_file_bytes: Option<u64>,
@@ -178,6 +178,72 @@ pub struct GuardDef {
     pub commit_messages: bool,
     #[serde(default = "defaults::guard_level")]
     pub level: String,
+    /// Substrings that make a hit acceptable when the matched text contains one (case-insensitive).
+    #[serde(default)]
+    pub allow: Vec<String>,
+    /// Lines the guard must flag and lines it must pass; checked before every run, so a pattern
+    /// that stopped matching fails loudly instead of passing everything.
+    #[serde(default)]
+    pub fixtures: GuardFixtures,
+    /// Read gzip-compressed files (.gz) instead of skipping them as binary.
+    #[serde(default)]
+    pub decompress: bool,
+    /// A whole-tree run that scanned no file in the guard's paths fails.
+    #[serde(default = "defaults::yes")]
+    pub fail_if_empty: bool,
+    /// A committed spec.baseline.v1 file of known hits (`spec guard <name> --write-baseline`).
+    pub baseline: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct GuardFixtures {
+    #[serde(default)]
+    pub must_hit: Vec<String>,
+    #[serde(default)]
+    pub must_pass: Vec<String>,
+}
+
+/// A denied regex: a plain pattern, or a table with its own options and fixtures.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(untagged)]
+pub enum RegexRule {
+    Plain(String),
+    Full(RegexSpec),
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct RegexSpec {
+    pub re: String,
+    /// The name findings use instead of the pattern.
+    pub label: Option<String>,
+    /// Ignore matches inside a URL.
+    #[serde(default)]
+    pub not_in_url: bool,
+    /// Paths this pattern does not apply to.
+    #[serde(default)]
+    pub exempt: Vec<String>,
+    #[serde(default)]
+    pub must_hit: Vec<String>,
+    #[serde(default)]
+    pub must_pass: Vec<String>,
+}
+
+impl RegexRule {
+    pub fn spec(&self) -> RegexSpec {
+        match self {
+            RegexRule::Plain(re) => RegexSpec {
+                re: re.clone(),
+                label: None,
+                not_in_url: false,
+                exempt: vec![],
+                must_hit: vec![],
+                must_pass: vec![],
+            },
+            RegexRule::Full(s) => s.clone(),
+        }
+    }
 }
 
 /// An external program that extends specfold over the `specfold.plugin.v1` JSON protocol.
