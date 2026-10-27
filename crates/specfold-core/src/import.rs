@@ -36,6 +36,7 @@ mod tests {
         write(r, "docs/plans/2026-02-01-launch/10-steps.md", "# Steps\n");
         write(r, "docs/plans/2026-02-01-launch/board.png", "png");
         write(r, "old/launch.md", "> Moved to `docs/plans/2026-02-01-launch`\n");
+        write(r, "old/notes.md", "# Notes\nA real document next to the stub.\n");
         let map: ImportMap = toml::from_str(
             r#"
 [status]
@@ -54,6 +55,9 @@ default_status = "archived"
 [[sources]]
 glob = "old/*.md"
 redirect = 'Moved to `(?P<target>[^`]+)`'
+[[sources]]
+glob = "old/*.md"
+type = "guide"
 "#,
         )
         .unwrap();
@@ -62,14 +66,22 @@ redirect = 'Moved to `(?P<target>[^`]+)`'
         let c = Corpus::load(Config::from_raw(r.to_path_buf(), raw, false), &LoadOptions::default());
         let p = build(&c, &map).unwrap();
         let ids: Vec<&str> = p.rows.iter().map(|r| r.id.as_str()).collect();
-        assert_eq!(ids, ["adr:shop/20260105000000", "research:root/20260201000000", "research:root/20260201000000"]);
+        assert_eq!(
+            ids,
+            [
+                "adr:shop/20260105000000",
+                "research:root/20260201000000",
+                "guide:root/notes",
+                "research:root/20260201000000"
+            ]
+        );
         assert_eq!(p.rows[0].status_to, "active");
         assert_eq!(p.rows[0].aliases, ["0007"]);
         assert_eq!(p.rows[1].path, ".spec/research/20260201000000-launch/index.research.md");
         assert!(p.alias_rows.contains(&("old/launch.md".to_string(), "research:root/20260201000000".to_string())));
         p.plan.apply(r).unwrap();
         let c2 = Corpus::load(Config::from_raw(r.to_path_buf(), c.cfg.raw.clone(), false), &LoadOptions::default());
-        assert_eq!(c2.docs.len(), 2);
+        assert_eq!(c2.docs.len(), 3);
         assert!(c2.strays.is_empty(), "{:?}", c2.strays);
         assert!(!r.join("docs/adr/0007-use-postgres.md").exists());
     }

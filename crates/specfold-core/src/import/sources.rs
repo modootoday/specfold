@@ -4,6 +4,7 @@
 use super::map::{ImportMap, SourceRule};
 use crate::workspace::owners::{PathMatch, matcher};
 use ignore::WalkBuilder;
+use regex::Regex;
 use std::collections::BTreeSet;
 use std::path::Path;
 
@@ -49,12 +50,25 @@ pub fn expand(root: &Path, map: &ImportMap) -> Vec<Unit> {
     let mut claimed: BTreeSet<String> = BTreeSet::new();
     let mut out = vec![];
     for (ri, rule) in map.sources.iter().enumerate() {
-        out.extend(expand_rule(&files, ri, rule, &mut claimed));
+        out.extend(expand_rule(root, &files, ri, rule, &mut claimed));
     }
     out
 }
 
-fn expand_rule(files: &[String], ri: usize, rule: &SourceRule, claimed: &mut BTreeSet<String>) -> Vec<Unit> {
+/// A redirect rule claims only the files whose text is a stub, so a broad glob over a directory
+/// that mixes stubs and real documents leaves the documents to the rules after it.
+fn is_stub(root: &Path, file: &str, re: Option<&Regex>) -> bool {
+    let Some(re) = re else { return true };
+    std::fs::read_to_string(root.join(file)).is_ok_and(|t| re.is_match(&t))
+}
+
+fn expand_rule(
+    root: &Path,
+    files: &[String],
+    ri: usize,
+    rule: &SourceRule,
+    claimed: &mut BTreeSet<String>,
+) -> Vec<Unit> {
     let dir_mode = rule.glob.ends_with('/');
     let Some(m) = matcher(rule.glob.trim_end_matches('/')) else { return vec![] };
     let exclude: Vec<PathMatch> = rule.exclude.iter().filter_map(|e| matcher(e)).collect();
@@ -86,8 +100,12 @@ fn expand_rule(files: &[String], ri: usize, rule: &SourceRule, claimed: &mut BTr
         }
         return out;
     }
+    let stub_re = rule.redirect.as_deref().and_then(|r| Regex::new(r).ok());
     for f in files {
         if !m.is_match(f) || skip(f, claimed) {
+            continue;
+        }
+        if rule.redirect.is_some() && !is_stub(root, f, stub_re.as_ref()) {
             continue;
         }
         claimed.insert(f.clone());

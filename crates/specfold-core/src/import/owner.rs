@@ -12,8 +12,9 @@ fn path_re() -> &'static Regex {
     R.get_or_init(|| Regex::new(r"(?:^|[\s`(\[])((?:[A-Za-z0-9_.@-]+/){1,6}[A-Za-z0-9_.@-]+)").unwrap())
 }
 
-/// Returns the owner and a reason. A single owner must hold at least 60% of the mentions.
-pub fn choose<'a>(owners: &'a Owners, governs: &[String], text: &str) -> (&'a Owner, String) {
+/// Returns the owner and a reason. A single owner must hold at least 60% of the mentions;
+/// without that evidence the document stays with `home`, the owner it already lives in.
+pub fn choose<'a>(owners: &'a Owners, governs: &[String], text: &str, home: &'a Owner) -> (&'a Owner, String) {
     if !governs.is_empty() {
         let d = placement::decide(owners, governs, owners.root());
         return (d.owner, d.reason);
@@ -36,13 +37,13 @@ pub fn choose<'a>(owners: &'a Owners, governs: &[String], text: &str) -> (&'a Ow
             let stored = owners.storage_owner(o);
             (stored, format!("{n} of {total} code paths in the text are under {}", o.path))
         }
-        _ => (
-            owners.root(),
-            if total == 0 {
-                "mentions no owned code".into()
+        _ => {
+            let why = if total == 0 {
+                "mentions no owned code".to_string()
             } else {
                 format!("{total} code paths spread over {} owners", counts.len())
-            },
-        ),
+            };
+            (home, format!("{why}; stays with {}", home.id))
+        }
     }
 }

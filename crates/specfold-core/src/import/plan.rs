@@ -59,8 +59,9 @@ pub fn build(c: &Corpus, map: &ImportMap) -> Result<ImportPlan> {
             continue;
         }
         let row = doc_row(c, map, u, &mut taken, &mut out)?;
-        by_source.insert(u.main.clone(), row.id.clone());
-        by_source.insert(u.source.clone(), row.id.clone());
+        for p in [&u.main, &u.source].into_iter().chain(&u.chapters).chain(&u.attachments) {
+            by_source.insert(p.clone(), row.id.clone());
+        }
         out.rows.push(row);
     }
     for (u, re) in redirects {
@@ -127,7 +128,10 @@ fn doc_row(c: &Corpus, map: &ImportMap, u: &Unit, taken: &mut BTreeSet<String>, 
         .map(|v| crate::model::doc::list_of(Some(v)))
         .unwrap_or_default();
     let (owner, owner_reason) = match rule.owner.as_str() {
-        "auto" => owner::choose(&c.owners, &governs, &text),
+        "auto" => {
+            let home = c.owners.storage_owner(c.owners.containing(&u.source));
+            owner::choose(&c.owners, &governs, &text, home)
+        }
         fixed => {
             let o = c.owners.by_id(fixed).ok_or_else(|| anyhow!("source {}: no owner '{fixed}'", rule.glob))?;
             (o, format!("fixed to {fixed} by the import map"))
