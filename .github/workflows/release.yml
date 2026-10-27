@@ -1,8 +1,9 @@
 name: Release
 
 # A v<version> tag builds the binaries into a draft release, waits for a reviewer to approve the
-# "release" environment, publishes the crates to crates.io with Trusted Publishing and marks the
+# "crates" environment, publishes the crates to crates.io with Trusted Publishing and marks the
 # release published. Run by hand it rehearses everything, publishes nothing and deletes its draft.
+# Each registry gets its own environment, named after it (crates; npm and pypi when wrappers exist).
 on:
   push:
     tags: ["v*"]
@@ -98,12 +99,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
 
-  publish:
+  crates:
     needs: [draft, binaries]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    # A reviewer approves this environment before anything reaches a registry.
-    environment: ${{ github.event_name == 'push' && 'release' || '' }}
+    # A reviewer approves this environment before anything reaches crates.io.
+    environment: ${{ github.event_name == 'push' && 'crates' || '' }}
     permissions:
       contents: write
       id-token: write
