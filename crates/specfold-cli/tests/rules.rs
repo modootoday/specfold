@@ -124,6 +124,41 @@ fn citations_in_code_resolve_and_staged_runs_read_only_added_lines() {
 }
 
 #[test]
+fn published_paths_are_detected_from_manifests() {
+    let r = common::repo();
+    r.write("spec.toml", &r.read("spec.toml").replace("[public]\n", "[public]\ndetect = [\"npm-files\"]\n"));
+    r.new_doc("sot", "services/shop/src", "Cart");
+    r.write("services/shop/package.json", "{\"name\": \"shop\"}\n");
+    let (code, v) = r.json(&["check", "--rule", "V1"]);
+    assert_eq!(code, 1, "a package with no files list ships its spec directory: {v}");
+    assert!(v.to_string().contains("has no files list"), "{v}");
+    r.write("services/shop/package.json", "{\"name\": \"shop\", \"files\": [\"dist\"]}\n");
+    assert_eq!(r.json(&["check", "--rule", "V1"]).0, 0);
+    r.write("services/shop/package.json", "{\"name\": \"shop\", \"files\": [\".\"]}\n");
+    assert_eq!(r.json(&["check", "--rule", "V1"]).0, 1);
+}
+
+#[test]
+fn a_visibility_manifest_older_than_gitmodules_is_reported() {
+    let r = common::repo();
+    r.write(".gitmodules", "[submodule \"services/blog\"]\n\tpath = services/blog\n\turl = x\n");
+    r.write(
+        "vis.json",
+        "{\"gitmodulesSha256\": \"0\", \"submodules\": {\"services/blog\": {\"visibility\": \"PUBLIC\"}}}\n",
+    );
+    let toml = r.read("spec.toml").replace("[public]\n", "[public]\nsubmodules_manifest = \"vis.json\"\n");
+    r.write("spec.toml", &toml);
+    r.new_doc("plan", "services/shop", "Ship");
+    let blog_doc = r.path().join("services/blog/.spec/plan/20260101000000-x.plan.md");
+    std::fs::create_dir_all(blog_doc.parent().unwrap()).unwrap();
+    std::fs::write(&blog_doc, "---\nid: plan:blog/20260101000000\n---\n# X\n").unwrap();
+    let (code, v) = r.json(&["check", "--rule", "V1"]);
+    assert_eq!(code, 1, "{v}");
+    let text = v.to_string();
+    assert!(text.contains("older than .gitmodules") && text.contains("public submodule"), "{text}");
+}
+
+#[test]
 fn severity_turns_a_rule_down_or_off() {
     let r = common::repo();
     let id = r.new_doc("sot", "services/shop/src", "Rule");

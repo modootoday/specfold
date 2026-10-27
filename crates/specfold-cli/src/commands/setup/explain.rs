@@ -15,8 +15,8 @@ const CONFIG_HELP: &[(&str, &str)] = &[
         "The root owner id; owner kinds as pattern + id template ({1}, {2} …) + manifest requirement; the manifest list; directories whose code is gone.",
     ),
     (
-        "[public] paths, companion",
-        "Published paths that may hold no spec document, and the private owner each one's documents go to.",
+        "[public] paths, companion, detect, submodules_manifest",
+        "Published paths that may hold no spec document, the private owner each one's documents go to, detectors that find more (pages, site-generators, npm-files, cargo-include), and an offline submodule visibility manifest checked against .gitmodules.",
     ),
     ("[local] path", "The git-ignored directory for drafts and private notes."),
     (

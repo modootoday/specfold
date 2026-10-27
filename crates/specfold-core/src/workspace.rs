@@ -1,5 +1,6 @@
-//! The repository around the documents: its owners and its version control.
+//! The repository around the documents: its owners, what it publishes and its version control.
 
+pub mod exposure;
 pub mod owners;
 pub mod vcs;
 

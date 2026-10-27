@@ -7,6 +7,7 @@ use crate::check::rule::{Rule, RuleInfo};
 use crate::graph::Resolution;
 use crate::markdown::body;
 use crate::model::Tier;
+use crate::workspace::exposure::{self, Exposed};
 use ignore::WalkBuilder;
 
 pub struct NotInPublic;
@@ -22,7 +23,7 @@ impl Rule for NotInPublic {
         &RuleInfo {
             id: "V1",
             title: "no spec documents under public paths",
-            explain: "Paths listed in [public] are published. Design and planning material about them is stored with their private companion ([public.companion]) or at the root, never inside them. `spec mv <id>` moves a document to where it belongs.",
+            explain: "Published paths hold no spec document: those listed in [public] paths, public submodules in [public] submodules_manifest (which must match .gitmodules), and what [public] detect finds (a docs/ site, a static-site generator, an npm package or crate that would ship the spec directory). Material about them is stored with their private companion ([public.companion]) or at the root. `spec mv <id>` moves a document to where it belongs.",
             on_commit: true,
         }
     }
@@ -30,7 +31,13 @@ impl Rule for NotInPublic {
     fn run(&self, ctx: &Ctx, out: &mut Vec<Finding>) {
         let cfg = &ctx.corpus.cfg;
         let types = cfg.registry.names();
-        for p in &cfg.raw.public.paths {
+        let report = exposure::scan(cfg);
+        if ctx.scope.is_all() {
+            for (path, msg) in &report.problems {
+                out.push(Finding::error("V1", path, 1, msg.clone()));
+            }
+        }
+        for Exposed { path: p, reason } in &report.exposed {
             let base = crate::placement::literal_base(p);
             let dir = cfg.root.join(&base);
             if !dir.is_dir() {
@@ -46,7 +53,12 @@ impl Rule for NotInPublic {
                 let is_doc = e.file_type().is_some_and(|t| t.is_file()) && is_spec_file(&name, &types);
                 let in_scope = if is_spec_dir { ctx.scope.is_all() } else { is_doc && ctx.scope.covers_path(&rel) };
                 if in_scope {
-                    out.push(Finding::error("V1", &rel, 1, format!("{rel} is inside the public path {p}")));
+                    out.push(Finding::error(
+                        "V1",
+                        &rel,
+                        1,
+                        format!("{rel} is inside the published path {p} ({reason})"),
+                    ));
                 }
             }
         }

@@ -64,6 +64,12 @@ pub struct PublicSection {
     /// Where documents about a public path go instead.
     #[serde(default)]
     pub companion: BTreeMap<String, String>,
+    /// Also find published paths: pages, site-generators, npm-files, cargo-include.
+    #[serde(default)]
+    pub detect: Vec<String>,
+    /// An offline manifest of submodule visibility ({"gitmodulesSha256", "submodules": {path:
+    /// {"visibility"}}}), written by a tool that may ask the hosting service.
+    pub submodules_manifest: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
