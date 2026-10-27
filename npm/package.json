@@ -1,6 +1,6 @@
 {
   "name": "@modootoday/specfold",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Typed documents, their relations and the rules they keep, checked from one CLI.",
   "license": "MIT OR Apache-2.0",
   "author": "modootoday",
