@@ -87,4 +87,19 @@ mod tests {
         assert_eq!(adr.links[0].item, "sot:shop/cart");
         assert_eq!(adr.title.as_deref(), Some("Pick the database"));
     }
+
+    #[test]
+    fn the_alias_table_and_check_baseline_are_not_strays() {
+        let tmp = tempfile::tempdir().unwrap();
+        let r = tmp.path();
+        write(r, ".spec/_aliases.tsv", "# old\tnew\n");
+        write(r, ".spec/_baseline.json", "{}");
+        write(r, ".spec/notes.txt", "x");
+        let mut raw = RawConfig::default();
+        raw.aliases.file = Some(".spec/_aliases.tsv".into());
+        raw.check.baseline = Some(".spec/_baseline.json".into());
+        let c = Corpus::load(Config::from_raw(r.to_path_buf(), raw, false), &LoadOptions::default());
+        let strays: Vec<&str> = c.strays.iter().map(|s| s.path.as_str()).collect();
+        assert_eq!(strays, [".spec/notes.txt"]);
+    }
 }

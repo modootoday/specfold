@@ -26,10 +26,11 @@ struct Group {
 
 /// Sorts `files` of one root into documents; paths that fit nowhere become strays.
 pub fn group(cfg: &Config, root: &SpecRoot, files: &[String], strays: &mut Vec<Stray>) -> Vec<Pending> {
-    let alias_file = cfg.raw.aliases.file.as_deref();
+    // specfold's own files (the alias table, the check baseline) may sit in a spec directory.
+    let own = [cfg.raw.aliases.file.as_deref(), cfg.raw.check.baseline.as_deref()];
     let mut groups: BTreeMap<(String, String), Group> = BTreeMap::new();
     for path in files {
-        if Some(path.as_str()) == alias_file {
+        if own.contains(&Some(path.as_str())) {
             continue;
         }
         let rest = path.strip_prefix(&format!("{}/", root.dir)).unwrap_or(path);

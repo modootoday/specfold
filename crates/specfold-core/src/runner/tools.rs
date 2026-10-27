@@ -54,14 +54,23 @@ fn substitutions(cmd: &str) -> (String, Vec<String>) {
     (outer, inner)
 }
 
+/// An `&` that belongs to a redirection (`2>&1`, `<&0`, `&>file`, `>&2`) rather than a list.
+fn redirect_amp(chars: &[char], i: usize) -> bool {
+    let prev = i.checked_sub(1).map(|p| chars[p]);
+    let next = chars.get(i + 1).copied();
+    matches!(prev, Some('>' | '<')) || (next == Some('>') && prev != Some('&'))
+}
+
 /// Splits on unquoted `&&`, `||`, `;`, `|`, `&` and newlines.
 fn segments(cmd: &str) -> Vec<String> {
+    let chars: Vec<char> = cmd.chars().collect();
     let (mut out, mut cur) = (vec![], String::new());
     let (mut single, mut double) = (false, false);
-    for c in cmd.chars() {
+    for (i, &c) in chars.iter().enumerate() {
         match c {
             '\'' if !double => single = !single,
             '"' if !single => double = !double,
+            '&' if !single && !double && redirect_amp(&chars, i) => {}
             ';' | '|' | '&' | '\n' if !single && !double => {
                 out.push(std::mem::take(&mut cur));
                 continue;
@@ -194,6 +203,14 @@ mod tests {
         assert_eq!(progs("$TOOL run"), Vec::<String>::new());
         assert_eq!(progs("if [ -f a ]; then make; fi"), ["make"]);
         assert_eq!(progs("timeout 30 cargo test"), ["cargo"]);
+    }
+
+    #[test]
+    fn redirections_are_not_commands() {
+        assert_eq!(progs("[ -d a ] && ls a/*.toml >/dev/null 2>&1"), ["ls"]);
+        assert_eq!(progs("make &> build.log && cat build.log"), ["make", "cat"]);
+        assert_eq!(progs("echo x >&2; jq . a <&0"), ["jq"]);
+        assert_eq!(progs("sleep 1 & wait"), ["sleep"]);
     }
 
     #[cfg(unix)]

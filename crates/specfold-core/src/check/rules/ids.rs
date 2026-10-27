@@ -85,7 +85,7 @@ impl Rule for AliasTableFrozen {
         &RuleInfo {
             id: "I3",
             title: "the alias table gains no rows",
-            explain: "The alias table maps identifiers from before an import to current ids. It is written once by `spec import` and only shrinks after that; new documents never need an alias. Set SPECFOLD_IMPORT=1 for the commit that writes it.",
+            explain: "The alias table maps identifiers from before an import to current ids. It is written once by `spec import` and only shrinks after that; new documents never need an alias. A range whose base has no table is the import itself and passes; set SPECFOLD_IMPORT=1 when a later import adds rows.",
             on_commit: true,
         }
     }
@@ -101,7 +101,7 @@ impl Rule for AliasTableFrozen {
         let rows = |t: &str| t.lines().filter(|l| !l.starts_with('#') && l.contains('\t')).count();
         let before = ctx.previous(file).map(|t| rows(&t)).unwrap_or(0);
         let now = ctx.current(file).map(|t| rows(&t)).unwrap_or(0);
-        if now > before {
+        if before > 0 && now > before {
             out.push(Finding::error("I3", file, 1, format!("alias table grew from {before} to {now} rows")));
         }
     }
