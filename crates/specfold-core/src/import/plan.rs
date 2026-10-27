@@ -46,6 +46,11 @@ fn name_of(p: &str) -> &str {
     p.rsplit('/').next().unwrap_or(p)
 }
 
+/// A file's name without `.md`, or a directory's name.
+fn stem_of(p: &str) -> &str {
+    name_of(p).trim_end_matches(".md")
+}
+
 pub fn build(c: &Corpus, map: &ImportMap) -> Result<ImportPlan> {
     let units = sources::expand(&c.cfg.root, map);
     let mut out = ImportPlan::default();
@@ -62,6 +67,9 @@ pub fn build(c: &Corpus, map: &ImportMap) -> Result<ImportPlan> {
         for p in [&u.main, &u.source].into_iter().chain(&u.chapters).chain(&u.attachments) {
             by_source.insert(p.clone(), row.id.clone());
         }
+        if map.stem_aliases {
+            out.alias_rows.push((stem_of(&u.source).to_string(), row.id.clone()));
+        }
         out.rows.push(row);
     }
     for (u, re) in redirects {
@@ -75,7 +83,12 @@ pub fn build(c: &Corpus, map: &ImportMap) -> Result<ImportPlan> {
         });
         let mut unresolved = vec![];
         match &resolved {
-            Some(id) => out.alias_rows.push((u.source.clone(), id.clone())),
+            Some(id) => {
+                out.alias_rows.push((u.source.clone(), id.clone()));
+                if map.stem_aliases {
+                    out.alias_rows.push((stem_of(&u.source).to_string(), id.clone()));
+                }
+            }
             None => unresolved.push(format!("stub target {} is not imported", target.unwrap_or_else(|| "?".into()))),
         }
         out.plan.remove(u.source.clone());

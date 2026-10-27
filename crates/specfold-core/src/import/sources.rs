@@ -32,9 +32,11 @@ fn all_files(root: &Path) -> Vec<String> {
         .collect()
 }
 
-fn bundle(files: &[String], dir: &str) -> Option<(String, Vec<String>, Vec<String>)> {
+/// The main file, chapters and attachments of a directory, leaving out files an earlier rule
+/// already took (a nested bundle belongs to the rule that matched it first).
+fn bundle(files: &[String], dir: &str, claimed: &BTreeSet<String>) -> Option<(String, Vec<String>, Vec<String>)> {
     let prefix = format!("{dir}/");
-    let inside: Vec<&String> = files.iter().filter(|f| f.starts_with(&prefix)).collect();
+    let inside: Vec<&String> = files.iter().filter(|f| f.starts_with(&prefix) && !claimed.contains(*f)).collect();
     let main = MAIN_NAMES
         .iter()
         .map(|n| format!("{dir}/{n}"))
@@ -90,8 +92,8 @@ fn expand_rule(
             if skip(&d, claimed) {
                 continue;
             }
-            if let Some((main, chapters, attachments)) = bundle(files, &d) {
-                for f in files.iter().filter(|f| f.starts_with(&format!("{d}/"))) {
+            if let Some((main, chapters, attachments)) = bundle(files, &d, claimed) {
+                for f in std::iter::once(&main).chain(&chapters).chain(&attachments) {
                     claimed.insert(f.clone());
                 }
                 claimed.insert(d.clone());

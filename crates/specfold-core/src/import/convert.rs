@@ -12,12 +12,16 @@ pub struct Converted {
     pub unresolved: Vec<String>,
 }
 
-/// A document named in an old relation, without the notes and extensions people wrote around it:
-/// `ADR-7-use-files.md (platform clauses only)` becomes `ADR-7-use-files`.
+/// A document named in an old relation, without the notes people wrote around it:
+/// `ADR-7-use-files.md (platform clauses only)` becomes `ADR-7-use-files`. A path keeps its
+/// extension, since old paths resolve through the alias table as written.
 fn document_target(raw: &str) -> String {
     let mut s = raw.trim();
     if let Some(i) = s.find(" (") {
         s = &s[..i];
+    }
+    if s.contains('/') {
+        return s.trim().to_string();
     }
     s.trim_end_matches(".md").trim().to_string()
 }

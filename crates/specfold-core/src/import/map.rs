@@ -18,6 +18,10 @@ pub struct ImportMap {
     /// A trailing `?` (`check = "verify?"`) sets the key only when no other old key filled it.
     #[serde(default)]
     pub keys: BTreeMap<String, String>,
+    /// Also record each source's bare name (file name without `.md`, or directory name) as an
+    /// alias, for layouts whose documents referred to each other by name.
+    #[serde(default)]
+    pub stem_aliases: bool,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

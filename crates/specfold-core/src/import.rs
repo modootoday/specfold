@@ -88,4 +88,27 @@ type = "guide"
         assert!(c2.strays.is_empty(), "{:?}", c2.strays);
         assert!(!r.join("docs/adr/0007-use-postgres.md").exists());
     }
+
+    #[test]
+    fn a_nested_bundle_belongs_to_the_first_rule_and_names_resolve_by_stem() {
+        let tmp = tempfile::tempdir().unwrap();
+        let r = tmp.path();
+        write(r, "notes/catalog/2026-03-01-round/README.md", "# Round\n");
+        write(r, "notes/catalog/2026-03-01-round/data.json", "{}");
+        write(r, "notes/catalog/overview.md", "# Catalog\n");
+        let map: ImportMap = toml::from_str(
+            "stem_aliases = true\n[[sources]]\nglob = \"notes/*/*/\"\ntype = \"research\"\ndefault_status = \"active\"\n[[sources]]\nglob = \"notes/*/\"\ntype = \"research\"\ndefault_status = \"active\"\n",
+        )
+        .unwrap();
+        let c = Corpus::load(Config::from_raw(r.to_path_buf(), RawConfig::default(), false), &LoadOptions::default());
+        let p = build(&c, &map).unwrap();
+        assert_eq!(p.rows.len(), 2);
+        let outer =
+            p.alias_rows.iter().filter(|(_, id)| id == &p.rows[1].id).map(|(old, _)| old.as_str()).collect::<Vec<_>>();
+        assert!(
+            !outer.iter().any(|o| o.contains("2026-03-01-round/")),
+            "the outer bundle took nested files: {outer:?}"
+        );
+        assert!(p.alias_rows.contains(&("2026-03-01-round".to_string(), p.rows[0].id.clone())));
+    }
 }
