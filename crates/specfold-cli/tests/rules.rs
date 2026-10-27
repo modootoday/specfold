@@ -185,6 +185,26 @@ fn a_full_check_leaves_whole_tree_guards_to_spec_guard() {
     assert_eq!(rules_hit(&r.json(&["check", "--staged", "--rule", "U1"]).1), ["U1"]);
 }
 
+#[test]
+fn a_whole_tree_guard_reads_tracked_files_an_ignore_file_matches() {
+    let r = common::repo();
+    let toml = r.read("spec.toml")
+        + "[[guards]]\nname = \"g\"\npaths = [\"libs/open/**\"]\nrange = \"all\"\ndeny_terms = [\"acme-internal\"]\n";
+    r.write("spec.toml", &toml);
+    r.write("libs/open/.gitignore", "/*\n!/.gitignore\n!/docs/\n");
+    r.write("libs/open/docs/a.md", "clean\n");
+    r.write("libs/open/forced.md", "acme-internal\n");
+    r.write("libs/open/stray.md", "acme-internal\n");
+    r.git(&["add", "libs/open/.gitignore", "libs/open/docs/a.md"]);
+    r.git(&["add", "-f", "libs/open/forced.md"]);
+    r.commit("forced");
+    let (code, v) = r.json(&["guard", "g", "--all"]);
+    assert_eq!(code, 1, "{v}");
+    let paths: Vec<String> =
+        v["items"].as_array().unwrap().iter().map(|f| f["path"].as_str().unwrap_or("").to_string()).collect();
+    assert_eq!(paths, ["libs/open/forced.md"], "{v}");
+}
+
 #[cfg(unix)]
 #[test]
 fn verify_reports_timeouts_missing_programs_and_undeclared_checks() {

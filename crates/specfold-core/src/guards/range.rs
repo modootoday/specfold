@@ -39,8 +39,9 @@ pub struct Resolved {
     pub commits: Option<String>,
 }
 
-/// Every file under `bases` (repository-relative directories; the whole repository when empty),
-/// honouring ignore files. Walking only where a guard looks keeps a large repository cheap.
+/// Every file under `bases` (repository-relative directories; the whole repository when empty):
+/// the untracked ones the ignore files allow, and every tracked one even when an ignore file
+/// matches it, since a tracked file is published. Walking only where a guard looks keeps it cheap.
 fn walk(root: &Path, bases: &[String]) -> Vec<String> {
     let dirs: Vec<std::path::PathBuf> = match bases {
         [] => vec![root.to_path_buf()],
@@ -60,6 +61,8 @@ fn walk(root: &Path, bases: &[String]) -> Vec<String> {
         .filter(|e| e.file_type().is_some_and(|t| t.is_file()))
         .filter_map(|e| e.path().strip_prefix(root).ok().map(|p| p.to_string_lossy().replace('\\', "/")))
         .collect();
+    let existing = vcs::tracked(root, bases).unwrap_or_default().into_iter().filter(|p| root.join(p).is_file());
+    files.extend(existing);
     files.sort();
     files.dedup();
     files
