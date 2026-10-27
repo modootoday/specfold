@@ -1,13 +1,20 @@
 name: Release
 
-# A v<version> tag builds the binaries into a draft release, waits for a reviewer to approve the
-# "crates" environment, publishes the crates to crates.io with Trusted Publishing and marks the
-# release published. Run by hand it rehearses everything, publishes nothing and deletes its draft.
-# Each registry gets its own environment, named after it (crates; npm and pypi when wrappers exist).
+# A v<version> tag builds the binaries into a draft release, then publishes the crates to
+# crates.io and the npm packages to npm, each after a reviewer approves its environment
+# ("crates", "npm"), and marks the release published. By hand it never publishes: dry-run
+# rehearses everything and deletes its draft; bootstrap keeps the draft v<version> with the
+# binaries for a first npm publish from a maintainer host (.github/RELEASING.md).
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      mode:
+        description: dry-run (nothing kept) or bootstrap (keep the draft release with binaries)
+        type: choice
+        options: [dry-run, bootstrap]
+        default: dry-run
 
 permissions:
   contents: read
@@ -17,7 +24,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  MODE: ${{ github.event_name == 'push' && 'publish' || 'dry-run' }}
+  MODE: ${{ github.event_name == 'push' && 'publish' || inputs.mode }}
   CARGO_TERM_COLOR: never
 
 jobs:
@@ -40,6 +47,8 @@ jobs:
           if [ "$MODE" = dry-run ]; then tag="dry-run-$GITHUB_RUN_ID"; fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Check the npm package has the crate version
+        run: test "$(node -p 'require("./npm/package.json").version')" = "${{ steps.tag.outputs.version }}"
       - name: Check the tag matches Cargo.toml
         if: github.event_name == 'push'
         run: test "v${{ steps.tag.outputs.version }}" = "$GITHUB_REF_NAME"
@@ -50,8 +59,15 @@ jobs:
           range="${previous:+$previous..}HEAD"
           git log "$range" --no-merges --format='- %s' > notes.md
           cat notes.md >> "$GITHUB_STEP_SUMMARY"
+      # After a bootstrap the release already exists, published by hand; it is reused as is.
       - name: Draft release
-        run: gh release create "${{ steps.tag.outputs.tag }}" --draft --target "$GITHUB_SHA" --title "${{ steps.tag.outputs.tag }}" --notes-file notes.md
+        run: |
+          tag="${{ steps.tag.outputs.tag }}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "release $tag exists; reusing it"
+          else
+            gh release create "$tag" --draft --target "$GITHUB_SHA" --title "$tag" --notes-file notes.md
+          fi
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -61,9 +77,10 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
+        # Linux builds on ubuntu-22.04 so the binaries need only glibc 2.35.
         include:
-          - { os: ubuntu-24.04, target: x86_64-unknown-linux-gnu }
-          - { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-gnu }
+          - { os: ubuntu-22.04, target: x86_64-unknown-linux-gnu }
+          - { os: ubuntu-22.04-arm, target: aarch64-unknown-linux-gnu }
           - { os: macos-15-intel, target: x86_64-apple-darwin }
           - { os: macos-15, target: aarch64-apple-darwin }
           - { os: windows-2022, target: x86_64-pc-windows-msvc }
@@ -93,8 +110,16 @@ jobs:
           esac
           if command -v sha256sum >/dev/null; then sha256sum "$archive" > "$archive.sha256"; else shasum -a 256 "$archive" > "$archive.sha256"; fi
           echo "ARCHIVE=dist/$archive" >> "$GITHUB_ENV"
+      # An archive already on the release (from the bootstrap) is the one npm published; a
+      # rebuild is not byte-identical, so it is never replaced.
       - shell: bash
-        run: gh release upload "${{ needs.draft.outputs.tag }}" "$ARCHIVE" "$ARCHIVE.sha256" --clobber
+        run: |
+          tag="${{ needs.draft.outputs.tag }}"
+          if gh release view "$tag" --json assets --jq '.assets[].name' | grep -qx "$(basename "$ARCHIVE")"; then
+            echo "skip: $(basename "$ARCHIVE") is already on $tag"
+          else
+            gh release upload "$tag" "$ARCHIVE" "$ARCHIVE.sha256"
+          fi
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -106,7 +131,7 @@ jobs:
     # A reviewer approves this environment before anything reaches crates.io.
     environment: ${{ github.event_name == 'push' && 'crates' || '' }}
     permissions:
-      contents: write
+      contents: read
       id-token: write
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
@@ -127,14 +152,81 @@ jobs:
           fi
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+
+  npm:
+    needs: [draft, binaries]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      RELEASE_TAG: ${{ needs.draft.outputs.tag }}
+    # A reviewer approves this environment before anything reaches npm.
+    environment: ${{ github.event_name == 'push' && 'npm' || '' }}
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: "22.23.3"
+          registry-url: "https://registry.npmjs.org"
+      - run: node --test npm/release/*.test.mjs
+      - name: Platform packages
+        run: |
+          gh release download "$RELEASE_TAG" --pattern 'specfold-*.tar.gz' --pattern 'specfold-*.zip' --dir bins
+          for archive in bins/specfold-*; do
+            case "$archive" in
+              *.tar.gz) tar -C bins -xzf "$archive"; target="$(basename "$archive" .tar.gz)";;
+              *.zip) unzip -q -d bins "$archive"; target="$(basename "$archive" .zip)";;
+              *) continue;;
+            esac
+            node npm/release/platform-packages.mjs --target "${target#specfold-}" --bin-dir "bins/$target" --out platform
+          done
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+      # The main package names the platform packages only in the published manifest, so a
+      # checkout of the repository never reaches for versions that are not on npm yet.
+      - name: Main package
+        run: |
+          node npm/release/platform-packages.mjs --optional-dependencies > optional.json
+          node -e 'const fs=require("fs");const p=JSON.parse(fs.readFileSync("npm/package.json"));p.optionalDependencies=JSON.parse(fs.readFileSync("optional.json"));fs.writeFileSync("npm/package.json",JSON.stringify(p,null,2)+"\n")'
+          cp LICENSE-MIT LICENSE-APACHE npm/
+      - name: Pack
+        run: |
+          mkdir -p packed
+          for dir in ./platform/*/; do npm pack "$dir" --pack-destination ./packed; done
+          npm pack ./npm --pack-destination ./packed
+          ls -l packed
+      # npm Trusted Publishing exchanges this job's OIDC token for a short-lived publish
+      # credential, so no npm token is stored. It needs npm 11.5.1 or later and each package's
+      # trusted publisher entry on npmjs.com (.github/RELEASING.md).
+      - name: Publish (rehearsal unless publishing)
+        run: |
+          npm install --global npm@11.5.1
+          bash npm/release/publish.sh ./packed
+      - name: Report what reached npm
+        if: failure()
+        run: bash npm/release/report.sh
+
+  finish:
+    needs: [draft, crates, npm]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
       - name: Mark the release published
-        if: env.MODE == 'publish'
+        if: env.MODE == 'publish' && needs.crates.result == 'success' && needs.npm.result == 'success'
         run: gh release edit "${{ needs.draft.outputs.tag }}" --draft=false --title "${{ needs.draft.outputs.tag }}"
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
       - name: Remove the rehearsal draft
-        if: always() && env.MODE == 'dry-run'
+        if: env.MODE == 'dry-run' && needs.draft.result == 'success'
         run: gh release delete "${{ needs.draft.outputs.tag }}" --yes
         env:
           GH_TOKEN: ${{ github.token }}

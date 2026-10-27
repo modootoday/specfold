@@ -1,0 +1,23 @@
+{
+  "name": "@modootoday/specfold",
+  "version": "0.1.0",
+  "description": "Typed documents, their relations and the rules they keep, checked from one CLI.",
+  "license": "MIT OR Apache-2.0",
+  "author": "modootoday",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/modootoday/specfold.git",
+    "directory": "npm"
+  },
+  "homepage": "https://github.com/modootoday/specfold",
+  "keywords": ["documentation", "adr", "specification", "cli", "agents"],
+  "type": "module",
+  "bin": {
+    "spec": "bin/spec.js",
+    "specfold": "bin/specfold.js"
+  },
+  "files": ["bin", "launcher", "README.md"],
+  "engines": {
+    "node": ">=18"
+  }
+}

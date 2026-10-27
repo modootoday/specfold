@@ -19,7 +19,8 @@ decisions, plans, research, evidence, audits, page specs, design boards, guides 
 ## Install
 
 ```sh
-cargo install specfold          # installs `specfold` and its short alias `spec`
+cargo install specfold                        # installs `specfold` and its short alias `spec`
+npm install --save-dev @modootoday/specfold   # the same binaries, pinned in your lockfile
 ```
 
 Prebuilt binaries for Linux, macOS and Windows are attached to each GitHub release.
