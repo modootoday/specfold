@@ -1,4 +1,5 @@
-//! T rules: supersede claims pair up, statuses only move forward, sealed bodies stay sealed.
+//! T rules: supersede claims pair up, statuses only move forward, sealed bodies stay sealed,
+//! and an edited body moves its `updated` date.
 
 use super::support::key_line;
 use crate::check::context::Ctx;
@@ -6,11 +7,56 @@ use crate::check::finding::Finding;
 use crate::check::rule::{Rule, RuleInfo};
 use crate::graph::query;
 use crate::markdown::frontmatter::{self, Parsed};
+use crate::model::stamp;
 use sha2::{Digest, Sha256};
 
 pub struct SupersedePairs;
 pub struct ForwardOnly;
 pub struct Sealed;
+pub struct UpdatedMoves;
+
+fn field_of(text: &str, key: &str) -> Option<String> {
+    match frontmatter::parse(frontmatter::split(text).raw) {
+        Parsed::Map(m) => m.get(key).and_then(|v| v.as_str()).map(str::to_string),
+        _ => None,
+    }
+}
+
+impl Rule for UpdatedMoves {
+    fn info(&self) -> &RuleInfo {
+        &RuleInfo {
+            id: "T4",
+            title: "an edited body moves its updated date",
+            explain: "`updated` tells readers how current a document is. spec set, mv and attach keep it current, but a hand edit does not; this reports a commit whose body changed while `updated` stayed. `spec fix --rule T4 --write` sets it to today.",
+            on_commit: true,
+        }
+    }
+
+    fn run(&self, ctx: &Ctx, out: &mut Vec<Finding>) {
+        if ctx.scope.is_all() {
+            return;
+        }
+        let today = stamp::today();
+        for &i in &ctx.scope.touched {
+            let d = &ctx.corpus.docs[i];
+            let (Some(before), Some(now)) = (ctx.previous(&d.path), ctx.current(&d.path)) else { continue };
+            let (old_date, new_date) = (field_of(&before, "updated"), field_of(&now, "updated"));
+            if body_hash(&before) == body_hash(&now) || old_date != new_date {
+                continue;
+            }
+            let Some(date) = new_date.filter(|u| *u != today) else { continue };
+            out.push(
+                Finding::warn(
+                    "T4",
+                    &d.path,
+                    key_line(ctx, &d.path, "updated"),
+                    format!("the body changed but updated is still {date}"),
+                )
+                .fix_replace(format!("updated: {date}"), format!("updated: {today}")),
+            );
+        }
+    }
+}
 
 impl Rule for SupersedePairs {
     fn info(&self) -> &RuleInfo {
@@ -74,11 +120,7 @@ impl Rule for SupersedePairs {
 }
 
 fn previous_status(ctx: &Ctx, path: &str) -> Option<String> {
-    let text = ctx.previous(path)?;
-    match frontmatter::parse(frontmatter::split(&text).raw) {
-        Parsed::Map(m) => m.get("status").and_then(|v| v.as_str()).map(str::to_string),
-        _ => None,
-    }
+    field_of(&ctx.previous(path)?, "status")
 }
 
 impl Rule for ForwardOnly {

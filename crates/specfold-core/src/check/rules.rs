@@ -33,6 +33,7 @@ pub fn catalog() -> Vec<Box<dyn Rule>> {
         Box::new(lifecycle::SupersedePairs),
         Box::new(lifecycle::ForwardOnly),
         Box::new(lifecycle::Sealed),
+        Box::new(lifecycle::UpdatedMoves),
         Box::new(visibility::NotInPublic),
         Box::new(visibility::NoLocalCites),
         Box::new(visibility::ExternalCites),

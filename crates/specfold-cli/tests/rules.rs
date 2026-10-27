@@ -79,6 +79,23 @@ fn a_baseline_accepts_the_known_pile_and_fails_anything_new() {
 }
 
 #[test]
+fn a_hand_edit_must_move_updated() {
+    let r = common::repo();
+    let id = r.new_doc("plan", "services/shop", "Ship it");
+    let p = path_of(&r, &id);
+    let updated = r.json(&["show", &id]).1["frontmatter"]["updated"].as_str().unwrap().to_string();
+    r.write(&p, &r.read(&p).replace(&format!("updated: {updated}"), "updated: 2026-01-02"));
+    r.commit("old plan");
+    r.write(&p, &(r.read(&p) + "\nOne more step.\n"));
+    r.git(&["add", "-A"]);
+    let (_, v) = r.json(&["check", "--staged", "--rule", "T4"]);
+    assert_eq!(rules_hit(&v), ["T4"], "{v}");
+    assert_eq!(r.json(&["fix", "--rule", "T4", "--write", "--staged"]).0, 0);
+    r.git(&["add", "-A"]);
+    assert!(rules_hit(&r.json(&["check", "--staged", "--rule", "T4"]).1).is_empty());
+}
+
+#[test]
 fn severity_turns_a_rule_down_or_off() {
     let r = common::repo();
     let id = r.new_doc("sot", "services/shop/src", "Rule");
