@@ -169,9 +169,12 @@ fn doc_row(c: &Corpus, map: &ImportMap, u: &Unit, taken: &mut BTreeSet<String>, 
     let bundle_dir = main.rsplit_once('/').map(|x| x.0.to_string()).unwrap_or_default();
     let base = if u.source == u.main { u.main.trim_end_matches(".md").to_string() } else { u.source.clone() };
     let mut files = vec![];
+    // Chapters and attachments move: a sibling directory is not the unit's source, so removing
+    // the source alone would leave them behind.
     for ch in &u.chapters {
         let rel = ch.strip_prefix(&format!("{base}/")).unwrap_or(name_of(ch));
         out.plan.copy(ch.clone(), format!("{bundle_dir}/{}", rel.replace('/', "-")));
+        out.plan.remove(ch.clone());
     }
     for a in &u.attachments {
         let rel = a.strip_prefix(&format!("{base}/")).unwrap_or(name_of(a)).to_string();
@@ -181,6 +184,7 @@ fn doc_row(c: &Corpus, map: &ImportMap, u: &Unit, taken: &mut BTreeSet<String>, 
             out.uploads.push((format!("{bundle_dir}/{rel}"), sha.clone()));
         }
         out.plan.copy(a.clone(), format!("{bundle_dir}/{rel}"));
+        out.plan.remove(a.clone());
         files.push(json!({"path": rel, "sha256": sha, "bytes": bytes, "store": store}));
     }
     let mut fm = conv.fm;
