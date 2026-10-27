@@ -1,0 +1,72 @@
+//! Rules a project shapes through spec.toml, and the verify runner's verdicts.
+
+mod common;
+
+fn path_of(r: &common::Repo, id: &str) -> String {
+    r.json(&["resolve", id]).1["path"].as_str().unwrap().to_string()
+}
+
+fn edit(r: &common::Repo, id: &str, from: &str, to: &str) {
+    let p = path_of(r, id);
+    let text = r.read(&p);
+    assert!(text.contains(from), "{text}");
+    r.write(&p, &text.replacen(from, to, 1));
+}
+
+fn rules_hit(v: &serde_json::Value) -> Vec<String> {
+    v["items"].as_array().unwrap().iter().map(|f| f["rule"].as_str().unwrap().to_string()).collect()
+}
+
+#[test]
+fn a_custom_type_moves_through_its_own_statuses_and_requires_fields() {
+    let r = common::repo();
+    let toml = r.read("spec.toml")
+        + "[types.finding]\nkey = \"stamp\"\nstatuses = [\"open\", \"resolved\", \"accepted-risk\"]\ninitial = \"open\"\nfields = [\"review_by\"]\n[types.finding.transitions]\nopen = [\"resolved\", \"accepted-risk\"]\n[types.finding.require_when]\naccepted-risk = [\"review_by\"]\n";
+    r.write("spec.toml", &toml);
+    let id = r.new_doc("finding", "services/shop", "Token in logs");
+    assert_eq!(r.json(&["set", &id, "status=accepted-risk"]).0, 0);
+    let (code, v) = r.json(&["check", "--rule", "S6"]);
+    assert_eq!(code, 1, "{v}");
+    assert_eq!(r.json(&["set", &id, "review_by=2026-12-01"]).0, 0);
+    assert_eq!(r.json(&["check", "--rule", "S6", "--rule", "S4"]).0, 0);
+    let (code, v) = r.json(&["set", &id, "status=open"]);
+    assert_ne!(code, 0, "accepted-risk may not go back to open: {v}");
+}
+
+#[test]
+fn a_supersede_cycle_is_reported() {
+    let r = common::repo();
+    let a = r.new_doc("adr", "services/shop", "Use files");
+    let b = r.new_doc("adr", "services/shop", "Use a database");
+    for (doc, other) in [(&a, &b), (&b, &a)] {
+        edit(&r, doc, "status: draft", "status: superseded");
+        edit(&r, doc, "rel:\n", &format!("rel:\n  supersedes:\n  - \"{other}\"\n"));
+    }
+    let (code, v) = r.json(&["check", "--rule", "T1"]);
+    assert_eq!(code, 1, "{v}");
+    assert!(v.to_string().contains("supersede cycle"), "{v}");
+}
+
+#[cfg(unix)]
+#[test]
+fn verify_reports_timeouts_missing_programs_and_undeclared_checks() {
+    let r = common::repo();
+    let slow = r.new_doc("sot", "services/shop/src", "Slow rule");
+    edit(&r, &slow, "status: draft", "status: active\nverify:\n  - sleep 5\nverify_timeout_ms: 300");
+    let tool = r.new_doc("sot", "services/shop/src/cart", "Needs a tool");
+    edit(&r, &tool, "status: draft", "status: active\nverify:\n  - no-such-tool-xyz --check");
+    let manual = r.new_doc("sot", "services/blog/src", "Checked by people");
+    edit(&r, &manual, "status: draft", "status: active\nverify: manual");
+    let bare = r.new_doc("sot", "services/blog", "Says nothing");
+    edit(&r, &bare, "status: draft", "status: active");
+    let (code, v) = r.json(&["verify"]);
+    assert_eq!(code, 1, "{v}");
+    let text = v.to_string();
+    assert!(text.contains("timed out") && text.contains("cannot run"), "{text}");
+    assert_eq!(v["failed"], 2, "{v}");
+    let (_, v) = r.json(&["check", "--rule", "X2"]);
+    let hits: Vec<String> =
+        v["items"].as_array().unwrap().iter().map(|f| f["path"].as_str().unwrap().to_string()).collect();
+    assert_eq!(hits, [path_of(&r, &bare)], "{v}");
+    assert_eq!(rules_hit(&v), ["X2"]);
+}

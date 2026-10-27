@@ -58,6 +58,10 @@ pub fn plugin_timeout_ms() -> u64 {
     30_000
 }
 
+pub fn verify_timeout_ms() -> u64 {
+    60_000
+}
+
 pub fn stale_days() -> i64 {
     30
 }

@@ -1,50 +1,87 @@
-//! X1 and G1: the commands a document names actually pass. Both only run when asked
-//! (`spec verify`, `spec check --run-commands`), because they execute project code.
+//! X1, X2 and G1: the commands a document names actually pass, and an active source of truth
+//! says how it is verified. X1 and G1 only run when asked (`spec verify`,
+//! `spec check --run-commands`), because they execute project code.
 
 use super::support::key_line;
 use crate::check::context::Ctx;
 use crate::check::finding::Finding;
 use crate::check::rule::{Rule, RuleInfo};
 use crate::graph::query;
-use std::process::Command;
+use crate::model::Doc;
+use crate::runner::{self, Job, Outcome, Settings, Verdict};
+use crate::workspace::owners::matcher;
+use regex::Regex;
+use std::time::Duration;
 
 pub struct VerifyPasses;
+pub struct VerifyDeclared;
 pub struct GeneratedInSync;
 
-fn shell(root: &std::path::Path, cmd: &str, check_mode: bool) -> (bool, String) {
-    let (prog, flag) = if cfg!(windows) { ("cmd", "/C") } else { ("sh", "-c") };
-    let mut c = Command::new(prog);
-    c.arg(flag).arg(cmd).current_dir(root);
-    if check_mode {
-        c.env("SPECFOLD_CHECK", "1");
-    }
-    match c.output() {
-        Ok(o) => {
-            let tail: String = String::from_utf8_lossy(&o.stderr)
-                .lines()
-                .chain(String::from_utf8_lossy(&o.stdout).lines())
-                .last()
-                .unwrap_or("")
-                .chars()
-                .take(200)
-                .collect();
-            (o.status.success(), tail)
-        }
-        Err(e) => (false, e.to_string()),
-    }
+/// The marker for a rule that has no runnable check and is verified by people.
+const MANUAL: &str = "manual";
+
+fn verify_commands(d: &Doc) -> Vec<String> {
+    d.list_field("verify").into_iter().filter(|c| !c.trim().eq_ignore_ascii_case(MANUAL)).collect()
 }
 
-/// Documents whose governed code changed in this run, or every document for a full run.
+fn settings(ctx: &Ctx) -> Settings {
+    let v = &ctx.corpus.cfg.raw.verify;
+    Settings { jobs: v.jobs, serial: v.serial.iter().filter_map(|r| Regex::new(r).ok()).collect() }
+}
+
+fn timeout(ctx: &Ctx, d: &Doc) -> Duration {
+    let own = d.fm().and_then(|m| m.get("verify_timeout_ms")).and_then(|v| v.as_u64());
+    Duration::from_millis(own.unwrap_or(ctx.corpus.cfg.raw.verify.timeout_ms))
+}
+
+fn is_gitlink(ctx: &Ctx, path: &str) -> bool {
+    ctx.corpus.cfg.root.join(path).join(".git").exists()
+}
+
+/// Documents a run reaches: every one for a full run or when a path in `full_run_on` changed;
+/// otherwise those governing a changed path (a changed submodule reaches globs inside it), those
+/// whose command names a changed file, and those edited themselves.
 fn selected(ctx: &Ctx) -> Vec<usize> {
+    let all = || (0..ctx.corpus.docs.len()).collect();
     if ctx.scope.is_all() {
-        return (0..ctx.corpus.docs.len()).collect();
+        return all();
+    }
+    let full: Vec<_> = ctx.corpus.cfg.raw.verify.full_run_on.iter().filter_map(|p| matcher(p)).collect();
+    if ctx.scope.paths.iter().any(|p| full.iter().any(|m| m.is_match(p))) {
+        return all();
     }
     let mut out: Vec<usize> =
         ctx.scope.paths.iter().flat_map(|p| query::governing(ctx.corpus, p).into_iter().map(|g| g.idx)).collect();
+    for (i, d) in ctx.corpus.docs.iter().enumerate() {
+        let commands = verify_commands(d);
+        let governs = d.rel().get("governs").cloned().unwrap_or_default();
+        let reached = ctx.scope.paths.iter().any(|p| {
+            commands.iter().any(|c| c.contains(p.as_str()))
+                || (is_gitlink(ctx, p) && governs.iter().any(|g| g.starts_with(&format!("{p}/"))))
+        });
+        if reached {
+            out.push(i);
+        }
+    }
     out.extend(ctx.scope.touched.iter().copied());
     out.sort();
     out.dedup();
     out
+}
+
+fn report(rule: &'static str, ctx: &Ctx, d: &Doc, key: &str, cmd: &str, o: &Outcome) -> Option<Finding> {
+    let line = key_line(ctx, &d.path, key);
+    let detail = |s: &str| if s.is_empty() { String::new() } else { format!(": {s}") };
+    let msg = match &o.verdict {
+        Verdict::Pass => return None,
+        Verdict::Fail(code) => {
+            let code = code.map(|c| c.to_string()).unwrap_or_else(|| "signal".into());
+            format!("{key} failed (exit {code}){}: {cmd}", detail(&o.tail))
+        }
+        Verdict::Timeout => format!("{key} timed out after {} ms: {cmd}", o.elapsed.as_millis()),
+        Verdict::CannotRun(why) => format!("{key} cannot run ({why}): {cmd}"),
+    };
+    Some(Finding::error(rule, &d.path, line, msg))
 }
 
 impl Rule for VerifyPasses {
@@ -52,7 +89,7 @@ impl Rule for VerifyPasses {
         &RuleInfo {
             id: "X1",
             title: "a source of truth's verify commands pass",
-            explain: "A sot lists in `verify` the commands that prove the code obeys it. They run for every sot whose governed code changed, so a rule cannot silently stop holding.",
+            explain: "A sot lists in `verify` the commands that prove the code obeys it. They run for every sot whose governed code changed, with a deadline ([verify] timeout_ms, or verify_timeout_ms on the document), in parallel and each distinct command once. A command whose program is not installed is reported as unable to run rather than passing or failing, because a check that cannot run proves nothing.",
             on_commit: false,
         }
     }
@@ -61,21 +98,46 @@ impl Rule for VerifyPasses {
         if !ctx.opts.run_commands {
             return;
         }
+        let mut jobs = vec![];
+        let mut owners = vec![];
         for i in selected(ctx) {
             let d = &ctx.corpus.docs[i];
             if d.status().as_deref() != Some("active") {
                 continue;
             }
-            for cmd in d.list_field("verify") {
-                let (ok, tail) = shell(&ctx.corpus.cfg.root, &cmd, false);
-                if !ok {
-                    out.push(Finding::error(
-                        "X1",
-                        &d.path,
-                        key_line(ctx, &d.path, "verify"),
-                        format!("verify failed: {cmd} ({tail})"),
-                    ));
-                }
+            for cmd in verify_commands(d) {
+                jobs.push(Job { cmd: cmd.clone(), env: vec![], timeout: timeout(ctx, d) });
+                owners.push((i, cmd));
+            }
+        }
+        let outcomes = runner::run(&ctx.corpus.cfg.root, &jobs, &settings(ctx));
+        for ((i, cmd), o) in owners.iter().zip(&outcomes) {
+            out.extend(report("X1", ctx, &ctx.corpus.docs[*i], "verify", cmd, o));
+        }
+    }
+}
+
+impl Rule for VerifyDeclared {
+    fn info(&self) -> &RuleInfo {
+        &RuleInfo {
+            id: "X2",
+            title: "an active source of truth says how it is verified",
+            explain: "A type that has a `verify` field expects its active documents to name the commands that prove them, or to say `verify: manual` when people check them by hand. A rule with neither cannot tell anyone whether it still holds.",
+            on_commit: true,
+        }
+    }
+
+    fn run(&self, ctx: &Ctx, out: &mut Vec<Finding>) {
+        for (i, d) in ctx.corpus.docs.iter().enumerate() {
+            if !ctx.scope.covers(i) || d.status().as_deref() != Some("active") {
+                continue;
+            }
+            let expects = ctx.corpus.cfg.registry.get(&d.id.ty).is_some_and(|t| t.fields.iter().any(|f| f == "verify"));
+            if expects && d.list_field("verify").is_empty() {
+                out.push(
+                    Finding::warn("X2", &d.path, 1, format!("{} is active but declares no verify command", d.id))
+                        .fix_cmd(format!("spec set {} verify=manual", d.id)),
+                );
             }
         }
     }
@@ -95,21 +157,19 @@ impl Rule for GeneratedInSync {
         if !ctx.opts.run_commands {
             return;
         }
+        let env = vec![("SPECFOLD_CHECK".to_string(), "1".to_string())];
+        let mut jobs = vec![];
+        let mut owners = vec![];
         for i in selected(ctx) {
             let d = &ctx.corpus.docs[i];
             let Some(cmd) = d.str_field("generated_by") else { continue };
-            let (ok, tail) = shell(&ctx.corpus.cfg.root, &cmd, true);
-            if !ok {
-                out.push(
-                    Finding::error(
-                        "G1",
-                        &d.path,
-                        key_line(ctx, &d.path, "generated_by"),
-                        format!("out of date with its generator ({tail})"),
-                    )
-                    .fix_cmd(cmd),
-                );
-            }
+            jobs.push(Job { cmd: cmd.clone(), env: env.clone(), timeout: timeout(ctx, d) });
+            owners.push((i, cmd));
+        }
+        let outcomes = runner::run(&ctx.corpus.cfg.root, &jobs, &settings(ctx));
+        for ((i, cmd), o) in owners.iter().zip(&outcomes) {
+            let d = &ctx.corpus.docs[*i];
+            out.extend(report("G1", ctx, d, "generated_by", cmd, o).map(|f| f.fix_cmd(cmd.clone())));
         }
     }
 }

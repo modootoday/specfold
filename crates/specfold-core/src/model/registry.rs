@@ -17,6 +17,8 @@ pub struct TypeOverride {
     pub sealed: Option<bool>,
     pub fields: Option<Vec<String>>,
     pub template: Option<String>,
+    pub transitions: Option<BTreeMap<String, Vec<String>>>,
+    pub require_when: Option<BTreeMap<String, Vec<String>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -48,6 +50,12 @@ fn apply(t: &mut TypeDef, o: &TypeOverride) {
     }
     if let Some(v) = &o.template {
         t.template = v.clone();
+    }
+    if let Some(v) = &o.transitions {
+        t.transitions = v.clone();
+    }
+    if let Some(v) = &o.require_when {
+        t.require_when = v.clone();
     }
 }
 

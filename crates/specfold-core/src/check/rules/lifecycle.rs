@@ -4,8 +4,8 @@ use super::support::key_line;
 use crate::check::context::Ctx;
 use crate::check::finding::Finding;
 use crate::check::rule::{Rule, RuleInfo};
+use crate::graph::query;
 use crate::markdown::frontmatter::{self, Parsed};
-use crate::model::lifecycle;
 use sha2::{Digest, Sha256};
 
 pub struct SupersedePairs;
@@ -31,6 +31,18 @@ impl Rule for SupersedePairs {
                 continue;
             }
             let status = d.status().unwrap_or_default();
+            if let Some(cycle) = query::supersede_cycle(ctx.graph, i) {
+                let ids: Vec<String> = cycle.iter().map(|&s| ctx.corpus.docs[s].id.to_string()).collect();
+                out.push(
+                    Finding::error(
+                        "T1",
+                        &d.path,
+                        1,
+                        format!("supersede cycle, nothing is current: {}", ids.join(" → ")),
+                    )
+                    .with_candidates(ids),
+                );
+            }
             if successors.len() > 1 {
                 let c = successors.iter().map(|&s| ctx.corpus.docs[s].id.to_string()).collect();
                 out.push(
@@ -74,7 +86,7 @@ impl Rule for ForwardOnly {
         &RuleInfo {
             id: "T2",
             title: "status only moves forward",
-            explain: "draft → active → superseded or archived, and draft → rejected. A decision that comes back is a new document that supersedes the old one, so the record of the first decision stays intact.",
+            explain: "draft → active → superseded or archived, and draft → rejected, unless the type sets its own `transitions` in spec.toml. A decision that comes back is a new document that supersedes the old one, so the record of the first decision stays intact.",
             on_commit: true,
         }
     }
@@ -86,7 +98,8 @@ impl Rule for ForwardOnly {
         for &i in &ctx.scope.touched {
             let d = &ctx.corpus.docs[i];
             let (Some(before), Some(now)) = (previous_status(ctx, &d.path), d.status()) else { continue };
-            if !lifecycle::transition_allowed(&before, &now) {
+            let Some(ty) = ctx.corpus.cfg.registry.get(&d.id.ty) else { continue };
+            if !ty.transition_allowed(&before, &now) {
                 out.push(
                     Finding::error(
                         "T2",

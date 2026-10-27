@@ -29,13 +29,17 @@ const CONFIG_HELP: &[(&str, &str)] = &[
     ),
     (
         "[types.<name>]",
-        "Override or disable a built-in type, or add one: key, form, statuses, initial, sealed, fields, template.",
+        "Override or disable a built-in type, or add one: key, form, statuses, initial, sealed, fields, template, transitions (from → [to], rule T2), require_when (status → required keys, rule S6).",
     ),
     ("[forbid] paths, patterns", "Retired layouts and identifiers that must not come back (rule Z1)."),
     ("[aliases] file", "The frozen alias table written by spec import."),
     ("[[guards]]", "Named checks over files and commit messages (rule U1, spec guard)."),
     ("[[plugins]]", "External programs speaking specfold.plugin.v1: rules, importers, exporters, audits, events."),
     ("[audit]", "Thresholds for stale, stalled and draft documents, and open-item markers."),
+    (
+        "[verify] timeout_ms, jobs, serial, full_run_on",
+        "How spec verify runs commands: the default deadline, parallel workers, regexes for heavy commands run one at a time, and paths whose change runs every check.",
+    ),
 ];
 
 pub fn run(g: &Global, a: &ExplainArgs) -> Result<Output> {

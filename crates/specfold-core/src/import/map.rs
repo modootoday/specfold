@@ -15,6 +15,7 @@ pub struct ImportMap {
     #[serde(default)]
     pub status: BTreeMap<String, String>,
     /// Old frontmatter key → new key, or "-" to drop it. `rel.<kind>` moves a value into rel.
+    /// A trailing `?` (`check = "verify?"`) sets the key only when no other old key filled it.
     #[serde(default)]
     pub keys: BTreeMap<String, String>,
 }

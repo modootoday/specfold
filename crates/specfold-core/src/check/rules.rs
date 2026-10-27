@@ -21,6 +21,7 @@ pub fn catalog() -> Vec<Box<dyn Rule>> {
         Box::new(schema::Placement),
         Box::new(schema::StatusAllowed),
         Box::new(schema::Dates),
+        Box::new(schema::RequiredByStatus),
         Box::new(ids::UniqueIds),
         Box::new(ids::AliasesClean),
         Box::new(ids::AliasTableFrozen),
@@ -42,6 +43,7 @@ pub fn catalog() -> Vec<Box<dyn Rule>> {
         Box::new(attachments::StoredExist),
         Box::new(forbid::Forbidden),
         Box::new(commands::VerifyPasses),
+        Box::new(commands::VerifyDeclared),
         Box::new(commands::GeneratedInSync),
         Box::new(guarded::GuardsPass),
     ]

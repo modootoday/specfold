@@ -4,7 +4,7 @@
 use super::plan::Plan;
 use crate::corpus::Corpus;
 use crate::markdown::frontmatter::edit;
-use crate::model::{lifecycle, stamp};
+use crate::model::stamp;
 use anyhow::{Result, anyhow, bail};
 use serde_json::{Map, Value};
 
@@ -104,7 +104,7 @@ pub fn plan(c: &Corpus, idx: usize, assigns: &[Assign]) -> Result<Plan> {
                 bail!("status '{}' is not allowed for {} (allowed: {})", a.value, ty.name, ty.statuses.join(", "));
             }
             let from = d.status().unwrap_or_else(|| ty.initial.clone());
-            if !lifecycle::transition_allowed(&from, &a.value) {
+            if !ty.transition_allowed(&from, &a.value) {
                 bail!(
                     "status cannot move from '{from}' to '{}'; supersede it with spec new {} --from {}",
                     a.value,

@@ -28,8 +28,13 @@ pub fn frontmatter(
     let mut rel = Map::new();
     let mut unresolved = vec![];
     let mut aliases: Vec<String> = rule.alias_fields.iter().flat_map(|f| list_of(old.get(f))).collect();
+    let mut fallbacks = vec![];
     for (k, v) in old {
         let target = map.keys.get(k).map(String::as_str).unwrap_or(k.as_str());
+        if let Some(t) = target.strip_suffix('?') {
+            fallbacks.push((t, v));
+            continue;
+        }
         match target {
             "-" | "id" | "status" | "created" | "updated" | "title" => {}
             t if t.starts_with("rel.") => {
@@ -49,6 +54,9 @@ pub fn frontmatter(
                 fm.insert(t.to_string(), v.clone());
             }
         }
+    }
+    for (t, v) in fallbacks {
+        fm.entry(t.to_string()).or_insert_with(|| v.clone());
     }
     let status_from = old.get("status").and_then(Value::as_str).unwrap_or("").trim().to_string();
     let status_new = if status_from.is_empty() {
@@ -85,4 +93,27 @@ pub fn frontmatter(
     aliases.sort();
     aliases.dedup();
     Converted { fm: out, status_from, aliases, unresolved }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_fallback_key_fills_only_what_nothing_else_set() {
+        let map: ImportMap =
+            toml::from_str("[keys]\ncheck_cmd = \"verify\"\ncheck = \"verify?\"\nverify = \"verify_note\"\n").unwrap();
+        let rule: SourceRule = toml::from_str("glob = \"x\"\ntype = \"sot\"").unwrap();
+        let allowed = ["active".to_string()];
+        let convert = |yaml: &str| {
+            let crate::markdown::frontmatter::Parsed::Map(old) = crate::markdown::frontmatter::parse(Some(yaml)) else {
+                panic!("fixture does not parse")
+            };
+            frontmatter(&map, &rule, &old, &allowed, "t").fm
+        };
+        let both = convert("check: manual\ncheck_cmd: cargo test\nverify: prose\nstatus: active\n");
+        assert_eq!((both["verify"].as_str(), both["verify_note"].as_str()), (Some("cargo test"), Some("prose")));
+        let manual = convert("check: manual\nstatus: active\n");
+        assert_eq!(manual["verify"], "manual");
+    }
 }

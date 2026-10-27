@@ -1,6 +1,8 @@
 //! Document types and the built-in preset that covers design, planning and maintenance material.
 
+use super::lifecycle;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -38,6 +40,24 @@ pub struct TypeDef {
     /// The body skeleton `spec new` writes.
     #[serde(default)]
     pub template: String,
+    /// Allowed status moves, `from → [to]`; empty means the shared lifecycle.
+    #[serde(default)]
+    pub transitions: BTreeMap<String, Vec<String>>,
+    /// Frontmatter keys a status requires, e.g. a review date for an accepted risk.
+    #[serde(default)]
+    pub require_when: BTreeMap<String, Vec<String>>,
+}
+
+impl TypeDef {
+    pub fn transition_allowed(&self, from: &str, to: &str) -> bool {
+        if from == to {
+            return true;
+        }
+        if self.transitions.is_empty() {
+            return lifecycle::transition_allowed(from, to);
+        }
+        self.transitions.get(from).is_some_and(|next| next.iter().any(|s| s == to))
+    }
 }
 
 pub struct Spec<'a> {
@@ -64,6 +84,8 @@ impl From<Spec<'_>> for TypeDef {
             sealed: s.sealed,
             fields: s.fields.iter().map(|x| x.to_string()).collect(),
             template: s.template.into(),
+            transitions: BTreeMap::new(),
+            require_when: BTreeMap::new(),
         }
     }
 }
@@ -83,7 +105,7 @@ pub fn builtin() -> Vec<TypeDef> {
             statuses: LIFECYCLE,
             initial: "draft",
             sealed: false,
-            fields: &["verify", "applies_to"],
+            fields: &["verify", "verify_timeout_ms", "applies_to"],
             template: "## Rule\n\n## Why\n\n## Verification\n",
         },
         Spec {
