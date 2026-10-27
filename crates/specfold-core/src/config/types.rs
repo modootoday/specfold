@@ -25,7 +25,7 @@ impl Default for SpecSection {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct OwnerKind {
-    /// A pattern of directories relative to the repository root, e.g. `apps/*` or `libs/*/*`.
+    /// A pattern of directories relative to the repository root, e.g. `services/*` or `libs/*/*`.
     pub pattern: String,
     /// The owner id template; `{1}`, `{2}` … are the `*` segments in order.
     pub id: String,

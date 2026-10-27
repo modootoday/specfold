@@ -63,8 +63,8 @@ mod tests {
 
     #[test]
     fn nested_and_invalid() {
-        let Parsed::Map(m) = parse(Some("id: a\nrel:\n  governs: [\"apps/shop/**\"]\n")) else { panic!() };
-        assert_eq!(m["rel"]["governs"][0], "apps/shop/**");
+        let Parsed::Map(m) = parse(Some("id: a\nrel:\n  governs: [\"services/shop/**\"]\n")) else { panic!() };
+        assert_eq!(m["rel"]["governs"][0], "services/shop/**");
         assert!(matches!(parse(Some("a: [unclosed\n")), Parsed::Invalid(_)));
         assert!(matches!(parse(Some("- a\n- b\n")), Parsed::Invalid(_)));
     }

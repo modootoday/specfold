@@ -23,7 +23,7 @@ pub struct Anchor {
 pub struct Body {
     pub links: Vec<Link>,
     pub anchors: Vec<Anchor>,
-    /// Paths into a spec directory written as plain text, e.g. `apps/x/.spec/plan/…md`.
+    /// Paths into a spec directory written as plain text, e.g. `services/x/.spec/plan/…md`.
     pub path_cites: Vec<Link>,
     pub first_heading: Option<String>,
     pub lines: usize,
@@ -102,7 +102,7 @@ mod tests {
 
     #[test]
     fn finds_links_anchors_and_cites() {
-        let body = "# Checkout\n\nSee [[adr:shop/20260101000000]] and [[sot:shop/cart#CO-1|the rule]].\n\n## Totals {#CO-1}\n\n```\n[[not:a/link]]\n```\nInline `[[not:a/link]]` too.\nOld path apps/shop/.spec/plan/x.plan.md here.\n";
+        let body = "# Checkout\n\nSee [[adr:shop/20260101000000]] and [[sot:shop/cart#CO-1|the rule]].\n\n## Totals {#CO-1}\n\n```\n[[not:a/link]]\n```\nInline `[[not:a/link]]` too.\nOld path services/shop/.spec/plan/x.plan.md here.\n";
         let b = scan(body, 5, &path_cite_re(".spec"));
         assert_eq!(b.links.len(), 2);
         assert_eq!(b.links[0].line, 7);
@@ -110,6 +110,6 @@ mod tests {
         assert_eq!(b.anchors[0].name, "CO-1");
         assert_eq!(b.anchors[0].heading, "Totals");
         assert_eq!(b.first_heading.as_deref(), Some("Checkout"));
-        assert_eq!(b.path_cites[0].text, "apps/shop/.spec/plan/x.plan.md");
+        assert_eq!(b.path_cites[0].text, "services/shop/.spec/plan/x.plan.md");
     }
 }

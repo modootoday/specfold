@@ -61,29 +61,29 @@ mod tests {
             ".spec/adr/20260101000000-pick-db.adr.md",
             "---\nid: adr:ws/20260101000000\nstatus: active\n---\n# Pick the database\nSee [[sot:shop/cart]].\n",
         );
-        write(r, "apps/shop/.spec/sot/cart.sot.md", "---\nstatus: active\n---\n# Cart\n## Totals {#CO-1}\n");
+        write(r, "services/shop/.spec/sot/cart.sot.md", "---\nstatus: active\n---\n# Cart\n## Totals {#CO-1}\n");
         write(
             r,
-            "apps/shop/.spec/design/20260102000000-cart/index.design.md",
+            "services/shop/.spec/design/20260102000000-cart/index.design.md",
             "---\nstatus: draft\n---\n# Cart boards\n",
         );
-        write(r, "apps/shop/.spec/design/20260102000000-cart/assets/a.webp", "x");
-        write(r, "apps/shop/.spec/plans/old.md", "legacy");
-        write(r, ".spec.local/shop/plan/20260103000000-draft.plan.md", "# Draft\n");
+        write(r, "services/shop/.spec/design/20260102000000-cart/assets/a.webp", "x");
+        write(r, "services/shop/.spec/plans/old.md", "legacy");
+        write(r, ".spec.local/shop/research/20260103000000-draft.research.md", "# Draft\n");
         let mut raw = RawConfig::default();
         raw.owners.root = "ws".into();
-        raw.owners.kinds = vec![OwnerKind { pattern: "apps/*".into(), id: "{1}".into(), manifest: false }];
+        raw.owners.kinds = vec![OwnerKind { pattern: "services/*".into(), id: "{1}".into(), manifest: false }];
         let cfg = Config::from_raw(r.to_path_buf(), raw, false);
         let c = Corpus::load(cfg, &LoadOptions { include_local: true });
         let ids: Vec<String> = c.docs.iter().map(|d| d.id.to_string()).collect();
         assert_eq!(
             ids,
-            ["plan:shop/20260103000000", "adr:ws/20260101000000", "design:shop/20260102000000", "sot:shop/cart"]
+            ["research:shop/20260103000000", "adr:ws/20260101000000", "design:shop/20260102000000", "sot:shop/cart"]
         );
         assert_eq!(c.strays.len(), 1);
-        assert_eq!(c.strays[0].path, "apps/shop/.spec/plans/old.md");
+        assert_eq!(c.strays[0].path, "services/shop/.spec/plans/old.md");
         let design = c.docs.iter().find(|d| d.id.ty == "design").unwrap();
-        assert_eq!(design.bundle_files, ["apps/shop/.spec/design/20260102000000-cart/assets/a.webp"]);
+        assert_eq!(design.bundle_files, ["services/shop/.spec/design/20260102000000-cart/assets/a.webp"]);
         let adr = c.docs.iter().find(|d| d.id.ty == "adr").unwrap();
         assert_eq!(adr.links[0].item, "sot:shop/cart");
         assert_eq!(adr.title.as_deref(), Some("Pick the database"));

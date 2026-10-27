@@ -46,12 +46,12 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let r = tmp.path();
         std::fs::create_dir_all(r.join("libs/open/src")).unwrap();
-        std::fs::create_dir_all(r.join("apps/shop")).unwrap();
+        std::fs::create_dir_all(r.join("services/shop")).unwrap();
         let fake_key = format!("{}{}", "AK", "IA".to_string() + &"X".repeat(16));
         std::fs::write(r.join("libs/open/src/a.rs"), format!("// built for Acme-Internal\nlet k = \"{fake_key}\";\n"))
             .unwrap();
         std::fs::write(r.join("libs/open/.env"), "X=1\n").unwrap();
-        std::fs::write(r.join("apps/shop/b.rs"), "acme-internal is fine here\n").unwrap();
+        std::fs::write(r.join("services/shop/b.rs"), "acme-internal is fine here\n").unwrap();
         std::fs::write(r.join("terms.txt"), "# private\nacme-internal\n").unwrap();
         let raw = RawConfig {
             guards: vec![GuardDef {

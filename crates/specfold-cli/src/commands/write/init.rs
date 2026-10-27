@@ -12,7 +12,7 @@ fn parse_kind(s: &str) -> Result<StarterKind> {
         None => (s, false),
     };
     let Some((pattern, id)) = body.split_once('=') else {
-        bail!("--owner '{s}' is not pattern=id-template, e.g. 'apps/*={{1}}'")
+        bail!("--owner '{s}' is not pattern=id-template, e.g. 'services/*={{1}}'")
     };
     Ok(StarterKind { pattern: pattern.trim().into(), id: id.trim().into(), manifest })
 }

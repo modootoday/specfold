@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone, Args)]
 #[command(
-    after_help = "Examples:\n  spec new adr --governs apps/shop/src/db --title \"Use Postgres for orders\"\n  spec new adr --from adr:shop/20250101000000 --title \"Move orders to a queue\"\n  spec new plan --governs apps/shop --title \"Checkout v2\" --local"
+    after_help = "Examples:\n  spec new adr --governs services/shop/src/db --title \"Use Postgres for orders\"\n  spec new adr --from adr:shop/20250101000000 --title \"Move orders to a queue\"\n  spec new plan --governs services/shop --title \"Checkout v2\" --local"
 )]
 pub struct NewArgs {
     /// The document type (spec schema lists them).
@@ -72,7 +72,7 @@ pub struct MvArgs {
 
 #[derive(Debug, Clone, Args)]
 #[command(
-    after_help = "Examples:\n  spec fix --staged --write\n  spec fix --rule L1 --write apps/shop/.spec/plan/x.plan.md\n  spec fix --rule L1 --pick adr:root/20260412083000 --write apps/shop/.spec/plan/x.plan.md:41"
+    after_help = "Examples:\n  spec fix --staged --write\n  spec fix --rule L1 --write services/shop/.spec/plan/x.plan.md\n  spec fix --rule L1 --pick adr:root/20260412083000 --write services/shop/.spec/plan/x.plan.md:41"
 )]
 pub struct FixArgs {
     /// Limit to files or `path:line` locations.
@@ -117,7 +117,7 @@ pub struct AttachArgs {
 
 #[derive(Debug, Clone, Args)]
 #[command(
-    after_help = "Examples:\n  spec init\n  spec init --owner 'apps/*={1}' --owner 'libs/*=lib.{1}:manifest' --root ws"
+    after_help = "Examples:\n  spec init\n  spec init --owner 'services/*={1}' --owner 'libs/*=lib.{1}:manifest' --root ws"
 )]
 pub struct InitArgs {
     /// Owner kinds as `pattern=id-template`, with `:manifest` to require a package manifest.

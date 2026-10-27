@@ -7,12 +7,12 @@ fn placement_follows_governs_and_public_paths() {
     let r = common::repo();
     let id = r.new_doc("adr", "libs/open/src", "Open format");
     assert!(id.starts_with("adr:lib.auth/"), "public lib documents go to its companion: {id}");
-    let id = r.new_doc("sot", "apps/shop/src", "Shop rules");
+    let id = r.new_doc("sot", "services/shop/src", "Shop rules");
     assert_eq!(id, "sot:shop/shop-rules");
-    let id = r.new_doc("plan", "apps/shop", "Cross cutting");
+    let id = r.new_doc("plan", "services/shop", "Cross cutting");
     assert!(id.starts_with("plan:shop/"));
     let (code, v) =
-        r.json(&["new", "plan", "--governs", "apps/shop", "--governs", "apps/blog", "--title", "Both apps"]);
+        r.json(&["new", "plan", "--governs", "services/shop", "--governs", "services/blog", "--title", "Both apps"]);
     assert_eq!(code, 0);
     assert!(v["id"].as_str().unwrap().starts_with("plan:ws/"), "{v}");
 }
@@ -20,9 +20,9 @@ fn placement_follows_governs_and_public_paths() {
 #[test]
 fn supersede_flow_keeps_both_sides_in_step() {
     let r = common::repo();
-    let old = r.new_doc("adr", "apps/shop", "Use files");
+    let old = r.new_doc("adr", "services/shop", "Use files");
     assert_eq!(r.json(&["set", &old, "status=active"]).0, 0);
-    let (code, v) = r.json(&["new", "adr", "--from", &old, "--governs", "apps/shop", "--title", "Use a database"]);
+    let (code, v) = r.json(&["new", "adr", "--from", &old, "--governs", "services/shop", "--title", "Use a database"]);
     assert_eq!(code, 0, "{v}");
     let new = v["id"].as_str().unwrap().to_string();
     assert_eq!(r.json(&["show", &old]).1["frontmatter"]["status"], "superseded");
@@ -34,8 +34,8 @@ fn supersede_flow_keeps_both_sides_in_step() {
 #[test]
 fn mv_rewrites_references() {
     let r = common::repo();
-    let sot = r.new_doc("sot", "apps/shop", "Cart");
-    let plan = r.new_doc("plan", "apps/shop", "Ship");
+    let sot = r.new_doc("sot", "services/shop", "Cart");
+    let plan = r.new_doc("plan", "services/shop", "Ship");
     let plan_path = r.json(&["resolve", &plan]).1["path"].as_str().unwrap().to_string();
     let text = r.read(&plan_path) + &format!("\nSee [[{sot}]] and [[{sot}#X|x]].\n");
     r.write(&plan_path, &text);
@@ -47,7 +47,7 @@ fn mv_rewrites_references() {
 #[test]
 fn check_fix_loop_for_mechanical_problems() {
     let r = common::repo();
-    let sot = r.new_doc("sot", "apps/shop", "Cart");
+    let sot = r.new_doc("sot", "services/shop", "Cart");
     let path = r.json(&["resolve", &sot]).1["path"].as_str().unwrap().to_string();
     let text = r.read(&path).replace(&format!("id: {sot}"), "id: sot:shop/wrong");
     r.write(&path, &text);
@@ -60,7 +60,7 @@ fn check_fix_loop_for_mechanical_problems() {
 #[test]
 fn staged_check_catches_backward_status_and_sealed_edits() {
     let r = common::repo();
-    let adr = r.new_doc("adr", "apps/shop", "Choose");
+    let adr = r.new_doc("adr", "services/shop", "Choose");
     assert_eq!(r.json(&["set", &adr, "status=active"]).0, 0);
     let (_, v) = r.json(&["audit", "--record", "--title", "First audit", "--write"]);
     let audit_path = v["path"].as_str().unwrap().to_string();
@@ -80,7 +80,7 @@ fn import_brings_an_old_layout_in_and_aliases_resolve() {
     let r = common::repo();
     r.write(
         "docs/adr/0007-use-postgres.md",
-        "---\nstatus: accepted\ndate: 2026-01-05\n---\n# Use Postgres\nSee apps/shop/src/cart/total.rs\n",
+        "---\nstatus: accepted\ndate: 2026-01-05\n---\n# Use Postgres\nSee services/shop/src/cart/total.rs\n",
     );
     r.write("docs/old.md", "> Moved to `docs/adr/0007-use-postgres.md`\n");
     r.write(
@@ -121,7 +121,7 @@ fn guard_masks_terms_and_reads_a_private_list() {
 #[test]
 fn attach_registers_and_check_catches_changes() {
     let r = common::repo();
-    let d = r.new_doc("design", "apps/shop", "Cart boards");
+    let d = r.new_doc("design", "services/shop", "Cart boards");
     r.write("board.svg", "<svg/>");
     let (code, v) = r.json(&["attach", &d, "board.svg", "--write"]);
     assert_eq!(code, 0, "{v}");
@@ -134,7 +134,7 @@ fn attach_registers_and_check_catches_changes() {
 #[test]
 fn mcp_serves_the_same_commands() {
     let r = common::repo();
-    r.new_doc("sot", "apps/shop", "Cart");
+    r.new_doc("sot", "services/shop", "Cart");
     let input = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{}}\n{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"spec_find\",\"arguments\":{\"words\":[\"cart\"]}}}\n";
     let out = r.spec().arg("mcp").write_stdin(input).output().unwrap();
     let lines: Vec<serde_json::Value> =

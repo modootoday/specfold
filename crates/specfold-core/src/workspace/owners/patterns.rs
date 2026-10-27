@@ -1,4 +1,4 @@
-//! Directory patterns: `apps/*`-style kinds and path matchers for public and retired lists.
+//! Directory patterns: `services/*`-style kinds and path matchers for public and retired lists.
 
 use globset::{Glob, GlobMatcher};
 use std::path::Path;

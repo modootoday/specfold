@@ -26,11 +26,11 @@ mod tests {
     fn imports_docs_bundles_and_stubs() {
         let tmp = tempfile::tempdir().unwrap();
         let r = tmp.path();
-        std::fs::create_dir_all(r.join("apps/shop/src")).unwrap();
+        std::fs::create_dir_all(r.join("services/shop/src")).unwrap();
         write(
             r,
             "docs/adr/0007-use-postgres.md",
-            "---\nstatus: accepted\ndate: 2026-01-05\n---\n# Use Postgres\nTouches apps/shop/src/db.rs and apps/shop/src/x.rs\n",
+            "---\nstatus: accepted\ndate: 2026-01-05\n---\n# Use Postgres\nTouches services/shop/src/db.rs and services/shop/src/x.rs\n",
         );
         write(r, "docs/plans/2026-02-01-launch/README.md", "# Launch\n");
         write(r, "docs/plans/2026-02-01-launch/10-steps.md", "# Steps\n");
@@ -47,7 +47,7 @@ key = "created"
 name = '^(?P<alias>\d{4})-(?P<slug>.+)\.md$'
 [[sources]]
 glob = "docs/plans/*/"
-type = "plan"
+type = "research"
 key = "name"
 name = '^(?P<key>\d{4}-\d{2}-\d{2})-(?P<slug>.+)$'
 default_status = "archived"
@@ -58,15 +58,15 @@ redirect = 'Moved to `(?P<target>[^`]+)`'
         )
         .unwrap();
         let mut raw = RawConfig::default();
-        raw.owners.kinds = vec![OwnerKind { pattern: "apps/*".into(), id: "{1}".into(), manifest: false }];
+        raw.owners.kinds = vec![OwnerKind { pattern: "services/*".into(), id: "{1}".into(), manifest: false }];
         let c = Corpus::load(Config::from_raw(r.to_path_buf(), raw, false), &LoadOptions::default());
         let p = build(&c, &map).unwrap();
         let ids: Vec<&str> = p.rows.iter().map(|r| r.id.as_str()).collect();
-        assert_eq!(ids, ["adr:shop/20260105000000", "plan:root/20260201000000", "plan:root/20260201000000"]);
+        assert_eq!(ids, ["adr:shop/20260105000000", "research:root/20260201000000", "research:root/20260201000000"]);
         assert_eq!(p.rows[0].status_to, "active");
         assert_eq!(p.rows[0].aliases, ["0007"]);
-        assert_eq!(p.rows[1].path, ".spec/plan/20260201000000-launch/index.plan.md");
-        assert!(p.alias_rows.contains(&("old/launch.md".to_string(), "plan:root/20260201000000".to_string())));
+        assert_eq!(p.rows[1].path, ".spec/research/20260201000000-launch/index.research.md");
+        assert!(p.alias_rows.contains(&("old/launch.md".to_string(), "research:root/20260201000000".to_string())));
         p.plan.apply(r).unwrap();
         let c2 = Corpus::load(Config::from_raw(r.to_path_buf(), c.cfg.raw.clone(), false), &LoadOptions::default());
         assert_eq!(c2.docs.len(), 2);

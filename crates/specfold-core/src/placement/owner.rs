@@ -74,26 +74,26 @@ mod tests {
     fn decides() {
         let tmp = tempfile::tempdir().unwrap();
         let r = tmp.path();
-        for d in ["apps/shop/src", "apps/blog", "libs/open", "apps/old"] {
+        for d in ["services/shop/src", "services/blog", "libs/open", "services/old"] {
             std::fs::create_dir_all(r.join(d)).unwrap();
         }
         let mut raw = RawConfig::default();
         raw.owners.kinds = vec![
-            OwnerKind { pattern: "apps/*".into(), id: "{1}".into(), manifest: false },
+            OwnerKind { pattern: "services/*".into(), id: "{1}".into(), manifest: false },
             OwnerKind { pattern: "libs/*".into(), id: "lib.{1}".into(), manifest: false },
         ];
-        raw.owners.retired = vec!["apps/old".into()];
+        raw.owners.retired = vec!["services/old".into()];
         raw.public.paths = vec!["libs/open".into()];
-        raw.public.companion.insert("libs/open".into(), "apps/shop".into());
+        raw.public.companion.insert("libs/open".into(), "services/shop".into());
         let cfg = Config::from_raw(r.to_path_buf(), raw, false);
         let o = Owners::discover(&cfg);
         let root = o.root();
         let gov = |g: &[&str]| decide(&o, &g.iter().map(|s| s.to_string()).collect::<Vec<_>>(), root).owner.id.clone();
-        assert_eq!(gov(&["apps/shop/src/**"]), "shop");
-        assert_eq!(gov(&["apps/shop/src/**", "apps/blog/**"]), "root");
+        assert_eq!(gov(&["services/shop/src/**"]), "shop");
+        assert_eq!(gov(&["services/shop/src/**", "services/blog/**"]), "root");
         assert_eq!(gov(&["libs/open/src/**"]), "shop");
-        assert_eq!(gov(&["apps/old/**"]), "root");
-        assert_eq!(literal_base("apps/shop/src/*.rs"), "apps/shop/src");
-        assert_eq!(literal_base("apps/shop/s*"), "apps/shop");
+        assert_eq!(gov(&["services/old/**"]), "root");
+        assert_eq!(literal_base("services/shop/src/*.rs"), "services/shop/src");
+        assert_eq!(literal_base("services/shop/s*"), "services/shop");
     }
 }

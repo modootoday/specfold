@@ -2,7 +2,7 @@
 
 - **Generic only.** specfold is used by unrelated projects. Code, tests, fixtures, docs and commit
   messages name no real project, company, product or person. Fixtures use invented repositories
-  (`apps/shop`, `libs/auth`). Anything project-specific belongs in that project's `spec.toml`.
+  (`services/shop`, `libs/auth`). Anything project-specific belongs in that project's `spec.toml`.
 - **One responsibility per module.** A module file assembles (`mod` lines and re-exports); its
   directory holds the parts. Do not add unrelated code to an existing module; extend the structure.
   Inside a domain, data types, read-only queries and changes live in separate files.

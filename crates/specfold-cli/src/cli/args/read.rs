@@ -3,7 +3,9 @@
 use clap::Args;
 
 #[derive(Debug, Clone, Args)]
-#[command(after_help = "Examples:\n  spec context apps/shop/src/cart/total.rs\n  spec context apps/shop --json")]
+#[command(
+    after_help = "Examples:\n  spec context services/shop/src/cart/total.rs\n  spec context services/shop --json"
+)]
 pub struct ContextArgs {
     /// Code paths you are about to change.
     #[arg(required = true)]
@@ -66,7 +68,7 @@ pub struct RefArgs {
 
 #[derive(Debug, Clone, Args)]
 #[command(
-    after_help = "Examples:\n  spec graph impact sot:shop/cart\n  spec graph chain adr:shop/20250101000000\n  spec graph governs apps/shop/src\n  spec graph --json > docs-graph.out"
+    after_help = "Examples:\n  spec graph impact sot:shop/cart\n  spec graph chain adr:shop/20250101000000\n  spec graph governs services/shop/src\n  spec graph --json > docs-graph.out"
 )]
 pub struct GraphArgs {
     /// impact, chain or governs. Without one, prints the whole graph.

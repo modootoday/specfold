@@ -72,7 +72,7 @@ mod tests {
             "title": "Ship: the cart, fast",
             "created": "2026-01-01",
             "tags": ["a", "b"],
-            "rel": {"governs": ["apps/shop/**"]},
+            "rel": {"governs": ["services/shop/**"]},
             "files": [{"path": "assets/x.png", "bytes": 3}]
         }))
         .unwrap();

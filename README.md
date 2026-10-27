@@ -27,9 +27,9 @@ Prebuilt binaries for Linux, macOS and Windows are attached to each GitHub relea
 ## Start
 
 ```sh
-spec init --owner 'apps/*={1}' --owner 'libs/*=lib.{1}:manifest' --write
-spec new sot --governs apps/shop/src/cart --title "Cart totals"
-spec context apps/shop/src/cart/total.rs     # what governs this code
+spec init --owner 'services/*={1}' --owner 'libs/*=lib.{1}:manifest' --write
+spec new sot --governs services/shop/src/cart --title "Cart totals"
+spec context services/shop/src/cart/total.rs     # what governs this code
 spec check --staged                          # before committing
 spec agents --for claude                     # lines for your agent's instructions
 spec hook print --for pre-commit             # a hook for your hook manager

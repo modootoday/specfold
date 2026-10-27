@@ -72,13 +72,13 @@ pub fn repo() -> Repo {
     r.git(&["init", "-q", "-b", "main"]);
     r.git(&["config", "user.email", "test@example.com"]);
     r.git(&["config", "user.name", "tester"]);
-    r.write("apps/shop/src/cart/total.rs", "fn total() {}\n");
-    r.write("apps/blog/src/main.rs", "fn main() {}\n");
+    r.write("services/shop/src/cart/total.rs", "fn total() {}\n");
+    r.write("services/blog/src/main.rs", "fn main() {}\n");
     r.write("libs/auth/Cargo.toml", "[package]\nname = \"auth\"\n");
     r.write("libs/open/go.mod", "module open\n");
     r.write(
         "spec.toml",
-        "[spec]\nschema = 1\n[owners]\nroot = \"ws\"\n[[owners.kinds]]\npattern = \"apps/*\"\nid = \"{1}\"\n[[owners.kinds]]\npattern = \"libs/*\"\nid = \"lib.{1}\"\nmanifest = true\n[public]\npaths = [\"libs/open\"]\n[public.companion]\n\"libs/open\" = \"libs/auth\"\n[aliases]\nfile = \".spec/_aliases.tsv\"\n",
+        "[spec]\nschema = 1\n[owners]\nroot = \"ws\"\n[[owners.kinds]]\npattern = \"services/*\"\nid = \"{1}\"\n[[owners.kinds]]\npattern = \"libs/*\"\nid = \"lib.{1}\"\nmanifest = true\n[public]\npaths = [\"libs/open\"]\n[public.companion]\n\"libs/open\" = \"libs/auth\"\n[aliases]\nfile = \".spec/_aliases.tsv\"\n",
     );
     r.write(".gitignore", ".cache/\n.spec.local/\n");
     r.commit("init");

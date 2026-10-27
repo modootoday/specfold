@@ -54,7 +54,7 @@ mod tests {
     fn discovers_and_contains() {
         let tmp = tempfile::tempdir().unwrap();
         let r = tmp.path();
-        for d in ["apps/shop/src", "libs/auth", "libs/notes", "libs/open"] {
+        for d in ["services/shop/src", "libs/auth", "libs/notes", "libs/open"] {
             std::fs::create_dir_all(r.join(d)).unwrap();
         }
         std::fs::write(r.join("libs/auth/Cargo.toml"), "").unwrap();
@@ -62,16 +62,16 @@ mod tests {
         let mut raw = RawConfig::default();
         raw.owners.root = "ws".into();
         raw.owners.kinds = vec![
-            OwnerKind { pattern: "apps/*".into(), id: "{1}".into(), manifest: false },
+            OwnerKind { pattern: "services/*".into(), id: "{1}".into(), manifest: false },
             OwnerKind { pattern: "libs/*".into(), id: "lib.{1}".into(), manifest: true },
         ];
         raw.public.paths = vec!["libs/open".into()];
-        raw.public.companion.insert("libs/open".into(), "apps/shop".into());
+        raw.public.companion.insert("libs/open".into(), "services/shop".into());
         let cfg = Config::from_raw(r.to_path_buf(), raw, false);
         let o = Owners::discover(&cfg);
         let ids: Vec<_> = o.list.iter().map(|x| x.id.as_str()).collect();
         assert_eq!(ids, ["ws", "shop", "lib.auth", "lib.open"]);
-        assert_eq!(o.containing("apps/shop/src/main.rs").id, "shop");
+        assert_eq!(o.containing("services/shop/src/main.rs").id, "shop");
         assert_eq!(o.containing("libs/notes/x").id, "ws");
         let open = o.by_id("lib.open").unwrap();
         assert!(open.public);

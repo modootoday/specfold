@@ -8,14 +8,14 @@ use serde_json::Value;
 fn invocations(sot: &str, adr: &str) -> Vec<Vec<String>> {
     let v = |s: &[&str]| s.iter().map(|x| x.to_string()).collect::<Vec<_>>();
     vec![
-        v(&["context", "apps/shop/src/cart/total.rs"]),
+        v(&["context", "services/shop/src/cart/total.rs"]),
         v(&["find", "cart"]),
         v(&["show", sot]),
         v(&["resolve", sot]),
         v(&["graph", "impact", sot]),
         v(&["owners"]),
         v(&["log", adr]),
-        v(&["new", "plan", "--governs", "apps/blog", "--title", "Blog launch", "--dry-run"]),
+        v(&["new", "plan", "--governs", "services/blog", "--title", "Blog launch", "--dry-run"]),
         v(&["set", adr, "tags+=money", "--dry-run"]),
         v(&["mv", sot, "--slug", "basket"]),
         v(&["fix"]),
@@ -36,8 +36,8 @@ fn invocations(sot: &str, adr: &str) -> Vec<Vec<String>> {
 
 fn populated() -> (common::Repo, String, String) {
     let r = common::repo();
-    let sot = r.new_doc("sot", "apps/shop/src/cart", "Cart totals");
-    let adr = r.new_doc("adr", "apps/shop/src/cart", "Round half to even");
+    let sot = r.new_doc("sot", "services/shop/src/cart", "Cart totals");
+    let adr = r.new_doc("adr", "services/shop/src/cart", "Round half to even");
     r.commit("docs");
     (r, sot, adr)
 }
@@ -113,7 +113,7 @@ fn c5_writes_are_previews_unless_asked() {
 fn c6_lists_are_bounded() {
     let (r, _, _) = populated();
     for i in 0..4 {
-        r.new_doc("plan", "apps/blog", &format!("Plan number {i}"));
+        r.new_doc("plan", "services/blog", &format!("Plan number {i}"));
     }
     let (_, v) = r.json(&["find", "plan", "--limit", "2"]);
     assert_eq!(v["items"].as_array().unwrap().len(), 2);

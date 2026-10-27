@@ -86,14 +86,14 @@ mod tests {
 schema = 1
 [owners]
 root = "ws"
-retired = ["apps/old"]
+retired = ["services/old"]
 [[owners.kinds]]
-pattern = "apps/*"
+pattern = "services/*"
 id = "{1}"
 [public]
 paths = ["libs/open"]
 [public.companion]
-"libs/open" = "apps/open"
+"libs/open" = "services/open"
 [external.notes]
 path = "~/notes"
 [files.store]

@@ -120,7 +120,7 @@ mod tests {
         assert_eq!((p.key.as_str(), p.slug.as_str(), p.role), ("20260101000000", "pick-db", Role::Main));
         let Location::Doc(p) = locate(&r, "sot/checkout.sot.md") else { panic!() };
         assert_eq!(p.key, "checkout");
-        let Location::Doc(p) = locate(&r, "plan/20260101000000-cart/10-api.md") else { panic!() };
+        let Location::Doc(p) = locate(&r, "research/20260101000000-cart/10-api.md") else { panic!() };
         assert_eq!(p.role, Role::Chapter);
         let Location::Doc(p) = locate(&r, "design/20260101000000-cart/assets/a.webp") else { panic!() };
         assert_eq!(p.role, Role::Attachment);
