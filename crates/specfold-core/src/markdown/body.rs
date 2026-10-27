@@ -29,7 +29,8 @@ pub struct Body {
     pub lines: usize,
 }
 
-fn wiki_re() -> &'static Regex {
+/// `[[target]]` and `[[target|label]]`; group 1 is the target.
+pub fn wiki_re() -> &'static Regex {
     static R: OnceLock<Regex> = OnceLock::new();
     R.get_or_init(|| Regex::new(r"\[\[([^\[\]\n|]+)(?:\|[^\[\]\n]*)?\]\]").unwrap())
 }

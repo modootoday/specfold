@@ -213,6 +213,26 @@ impl Default for AuditSection {
     }
 }
 
+/// Files outside spec documents whose citations of documents are checked (rule L6): code
+/// comments, READMEs, agent instruction files.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct CitesSection {
+    #[serde(default)]
+    pub paths: Vec<String>,
+    #[serde(default)]
+    pub exclude: Vec<String>,
+    /// Regexes for lines that record history ("moved to …"); citations on them are not judged.
+    #[serde(default = "defaults::history_patterns")]
+    pub history: Vec<String>,
+}
+
+impl Default for CitesSection {
+    fn default() -> Self {
+        CitesSection { paths: vec![], exclude: vec![], history: defaults::history_patterns() }
+    }
+}
+
 /// How `spec check` judges an existing pile.
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -282,4 +302,6 @@ pub struct RawConfig {
     pub verify: VerifySection,
     #[serde(default)]
     pub check: CheckSection,
+    #[serde(default)]
+    pub cites: CitesSection,
 }

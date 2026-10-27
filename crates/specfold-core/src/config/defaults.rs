@@ -77,3 +77,7 @@ pub fn draft_days() -> i64 {
 pub fn open_item_patterns() -> Vec<String> {
     vec!["TODO".into(), "FIXME".into(), "TBD".into()]
 }
+
+pub fn history_patterns() -> Vec<String> {
+    vec![r"(?i)\bmoved (to|from)\b".into(), r"(?i)\bformerly\b".into(), r"(?i)\brenamed (to|from)\b".into()]
+}

@@ -44,6 +44,10 @@ const CONFIG_HELP: &[(&str, &str)] = &[
         "[verify] timeout_ms, jobs, serial, full_run_on",
         "How spec verify runs commands: the default deadline, parallel workers, regexes for heavy commands run one at a time, and paths whose change runs every check.",
     ),
+    (
+        "[cites] paths, exclude, history",
+        "Files outside documents (code, READMEs, agent instructions) whose citations rule L6 checks, and regexes for history lines it leaves alone.",
+    ),
 ];
 
 pub fn run(g: &Global, a: &ExplainArgs) -> Result<Output> {

@@ -96,6 +96,34 @@ fn a_hand_edit_must_move_updated() {
 }
 
 #[test]
+fn citations_in_code_resolve_and_staged_runs_read_only_added_lines() {
+    let r = common::repo();
+    r.write("spec.toml", &(r.read("spec.toml") + "[cites]\npaths = [\"services/**/*.rs\", \"AGENTS.md\"]\n"));
+    let sot = r.new_doc("sot", "services/shop/src", "Cart totals");
+    let sot_path = path_of(&r, &sot);
+    r.write(
+        "services/shop/src/cart/total.rs",
+        &format!("// see [[{sot}]]\n// old [[sot:shop/gone]]\n// path {sot_path}\nfn total() {{}}\n"),
+    );
+    r.write("AGENTS.md", "Rules moved to sot:shop/gone long ago; formerly [[sot:shop/gone]].\n");
+    let (code, v) = r.json(&["check", "--rule", "L6"]);
+    assert_eq!(code, 1, "{v}");
+    let messages: Vec<String> = v["items"].as_array().unwrap().iter().map(|f| f["message"].to_string()).collect();
+    assert_eq!(messages.len(), 2, "{messages:?}");
+    assert!(
+        messages.iter().any(|m| m.contains("names no document")) && messages.iter().any(|m| m.contains("is a path"))
+    );
+    r.commit("cites");
+    let text = r.read("services/shop/src/cart/total.rs") + "// new [[sot:shop/also-gone]]\n";
+    r.write("services/shop/src/cart/total.rs", &text);
+    r.git(&["add", "-A"]);
+    let (_, v) = r.json(&["check", "--staged", "--rule", "L6"]);
+    let items = v["items"].as_array().unwrap();
+    assert_eq!(items.len(), 1, "{v}");
+    assert_eq!(items[0]["line"], 5);
+}
+
+#[test]
 fn severity_turns_a_rule_down_or_off() {
     let r = common::repo();
     let id = r.new_doc("sot", "services/shop/src", "Rule");

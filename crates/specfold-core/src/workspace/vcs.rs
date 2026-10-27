@@ -97,6 +97,30 @@ pub fn upstream(root: &Path) -> Option<String> {
     if s.is_empty() { None } else { Some(s) }
 }
 
+/// Line numbers added per path: in the index against HEAD (`base` None) or in the working tree
+/// against `base`. Lets a check judge only what a change writes, not the history it touches.
+pub fn added_lines(root: &Path, base: Option<&str>) -> Option<HashMap<String, Vec<usize>>> {
+    let mut args = vec!["diff", "-U0", "--no-color", "--no-ext-diff", "--diff-filter=ACMR"];
+    match base {
+        Some(b) => args.push(b),
+        None => args.push("--cached"),
+    }
+    let out = git(root, &args)?;
+    let mut map: HashMap<String, Vec<usize>> = HashMap::new();
+    let mut current: Option<String> = None;
+    for line in String::from_utf8_lossy(&out).lines() {
+        if let Some(p) = line.strip_prefix("+++ ") {
+            current = p.strip_prefix("b/").map(str::to_string);
+        } else if let (Some(p), Some(h)) = (&current, line.strip_prefix("@@ ")) {
+            let added = h.split(' ').find(|s| s.starts_with('+')).unwrap_or("+0,0");
+            let (start, count) = added[1..].split_once(',').unwrap_or((&added[1..], "1"));
+            let (start, count): (usize, usize) = (start.parse().unwrap_or(0), count.parse().unwrap_or(0));
+            map.entry(p.clone()).or_default().extend(start..start + count);
+        }
+    }
+    Some(map)
+}
+
 /// The full hash of HEAD.
 pub fn head(root: &Path) -> Option<String> {
     let out = git(root, &["rev-parse", "HEAD"])?;

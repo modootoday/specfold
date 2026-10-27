@@ -1,6 +1,7 @@
 //! The rule catalog, one module per family.
 
 mod attachments;
+mod cites;
 mod commands;
 mod forbid;
 mod guarded;
@@ -30,6 +31,7 @@ pub fn catalog() -> Vec<Box<dyn Rule>> {
         Box::new(links::RelationsResolve),
         Box::new(links::AnchorsUnique),
         Box::new(links::GovernsExists),
+        Box::new(cites::CitesOutside),
         Box::new(lifecycle::SupersedePairs),
         Box::new(lifecycle::ForwardOnly),
         Box::new(lifecycle::Sealed),
