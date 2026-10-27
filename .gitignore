@@ -1,27 +1,14 @@
-# Public repository: only these top-level entries can be committed.
-/*
-!/.github/
-!/.gitignore
-!/AGENTS.md
-!/Cargo.lock
-!/Cargo.toml
-!/LICENSE-APACHE
-!/LICENSE-MIT
-!/README.md
-!/crates/
-!/npm/
-!/rustfmt.toml
-!/skills/
-!/spec.toml
-
-# Generated inside the allowed directories
+# Build and release output
 target/
 node_modules/
 *.tgz
-/npm/LICENSE-*
-/npm/skills/
+npm/LICENSE-*
+npm/skills/
 
-# Never published, wherever they appear
+# Local documents (spec new --local)
+.spec.local/
+
+# Never published
 .env*
 *.pem
 *.key
