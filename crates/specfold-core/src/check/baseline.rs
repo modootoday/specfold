@@ -17,7 +17,8 @@ pub const SCHEMA: &str = "spec.baseline.v1";
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Baseline {
     pub schema: String,
-    /// The commit whose files were measured; it must stay in HEAD's history.
+    /// The commit whose files were measured, for the record. A rebase or a cherry-pick onto a
+    /// newer main renames it, so it is not checked: the counts are keyed by rule and path.
     pub measured_on: String,
     /// Error counts keyed `RULE<TAB>path`.
     pub counts: BTreeMap<String, usize>,
@@ -57,13 +58,7 @@ pub fn load_file(root: &Path, rel: &str) -> Result<Option<Baseline>> {
     if b.schema != SCHEMA {
         bail!("{rel} has schema {}, expected {SCHEMA}", b.schema);
     }
-    match vcs::is_ancestor_of_head(root, &b.measured_on) {
-        Some(true) => Ok(Some(b)),
-        Some(false) => {
-            bail!("{rel} was measured on {}, which is not in HEAD's history; measure it again", b.measured_on)
-        }
-        None => bail!("{rel} names {}, which git does not know", b.measured_on),
-    }
+    Ok(Some(b))
 }
 
 pub fn hold_with(b: &Baseline, findings: Vec<Finding>, strict: &[PathMatch]) -> Held {
@@ -142,4 +137,22 @@ pub fn write(c: &Corpus, b: &Baseline) -> Result<String> {
     let rel = c.cfg.raw.check.baseline.clone().ok_or_else(|| anyhow!("set [check] baseline in spec.toml first"))?;
     write_file(&c.cfg.root, &rel, b)?;
     Ok(rel)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_baseline_from_a_commit_a_replay_renamed_still_loads() {
+        let tmp = tempfile::tempdir().unwrap();
+        let b = Baseline {
+            schema: SCHEMA.into(),
+            measured_on: "0000000000000000000000000000000000000000".into(),
+            counts: BTreeMap::from([("L1\ta.md".to_string(), 2)]),
+        };
+        write_file(tmp.path(), "spec-baseline.json", &b).unwrap();
+        let loaded = load_file(tmp.path(), "spec-baseline.json").unwrap().unwrap();
+        assert_eq!(loaded.counts["L1\ta.md"], 2);
+    }
 }
