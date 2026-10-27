@@ -1,14 +1,31 @@
 # @modootoday/specfold
 
-The specfold CLI from npm. Installing it pulls in the one platform package that matches your
-host, so `spec` and `specfold` run the native binary without a download at run time.
+specfold keeps a repository's design, planning and maintenance documents in order: rules,
+decisions, plans, research and the code each one governs, checked from one command line.
+
+This package installs it from npm.
+
+## Install
 
 ```sh
 npm install --save-dev @modootoday/specfold
+```
+
+You get two commands, `specfold` and its short alias `spec`:
+
+```sh
+npx spec --version
 npx spec check
 ```
 
-Binaries ship for Linux (x64, arm64; glibc 2.35 or later), macOS (x64, arm64) and Windows (x64).
-The same binaries are on the GitHub release, and the crate is `specfold` on crates.io.
+It works on Linux (x64 and arm64, with glibc 2.35 or later, which covers Ubuntu 22.04 and
+newer), macOS (Intel and Apple silicon) and Windows (x64). npm downloads only the build for
+your machine.
 
-Documentation: https://github.com/modootoday/specfold
+If the commands report that a platform package is missing, the install skipped optional
+dependencies. Install again without `--omit=optional` or `--no-optional`.
+
+## Learn more
+
+The guide, the document types and every command are in the
+[specfold repository](https://github.com/modootoday/specfold).

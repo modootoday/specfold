@@ -18,12 +18,25 @@ decisions, plans, research, evidence, audits, page specs, design boards, guides 
 
 ## Install
 
+Pick whichever fits your project. Each gives you two commands, `specfold` and its short alias
+`spec`.
+
+With Rust installed:
+
 ```sh
-cargo install specfold                        # installs `specfold` and its short alias `spec`
-npm install --save-dev @modootoday/specfold   # the same binaries, pinned in your lockfile
+cargo install specfold
 ```
 
-Prebuilt binaries for Linux, macOS and Windows are attached to each GitHub release.
+In a JavaScript project, add it as a dev dependency so everyone on the team gets the same
+version from the lockfile:
+
+```sh
+npm install --save-dev @modootoday/specfold
+npx spec --version
+```
+
+Or download a ready-built binary for Linux, macOS or Windows from the
+[GitHub releases](https://github.com/modootoday/specfold/releases).
 
 ## Start
 
