@@ -113,7 +113,7 @@ mod tests {
 
     fn inside(text: &str, needle_from: usize) -> Vec<bool> {
         let spans = regex_literal_spans(text);
-        text.match_indices('금')
+        text.match_indices('ω')
             .filter(|(i, _)| *i >= needle_from)
             .map(|(i, _)| spans.iter().any(|(s, e)| i >= *s && i < *e))
             .collect()
@@ -121,7 +121,7 @@ mod tests {
 
     #[test]
     fn a_regex_literal_is_told_from_strings_comments_and_division() {
-        let probe = "const rule = /금지/;\nconst said = \"금지\"; // 금지\n";
+        let probe = "const rule = /ωμ/;\nconst said = \"ωμ\"; // ωμ\n";
         assert_eq!(inside(probe, 0), [true, false, false]);
         assert!(regex_literal_spans("const x = a / b / c;").is_empty());
         assert_eq!(regex_literal_spans("x = y / 2; z = /re[/]x/g;").len(), 1);

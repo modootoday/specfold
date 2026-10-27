@@ -99,12 +99,12 @@ mod tests {
     fn lookaround_url_and_regex_literal_exemptions() {
         let brand = pat("re = '(?i)\\bacme(?!-tools\\b)\\b'");
         assert!(brand.trips("the acme worker") && !brand.trips("acme-tools plugin"));
-        let home = pat("re = '(?<![a-zA-Z0-9_.-])/home/[a-z]+/'\nnot_in_url = true");
-        assert!(home.trips("/home/ubuntu/x") && !home.trips("see https://x.com/docs/home/acct/keys"));
-        let ko = pat("re = '[가-힣]'\nnot_in_regex_literal = true");
-        let src = "const rule = /금지/;\nconst said = \"금지\";\n";
-        assert_eq!(ko.hits("a.mjs", src, &mut Spans::default()).len(), 2, "only the string's two syllables");
-        assert_eq!(ko.hits("a.md", src, &mut Spans::default()).len(), 4);
+        let host = pat("re = '(?<![a-zA-Z0-9_.-])/srv/[a-z]+/'\nnot_in_url = true");
+        assert!(host.trips("/srv/build/x") && !host.trips("see https://x.com/docs/srv/acct/keys"));
+        let greek = pat("re = '[α-ω]'\nnot_in_regex_literal = true");
+        let src = "const rule = /ωμ/;\nconst said = \"ωμ\";\n";
+        assert_eq!(greek.hits("a.mjs", src, &mut Spans::default()).len(), 2, "only the string's two letters");
+        assert_eq!(greek.hits("a.md", src, &mut Spans::default()).len(), 4);
     }
 
     #[test]
