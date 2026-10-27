@@ -1,5 +1,6 @@
 //! Checks over the corpus: rules, their scope, and the findings they report.
 
+pub mod baseline;
 pub mod context;
 pub mod finding;
 pub mod rule;

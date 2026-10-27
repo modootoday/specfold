@@ -97,6 +97,28 @@ pub fn upstream(root: &Path) -> Option<String> {
     if s.is_empty() { None } else { Some(s) }
 }
 
+/// The full hash of HEAD.
+pub fn head(root: &Path) -> Option<String> {
+    let out = git(root, &["rev-parse", "HEAD"])?;
+    Some(String::from_utf8_lossy(&out).trim().to_string())
+}
+
+/// Whether `rev` is HEAD or one of its ancestors; None when git cannot tell (unknown revision).
+pub fn is_ancestor_of_head(root: &Path, rev: &str) -> Option<bool> {
+    let status = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(["merge-base", "--is-ancestor", rev, "HEAD"])
+        .stderr(std::process::Stdio::null())
+        .status()
+        .ok()?;
+    match status.code() {
+        Some(0) => Some(true),
+        Some(1) => Some(false),
+        _ => None,
+    }
+}
+
 /// The date (YYYY-MM-DD) of the last commit touching any of `paths`, which may be globs.
 pub fn last_change(root: &Path, paths: &[String]) -> Option<String> {
     let mut args: Vec<String> = vec!["log".into(), "-1".into(), "--format=%cs".into(), "--".into()];

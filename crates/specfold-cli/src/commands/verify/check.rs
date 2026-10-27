@@ -3,12 +3,29 @@
 use crate::cli::args::{global::Global, verify::CheckArgs};
 use crate::output::{Code, Output, findings};
 use crate::session;
-use anyhow::Result;
-use specfold_core::check::{self, Options, Range, Selection};
+use anyhow::{Result, bail};
+use specfold_core::check::{self, Finding, Options, Range, Selection, Severity, baseline};
 use std::time::Instant;
+
+/// `--fail-on` must name rules that exist, so a gate cannot silently wait on a rule that never fires.
+fn check_fail_on(names: &[String]) -> Result<()> {
+    let known: Vec<&str> = check::rules::catalog().iter().map(|r| r.info().id).collect();
+    for n in names {
+        if n != "any" && !n.starts_with("x.") && !known.contains(&n.as_str()) {
+            bail!("--fail-on {n}: no such rule (spec explain lists them)");
+        }
+    }
+    Ok(())
+}
+
+fn failing(list: &[Finding], fail_on: &[String]) -> usize {
+    let counts = |f: &&Finding| fail_on.is_empty() || fail_on.iter().any(|r| r == "any" || r == &f.rule);
+    list.iter().filter(|f| f.severity == Severity::Error).filter(counts).count()
+}
 
 pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
     let started = Instant::now();
+    check_fail_on(&a.fail_on)?;
     let s = session::open(g)?;
     let range = match (&a.changed, a.staged) {
         (Some(base), _) => Range::Changed(base.clone()),
@@ -18,23 +35,48 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
     let opts = Options { run_commands: a.run_commands, external: a.external, online: a.online };
     let report =
         check::run(&s.corpus, &s.graph, range, &opts, &Selection { only: a.rules.clone(), skip: a.skip.clone() })?;
-    let (errors, warnings) = findings::counts(&report.findings);
+    if a.write_baseline {
+        let b = baseline::measure(&s.corpus, &report.findings)?;
+        let rel = baseline::write(&s.corpus, &b)?;
+        let total: usize = b.counts.values().sum();
+        return Ok(Output::new("check")
+            .field("baseline", rel.clone())
+            .field("measured_on", b.measured_on.clone())
+            .field("baselined", total)
+            .foot(format!("{total} error(s) in {} rule/path pair(s) recorded in {rel}", b.counts.len()))
+            .next(format!("git add {rel}")));
+    }
+    let base = if a.no_baseline { None } else { baseline::load(&s.corpus)? };
+    let (list, known, lowerable) = match &base {
+        Some(b) => {
+            let held = baseline::hold(&s.corpus, b, report.findings);
+            (held.findings, held.known, held.lowerable.len())
+        }
+        None => (report.findings, 0, 0),
+    };
+    let (errors, warnings) = findings::counts(&list);
+    let fails = failing(&list, &a.fail_on);
     let ms = started.elapsed().as_millis();
-    let o = Output::new("check")
+    let mut o = Output::new("check")
         .field("errors", errors)
         .field("warnings", warnings)
         .field("docs_checked", report.docs_checked)
         .field("docs_total", s.corpus.docs.len())
         .field("rules", report.rules_run.clone())
         .field("elapsed_ms", ms as u64);
-    let o = findings::push_all(o, &report.findings).foot(format!(
-        "{errors} error(s), {warnings} warning(s) in {} of {} documents · {:.2}s",
+    if base.is_some() {
+        o = o.field("baselined", known).field("lowerable", lowerable);
+    }
+    let held = if base.is_some() { format!(" · {known} known by the baseline") } else { String::new() };
+    let o = findings::push_all(o, &list).foot(format!(
+        "{errors} error(s), {warnings} warning(s) in {} of {} documents{held} · {:.2}s",
         report.docs_checked,
         s.corpus.docs.len(),
         ms as f64 / 1000.0
     ));
-    let has_fix = report.findings.iter().any(|f| f.fix.is_some());
-    Ok(match (errors, has_fix) {
+    let has_fix = list.iter().any(|f| f.fix.is_some());
+    Ok(match (fails, has_fix) {
+        (0, _) if lowerable > 0 => o.next("spec check --write-baseline"),
         (0, _) => o.next("spec audit"),
         (_, true) => {
             o.code(Code::Findings).next(if a.staged { "spec fix --staged --write" } else { "spec fix --write" })

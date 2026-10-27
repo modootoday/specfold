@@ -28,6 +28,15 @@ pub struct CheckArgs {
     /// Ask the attachment store whether stored files exist.
     #[arg(long)]
     pub online: bool,
+    /// Only errors of these rules fail the run (repeatable); `any` means every rule.
+    #[arg(long = "fail-on", value_name = "RULE")]
+    pub fail_on: Vec<String>,
+    /// Show every finding, ignoring [check] baseline.
+    #[arg(long, conflicts_with = "write_baseline")]
+    pub no_baseline: bool,
+    /// Record today's errors as the baseline ([check] baseline); a full run on a clean tree only.
+    #[arg(long, conflicts_with_all = ["staged", "changed"])]
+    pub write_baseline: bool,
 }
 
 #[derive(Debug, Clone, Args)]

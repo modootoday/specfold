@@ -47,6 +47,49 @@ fn a_supersede_cycle_is_reported() {
     assert!(v.to_string().contains("supersede cycle"), "{v}");
 }
 
+fn break_id(r: &common::Repo, id: &str) {
+    edit(r, id, &format!("id: {id}"), "id: sot:shop/wrong");
+}
+
+#[test]
+fn a_baseline_accepts_the_known_pile_and_fails_anything_new() {
+    let r = common::repo();
+    let toml = r.read("spec.toml") + "[check]\nbaseline = \"spec-baseline.json\"\nstrict = [\"services/blog/**\"]\n";
+    r.write("spec.toml", &toml);
+    let old = r.new_doc("sot", "services/shop/src", "Old rule");
+    break_id(&r, &old);
+    let (code, v) = r.json(&["check", "--write-baseline"]);
+    assert_ne!(code, 0, "a dirty tree must not be measured: {v}");
+    r.commit("old pile");
+    let (code, v) = r.json(&["check", "--write-baseline"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["baselined"], 1);
+    r.commit("baseline");
+    let (code, v) = r.json(&["check", "--rule", "S2"]);
+    assert_eq!((code, v["baselined"].as_u64()), (0, Some(1)), "{v}");
+    let strict = r.new_doc("sot", "services/blog/src", "Blog rule");
+    break_id(&r, &strict);
+    let (code, v) = r.json(&["check", "--rule", "S2"]);
+    assert_eq!(code, 1, "a strict path is never held by the baseline: {v}");
+    assert_eq!(r.json(&["check", "--rule", "S2", "--no-baseline"]).1["errors"], 2);
+    let (code, _) = r.json(&["check", "--fail-on", "NOPE"]);
+    assert_ne!(code, 0);
+    let (code, v) = r.json(&["check", "--rule", "S2", "--fail-on", "L1"]);
+    assert_eq!(code, 0, "only L1 decides the exit code here: {v}");
+}
+
+#[test]
+fn severity_turns_a_rule_down_or_off() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop/src", "Rule");
+    break_id(&r, &id);
+    r.write("spec.toml", &(r.read("spec.toml") + "[check.severity]\nS2 = \"warn\"\n"));
+    let (code, v) = r.json(&["check", "--rule", "S2"]);
+    assert_eq!((code, v["warnings"].as_u64()), (0, Some(1)), "{v}");
+    r.write("spec.toml", &r.read("spec.toml").replace("S2 = \"warn\"", "S2 = \"off\""));
+    assert_eq!(r.json(&["check", "--rule", "S2"]).1["warnings"], 0);
+}
+
 #[cfg(unix)]
 #[test]
 fn verify_reports_timeouts_missing_programs_and_undeclared_checks() {

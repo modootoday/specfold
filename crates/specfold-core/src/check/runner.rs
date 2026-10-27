@@ -50,6 +50,7 @@ pub fn run(c: &Corpus, g: &Graph, range: Range, opts: &Options, sel: &Selection)
         let loaded = plugins::load(&c.cfg);
         plugins::rules::run(&ctx, &loaded, &mut findings);
     }
+    let mut findings = super::baseline::apply_severity(c, findings);
     findings.sort_by(|a, b| (a.severity, &a.path, a.line, &a.rule).cmp(&(b.severity, &b.path, b.line, &b.rule)));
     findings.dedup_by(|a, b| a.rule == b.rule && a.path == b.path && a.line == b.line && a.message == b.message);
     let docs_checked = if scope.is_all() { c.docs.len() } else { scope.with_neighbours.len() };
