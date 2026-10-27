@@ -1,0 +1,97 @@
+//! Arguments of the commands that only read.
+
+use clap::Args;
+
+#[derive(Debug, Clone, Args)]
+#[command(after_help = "Examples:\n  spec context apps/shop/src/cart/total.rs\n  spec context apps/shop --json")]
+pub struct ContextArgs {
+    /// Code paths you are about to change.
+    #[arg(required = true)]
+    pub paths: Vec<String>,
+    /// Include superseded and archived documents.
+    #[arg(long)]
+    pub all: bool,
+}
+
+#[derive(Debug, Clone, Args)]
+#[command(
+    after_help = "Examples:\n  spec find checkout\n  spec find --type adr --owner shop\n  spec find retry budget --text"
+)]
+pub struct FindArgs {
+    /// Words that must all match the id, title, slug, aliases or tags.
+    pub words: Vec<String>,
+    /// Only these document types (repeatable).
+    #[arg(long = "type", id = "type", value_name = "TYPE")]
+    pub types: Vec<String>,
+    /// Only documents of these owners (repeatable).
+    #[arg(long = "owner", id = "owner", value_name = "OWNER")]
+    pub owners: Vec<String>,
+    /// Only these statuses (repeatable).
+    #[arg(long = "status", id = "status", value_name = "STATUS")]
+    pub statuses: Vec<String>,
+    /// Only documents with these tags (repeatable).
+    #[arg(long = "tag", id = "tag", value_name = "TAG")]
+    pub tags: Vec<String>,
+    /// Include superseded, archived and rejected documents.
+    #[arg(long)]
+    pub all: bool,
+    /// Also search body text.
+    #[arg(long)]
+    pub text: bool,
+}
+
+#[derive(Debug, Clone, Args)]
+#[command(
+    after_help = "Examples:\n  spec show sot:shop/cart\n  spec show sot:shop/cart --section rules\n  spec show adr:shop/20260101000000 --rel"
+)]
+pub struct ShowArgs {
+    /// An id, alias, path, or unique slug.
+    pub doc: String,
+    /// Only the section with this heading or anchor.
+    #[arg(long)]
+    pub section: Option<String>,
+    /// Show incoming and outgoing relations.
+    #[arg(long)]
+    pub rel: bool,
+    /// The whole body (otherwise frontmatter and outline).
+    #[arg(long)]
+    pub body: bool,
+}
+
+#[derive(Debug, Clone, Args)]
+pub struct RefArgs {
+    /// An id, alias, path, or unique slug.
+    pub doc: String,
+}
+
+#[derive(Debug, Clone, Args)]
+#[command(
+    after_help = "Examples:\n  spec graph impact sot:shop/cart\n  spec graph chain adr:shop/20250101000000\n  spec graph governs apps/shop/src\n  spec graph --json > docs-graph.out"
+)]
+pub struct GraphArgs {
+    /// impact, chain or governs. Without one, prints the whole graph.
+    pub query: Option<String>,
+    /// The document (impact, chain) or path (governs).
+    pub target: Option<String>,
+}
+
+#[derive(Debug, Clone, Args)]
+#[command(after_help = "Examples:\n  spec owners\n  spec owners --empty --json")]
+pub struct OwnersArgs {
+    /// Include owners without documents.
+    #[arg(long)]
+    pub empty: bool,
+}
+
+#[derive(Debug, Clone, Args)]
+#[command(after_help = "Examples:\n  spec log sot:shop/cart\n  spec log --since 2026-01-01 --type adr")]
+pub struct LogArgs {
+    /// One document; without it, every document changed since --since.
+    pub doc: Option<String>,
+    /// Only changes on or after this date (YYYY-MM-DD).
+    #[arg(long)]
+    pub since: Option<String>,
+    /// Only these document types (repeatable).
+    #[arg(long = "type", id = "type")]
+    pub types: Vec<String>,
+}

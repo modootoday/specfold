@@ -1,0 +1,140 @@
+name: Release
+
+# A v<version> tag builds the binaries into a draft release, waits for a reviewer to approve the
+# "release" environment, publishes the crates to crates.io with Trusted Publishing and marks the
+# release published. Run by hand it rehearses everything, publishes nothing and deletes its draft.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  MODE: ${{ github.event_name == 'push' && 'publish' || 'dry-run' }}
+  CARGO_TERM_COLOR: never
+
+jobs:
+  draft:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - id: tag
+        run: |
+          version="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
+          tag="v$version"
+          if [ "$MODE" = dry-run ]; then tag="dry-run-$GITHUB_RUN_ID"; fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Check the tag matches Cargo.toml
+        if: github.event_name == 'push'
+        run: test "v${{ steps.tag.outputs.version }}" = "$GITHUB_REF_NAME"
+      # Notes are the commit subjects since the previous version tag.
+      - name: Release notes
+        run: |
+          previous="$(git describe --tags --abbrev=0 --match 'v*' HEAD^ 2>/dev/null || true)"
+          range="${previous:+$previous..}HEAD"
+          git log "$range" --no-merges --format='- %s' > notes.md
+          cat notes.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Draft release
+        run: gh release create "${{ steps.tag.outputs.tag }}" --draft --target "$GITHUB_SHA" --title "${{ steps.tag.outputs.tag }}" --notes-file notes.md
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+
+  binaries:
+    needs: draft
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { os: ubuntu-24.04, target: x86_64-unknown-linux-gnu }
+          - { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-gnu }
+          - { os: macos-15-intel, target: x86_64-apple-darwin }
+          - { os: macos-15, target: aarch64-apple-darwin }
+          - { os: windows-2022, target: x86_64-pc-windows-msvc }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - run: rustup toolchain install stable --profile minimal --target ${{ matrix.target }}
+      - run: cargo build --locked --release -p specfold --target ${{ matrix.target }}
+      - name: Package
+        shell: bash
+        run: |
+          name="specfold-${{ matrix.target }}"
+          mkdir -p "dist/$name"
+          ext=""
+          case "${{ matrix.target }}" in *windows*) ext=".exe";; esac
+          for bin in specfold spec; do cp "target/${{ matrix.target }}/release/$bin$ext" "dist/$name/"; done
+          cp README.md LICENSE-MIT LICENSE-APACHE "dist/$name/"
+          cd dist
+          case "${{ matrix.target }}" in
+            *windows*) 7z a -tzip "$name.zip" "$name" >/dev/null; archive="$name.zip";;
+            *) tar -czf "$name.tar.gz" "$name"; archive="$name.tar.gz";;
+          esac
+          if command -v sha256sum >/dev/null; then sha256sum "$archive" > "$archive.sha256"; else shasum -a 256 "$archive" > "$archive.sha256"; fi
+          echo "ARCHIVE=dist/$archive" >> "$GITHUB_ENV"
+      - shell: bash
+        run: gh release upload "${{ needs.draft.outputs.tag }}" "$ARCHIVE" "$ARCHIVE.sha256" --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+
+  publish:
+    needs: [draft, binaries]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    # A reviewer approves this environment before anything reaches a registry.
+    environment: ${{ github.event_name == 'push' && 'release' || '' }}
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - run: rustup toolchain install stable --profile minimal
+      # crates.io Trusted Publishing exchanges this job's OIDC token for a short-lived token, so
+      # no registry token is stored (.github/RELEASING.md).
+      - uses: rust-lang/crates-io-auth-action@3268eb413133e2960fa4ae0e963ca76380c54cd9
+        if: env.MODE == 'publish'
+        id: auth
+      - name: Publish crates (rehearsal unless publishing)
+        run: |
+          if [ "$MODE" = publish ]; then
+            cargo publish --workspace --locked
+          else
+            cargo publish --workspace --locked --dry-run
+          fi
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+      - name: Mark the release published
+        if: env.MODE == 'publish'
+        run: gh release edit "${{ needs.draft.outputs.tag }}" --draft=false --title "${{ needs.draft.outputs.tag }}"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+      - name: Remove the rehearsal draft
+        if: always() && env.MODE == 'dry-run'
+        run: gh release delete "${{ needs.draft.outputs.tag }}" --yes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}

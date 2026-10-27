@@ -1,0 +1,39 @@
+//! Everything a rule needs: the corpus, its graph, the scope of the run and the options.
+
+use super::scope::Scope;
+use crate::corpus::Corpus;
+use crate::graph::Graph;
+use crate::workspace::vcs;
+
+#[derive(Debug, Clone, Default)]
+pub struct Options {
+    /// Run sot `verify` and `generated_by` commands.
+    pub run_commands: bool,
+    /// Report broken citations in external roots (Claude memory, notes …).
+    pub external: bool,
+    /// Ask stores whether attachments exist (network, slow).
+    pub online: bool,
+}
+
+pub struct Ctx<'a> {
+    pub corpus: &'a Corpus,
+    pub graph: &'a Graph,
+    pub scope: &'a Scope,
+    pub opts: &'a Options,
+}
+
+impl Ctx<'_> {
+    /// The content of a path at the base of the run (HEAD for staged runs).
+    pub fn previous(&self, path: &str) -> Option<String> {
+        let base = self.scope.base.as_deref()?;
+        vcs::show(&self.corpus.cfg.root, base, path)
+    }
+
+    /// The content being checked: the index for staged runs, the working tree otherwise.
+    pub fn current(&self, path: &str) -> Option<String> {
+        match self.scope.range {
+            super::scope::Range::Staged => vcs::show_staged(&self.corpus.cfg.root, path),
+            _ => std::fs::read_to_string(self.corpus.cfg.root.join(path)).ok(),
+        }
+    }
+}

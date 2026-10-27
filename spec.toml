@@ -1,0 +1,21 @@
+[spec]
+schema = 1
+
+[owners]
+root = "specfold"
+
+# This public repository holds code only. Design records about it are kept by its maintainers,
+# not published here, so no spec directory may appear.
+[forbid]
+paths = [".spec", "**/.spec", "docs/adr", "**/decisions"]
+
+# The public-surface guard reads denied terms from an environment variable, so the list itself is
+# never stored here. Maintainers set it before pushing; without it only the secret check runs.
+[[guards]]
+name = "public-surface"
+about = "No private names, internal paths or secrets in anything published."
+range = "push"
+deny_terms_env = "SPECFOLD_PRIVATE_TERMS"
+secrets = true
+commit_messages = true
+exclude = ["LICENSE-APACHE", "LICENSE-MIT"]

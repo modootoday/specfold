@@ -1,0 +1,32 @@
+[package]
+name = "specfold"
+description = "One CLI for a repository's design, planning and maintenance documents, built for people and AI agents."
+readme = "../../README.md"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[[bin]]
+name = "specfold"
+path = "src/main.rs"
+
+[[bin]]
+name = "spec"
+path = "src/bin/spec.rs"
+
+[dependencies]
+specfold-core.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+assert_cmd.workspace = true
+tempfile.workspace = true

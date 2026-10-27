@@ -1,0 +1,48 @@
+//! The rule catalog, one module per family.
+
+mod attachments;
+mod commands;
+mod forbid;
+mod guarded;
+mod ids;
+mod lifecycle;
+mod links;
+mod placement;
+mod schema;
+mod support;
+mod visibility;
+
+use super::rule::Rule;
+
+pub fn catalog() -> Vec<Box<dyn Rule>> {
+    vec![
+        Box::new(schema::Frontmatter),
+        Box::new(schema::IdMatchesPath),
+        Box::new(schema::Placement),
+        Box::new(schema::StatusAllowed),
+        Box::new(schema::Dates),
+        Box::new(ids::UniqueIds),
+        Box::new(ids::AliasesClean),
+        Box::new(ids::AliasTableFrozen),
+        Box::new(links::LinksResolve),
+        Box::new(links::NoPathCites),
+        Box::new(links::RelationsResolve),
+        Box::new(links::AnchorsUnique),
+        Box::new(links::GovernsExists),
+        Box::new(lifecycle::SupersedePairs),
+        Box::new(lifecycle::ForwardOnly),
+        Box::new(lifecycle::Sealed),
+        Box::new(visibility::NotInPublic),
+        Box::new(visibility::NoLocalCites),
+        Box::new(visibility::ExternalCites),
+        Box::new(placement::OwnerMatches),
+        Box::new(attachments::Registered),
+        Box::new(attachments::SizeLimit),
+        Box::new(attachments::HashesMatch),
+        Box::new(attachments::StoredExist),
+        Box::new(forbid::Forbidden),
+        Box::new(commands::VerifyPasses),
+        Box::new(commands::GeneratedInSync),
+        Box::new(guarded::GuardsPass),
+    ]
+}
