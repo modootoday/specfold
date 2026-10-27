@@ -163,4 +163,22 @@ mod tests {
         );
         assert_eq!(run(&cfg, &[], None).unwrap().len(), 1);
     }
+
+    #[test]
+    fn an_empty_or_missing_published_path_is_a_hit() {
+        let tmp = tempfile::tempdir().unwrap();
+        let r = tmp.path();
+        std::fs::create_dir_all(r.join("pub/full")).unwrap();
+        std::fs::create_dir_all(r.join("pub/empty")).unwrap();
+        std::fs::write(r.join("pub/full/a.md"), "fine\n").unwrap();
+        let raw: RawConfig = toml::from_str(
+            "[public]\npaths = [\"pub/full\", \"pub/empty\", \"pub/gone\"]\n[[guards]]\nname = \"g\"\npublic = true\nrange = \"all\"\ndeny_terms = [\"x-internal\"]\n",
+        )
+        .unwrap();
+        let cfg = Config::from_raw(r.to_path_buf(), raw, false);
+        let mut got: Vec<(String, bool)> =
+            run(&cfg, &[], None).unwrap().into_iter().map(|f| (f.path, f.message.contains("not present"))).collect();
+        got.sort();
+        assert_eq!(got, [("pub/empty".to_string(), false), ("pub/gone".to_string(), true)]);
+    }
 }

@@ -22,6 +22,8 @@ pub struct Compiled {
     allow: Vec<String>,
     /// Published paths that do not exist.
     pub missing: Vec<String>,
+    /// Published paths that exist; each must yield at least one file in a whole-tree run.
+    pub published: Vec<String>,
 }
 
 pub fn compile(cfg: &Config, g: &GuardDef) -> Result<Compiled> {
@@ -29,11 +31,12 @@ pub fn compile(cfg: &Config, g: &GuardDef) -> Result<Compiled> {
         rules.iter().map(|r| pattern::compile(&g.name, r.spec())).collect()
     };
     let mut paths: Vec<PathMatch> = g.paths.iter().filter_map(|p| matcher(p)).collect();
-    let mut missing = vec![];
+    let (mut missing, mut published) = (vec![], vec![]);
     if g.public {
         for e in exposure::scan(cfg).exposed {
-            if !cfg.root.join(&e.path).exists() {
-                missing.push(e.path.clone());
+            match cfg.root.join(&e.path).exists() {
+                true => published.push(e.path.clone()),
+                false => missing.push(e.path.clone()),
             }
             paths.extend(matcher(&e.path));
         }
@@ -48,6 +51,7 @@ pub fn compile(cfg: &Config, g: &GuardDef) -> Result<Compiled> {
         path_patterns: compile_all(&g.deny_path_regex)?,
         allow: g.allow.iter().map(|a| a.to_lowercase()).collect(),
         missing,
+        published,
     })
 }
 
