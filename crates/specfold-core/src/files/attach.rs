@@ -97,7 +97,10 @@ pub fn apply(c: &Corpus, doc: &Doc, plan: &Plan) -> Result<()> {
         if let Some(p) = dst.parent() {
             std::fs::create_dir_all(p)?;
         }
-        if Path::new(&f.source) != dst {
+        // Re-attaching a file already in the bundle must not copy it onto itself: that truncates it.
+        let same =
+            std::fs::canonicalize(&f.source).ok().zip(std::fs::canonicalize(&dst).ok()).is_some_and(|(a, b)| a == b);
+        if !same {
             std::fs::copy(&f.source, &dst).with_context(|| format!("cannot copy {} to {}", f.source, dst.display()))?;
         }
         if f.store == "store" {

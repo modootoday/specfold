@@ -129,6 +129,11 @@ fn attach_registers_and_check_catches_changes() {
     let base = r.json(&["files", &d]).1["base"].as_str().unwrap().to_string();
     r.write(&format!("{base}/board.svg"), "<svg>changed</svg>");
     assert_eq!(r.json(&["check", "--rule", "E1"]).0, 1);
+    let inside = format!("{base}/board.svg");
+    let (code, v) = r.json(&["attach", &d, &inside, "--write"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(r.read(&inside), "<svg>changed</svg>");
+    assert_eq!(r.json(&["check", "--rule", "E1"]).0, 0);
 }
 
 #[test]
