@@ -194,6 +194,7 @@ jobs:
           node npm/release/platform-packages.mjs --optional-dependencies > optional.json
           node -e 'const fs=require("fs");const p=JSON.parse(fs.readFileSync("npm/package.json"));p.optionalDependencies=JSON.parse(fs.readFileSync("optional.json"));fs.writeFileSync("npm/package.json",JSON.stringify(p,null,2)+"\n")'
           cp LICENSE-MIT LICENSE-APACHE npm/
+          cp -r skills npm/skills
       - name: Pack
         run: |
           mkdir -p packed

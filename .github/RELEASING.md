@@ -55,9 +55,9 @@ the six npm packages is published once from a maintainer host logged in to npm:
    for dir in ./platform/*/; do npm publish "$dir" --access public; done
    node npm/release/platform-packages.mjs --optional-dependencies > optional.json
    node -e 'const fs=require("fs");const p=JSON.parse(fs.readFileSync("npm/package.json"));p.optionalDependencies=JSON.parse(fs.readFileSync("optional.json"));fs.writeFileSync("npm/package.json",JSON.stringify(p,null,2)+"\n")'
-   cp LICENSE-MIT LICENSE-APACHE npm/
+   cp LICENSE-MIT LICENSE-APACHE npm/ && cp -r skills npm/skills
    npm publish ./npm --access public
-   git checkout npm/package.json && rm npm/LICENSE-MIT npm/LICENSE-APACHE
+   git checkout npm/package.json && rm -r npm/LICENSE-MIT npm/LICENSE-APACHE npm/skills
    ```
 
 3. Add the trusted publishers (below), then publish the draft release. That creates the tag,

@@ -1,0 +1,89 @@
+---
+name: specfold-documents
+description: Read and write a repository's specfold documents with the spec CLI - spec context before changing code, spec new to create a source of truth, decision, plan, research, evidence, audit, page, design, guide or runbook where its owner keeps it, spec set for status and relations, spec mv to move or rename, spec attach for files, and spec find, show and graph to look things up. Use when a repository has a spec.toml and you are about to change code, record a decision, start or update a plan, or need to know which document rules some code. Not for setting specfold up (specfold-setup) or fixing check failures (specfold-checks).
+metadata:
+  tier: open
+  level: L1
+  domain: documentation
+  install: optional
+  keywords: "specfold, spec new, spec context, spec set, ADR, source of truth, plan, research, evidence, runbook, .spec"
+  requires-bin: "spec"
+---
+
+# Working with specfold documents
+
+Never create, rename or move a file under `.spec/` by hand, and never type a document's file
+name. The CLI computes where a document lives and what it is called from its type, its owner
+and the code it governs, and rewrites every reference when it moves.
+
+## Before changing code
+
+```sh
+spec context path/to/the/code
+```
+
+It lists the documents that govern that code, with their verify commands. Read them; if the
+change breaks a rule a source of truth states, either keep the rule or update the document in
+the same change.
+
+## Pick the type
+
+| You are writing                                    | Type       |
+| -------------------------------------------------- | ---------- |
+| The rule that holds now                            | `sot`      |
+| A decision and why it was made                     | `adr`      |
+| Work to do, and its running record                 | `plan`     |
+| A study, benchmark or evaluation                   | `research` |
+| Raw outputs or measurements other documents cite   | `evidence` |
+| A security or compliance snapshot (sealed)         | `audit`    |
+| One screen or page                                 | `page`     |
+| Design boards                                      | `design`   |
+| How to develop, operate or use something           | `guide`    |
+| Step-by-step operational procedure                 | `runbook`  |
+
+`spec schema <type>` shows its frontmatter. A project may add or change types in `spec.toml`.
+
+## Create
+
+```sh
+spec new adr --governs services/shop/src/db --title "Use Postgres for orders"
+spec new plan --governs services/shop --title "Checkout v2"
+spec new adr --from adr:shop/20250101000000 --title "Move orders to a queue"   # supersedes
+```
+
+`--governs` decides the owner. Use `--local` for a draft that stays out of git, and
+`--dry-run` to see the path first.
+
+## Change status and relations
+
+```sh
+spec set plan:shop/20260101000000 status=active
+spec set plan:shop/20260101000000 rel.implements+=sot:shop/cart
+spec set sot:shop/cart tags-=draft
+```
+
+Statuses move forward only: `draft`, `active`, then `superseded`, `archived` or `rejected`.
+Relations are written once, on the document that makes them: `rel.governs`, `rel.supersedes`,
+`rel.implements`, `rel.evidence`, `rel.depends_on`. In the body, refer to another document as
+`[[<id>]]` or `[[<id>#<anchor>]]`, never by path.
+
+## Move, attach, look up
+
+```sh
+spec mv sot:shop/cart --slug checkout-cart --write
+spec attach evidence:root/20260101000000 run.jsonl --write
+spec find "rate limit" --type adr
+spec show adr:shop/20250101000000 --rel
+spec graph impact sot:shop/cart
+```
+
+`spec resolve` turns an old path, alias or slug into the current id.
+
+## Before committing
+
+```sh
+spec check --staged
+spec fix --staged --write      # mechanical fixes only
+```
+
+What a rule means: `spec explain <rule>`.

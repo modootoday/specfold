@@ -16,7 +16,7 @@
     "spec": "bin/spec.js",
     "specfold": "bin/specfold.js"
   },
-  "files": ["bin", "launcher", "README.md"],
+  "files": ["bin", "launcher", "skills", "!skills/*/evals/**", "README.md"],
   "engines": {
     "node": ">=18"
   }

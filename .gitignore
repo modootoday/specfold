@@ -1,2 +1,28 @@
-/target
-.spec.local/
+# Public repository: only these top-level entries can be committed.
+/*
+!/.github/
+!/.gitignore
+!/AGENTS.md
+!/Cargo.lock
+!/Cargo.toml
+!/LICENSE-APACHE
+!/LICENSE-MIT
+!/README.md
+!/crates/
+!/npm/
+!/rustfmt.toml
+!/skills/
+!/spec.toml
+
+# Generated inside the allowed directories
+target/
+node_modules/
+*.tgz
+/npm/LICENSE-*
+/npm/skills/
+
+# Never published, wherever they appear
+.env*
+*.pem
+*.key
+.DS_Store
