@@ -57,6 +57,14 @@ pub struct SourceRule {
     /// For files: also take the sibling directory `<stem>/` as the bundle.
     #[serde(default)]
     pub sibling_dir: bool,
+    /// Files with no Markdown (raw output, data, boards) become attachments of a generated
+    /// document titled after them: one per matched file, or one per matched directory.
+    #[serde(default)]
+    pub wrap: bool,
+    /// The matched files belong to the old layout only (indexes, generated graphs, retired rule
+    /// pages) and are removed without becoming documents.
+    #[serde(default)]
+    pub drop: bool,
 }
 
 fn auto() -> String {

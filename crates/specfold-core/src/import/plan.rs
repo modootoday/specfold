@@ -18,7 +18,7 @@ use serde::Serialize;
 use serde_json::{Map, Value, json};
 use std::collections::{BTreeMap, BTreeSet};
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Default, Serialize)]
 pub struct Row {
     pub source: String,
     /// `doc` or `redirect`.
@@ -61,6 +61,11 @@ pub fn build(c: &Corpus, map: &ImportMap) -> Result<ImportPlan> {
         let rule = &map.sources[u.rule];
         if let Some(re) = &rule.redirect {
             redirects.push((u.clone(), Regex::new(re).map_err(|e| anyhow!("bad redirect regex: {e}"))?));
+            continue;
+        }
+        if rule.drop {
+            out.plan.remove(u.source.clone());
+            out.rows.push(Row { source: u.source.clone(), kind: "drop".into(), ..Row::default() });
             continue;
         }
         let row = doc_row(c, map, u, &mut taken, &mut out)?;
@@ -111,7 +116,9 @@ fn doc_row(c: &Corpus, map: &ImportMap, u: &Unit, taken: &mut BTreeSet<String>, 
     let rule = &map.sources[u.rule];
     let ty_name = rule.ty.clone().ok_or_else(|| anyhow!("source {} needs a type", rule.glob))?;
     let ty = c.cfg.registry.get(&ty_name).ok_or_else(|| anyhow!("unknown type {ty_name}"))?;
-    let text = std::fs::read_to_string(c.cfg.root.join(&u.main))?;
+    // A wrapped unit has no Markdown of its own; its document is generated around the files.
+    let generated = u.main.is_empty();
+    let text = if generated { String::new() } else { std::fs::read_to_string(c.cfg.root.join(&u.main))? };
     let split = frontmatter::split(&text);
     let mut unresolved = vec![];
     let old = match frontmatter::parse(split.raw) {
@@ -126,7 +133,8 @@ fn doc_row(c: &Corpus, map: &ImportMap, u: &Unit, taken: &mut BTreeSet<String>, 
     let name = name_of(&u.source).trim_end_matches(".md");
     let name_re = rule.name.as_deref().map(Regex::new).transpose().map_err(|e| anyhow!("bad name regex: {e}"))?;
     let caps = name_re.as_ref().and_then(|r| r.captures(name_of(&u.source)));
-    let fallback_title = scanned.first_heading.clone().unwrap_or_else(|| name.replace(['-', '_'], " "));
+    let named = caps.as_ref().and_then(|c| c.name("slug")).map(|m| m.as_str()).unwrap_or(name);
+    let fallback_title = scanned.first_heading.clone().unwrap_or_else(|| named.replace(['-', '_'], " "));
     let mut conv = convert::frontmatter(map, rule, &old, &ty.statuses, &fallback_title);
     unresolved.append(&mut conv.unresolved);
     let title = conv.fm.get("title").and_then(Value::as_str).unwrap_or(&fallback_title).to_string();
@@ -206,7 +214,8 @@ fn doc_row(c: &Corpus, map: &ImportMap, u: &Unit, taken: &mut BTreeSet<String>, 
     if !files.is_empty() {
         fm.insert("files".into(), Value::Array(files));
     }
-    let content = format!("{}{}", frontmatter::render(&crate::markdown::frontmatter::edit::ordered(fm)), split.body);
+    let body = if generated { format!("\n# {title}\n") } else { split.body.to_string() };
+    let content = format!("{}{}", frontmatter::render(&crate::markdown::frontmatter::edit::ordered(fm)), body);
     out.plan.write(main.clone(), content, true);
     out.plan.remove(u.source.clone());
     // Old paths of chapters and attachments name the document too, so their citations resolve.

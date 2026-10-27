@@ -111,4 +111,29 @@ type = "guide"
         );
         assert!(p.alias_rows.contains(&("2026-03-01-round".to_string(), p.rows[0].id.clone())));
     }
+
+    #[test]
+    fn raw_files_are_wrapped_and_old_indexes_dropped() {
+        let tmp = tempfile::tempdir().unwrap();
+        let r = tmp.path();
+        write(r, "raw/2026-01-02-run.json", "{}");
+        write(r, "raw/2026-01-03-batch/a.csv", "x");
+        write(r, "raw/2026-01-03-batch/b.csv", "y");
+        write(r, "old/INDEX.md", "| generated |\n");
+        let map: ImportMap = toml::from_str(
+            "[[sources]]\nglob = \"old/INDEX.md\"\ndrop = true\n[[sources]]\nglob = \"raw/*/\"\ntype = \"evidence\"\nwrap = true\nkey = \"name\"\nname = '^(?P<key>\\d{4}-\\d{2}-\\d{2})-(?P<slug>.+)$'\n[[sources]]\nglob = \"raw/*\"\ntype = \"evidence\"\nwrap = true\nkey = \"name\"\nname = '^(?P<key>\\d{4}-\\d{2}-\\d{2})-(?P<slug>.+)\\.json$'\n",
+        )
+        .unwrap();
+        let c = Corpus::load(Config::from_raw(r.to_path_buf(), RawConfig::default(), false), &LoadOptions::default());
+        let p = build(&c, &map).unwrap();
+        let kinds: Vec<&str> = p.rows.iter().map(|r| r.kind.as_str()).collect();
+        assert_eq!(kinds, ["drop", "doc", "doc"]);
+        p.plan.apply(r).unwrap();
+        let c2 = Corpus::load(Config::from_raw(r.to_path_buf(), RawConfig::default(), false), &LoadOptions::default());
+        assert_eq!(c2.docs.len(), 2);
+        let batch = c2.docs.iter().find(|d| d.id.key == "20260103000000").unwrap();
+        assert_eq!(batch.files().len(), 2);
+        assert_eq!(batch.title.as_deref(), Some("batch"));
+        assert!(!r.join("old/INDEX.md").exists() && !r.join("raw/2026-01-02-run.json").exists());
+    }
 }

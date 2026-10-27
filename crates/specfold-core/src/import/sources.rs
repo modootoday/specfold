@@ -34,9 +34,13 @@ fn all_files(root: &Path) -> Vec<String> {
 
 /// The main file, chapters and attachments of a directory, leaving out files an earlier rule
 /// already took (a nested bundle belongs to the rule that matched it first).
-fn bundle(files: &[String], dir: &str, claimed: &BTreeSet<String>) -> Option<(String, Vec<String>, Vec<String>)> {
+fn inside<'a>(files: &'a [String], dir: &str, claimed: &BTreeSet<String>) -> Vec<&'a String> {
     let prefix = format!("{dir}/");
-    let inside: Vec<&String> = files.iter().filter(|f| f.starts_with(&prefix) && !claimed.contains(*f)).collect();
+    files.iter().filter(|f| f.starts_with(&prefix) && !claimed.contains(*f)).collect()
+}
+
+fn bundle(files: &[String], dir: &str, claimed: &BTreeSet<String>) -> Option<(String, Vec<String>, Vec<String>)> {
+    let inside = inside(files, dir, claimed);
     let main = MAIN_NAMES
         .iter()
         .map(|n| format!("{dir}/{n}"))
@@ -92,7 +96,15 @@ fn expand_rule(
             if skip(&d, claimed) {
                 continue;
             }
-            if let Some((main, chapters, attachments)) = bundle(files, &d, claimed) {
+            let unit = match bundle(files, &d, claimed) {
+                Some((main, chapters, attachments)) => Some((main, chapters, attachments)),
+                None if rule.wrap || rule.drop => {
+                    let all: Vec<String> = inside(files, &d, claimed).into_iter().cloned().collect();
+                    (!all.is_empty()).then(|| (String::new(), vec![], all))
+                }
+                None => None,
+            };
+            if let Some((main, chapters, attachments)) = unit {
                 for f in std::iter::once(&main).chain(&chapters).chain(&attachments) {
                     claimed.insert(f.clone());
                 }
@@ -111,12 +123,27 @@ fn expand_rule(
             continue;
         }
         claimed.insert(f.clone());
+        if rule.wrap && !f.ends_with(".md") {
+            out.push(Unit {
+                rule: ri,
+                source: f.clone(),
+                main: String::new(),
+                chapters: vec![],
+                attachments: vec![f.clone()],
+            });
+            continue;
+        }
         let (mut chapters, mut attachments) = (vec![], vec![]);
         if rule.sibling_dir {
             let dir = f.trim_end_matches(".md");
-            for g in files.iter().filter(|g| g.starts_with(&format!("{dir}/"))) {
-                claimed.insert(g.clone());
-                if g.ends_with(".md") { chapters.push(g.clone()) } else { attachments.push(g.clone()) }
+            let taken: Vec<String> = inside(files, dir, claimed).into_iter().cloned().collect();
+            for g in taken {
+                if g.ends_with(".md") {
+                    chapters.push(g.clone())
+                } else {
+                    attachments.push(g.clone())
+                }
+                claimed.insert(g);
             }
         }
         out.push(Unit { rule: ri, source: f.clone(), main: f.clone(), chapters, attachments });
