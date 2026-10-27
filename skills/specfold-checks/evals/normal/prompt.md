@@ -1,6 +1,6 @@
 # normal
 
-My commit was refused: `spec check --staged` reports two L2 findings and one L1 finding in `services/shop/.spec/plan/20260301000000-checkout.plan.md`.
+My commit was refused: `spec check --staged` reports two L2 findings and one L1 finding in `services/shop/.spec/sot/cart.sot.md`.
 
 ## PASS
 
