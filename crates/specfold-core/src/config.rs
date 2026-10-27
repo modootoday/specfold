@@ -7,4 +7,4 @@ pub mod starter;
 pub mod types;
 
 pub use reader::Config;
-pub use types::{AuditSection, GuardDef, OwnerKind, PluginDef, RawConfig, StoreDef};
+pub use types::{AuditSection, GuardDef, OwnerKind, PluginDef, RawConfig, RegexRule, RegexSpec, StoreDef};

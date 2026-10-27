@@ -1,7 +1,10 @@
 //! Guards: named checks over any file in the repository and over commit messages, such as the
 //! gate that keeps internal names out of a public package.
 
+mod code_spans;
 mod compile;
+mod jslex;
+mod pattern;
 mod prove;
 pub mod range;
 mod scan;

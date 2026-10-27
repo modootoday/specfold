@@ -35,7 +35,7 @@ const CONFIG_HELP: &[(&str, &str)] = &[
     ("[aliases] file", "The frozen alias table written by spec import."),
     (
         "[[guards]]",
-        "Named checks over files and commit messages (rule U1, spec guard): paths, exclude, range, deny_terms(_file, _env), deny_regex (a pattern or a table: re, label, not_in_url, exempt, must_hit, must_pass), deny_files, max_file_bytes, secrets, commit_messages, level, allow, fixtures, decompress, fail_if_empty, baseline.",
+        "Named checks over files and commit messages (rule U1, spec guard): paths, public (every published path), exclude, range, deny_terms(_file, _env), deny_regex and deny_path_regex (a pattern, lookaround allowed, or a table: re, label, not_in_url, not_in_regex_literal, code_exempt, exempt, must_hit, must_pass), deny_files, max_file_bytes, secrets, commit_messages, level, allow, fixtures, decompress, read_binary, fail_if_empty, baseline.",
     ),
     ("[[plugins]]", "External programs speaking specfold.plugin.v1: rules, importers, exporters, audits, events."),
     ("[audit]", "Thresholds for stale, stalled and draft documents, and open-item markers."),

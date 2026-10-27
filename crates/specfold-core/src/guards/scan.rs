@@ -10,6 +10,7 @@ use std::io::Read;
 
 /// The most a compressed file may expand to before the rest is ignored.
 const MAX_INFLATED: u64 = 64 * 1024 * 1024;
+const GZIP_MAGIC: [u8; 2] = [0x1f, 0x8b];
 
 fn severity(g: &GuardDef) -> Severity {
     if g.level == "warn" { Severity::Warn } else { Severity::Error }
@@ -20,10 +21,8 @@ fn hit(g: &GuardDef, path: &str, line: usize, message: String) -> Finding {
 }
 
 fn scan_text(g: &GuardDef, c: &Compiled, path: &str, text: &str, out: &mut Vec<Finding>) {
-    for (n, line) in text.lines().enumerate() {
-        for m in c.line_hits(g, path, line) {
-            out.push(hit(g, path, n + 1, m));
-        }
+    for (line, message) in c.text_hits(g, path, text) {
+        out.push(hit(g, path, line, message));
     }
 }
 
@@ -31,6 +30,20 @@ fn inflate(bytes: &[u8]) -> Option<Vec<u8>> {
     let mut out = vec![];
     flate2::read::GzDecoder::new(bytes).take(MAX_INFLATED).read_to_end(&mut out).ok()?;
     Some(out)
+}
+
+/// The text of a file as a reader of the published bytes would see it: UTF-8 when it is, Latin-1
+/// otherwise. None for a binary file the guard does not read.
+fn as_text(g: &GuardDef, bytes: &[u8]) -> Option<String> {
+    if let Ok(s) = std::str::from_utf8(bytes)
+        && !s.contains('\0')
+    {
+        return Some(s.to_string());
+    }
+    if !g.read_binary {
+        return None;
+    }
+    Some(bytes.iter().map(|&b| b as char).collect())
 }
 
 /// The findings of one guard and the files in its paths it read.
@@ -42,10 +55,16 @@ pub struct Scanned {
 pub fn run(cfg: &Config, g: &GuardDef, c: &Compiled, range: &Resolved) -> Result<Scanned> {
     let mut out = vec![];
     let mut files = vec![];
+    for p in &c.missing {
+        out.push(hit(g, p, 1, "a published path is not present, so nothing reads it".into()));
+    }
     for path in range.files.iter().filter(|p| c.in_scope(p)) {
         files.push(path.clone());
         if c.denies_file(path) {
             out.push(hit(g, path, 1, "this file may not be here".into()));
+        }
+        for m in c.path_hits(path) {
+            out.push(hit(g, path, 1, m));
         }
         let Some(mut bytes) = read(&cfg.root, &range.source, path) else { continue };
         if let Some(max) = g.max_file_bytes
@@ -53,16 +72,15 @@ pub fn run(cfg: &Config, g: &GuardDef, c: &Compiled, range: &Resolved) -> Result
         {
             out.push(hit(g, path, 1, format!("{} bytes is over {max}", bytes.len())));
         }
-        if g.decompress && path.ends_with(".gz") {
+        if g.decompress && bytes.starts_with(&GZIP_MAGIC) {
             match inflate(&bytes) {
                 Some(b) => bytes = b,
                 None => out.push(hit(g, path, 1, "cannot be decompressed".into())),
             }
         }
-        if bytes.iter().take(8000).any(|b| *b == 0) {
-            continue;
+        if let Some(text) = as_text(g, &bytes) {
+            scan_text(g, c, path, &text, &mut out);
         }
-        scan_text(g, c, path, &String::from_utf8_lossy(&bytes), &mut out);
     }
     if g.commit_messages
         && let Some(r) = &range.commits

@@ -1,70 +1,58 @@
-//! A guard's definition turned into matchers: which paths it reads, which files may not exist,
-//! and what one line trips (denied terms, patterns, secrets) after URL and allow-list exemptions.
+//! A guard's definition turned into matchers: which paths it reads (its own and, when asked,
+//! every published path), which files and paths may not exist, and what a text trips (denied
+//! terms, patterns, secrets) after allow-list exemptions.
 
+use super::pattern::{self, Pattern, Spans};
 use super::{secrets, terms};
 use crate::config::{Config, GuardDef};
+use crate::workspace::exposure;
 use crate::workspace::owners::{PathMatch, matcher};
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use regex::Regex;
-use std::sync::OnceLock;
-
-pub struct Pattern {
-    pub re: Regex,
-    pub label: String,
-    pub not_in_url: bool,
-    pub exempt: Vec<PathMatch>,
-    pub must_hit: Vec<String>,
-    pub must_pass: Vec<String>,
-}
 
 pub struct Compiled {
+    /// Whether `paths` limits the scope; without it the guard reads the whole repository.
+    limited: bool,
     paths: Vec<PathMatch>,
     exclude: Vec<PathMatch>,
     deny_files: Vec<PathMatch>,
     terms: Option<Regex>,
     pub patterns: Vec<Pattern>,
+    pub path_patterns: Vec<Pattern>,
     allow: Vec<String>,
+    /// Published paths that do not exist.
+    pub missing: Vec<String>,
 }
 
 pub fn compile(cfg: &Config, g: &GuardDef) -> Result<Compiled> {
-    let mut patterns = vec![];
-    for rule in &g.deny_regex {
-        let s = rule.spec();
-        let re = Regex::new(&s.re).map_err(|e| anyhow!("guard {}: bad regex {}: {e}", g.name, s.re))?;
-        patterns.push(Pattern {
-            label: s.label.clone().unwrap_or_else(|| s.re.clone()),
-            re,
-            not_in_url: s.not_in_url,
-            exempt: s.exempt.iter().filter_map(|p| matcher(p)).collect(),
-            must_hit: s.must_hit,
-            must_pass: s.must_pass,
-        });
+    let compile_all = |rules: &[crate::config::RegexRule]| -> Result<Vec<Pattern>> {
+        rules.iter().map(|r| pattern::compile(&g.name, r.spec())).collect()
+    };
+    let mut paths: Vec<PathMatch> = g.paths.iter().filter_map(|p| matcher(p)).collect();
+    let mut missing = vec![];
+    if g.public {
+        for e in exposure::scan(cfg).exposed {
+            if !cfg.root.join(&e.path).exists() {
+                missing.push(e.path.clone());
+            }
+            paths.extend(matcher(&e.path));
+        }
     }
     Ok(Compiled {
-        paths: g.paths.iter().filter_map(|p| matcher(p)).collect(),
+        limited: !g.paths.is_empty() || g.public,
+        paths,
         exclude: g.exclude.iter().filter_map(|p| matcher(p)).collect(),
         deny_files: g.deny_files.iter().filter_map(|p| matcher(p)).collect(),
         terms: terms::matcher(&terms::load(cfg, g)?),
-        patterns,
+        patterns: compile_all(&g.deny_regex)?,
+        path_patterns: compile_all(&g.deny_path_regex)?,
         allow: g.allow.iter().map(|a| a.to_lowercase()).collect(),
+        missing,
     })
 }
 
-fn url_re() -> &'static Regex {
-    static R: OnceLock<Regex> = OnceLock::new();
-    R.get_or_init(|| Regex::new(r#"[a-zA-Z][a-zA-Z0-9+.-]*://[^\s"'<>)\]]+"#).unwrap())
-}
-
-impl Pattern {
-    /// The first match on `line` that does not sit inside a URL (when asked).
-    pub fn find<'a>(&self, line: &'a str) -> Option<&'a str> {
-        let urls: Vec<(usize, usize)> =
-            if self.not_in_url { url_re().find_iter(line).map(|m| (m.start(), m.end())).collect() } else { vec![] };
-        self.re
-            .find_iter(line)
-            .find(|m| !urls.iter().any(|(s, e)| m.start() >= *s && m.end() <= *e))
-            .map(|m| m.as_str())
-    }
+fn line_of(newlines: &[usize], at: usize) -> usize {
+    newlines.partition_point(|&n| n < at) + 1
 }
 
 impl Compiled {
@@ -73,34 +61,47 @@ impl Compiled {
         self.allow.iter().any(|a| t.contains(a.as_str()))
     }
 
-    /// What one line of `path` trips, as messages; terms are masked.
-    pub fn line_hits(&self, g: &GuardDef, path: &str, line: &str) -> Vec<String> {
-        let mut out = vec![];
-        if let Some(m) = self.terms.as_ref().and_then(|t| t.find(line))
-            && !self.allowed(m.as_str())
-        {
-            out.push(format!("denied term {}", terms::mask(m.as_str())));
+    /// What `text` of `path` trips, as (line, message); one entry per line and kind of hit.
+    /// Terms are masked.
+    pub fn text_hits(&self, g: &GuardDef, path: &str, text: &str) -> Vec<(usize, String)> {
+        let newlines: Vec<usize> = text.match_indices('\n').map(|(i, _)| i).collect();
+        let mut out: Vec<(usize, String)> = vec![];
+        if let Some(t) = &self.terms {
+            for m in t.find_iter(text).filter(|m| !self.allowed(m.as_str())) {
+                out.push((line_of(&newlines, m.start()), format!("denied term {}", terms::mask(m.as_str()))));
+            }
         }
-        for p in self.patterns.iter().filter(|p| !p.exempt.iter().any(|m| m.is_match(path))) {
-            if let Some(m) = p.find(line)
-                && !self.allowed(m)
-            {
-                out.push(format!("matches {}", p.label));
+        let mut spans = Spans::default();
+        for p in self.patterns.iter().filter(|p| p.applies_to(path)) {
+            for (at, hit) in p.hits(path, text, &mut spans) {
+                if !self.allowed(hit) {
+                    out.push((line_of(&newlines, at), format!("matches {}", p.label)));
+                }
             }
         }
         if g.secrets {
             for s in secrets::all() {
-                if s.re.find(line).is_some_and(|m| !self.allowed(m.as_str())) {
-                    out.push(format!("looks like a {}", s.name));
+                for m in s.re.find_iter(text).filter(|m| !self.allowed(m.as_str())) {
+                    out.push((line_of(&newlines, m.start()), format!("looks like a {}", s.name)));
                 }
             }
         }
+        out.sort();
+        out.dedup();
         out
     }
 
+    /// Path patterns the repository-relative `path` itself trips.
+    pub fn path_hits(&self, path: &str) -> Vec<String> {
+        self.path_patterns
+            .iter()
+            .filter(|p| p.applies_to(path) && p.re.is_match(path).unwrap_or(false))
+            .map(|p| format!("path matches {}", p.label))
+            .collect()
+    }
+
     pub fn in_scope(&self, path: &str) -> bool {
-        (self.paths.is_empty() || self.paths.iter().any(|m| m.is_match(path)))
-            && !self.exclude.iter().any(|m| m.is_match(path))
+        (!self.limited || self.paths.iter().any(|m| m.is_match(path))) && !self.exclude.iter().any(|m| m.is_match(path))
     }
 
     pub fn denies_file(&self, path: &str) -> bool {

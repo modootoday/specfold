@@ -12,6 +12,10 @@ pub struct GuardDef {
     /// Patterns the guard looks at; empty means the whole repository.
     #[serde(default)]
     pub paths: Vec<String>,
+    /// Also look at every published path ([public] paths, public submodules, detectors); one that
+    /// is missing is a hit, since it is still published and nothing would read it.
+    #[serde(default)]
+    pub public: bool,
     #[serde(default)]
     pub exclude: Vec<String>,
     /// Default range when none is given: `staged`, `push` or `all`.
@@ -24,8 +28,12 @@ pub struct GuardDef {
     pub deny_terms_file: Option<String>,
     /// An environment variable holding terms separated by newlines or commas.
     pub deny_terms_env: Option<String>,
+    /// Patterns over file contents; lookaround and backreferences are allowed.
     #[serde(default)]
     pub deny_regex: Vec<RegexRule>,
+    /// Patterns over the repository-relative path of every file read.
+    #[serde(default)]
+    pub deny_path_regex: Vec<RegexRule>,
     #[serde(default)]
     pub deny_files: Vec<String>,
     pub max_file_bytes: Option<u64>,
@@ -44,9 +52,12 @@ pub struct GuardDef {
     /// that stopped matching fails loudly instead of passing everything.
     #[serde(default)]
     pub fixtures: GuardFixtures,
-    /// Read gzip-compressed files (.gz) instead of skipping them as binary.
+    /// Read gzip-compressed files (any file starting with the gzip header, .gz or .tgz) as text.
     #[serde(default)]
     pub decompress: bool,
+    /// Read binary files as Latin-1 text instead of skipping them; a published binary is published.
+    #[serde(default)]
+    pub read_binary: bool,
     /// A whole-tree run that scanned no file in the guard's paths fails.
     #[serde(default = "defaults::yes")]
     pub fail_if_empty: bool,
@@ -71,7 +82,7 @@ pub enum RegexRule {
     Full(RegexSpec),
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct RegexSpec {
     pub re: String,
@@ -80,6 +91,14 @@ pub struct RegexSpec {
     /// Ignore matches inside a URL.
     #[serde(default)]
     pub not_in_url: bool,
+    /// Ignore matches inside a regular-expression literal of a JavaScript or TypeScript file,
+    /// where a rule has to spell what it recognises.
+    #[serde(default)]
+    pub not_in_regex_literal: bool,
+    /// Paths where matches inside Markdown or HTML code (fences, inline code, <code>) are
+    /// examples, not prose.
+    #[serde(default)]
+    pub code_exempt: Vec<String>,
     /// Paths this pattern does not apply to.
     #[serde(default)]
     pub exempt: Vec<String>,
@@ -92,14 +111,7 @@ pub struct RegexSpec {
 impl RegexRule {
     pub fn spec(&self) -> RegexSpec {
         match self {
-            RegexRule::Plain(re) => RegexSpec {
-                re: re.clone(),
-                label: None,
-                not_in_url: false,
-                exempt: vec![],
-                must_hit: vec![],
-                must_pass: vec![],
-            },
+            RegexRule::Plain(re) => RegexSpec { re: re.clone(), ..Default::default() },
             RegexRule::Full(s) => s.clone(),
         }
     }
