@@ -17,6 +17,16 @@ fn ids(ctx: &Ctx, list: &[usize]) -> Vec<String> {
     list.iter().map(|&i| ctx.corpus.docs[i].id.to_string()).collect()
 }
 
+/// The external root (an agent's memory, personal notes) holding a note named `target`.
+fn external_note(ctx: &Ctx, target: &str) -> Option<String> {
+    let cfg = &ctx.corpus.cfg;
+    cfg.raw
+        .external
+        .iter()
+        .find(|(_, ext)| cfg.expand_path(&ext.path).join(format!("{target}.md")).is_file())
+        .map(|(name, _)| name.clone())
+}
+
 impl Rule for LinksResolve {
     fn info(&self) -> &RuleInfo {
         &RuleInfo {
@@ -77,6 +87,18 @@ impl Rule for LinksResolve {
                     }
                     Resolution::Missing => {
                         let target = RefText::parse(&l.item).target;
+                        if let Some(root) = external_note(ctx, &target) {
+                            out.push(Finding::warn(
+                                "L1",
+                                &l.path,
+                                l.line,
+                                format!(
+                                    "[[{}]] is a note in the external root {root}, which other readers cannot open",
+                                    l.item
+                                ),
+                            ));
+                            continue;
+                        }
                         out.push(
                             Finding::error("L1", &l.path, l.line, format!("[[{}]] names no document", l.item))
                                 .fix_cmd(format!("spec find {}", quote(&target))),

@@ -174,7 +174,11 @@ fn doc_row(c: &Corpus, map: &ImportMap, u: &Unit, taken: &mut BTreeSet<String>, 
     fm.insert("id".into(), Value::String(id.to_string()));
     fm.entry("created").or_insert_with(|| Value::String(stamp::normalize_date(&k).unwrap_or_else(stamp::today)));
     let created_v = fm["created"].clone();
-    fm.entry("updated").or_insert(created_v);
+    let updated = fm.entry("updated").or_insert(created_v.clone());
+    // Old records sometimes date an edit before the file existed; the later date wins.
+    if updated.as_str() < created_v.as_str() {
+        *updated = created_v;
+    }
     let mut aliases = conv.aliases;
     if let Some(a) = caps.as_ref().and_then(|c| c.name("alias")) {
         aliases.push(a.as_str().to_string());
@@ -188,8 +192,11 @@ fn doc_row(c: &Corpus, map: &ImportMap, u: &Unit, taken: &mut BTreeSet<String>, 
     let content = format!("{}{}", frontmatter::render(&crate::markdown::frontmatter::edit::ordered(fm)), split.body);
     out.plan.write(main.clone(), content, true);
     out.plan.remove(u.source.clone());
+    // Old paths of chapters and attachments name the document too, so their citations resolve.
     for old in std::iter::once(u.source.clone())
         .chain((u.main != u.source).then(|| u.main.clone()))
+        .chain(u.chapters.iter().cloned())
+        .chain(u.attachments.iter().cloned())
         .chain(aliases.iter().cloned())
     {
         out.alias_rows.push((old, id.to_string()));

@@ -79,6 +79,9 @@ type = "guide"
         assert_eq!(p.rows[0].aliases, ["0007"]);
         assert_eq!(p.rows[1].path, ".spec/research/20260201000000-launch/index.research.md");
         assert!(p.alias_rows.contains(&("old/launch.md".to_string(), "research:root/20260201000000".to_string())));
+        let chapter =
+            ("docs/plans/2026-02-01-launch/10-steps.md".to_string(), "research:root/20260201000000".to_string());
+        assert!(p.alias_rows.contains(&chapter), "a chapter's old path names its document");
         p.plan.apply(r).unwrap();
         let c2 = Corpus::load(Config::from_raw(r.to_path_buf(), c.cfg.raw.clone(), false), &LoadOptions::default());
         assert_eq!(c2.docs.len(), 3);

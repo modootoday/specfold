@@ -64,7 +64,12 @@ impl Graph {
     /// Resolves an id, an alias, or a path to a document, checking the anchor if there is one.
     pub fn resolve(&self, text: &str) -> Resolution {
         let r = RefText::parse(text);
-        let target = r.target.trim_start_matches("./").trim_end_matches('/');
+        // A path written relative to the citing file (`../../.spec/…`) names the same document;
+        // ids never start with a dot, so stripping these prefixes cannot change an id.
+        let mut target = r.target.trim_end_matches('/');
+        while let Some(rest) = target.strip_prefix("../").or_else(|| target.strip_prefix("./")) {
+            target = rest;
+        }
         let (candidates, via_alias) = if let Some(&i) = self.by_id.get(target).or_else(|| self.by_path.get(target)) {
             (vec![i], false)
         } else if let Some(list) = self.by_alias.get(target) {

@@ -49,6 +49,8 @@ mod tests {
         let g = Graph::build(&c);
         let idx = |id: &str| g.by_id[id];
         assert!(matches!(g.resolve("ADR-7"), Resolution::Doc { via_alias: true, .. }));
+        let relative = g.resolve("../../services/shop/.spec/sot/cart.sot.md");
+        assert!(matches!(relative, Resolution::Doc { idx, .. } if idx == g.by_id["sot:shop/cart"]));
         assert!(matches!(g.resolve("sot:shop/cart#NOPE"), Resolution::MissingAnchor { .. }));
         assert_eq!(
             query::chain(&g, idx("adr:shop/20260101000000")),

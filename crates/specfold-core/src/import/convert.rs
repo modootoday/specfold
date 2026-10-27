@@ -12,6 +12,16 @@ pub struct Converted {
     pub unresolved: Vec<String>,
 }
 
+/// A document named in an old relation, without the notes and extensions people wrote around it:
+/// `ADR-7-use-files.md (platform clauses only)` becomes `ADR-7-use-files`.
+fn document_target(raw: &str) -> String {
+    let mut s = raw.trim();
+    if let Some(i) = s.find(" (") {
+        s = &s[..i];
+    }
+    s.trim_end_matches(".md").trim().to_string()
+}
+
 pub fn status(map: &ImportMap, rule: &SourceRule, old: &str, allowed: &[String]) -> Option<String> {
     let mapped = rule.status.get(old).or_else(|| map.status.get(old)).cloned().unwrap_or_else(|| old.to_string());
     allowed.contains(&mapped).then_some(mapped)
@@ -41,7 +51,8 @@ pub fn frontmatter(
                 let kind = &t[4..];
                 let list = rel.entry(kind.to_string()).or_insert_with(|| Value::Array(vec![]));
                 if let Value::Array(items) = list {
-                    items.extend(list_of(Some(v)).into_iter().map(Value::String));
+                    let clean = |s: String| if kind == "governs" { s } else { document_target(&s) };
+                    items.extend(list_of(Some(v)).into_iter().map(clean).map(Value::String));
                 }
             }
             "aliases" => aliases.extend(list_of(Some(v))),
@@ -115,5 +126,19 @@ mod tests {
         assert_eq!((both["verify"].as_str(), both["verify_note"].as_str()), (Some("cargo test"), Some("prose")));
         let manual = convert("check: manual\nstatus: active\n");
         assert_eq!(manual["verify"], "manual");
+    }
+
+    #[test]
+    fn relation_targets_lose_notes_and_extensions_but_governs_keeps_paths() {
+        let map: ImportMap =
+            toml::from_str("[keys]\nsupersedes = \"rel.supersedes\"\napplies_to = \"rel.governs\"\n").unwrap();
+        let rule: SourceRule = toml::from_str("glob = \"x\"\ntype = \"adr\"").unwrap();
+        let yaml = "status: active\nsupersedes: [\"ADR-7-use-files.md (platform clauses only)\"]\napplies_to: [\"docs/a.md\"]\n";
+        let crate::markdown::frontmatter::Parsed::Map(old) = crate::markdown::frontmatter::parse(Some(yaml)) else {
+            panic!("fixture does not parse")
+        };
+        let fm = frontmatter(&map, &rule, &old, &["active".to_string()], "t").fm;
+        assert_eq!(fm["rel"]["supersedes"][0], "ADR-7-use-files");
+        assert_eq!(fm["rel"]["governs"][0], "docs/a.md");
     }
 }
