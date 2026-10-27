@@ -25,6 +25,13 @@ fn path_token_re() -> &'static Regex {
     R.get_or_init(|| Regex::new(r"(?:[A-Za-z0-9_.@-]+/)+[A-Za-z0-9_.@-]+").unwrap())
 }
 
+/// `type:owner/key`: outside documents, `[[…]]` is also TOML, shell and array syntax, so only
+/// this shape (or a known alias) is read as a reference that must resolve.
+fn id_shaped(target: &str) -> bool {
+    static R: OnceLock<Regex> = OnceLock::new();
+    R.get_or_init(|| Regex::new(r"^[a-z][a-z0-9-]*:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(#\S+)?$").unwrap()).is_match(target)
+}
+
 struct Files {
     include: Vec<PathMatch>,
     exclude: Vec<PathMatch>,
@@ -88,7 +95,7 @@ fn judge(ctx: &Ctx, path: &str, line: usize, written: &str, target: &str, by_pat
         Resolution::MissingAnchor { idx, anchor } => {
             Some(Finding::error("L6", path, line, format!("{} has no anchor #{anchor}", id_of(idx))))
         }
-        Resolution::Missing if by_path => None,
+        Resolution::Missing if by_path || !id_shaped(target) => None,
         Resolution::Missing => Some(Finding::error("L6", path, line, format!("{written} names no document"))),
     }
 }

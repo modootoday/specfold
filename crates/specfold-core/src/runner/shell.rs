@@ -29,8 +29,8 @@ const NOT_FOUND: i32 = 127;
 /// How long to wait for output pipes after a kill before giving up on them.
 const DRAIN: Duration = Duration::from_secs(1);
 
-fn spawn(root: &Path, cmd: &str, env: &[(String, String)]) -> std::io::Result<Child> {
-    let (prog, flag) = if cfg!(windows) { ("cmd", "/C") } else { ("sh", "-c") };
+fn spawn(root: &Path, cmd: &str, env: &[(String, String)], shell: Option<&str>) -> std::io::Result<Child> {
+    let (prog, flag) = if cfg!(windows) { ("cmd", "/C") } else { (shell.unwrap_or("sh"), "-c") };
     let mut c = Command::new(prog);
     c.arg(flag).arg(cmd).current_dir(root).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
     for (k, v) in env {
@@ -70,9 +70,9 @@ fn last_line(text: &str) -> Option<String> {
     text.lines().rev().find(|l| !l.trim().is_empty()).map(|l| l.trim().chars().take(200).collect())
 }
 
-pub fn run(root: &Path, cmd: &str, env: &[(String, String)], timeout: Duration) -> Outcome {
+pub fn run(root: &Path, cmd: &str, env: &[(String, String)], timeout: Duration, shell: Option<&str>) -> Outcome {
     let start = Instant::now();
-    let mut child = match spawn(root, cmd, env) {
+    let mut child = match spawn(root, cmd, env, shell) {
         Ok(c) => c,
         Err(e) => {
             return Outcome {
@@ -116,18 +116,25 @@ mod tests {
     fn verdicts() {
         let root = std::env::temp_dir();
         let t = Duration::from_secs(5);
-        assert_eq!(run(&root, "true", &[], t).verdict, Verdict::Pass);
-        let failed = run(&root, "echo nope >&2; exit 3", &[], t);
+        assert_eq!(run(&root, "true", &[], t, None).verdict, Verdict::Pass);
+        let failed = run(&root, "echo nope >&2; exit 3", &[], t, None);
         assert_eq!((failed.verdict, failed.tail.as_str()), (Verdict::Fail(Some(3)), "nope"));
-        assert!(matches!(run(&root, "definitely-not-a-program-xyz", &[], t).verdict, Verdict::CannotRun(_)));
+        assert!(matches!(run(&root, "definitely-not-a-program-xyz", &[], t, None).verdict, Verdict::CannotRun(_)));
         let env = [("SPECFOLD_T".to_string(), "1".to_string())];
-        assert_eq!(run(&root, "test \"$SPECFOLD_T\" = 1", &env, t).verdict, Verdict::Pass);
+        assert_eq!(run(&root, "test \"$SPECFOLD_T\" = 1", &env, t, None).verdict, Verdict::Pass);
+    }
+
+    #[test]
+    fn a_configured_shell_runs_its_own_syntax() {
+        let root = std::env::temp_dir();
+        let t = Duration::from_secs(5);
+        assert_eq!(run(&root, "diff <(echo a) <(echo a)", &[], t, Some("bash")).verdict, Verdict::Pass);
     }
 
     #[test]
     fn a_hung_command_and_its_children_are_killed() {
         let root = std::env::temp_dir();
-        let o = run(&root, "sleep 30 & sleep 30", &[], Duration::from_millis(300));
+        let o = run(&root, "sleep 30 & sleep 30", &[], Duration::from_millis(300), None);
         assert_eq!(o.verdict, Verdict::Timeout);
         assert!(o.elapsed < Duration::from_secs(5), "{:?}", o.elapsed);
     }

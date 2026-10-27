@@ -25,6 +25,12 @@ fn substitutions(cmd: &str) -> (String, Vec<String>) {
     let (mut single, mut i) = (false, 0);
     while i < chars.len() {
         let c = chars[i];
+        if c == '\\' && !single && i + 1 < chars.len() {
+            outer.push(c);
+            outer.push(chars[i + 1]);
+            i += 2;
+            continue;
+        }
         if c == '\'' {
             single = !single;
         }
@@ -65,9 +71,15 @@ fn redirect_amp(chars: &[char], i: usize) -> bool {
 fn segments(cmd: &str) -> Vec<String> {
     let chars: Vec<char> = cmd.chars().collect();
     let (mut out, mut cur) = (vec![], String::new());
-    let (mut single, mut double) = (false, false);
+    let (mut single, mut double, mut escaped) = (false, false, false);
     for (i, &c) in chars.iter().enumerate() {
+        if escaped {
+            escaped = false;
+            cur.push(c);
+            continue;
+        }
         match c {
+            '\\' if !single => escaped = true,
             '\'' if !double => single = !single,
             '"' if !single => double = !double,
             '&' if !single && !double && redirect_amp(&chars, i) => {}
@@ -86,9 +98,15 @@ fn segments(cmd: &str) -> Vec<String> {
 /// Whitespace-separated words with quotes removed.
 fn words(segment: &str) -> Vec<String> {
     let (mut out, mut cur) = (vec![], String::new());
-    let (mut single, mut double) = (false, false);
+    let (mut single, mut double, mut escaped) = (false, false, false);
     for c in segment.chars() {
+        if escaped {
+            escaped = false;
+            cur.push(c);
+            continue;
+        }
         match c {
+            '\\' if !single => escaped = true,
             '\'' if !double => single = !single,
             '"' if !single => double = !double,
             c if c.is_whitespace() && !single && !double => {
@@ -117,6 +135,11 @@ fn is_assignment(w: &str) -> bool {
 fn program(segment: &str) -> Option<String> {
     let mut ws = words(segment).into_iter().peekable();
     while let Some(w) = ws.next() {
+        // A subshell or group opens on the command word itself: `(cd dir && make)`.
+        let w = w.trim_start_matches(['(', '{']).to_string();
+        if w.is_empty() {
+            continue;
+        }
         if OPAQUE.contains(&w.as_str()) {
             return None;
         }
@@ -211,6 +234,13 @@ mod tests {
         assert_eq!(progs("make &> build.log && cat build.log"), ["make", "cat"]);
         assert_eq!(progs("echo x >&2; jq . a <&0"), ["jq"]);
         assert_eq!(progs("sleep 1 & wait"), ["sleep"]);
+    }
+
+    #[test]
+    fn subshells_and_escaped_quotes_are_read() {
+        assert_eq!(progs("(cd app && bun run test)"), ["bun"]);
+        assert_eq!(progs(r#"test -z "$(grep -h x f | tr -d " \"" | sort -u)""#), ["grep", "tr", "sort"]);
+        assert_eq!(progs(r#"grep -q "a\` — " AGENTS.md && exit 1"#), ["grep"]);
     }
 
     #[cfg(unix)]

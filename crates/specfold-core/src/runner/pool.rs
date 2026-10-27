@@ -22,6 +22,8 @@ pub struct Settings {
     pub jobs: usize,
     /// Commands matching any of these run one at a time.
     pub serial: Vec<Regex>,
+    /// The shell to run commands in; `sh` when unset.
+    pub shell: Option<String>,
 }
 
 impl Settings {
@@ -33,7 +35,7 @@ impl Settings {
     }
 }
 
-fn one(root: &Path, job: &Job) -> Outcome {
+fn one(root: &Path, job: &Job, shell_prog: Option<&str>) -> Outcome {
     let missing = tools::missing_programs(root, &job.cmd);
     if !missing.is_empty() {
         return Outcome {
@@ -42,13 +44,19 @@ fn one(root: &Path, job: &Job) -> Outcome {
             elapsed: Duration::ZERO,
         };
     }
-    shell::run(root, &job.cmd, &job.env, job.timeout)
+    shell::run(root, &job.cmd, &job.env, job.timeout, shell_prog)
 }
 
-fn drain(root: &Path, queue: &Mutex<VecDeque<usize>>, unique: &[&Job], done: &Mutex<Vec<Option<Outcome>>>) {
+fn drain(
+    root: &Path,
+    queue: &Mutex<VecDeque<usize>>,
+    unique: &[&Job],
+    done: &Mutex<Vec<Option<Outcome>>>,
+    shell_prog: Option<&str>,
+) {
     loop {
         let Some(i) = queue.lock().ok().and_then(|mut q| q.pop_front()) else { return };
-        let o = one(root, unique[i]);
+        let o = one(root, unique[i], shell_prog);
         if let Ok(mut d) = done.lock() {
             d[i] = Some(o);
         }
@@ -71,10 +79,11 @@ pub fn run(root: &Path, jobs: &[Job], settings: &Settings) -> Vec<Outcome> {
     let light: Mutex<VecDeque<usize>> = Mutex::new((0..unique.len()).filter(|&i| !heavy(unique[i])).collect());
     let serial: Mutex<VecDeque<usize>> = Mutex::new((0..unique.len()).filter(|&i| heavy(unique[i])).collect());
     let done: Mutex<Vec<Option<Outcome>>> = Mutex::new(vec![None; unique.len()]);
+    let shell_prog = settings.shell.as_deref();
     std::thread::scope(|s| {
-        s.spawn(|| drain(root, &serial, &unique, &done));
+        s.spawn(|| drain(root, &serial, &unique, &done, shell_prog));
         for _ in 0..settings.workers() {
-            s.spawn(|| drain(root, &light, &unique, &done));
+            s.spawn(|| drain(root, &light, &unique, &done, shell_prog));
         }
     });
     let done = done.into_inner().unwrap_or_default();
@@ -103,7 +112,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let cmd = "echo x >> count.txt";
         let jobs = [job(cmd), job("exit 2"), job(cmd), job("true")];
-        let settings = Settings { jobs: 3, serial: vec![Regex::new("^exit").unwrap()] };
+        let settings = Settings { jobs: 3, serial: vec![Regex::new("^exit").unwrap()], shell: None };
         let out = run(dir.path(), &jobs, &settings);
         let verdicts: Vec<&Verdict> = out.iter().map(|o| &o.verdict).collect();
         assert_eq!(verdicts, [&Verdict::Pass, &Verdict::Fail(Some(2)), &Verdict::Pass, &Verdict::Pass]);

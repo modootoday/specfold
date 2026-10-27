@@ -44,8 +44,8 @@ const CONFIG_HELP: &[(&str, &str)] = &[
         "A committed file of known findings so only new ones fail (spec check --write-baseline), paths that never get a baseline, and per-rule levels (error, warn, off).",
     ),
     (
-        "[verify] timeout_ms, jobs, serial, full_run_on",
-        "How spec verify runs commands: the default deadline, parallel workers, regexes for heavy commands run one at a time, and paths whose change runs every check.",
+        "[verify] timeout_ms, jobs, serial, full_run_on, shell",
+        "How spec verify runs commands: the default deadline, parallel workers, regexes for heavy commands run one at a time, paths whose change runs every check, and the shell (sh unless set, bash for bash syntax).",
     ),
     (
         "[cites] paths, exclude, history",

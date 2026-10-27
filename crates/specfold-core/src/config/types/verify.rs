@@ -18,10 +18,20 @@ pub struct VerifySection {
     /// Paths whose change runs every verify command (lockfiles, shared manifests, the checks themselves).
     #[serde(default)]
     pub full_run_on: Vec<String>,
+    /// The POSIX shell commands run in, unless set: `bash` for commands written with bash syntax
+    /// such as `<( … )`. Ignored on Windows, where commands run in `cmd`.
+    #[serde(default)]
+    pub shell: Option<String>,
 }
 
 impl Default for VerifySection {
     fn default() -> Self {
-        VerifySection { timeout_ms: defaults::verify_timeout_ms(), jobs: 0, serial: vec![], full_run_on: vec![] }
+        VerifySection {
+            timeout_ms: defaults::verify_timeout_ms(),
+            jobs: 0,
+            serial: vec![],
+            full_run_on: vec![],
+            shell: None,
+        }
     }
 }

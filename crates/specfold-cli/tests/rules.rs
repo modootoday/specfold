@@ -103,7 +103,9 @@ fn citations_in_code_resolve_and_staged_runs_read_only_added_lines() {
     let sot_path = path_of(&r, &sot);
     r.write(
         "services/shop/src/cart/total.rs",
-        &format!("// see [[{sot}]]\n// old [[sot:shop/gone]]\n// path {sot_path}\nfn total() {{}}\n"),
+        &format!(
+            "// see [[{sot}]]\n// old [[sot:shop/gone]]\n// path {sot_path}\nfn total() {{}}\n// [[allowlist]] if [[ -f x ]]\n"
+        ),
     );
     r.write("AGENTS.md", "Rules moved to sot:shop/gone long ago; formerly [[sot:shop/gone]].\n");
     let (code, v) = r.json(&["check", "--rule", "L6"]);
@@ -120,7 +122,7 @@ fn citations_in_code_resolve_and_staged_runs_read_only_added_lines() {
     let (_, v) = r.json(&["check", "--staged", "--rule", "L6"]);
     let items = v["items"].as_array().unwrap();
     assert_eq!(items.len(), 1, "{v}");
-    assert_eq!(items[0]["line"], 5);
+    assert_eq!(items[0]["line"], 6);
 }
 
 #[test]

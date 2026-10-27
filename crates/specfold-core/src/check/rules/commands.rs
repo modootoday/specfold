@@ -20,7 +20,11 @@ pub struct GeneratedInSync;
 
 fn settings(ctx: &Ctx) -> Settings {
     let v = &ctx.corpus.cfg.raw.verify;
-    Settings { jobs: v.jobs, serial: v.serial.iter().filter_map(|r| Regex::new(r).ok()).collect() }
+    Settings {
+        jobs: v.jobs,
+        serial: v.serial.iter().filter_map(|r| Regex::new(r).ok()).collect(),
+        shell: v.shell.clone(),
+    }
 }
 
 fn timeout(ctx: &Ctx, d: &Doc) -> Duration {
