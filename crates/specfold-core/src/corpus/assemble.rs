@@ -35,6 +35,7 @@ pub fn group(cfg: &Config, root: &SpecRoot, files: &[String], strays: &mut Vec<S
         }
         let rest = path.strip_prefix(&format!("{}/", root.dir)).unwrap_or(path);
         match locate(&cfg.registry, rest) {
+            Location::Stray(_) if root.pending => {}
             Location::Stray(reason) => strays.push(Stray { path: path.clone(), reason }),
             Location::Doc(p) => {
                 let g = groups.entry((p.ty.clone(), p.stem.clone())).or_default();

@@ -89,6 +89,17 @@ Commit the import as one change of its own, separate from any content edits, so 
 reviewable. Findings that were already broken before the import (citations to files that never
 existed) go into the baseline (specfold-checks), and the baseline becomes the cleanup list.
 
+To import owner by owner, list the owners not yet imported in `spec.toml`:
+
+```toml
+[owners]
+pending = ["services/legacy"]
+```
+
+Documents already in type directories there are read as usual; files of the old layout raise no
+findings, so new files there need no baseline entries. Take an owner off the list in the change
+that imports it.
+
 ## Report
 
 The map's rules, the plan's row counts by kind, the unresolved rows and how each was settled,

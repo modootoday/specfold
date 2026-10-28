@@ -173,6 +173,49 @@ fn severity_turns_a_rule_down_or_off() {
 }
 
 #[test]
+fn a_pending_owner_keeps_its_old_layout_unread_until_import() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop/src", "Imported early");
+    r.write("services/shop/.spec/sots/old-rule.md", "# old\n");
+    assert_eq!(rules_hit(&r.json(&["check", "--rule", "S3"]).1), ["S3"]);
+    r.write(
+        "spec.toml",
+        &r.read("spec.toml").replace("root = \"ws\"\n", "root = \"ws\"\npending = [\"services/shop\"]\n"),
+    );
+    assert!(rules_hit(&r.json(&["check", "--rule", "S3"]).1).is_empty());
+    assert_eq!(r.json(&["show", &id]).0, 0);
+}
+
+#[test]
+fn a_staged_gitlink_brings_the_files_changed_inside_it_into_the_run() {
+    let lib = common::repo();
+    lib.write("docs/readme.md", "lib\n");
+    lib.commit("lib");
+    let r = common::repo();
+    r.git(&[
+        "-c",
+        "protocol.file.allow=always",
+        "submodule",
+        "add",
+        "-q",
+        lib.path().to_str().unwrap(),
+        "services/vendor",
+    ]);
+    r.commit("pin vendor");
+    r.write("services/vendor/.spec/notes/handoff.md", "# a note\n");
+    let sub = r.path().join("services/vendor");
+    for args in [
+        vec!["add", ".spec/notes/handoff.md"],
+        vec!["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "note"],
+    ] {
+        assert!(std::process::Command::new("git").args(&args).current_dir(&sub).status().unwrap().success());
+    }
+    r.git(&["add", "services/vendor"]);
+    assert_eq!(rules_hit(&r.json(&["check", "--staged", "--rule", "S3"]).1), ["S3"]);
+    assert_eq!(rules_hit(&r.json(&["check", "--changed", "HEAD", "--rule", "S3"]).1), ["S3"]);
+}
+
+#[test]
 fn a_full_check_leaves_whole_tree_guards_to_spec_guard() {
     let r = common::repo();
     let toml = r.read("spec.toml")

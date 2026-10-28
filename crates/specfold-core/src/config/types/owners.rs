@@ -28,10 +28,14 @@ pub struct OwnersSection {
     /// Directories whose code is gone; documents that only govern them belong to the root.
     #[serde(default)]
     pub retired: Vec<String>,
+    /// Directories whose spec directory still holds a layout `spec import` has not brought in:
+    /// typed documents there are read, files of the old layout are left unreported.
+    #[serde(default)]
+    pub pending: Vec<String>,
 }
 
 impl Default for OwnersSection {
     fn default() -> Self {
-        OwnersSection { root: defaults::root_owner(), kinds: vec![], manifests: None, retired: vec![] }
+        OwnersSection { root: defaults::root_owner(), kinds: vec![], manifests: None, retired: vec![], pending: vec![] }
     }
 }

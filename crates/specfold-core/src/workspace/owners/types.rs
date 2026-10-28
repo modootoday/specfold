@@ -14,6 +14,8 @@ pub struct Owner {
     /// For a public owner: the directory its documents go to instead.
     pub companion: Option<String>,
     pub retired: bool,
+    /// Its spec directory is not fully imported: typed documents are read, the rest is left alone.
+    pub pending: bool,
 }
 
 #[derive(Debug, Clone)]

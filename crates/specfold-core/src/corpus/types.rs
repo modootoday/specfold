@@ -13,6 +13,8 @@ pub struct SpecRoot {
     /// Relative to the repository root.
     pub dir: String,
     pub tier: Tier,
+    /// The owner is not imported yet: its typed documents are read, its old layout is not.
+    pub pending: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]

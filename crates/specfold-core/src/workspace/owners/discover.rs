@@ -9,6 +9,7 @@ impl Owners {
         let manifests = cfg.manifests();
         let public: Vec<PathMatch> = cfg.raw.public.paths.iter().filter_map(|p| matcher(p)).collect();
         let retired: Vec<PathMatch> = cfg.raw.owners.retired.iter().filter_map(|p| matcher(p)).collect();
+        let pending: Vec<PathMatch> = cfg.raw.owners.pending.iter().filter_map(|p| matcher(p)).collect();
         let mut list = vec![Owner {
             id: cfg.root_owner().to_string(),
             path: String::new(),
@@ -16,6 +17,7 @@ impl Owners {
             public: false,
             companion: None,
             retired: false,
+            pending: false,
         }];
         for kind in &cfg.raw.owners.kinds {
             for (path, caps) in expand(&cfg.root, &kind.pattern) {
@@ -30,6 +32,7 @@ impl Owners {
                     public: public.iter().any(|m| m.is_match(&path)),
                     companion: cfg.raw.public.companion.get(&path).cloned(),
                     retired: retired.iter().any(|m| m.is_match(&path)),
+                    pending: pending.iter().any(|m| m.is_match(&path)),
                     kind: kind.pattern.clone(),
                     path,
                 });

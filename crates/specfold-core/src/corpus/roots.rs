@@ -11,7 +11,8 @@ pub fn committed(cfg: &Config, owners: &Owners) -> Vec<SpecRoot> {
         .iter()
         .filter_map(|o| {
             let dir = owners.spec_dir(o, cfg.spec_dir());
-            cfg.root.join(&dir).is_dir().then(|| SpecRoot { owner: o.id.clone(), dir, tier: Tier::Committed })
+            let root = SpecRoot { owner: o.id.clone(), dir, tier: Tier::Committed, pending: o.pending };
+            cfg.root.join(&root.dir).is_dir().then_some(root)
         })
         .collect()
 }
@@ -32,7 +33,7 @@ pub fn local(cfg: &Config, owners: &Owners, strays: &mut Vec<Stray>) -> Vec<Spec
             strays.push(Stray { path: rel, reason: format!("'{name}' is not an owner id") });
             continue;
         }
-        out.push(SpecRoot { owner: name, dir: rel, tier: Tier::Local });
+        out.push(SpecRoot { owner: name, dir: rel, tier: Tier::Local, pending: false });
     }
     out.sort_by(|a, b| a.dir.cmp(&b.dir));
     out
