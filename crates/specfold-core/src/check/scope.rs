@@ -22,6 +22,9 @@ pub struct Scope {
     pub range: Range,
     /// Changed repository paths; empty for `All`.
     pub paths: BTreeSet<String>,
+    /// The part of `paths` inside submodules whose gitlink the change moves; the outer index
+    /// cannot show them, so a staged run reads them from the submodule's checkout.
+    pub in_submodules: BTreeSet<String>,
     /// Indices of documents whose own files changed.
     pub touched: BTreeSet<usize>,
     /// `touched` plus documents that link to them.
@@ -32,17 +35,21 @@ pub struct Scope {
 
 impl Scope {
     pub fn build(c: &Corpus, g: &Graph, range: Range) -> Result<Self> {
-        let (paths, base) = match &range {
-            Range::All => (BTreeSet::new(), None),
+        let root = &c.cfg.root;
+        let (mut paths, in_submodules, base): (BTreeSet<String>, BTreeSet<String>, _) = match &range {
+            Range::All => (BTreeSet::new(), BTreeSet::new(), None),
             Range::Staged => {
-                let p = vcs::staged(&c.cfg.root).ok_or_else(|| anyhow!("--staged needs a git repository"))?;
-                (p.into_iter().collect(), Some("HEAD".to_string()))
+                let p = vcs::staged(root).ok_or_else(|| anyhow!("--staged needs a git repository"))?;
+                let sub = vcs::submodule_changes(root, vcs::Side::Staged);
+                (p.into_iter().collect(), sub.into_iter().collect(), Some("HEAD".to_string()))
             }
             Range::Changed(base) => {
-                let p = vcs::changed_since(&c.cfg.root, base).ok_or_else(|| anyhow!("cannot diff against {base}"))?;
-                (p.into_iter().collect(), Some(base.clone()))
+                let p = vcs::changed_since(root, base).ok_or_else(|| anyhow!("cannot diff against {base}"))?;
+                let sub = vcs::submodule_changes(root, vcs::Side::Since(base));
+                (p.into_iter().collect(), sub.into_iter().collect(), Some(base.clone()))
             }
         };
+        paths.extend(in_submodules.iter().cloned());
         let mut touched = BTreeSet::new();
         if !matches!(range, Range::All) {
             for (i, d) in c.docs.iter().enumerate() {
@@ -58,7 +65,7 @@ impl Scope {
                 with_neighbours.insert(e.from);
             }
         }
-        Ok(Scope { range, paths, touched, with_neighbours, base })
+        Ok(Scope { range, paths, in_submodules, touched, with_neighbours, base })
     }
 
     pub fn is_all(&self) -> bool {

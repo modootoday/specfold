@@ -33,9 +33,10 @@ impl Ctx<'_> {
 
     /// The content being checked: the index for staged runs, the working tree otherwise.
     pub fn current(&self, path: &str) -> Option<String> {
-        match self.scope.range {
-            super::scope::Range::Staged => vcs::show_staged(&self.corpus.cfg.root, path),
-            _ => std::fs::read_to_string(self.corpus.cfg.root.join(path)).ok(),
+        let staged = matches!(self.scope.range, super::scope::Range::Staged);
+        if staged && !self.scope.in_submodules.contains(path) {
+            return vcs::show_staged(&self.corpus.cfg.root, path);
         }
+        std::fs::read_to_string(self.corpus.cfg.root.join(path)).ok()
     }
 }
