@@ -20,6 +20,9 @@ pub struct SchemaArgs {
 pub struct HelpArgs {
     /// One command.
     pub command: Option<String>,
+    /// Print the command table as Markdown, as embedded in the README.
+    #[arg(long)]
+    pub markdown: bool,
 }
 
 #[derive(Debug, Clone, Args)]
