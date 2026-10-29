@@ -31,6 +31,7 @@ pub fn dispatch(cli: &Cli) -> Result<Output> {
         Cmd::Verify(a) => verify::verify::run(g, a),
         Cmd::Guard(a) => verify::guard::run(g, a),
         Cmd::Census(a) => verify::census::run(g, a),
+        Cmd::Doctor => verify::doctor::run(g),
         Cmd::Audit(a) => audit::run(g, a),
         Cmd::Explain(a) => setup::explain::run(g, a),
         Cmd::Schema(a) => setup::schema::run(g, a),

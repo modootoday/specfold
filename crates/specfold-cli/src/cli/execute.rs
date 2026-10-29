@@ -32,7 +32,7 @@ fn help_hint(name: &Option<String>) -> String {
 }
 
 pub fn execute(argv: Vec<String>) -> Executed {
-    let page = Page { limit: 30, offset: 0 };
+    let page = Page { limit: 30, offset: 0, max_bytes: None };
     let cli = match Cli::try_parse_from(&argv) {
         Ok(c) => c,
         Err(e) => {
@@ -77,7 +77,7 @@ pub fn execute(argv: Vec<String>) -> Executed {
     } else {
         Format::Text
     };
-    let page = Page { limit: cli.global.limit, offset: cli.global.offset };
+    let page = Page { limit: cli.global.limit, offset: cli.global.offset, max_bytes: cli.global.max_bytes };
     if matches!(cli.cmd, Cmd::Mcp) {
         return Executed { output: Output::new("mcp"), format, page, raw: None, serve_mcp: true };
     }

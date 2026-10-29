@@ -14,6 +14,10 @@ pub struct Global {
     /// Items per page for list output.
     #[arg(long, global = true, default_value_t = 30)]
     pub limit: usize,
+    /// Size budget in bytes for the items of list output: whole items are kept while they fit
+    /// (at least one), the rest are left for --offset. Each item counts as rendered.
+    #[arg(long, global = true, value_name = "BYTES")]
+    pub max_bytes: Option<usize>,
     /// Items to skip for list output.
     #[arg(long, global = true, default_value_t = 0)]
     pub offset: usize,

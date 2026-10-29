@@ -876,3 +876,64 @@ fn graph_impact_lists_assets_that_name_the_document() {
     let (_, text) = r.text(&["graph", "impact", &id]);
     assert!(text.contains("asset instructions AGENTS.md  names "), "{text}");
 }
+
+#[test]
+fn max_bytes_keeps_whole_items_and_points_at_the_rest() {
+    let r = common::repo();
+    for t in ["Cart", "Pay", "Ship"] {
+        r.new_doc("sot", "services/shop", t);
+    }
+    let (_, all) = r.json(&["find"]);
+    assert_eq!(all["items"].as_array().unwrap().len(), 3);
+    assert!(all.get("cut_by").is_none());
+    let (code, v) = r.json(&["find", "--max-bytes", "1"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["items"].as_array().unwrap().len(), 1, "always at least one whole item");
+    assert_eq!(v["more"], 2);
+    assert_eq!(v["cut_by"], "max_bytes");
+    assert_eq!(v["items"][0], all["items"][0]);
+    let (_, v) = r.json(&["find", "--max-bytes", "1", "--offset", "1"]);
+    assert_eq!(v["items"][0], all["items"][1]);
+    let input = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"spec_find\",\"arguments\":{\"max_bytes\":1}}}\n";
+    let out = r.spec().arg("mcp").write_stdin(input).output().unwrap();
+    let line: serde_json::Value =
+        serde_json::from_str(String::from_utf8_lossy(&out.stdout).lines().next().unwrap()).unwrap();
+    let payload: serde_json::Value =
+        serde_json::from_str(line["result"]["content"][0]["text"].as_str().unwrap()).unwrap();
+    assert_eq!(payload["more"], 2, "{payload}");
+}
+
+#[test]
+fn graph_assets_flag_adds_asset_nodes_to_the_whole_graph() {
+    let r = common::repo();
+    let toml = r.read("spec.toml") + "[[assets]]\nkind = \"instructions\"\npath = \"AGENTS.md\"\n";
+    r.write("spec.toml", &toml);
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    r.write("AGENTS.md", &format!("# Agents\n\nRead {id} first.\n"));
+    let (_, v) = r.json(&["graph"]);
+    assert!(v.get("assets").is_none(), "off by default: {v}");
+    let (code, v) = r.json(&["graph", "--assets"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["assets"][0]["names"][0], id.as_str(), "{v}");
+    let (_, m) = r.text(&["graph", "--assets", "--format", "mermaid"]);
+    assert!(m.contains("-.->|names| d0"), "{m}");
+    let (_, d) = r.text(&["graph", "--assets", "--format", "dot"]);
+    assert!(d.trim_end().ends_with('}') && d.contains("[label=\"names\""), "{d}");
+}
+
+#[test]
+fn doctor_reports_conflict_markers_without_writing() {
+    let r = common::repo();
+    let (code, v) = r.json(&["doctor"]);
+    assert_eq!(code, 0, "{v}");
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    let (_, v) = r.json(&["show", &id]);
+    let path = v["path"].as_str().unwrap().to_string();
+    let text = r.read(&path) + "\n<<<<<<< HEAD\na\n=======\nb\n>>>>>>> other\n";
+    r.write(&path, &text);
+    let (code, v) = r.json(&["doctor"]);
+    assert_eq!(code, 1, "{v}");
+    assert_eq!(v["items"][0]["check"], "conflict", "{v}");
+    assert_eq!(v["items"][0]["path"], path.as_str());
+    assert_eq!(r.read(&path), text);
+}

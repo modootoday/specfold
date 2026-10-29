@@ -91,6 +91,7 @@ pub fn example_doc_for(argv: &[String], prefer_ty: Option<&str>) -> Option<Strin
         jsonl: false,
         limit: 30,
         offset: 0,
+        max_bytes: None,
         dir,
         no_local: argv.iter().any(|a| a == "--no-local"),
     };
