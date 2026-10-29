@@ -44,8 +44,8 @@ const CONFIG_HELP: &[(&str, &str)] = &[
     ("[[plugins]]", "External programs speaking specfold.plugin.v1: rules, importers, exporters, audits, events."),
     ("[audit]", "Thresholds for stale, stalled and draft documents, and open-item markers."),
     (
-        "[check] baseline, strict, severity, extra_keys",
-        "A committed file of known findings so only new ones fail (spec check --write-baseline), paths that never get a baseline, per-rule levels (error, warn, off), and frontmatter keys every type may carry (rule S1; `review_*` allows a prefix).",
+        "[check] baseline, strict, severity, extra_keys, count_paths",
+        "A committed file of known findings so only new ones fail (spec check --write-baseline), paths that never get a baseline, per-rule levels (error, warn, off), and frontmatter keys every type may carry (rule S1; `review_*` allows a prefix), and Markdown files outside documents whose spec:count markers are checked (rule N1; `README.md`, `docs/**/*.md`).",
     ),
     (
         "[verify] timeout_ms, jobs, serial, full_run_on, shell",

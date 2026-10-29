@@ -664,3 +664,30 @@ fn box_graph_fits_columns_and_falls_back_to_ascii_or_the_tree() {
     let (_, v) = r.json(&["graph", "--format", "box"]);
     assert!(v["diagram"].as_str().unwrap().contains(&sot), "{v}");
 }
+
+#[test]
+fn new_refuses_a_forbidden_path_and_suggests_local() {
+    let r = common::repo();
+    r.write("spec.toml", &(r.read("spec.toml").replacen("[forbid]\n", "[forbid]\npaths = [\"**/.spec\"]\n", 1)));
+    if !r.read("spec.toml").contains("**/.spec") {
+        r.write("spec.toml", &(r.read("spec.toml") + "[forbid]\npaths = [\"**/.spec\"]\n"));
+    }
+    let (code, v) = r.json(&["new", "adr", "--governs", "services/shop", "--title", "Use files"]);
+    assert_ne!(code, 0, "{v}");
+    let e = v["error"].as_str().unwrap();
+    assert!(e.contains("[forbid]") && e.contains("--local"), "{e}");
+    assert!(!r.path().join("services/shop/.spec").exists(), "nothing written");
+    let (code, v) = r.json(&["new", "adr", "--governs", "services/shop", "--title", "Use files", "--local"]);
+    assert_eq!(code, 0, "{v}");
+}
+
+#[test]
+fn set_rejecting_a_status_names_the_allowed_ones_and_the_next_command() {
+    let r = common::repo();
+    let id = r.new_doc("plan", "services/shop", "Checkout");
+    assert_eq!(r.json(&["set", &id, "status=active"]).0, 0);
+    let (code, v) = r.json(&["set", &id, "status=done"]);
+    assert_ne!(code, 0);
+    let e = v["error"].as_str().unwrap();
+    assert!(e.contains("allowed:") && e.contains(&format!("next: spec set {id} status=archived")), "{e}");
+}

@@ -109,6 +109,16 @@ fn move_hint(ty: &crate::model::doctype::TypeDef, from: &str, to: &str, id: &str
     }
 }
 
+/// The status a word for "finished" most likely means: types name the end of their work
+/// differently (`archived`, `done`, `closed`), so a near miss gets the real one suggested.
+fn finishing_status<'a>(asked: &str, reachable: &[&'a String]) -> Option<&'a str> {
+    const FINISHED: &[&str] = &["done", "complete", "completed", "finished", "closed", "resolved", "archived"];
+    if !FINISHED.contains(&asked.to_lowercase().as_str()) {
+        return None;
+    }
+    FINISHED.iter().find_map(|f| reachable.iter().find(|s| s.as_str() == *f).map(|s| s.as_str()))
+}
+
 pub fn plan(c: &Corpus, idx: usize, assigns: &[Assign]) -> Result<Plan> {
     let d = &c.docs[idx];
     let ty = c.cfg.registry.get(&d.id.ty).ok_or_else(|| anyhow!("unknown type {}", d.id.ty))?;
@@ -121,7 +131,18 @@ pub fn plan(c: &Corpus, idx: usize, assigns: &[Assign]) -> Result<Plan> {
         }
         if a.key == "status" {
             if !ty.statuses.contains(&a.value) {
-                bail!("status '{}' is not allowed for {} (allowed: {})", a.value, ty.name, ty.statuses.join(", "));
+                let from = d.status().unwrap_or_else(|| ty.initial.clone());
+                let reachable: Vec<&String> =
+                    ty.statuses.iter().filter(|s| **s != from && ty.transition_allowed(&from, s)).collect();
+                let pick = finishing_status(&a.value, &reachable).or_else(|| reachable.first().map(|s| s.as_str()));
+                let next = pick.map(|s| format!("; next: spec set {} status={s}", d.id)).unwrap_or_default();
+                bail!(
+                    "status '{}' is not allowed for {} (allowed: {}; from '{from}': {}){next}",
+                    a.value,
+                    ty.name,
+                    ty.statuses.join(", "),
+                    reachable.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(", ")
+                );
             }
             let from = d.status().unwrap_or_else(|| ty.initial.clone());
             if !ty.transition_allowed(&from, &a.value) {
