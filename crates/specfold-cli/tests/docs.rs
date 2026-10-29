@@ -2,6 +2,7 @@
 
 mod common;
 
+use assert_cmd::Command;
 use std::path::PathBuf;
 
 fn root() -> PathBuf {
@@ -119,4 +120,22 @@ fn help_markdown_for_one_command_is_a_reference_page() {
     let (code, v) = r.json(&["help", "mvv", "--markdown"]);
     assert_ne!(code, 0);
     assert!(v["error"].as_str().unwrap().contains("did you mean 'mv'"), "{v}");
+}
+
+/// spec.toml lists README.md and docs/ in [check] count_paths, so a stale count marker in the
+/// published pages fails here before it ships.
+#[test]
+fn published_counts_are_current() {
+    let cache = std::env::temp_dir().join(format!("specfold-docs-cache-{}", std::process::id()));
+    let out = Command::cargo_bin("spec")
+        .unwrap()
+        .current_dir(root())
+        .env("SPECFOLD_CACHE", &cache)
+        .args(["check", "--rule", "N1", "--no-local"])
+        .output()
+        .unwrap();
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert_eq!(out.status.code(), Some(0), "{text}");
+    assert!(text.contains("0 error(s), 0 warning(s)"), "{text}");
+    let _ = std::fs::remove_dir_all(cache);
 }
