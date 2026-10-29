@@ -38,6 +38,44 @@ pub struct Created {
     pub id: String,
     pub path: String,
     pub owner_reason: String,
+    /// Why the slug is not what the title reads as, when it drops most of a non-ASCII title.
+    pub slug_note: Option<String>,
+}
+
+/// A slug from the title. Titles in other scripts lose their words to slugify, so when less than
+/// half the title's letters survive, the governed path's last segment names the slug instead,
+/// and the caller is told; with neither, --slug is required.
+fn derive_slug(title: &str, governs: &[String]) -> Result<(String, Option<String>)> {
+    let from_title = stamp::slugify(title);
+    let letters = title.chars().filter(|c| c.is_alphanumeric()).count();
+    let kept = title.chars().filter(|c| c.is_ascii_alphanumeric()).count();
+    if letters == 0 || kept * 2 >= letters {
+        if !stamp::is_slug(&from_title) {
+            bail!("cannot derive a slug from the title; pass --slug <kebab-case>");
+        }
+        return Ok((from_title, None));
+    }
+    let from_path = governs
+        .iter()
+        .filter_map(|g| g.trim_end_matches('/').rsplit('/').next())
+        .map(|seg| stamp::slugify(seg.split('.').next().unwrap_or(seg)))
+        .find(|s| stamp::is_slug(s));
+    match (from_path, stamp::is_slug(&from_title)) {
+        (Some(p), _) => {
+            let note = format!(
+                "the title is mostly non-ASCII, so the slug '{p}' comes from the governed path; pass --slug to name it"
+            );
+            Ok((p, Some(note)))
+        }
+        (None, true) => {
+            let note =
+                format!("the title is mostly non-ASCII, so the slug keeps only '{from_title}'; pass --slug to name it");
+            Ok((from_title, Some(note)))
+        }
+        (None, false) => bail!(
+            "the title has no ASCII words to make a slug from; pass --slug <kebab-case>, e.g. --slug payment-gateway"
+        ),
+    }
 }
 
 pub fn plan(c: &Corpus, g: &Graph, req: &NewDoc) -> Result<(Created, Plan)> {
@@ -66,12 +104,12 @@ pub fn plan(c: &Corpus, g: &Graph, req: &NewDoc) -> Result<(Created, Plan)> {
         }
         None => (decision.owner, decision.reason.clone()),
     };
-    let slug = match &req.slug {
-        Some(s) => s.clone(),
-        None => stamp::slugify(&req.title),
+    let (slug, slug_note) = match &req.slug {
+        Some(s) => (s.clone(), None),
+        None => derive_slug(&req.title, &req.governs)?,
     };
     if !stamp::is_slug(&slug) {
-        bail!("cannot derive a slug from the title; pass --slug <kebab-case>");
+        bail!("'{slug}' is not a kebab-case slug; pass --slug in lowercase words joined by '-'");
     }
     let mut key = match ty.key {
         KeyKind::Slug => slug.clone(),
@@ -108,7 +146,7 @@ pub fn plan(c: &Corpus, g: &Graph, req: &NewDoc) -> Result<(Created, Plan)> {
             bail!("--from {} is a {}, not a {}", old.id, old.id.ty, ty.name);
         }
         rel.insert("supersedes".into(), json!([old.id.to_string()]));
-        let old_plan = set::plan(c, idx, &[set::Assign::parse("status=superseded")?])?;
+        let old_plan = set::plan_superseded_by_new(c, idx)?;
         plan.changes.extend(old_plan.changes);
     }
     if !rel.is_empty() {
@@ -116,5 +154,5 @@ pub fn plan(c: &Corpus, g: &Graph, req: &NewDoc) -> Result<(Created, Plan)> {
     }
     let body = format!("\n# {}\n\n{}", req.title.trim(), req.body.as_deref().unwrap_or(&ty.template));
     plan.write(&path, format!("{}{body}", render(&edit::ordered(fm))), true);
-    Ok((Created { id: id.to_string(), path, owner_reason: reason }, plan))
+    Ok((Created { id: id.to_string(), path, owner_reason: reason, slug_note }, plan))
 }

@@ -120,6 +120,15 @@ fn finishing_status<'a>(asked: &str, reachable: &[&'a String]) -> Option<&'a str
 }
 
 pub fn plan(c: &Corpus, idx: usize, assigns: &[Assign]) -> Result<Plan> {
+    plan_with(c, idx, assigns, false)
+}
+
+/// The old document's half of `spec new --from`: its successor is written in the same change.
+pub fn plan_superseded_by_new(c: &Corpus, idx: usize) -> Result<Plan> {
+    plan_with(c, idx, &[Assign::parse("status=superseded")?], true)
+}
+
+fn plan_with(c: &Corpus, idx: usize, assigns: &[Assign], successor_pending: bool) -> Result<Plan> {
     let d = &c.docs[idx];
     let ty = c.cfg.registry.get(&d.id.ty).ok_or_else(|| anyhow!("unknown type {}", d.id.ty))?;
     for a in assigns {
@@ -150,6 +159,19 @@ pub fn plan(c: &Corpus, idx: usize, assigns: &[Assign]) -> Result<Plan> {
                     "status cannot move from '{from}' to '{}'; {}",
                     a.value,
                     move_hint(ty, &from, &a.value, &d.id.to_string())
+                );
+            }
+            // superseded without a successor is a T1 error the moment it is written.
+            let me = d.id.to_string();
+            let succeeded = c
+                .docs
+                .iter()
+                .any(|o| o.rel().get("supersedes").is_some_and(|l| l.iter().any(|x| x.trim_matches(['[', ']']) == me)));
+            if a.value == "superseded" && !succeeded && !successor_pending {
+                let title = d.title.clone().unwrap_or_else(|| d.slug.replace('-', " ")).replace('\'', "");
+                bail!(
+                    "nothing supersedes {me} yet, so status=superseded would fail T1; write the successor, which marks this one superseded (edit the title); next: spec new {} --from {me} --title '{title}'",
+                    ty.name
                 );
             }
         }

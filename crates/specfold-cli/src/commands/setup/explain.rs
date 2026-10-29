@@ -89,6 +89,7 @@ pub fn run(g: &Global, a: &ExplainArgs) -> Result<Output> {
     if picked.is_empty() {
         bail!("no rule '{}' (spec explain lists them all)", a.topic.clone().unwrap_or_default());
     }
+    let first = picked[0].info().id;
     for r in picked {
         let i = r.info();
         let text = if a.topic.is_some() {
@@ -98,5 +99,5 @@ pub fn run(g: &Global, a: &ExplainArgs) -> Result<Output> {
         };
         o = o.item(json!({"id": i.id, "title": i.title, "explain": i.explain, "on_commit": i.on_commit}), text);
     }
-    Ok(o.next("spec check --rule <id>"))
+    Ok(o.next(format!("spec check --rule {first}")))
 }

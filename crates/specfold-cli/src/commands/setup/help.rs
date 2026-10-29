@@ -91,7 +91,7 @@ fn reference(c: &describe::CommandInfo) -> Output {
 }
 
 /// The closest name by edit distance, if it is close enough to be a typo.
-fn nearest<'a>(want: &str, names: impl Iterator<Item = &'a str>) -> Option<&'a str> {
+pub fn nearest<'a>(want: &str, names: impl Iterator<Item = &'a str>) -> Option<&'a str> {
     let dist = |a: &str, b: &str| {
         let b: Vec<char> = b.chars().collect();
         let mut row: Vec<usize> = (0..=b.len()).collect();

@@ -128,6 +128,9 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
         (_, true) => {
             o.code(Code::Findings).next(if a.staged { "spec fix --staged --write" } else { "spec fix --write" })
         }
-        _ => o.code(Code::Findings).next("spec explain <rule>"),
+        _ => {
+            let rule = list.iter().find(|f| f.severity == Severity::Error).map(|f| f.rule.clone()).unwrap_or_default();
+            o.code(Code::Findings).next(format!("spec explain {rule}"))
+        }
     })
 }

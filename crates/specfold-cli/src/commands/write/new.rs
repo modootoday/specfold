@@ -37,8 +37,43 @@ pub fn run(g: &Global, a: &NewArgs) -> Result<Output> {
         .head(format!("{} {}  {}", if a.dry_run { "would create" } else { "created" }, created.id, created.path))
         .head(format!("owner: {}", created.owner_reason))
         .head("dates and timestamp keys are UTC");
-    let o = preview::finish(o, &plan, &s.corpus.cfg.root, !a.dry_run, "rerun without --dry-run")?;
+    let o = match &created.slug_note {
+        Some(note) => o.field("slug_note", note.clone()).head(format!("warn  {note}")),
+        None => o,
+    };
+    let mut o = preview::finish(o, &plan, &s.corpus.cfg.root, !a.dry_run, "rerun without --dry-run")?;
+    if a.local
+        && !a.dry_run
+        && let Some(note) = ignore_local(&s.corpus.cfg.root, &created.path, s.corpus.cfg.local_dir())
+    {
+        o = o.field("ignored", note.clone()).foot(note);
+    }
     Ok(if a.dry_run { o } else { o.next(format!("spec show {}", created.id)) })
+}
+
+/// The local directory is meant to stay out of git; the first local document makes sure it does,
+/// with a line in .git/info/exclude (which is never committed) when nothing ignores it yet.
+fn ignore_local(root: &std::path::Path, path: &str, local_dir: &str) -> Option<String> {
+    let git = |args: &[&str]| std::process::Command::new("git").arg("-C").arg(root).args(args).output().ok();
+    let checked = git(&["check-ignore", "-q", "--no-index", path])?;
+    if checked.status.code() != Some(1) {
+        return None; // ignored already, or not a git repository
+    }
+    let out = git(&["rev-parse", "--git-path", "info/exclude"])?;
+    let rel = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    if !out.status.success() || rel.is_empty() {
+        return None;
+    }
+    let file = root.join(&rel);
+    let name = local_dir.trim_end_matches('/').rsplit('/').next().unwrap_or(local_dir);
+    let mut text = std::fs::read_to_string(&file).unwrap_or_default();
+    if !text.is_empty() && !text.ends_with('\n') {
+        text.push('\n');
+    }
+    text.push_str(&format!("# local documents (spec new --local)\n{name}/\n"));
+    std::fs::create_dir_all(file.parent()?).ok()?;
+    std::fs::write(&file, text).ok()?;
+    Some(format!("{name}/ was not ignored by git; added it to {rel}"))
 }
 
 /// skill, rule and agent make agent assets unless a document type of that name is declared.

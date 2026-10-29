@@ -675,7 +675,9 @@ fn new_refuses_a_forbidden_path_and_suggests_local() {
     let (code, v) = r.json(&["new", "adr", "--governs", "services/shop", "--title", "Use files"]);
     assert_ne!(code, 0, "{v}");
     let e = v["error"].as_str().unwrap();
-    assert!(e.contains("[forbid]") && e.contains("--local"), "{e}");
+    assert!(e.contains("[forbid]"), "{e}");
+    let next = v["next"].as_str().unwrap();
+    assert!(next.starts_with("spec new adr ") && next.ends_with(" --local"), "{next}");
     assert!(!r.path().join("services/shop/.spec").exists(), "nothing written");
     let (code, v) = r.json(&["new", "adr", "--governs", "services/shop", "--title", "Use files", "--local"]);
     assert_eq!(code, 0, "{v}");
@@ -689,7 +691,8 @@ fn set_rejecting_a_status_names_the_allowed_ones_and_the_next_command() {
     let (code, v) = r.json(&["set", &id, "status=done"]);
     assert_ne!(code, 0);
     let e = v["error"].as_str().unwrap();
-    assert!(e.contains("allowed:") && e.contains(&format!("next: spec set {id} status=archived")), "{e}");
+    assert!(e.contains("allowed:"), "{e}");
+    assert_eq!(v["next"], format!("spec set {id} status=archived"));
 }
 
 #[test]
@@ -712,5 +715,74 @@ fn set_with_no_matching_finished_status_names_only_the_allowed_ones() {
     let (code, v) = r.json(&["set", &id, "status=done"]);
     assert_ne!(code, 0);
     let e = v["error"].as_str().unwrap();
-    assert!(e.contains("allowed:") && !e.contains("next:") && !e.contains("status=superseded"), "{e}");
+    assert!(e.contains("allowed:") && !e.contains("next:"), "{e}");
+    assert!(!v["next"].as_str().unwrap_or_default().contains("status="), "{v}");
+}
+
+#[test]
+fn usage_errors_name_the_missing_argument_and_the_nearest_command() {
+    let r = common::repo();
+    let (code, v) = r.json(&["show"]);
+    assert_eq!(code, 2);
+    assert!(v["error"].as_str().unwrap().contains("<DOC>"), "{v}");
+    let (_, v) = r.json(&["new", "adr"]);
+    assert!(v["error"].as_str().unwrap().contains("--title"), "{v}");
+    let (_, v) = r.json(&["chek"]);
+    assert_eq!(v["next"], "spec help check", "{v}");
+}
+
+#[test]
+fn superseding_without_a_successor_points_to_new_from() {
+    let r = common::repo();
+    let id = r.new_doc("adr", "services/shop", "Use files");
+    assert_eq!(r.json(&["set", &id, "status=active"]).0, 0);
+    let (code, v) = r.json(&["set", &id, "status=superseded"]);
+    assert_ne!(code, 0);
+    assert!(v["next"].as_str().unwrap().starts_with(&format!("spec new adr --from {id} --title ")), "{v}");
+    let (code, v) = r.json(&["new", "adr", "--from", &id, "--title", "Use a database"]);
+    assert_eq!(code, 0, "{v}");
+}
+
+#[test]
+fn set_warns_about_an_unknown_key_at_once() {
+    let r = common::repo();
+    let id = r.new_doc("adr", "services/shop", "Use files");
+    let (code, v) = r.json(&["set", &id, "colour=blue"]);
+    assert_eq!(code, 0, "{v}");
+    assert!(v["warnings"][0].as_str().unwrap().contains("unknown key 'colour'"), "{v}");
+    assert!(v["next"].as_str().unwrap().contains("--rule S1"), "{v}");
+}
+
+#[test]
+fn next_lines_name_real_rules_and_paths_lead_to_governs() {
+    let r = common::repo();
+    let (_, v) = r.json(&["explain", "Z1"]);
+    assert_eq!(v["next"], "spec check --rule Z1");
+    let (code, v) = r.json(&["graph", "impact", "services/shop/src"]);
+    assert_ne!(code, 0);
+    assert_eq!(v["next"], "spec graph governs services/shop/src", "{v}");
+}
+
+#[test]
+fn a_mostly_non_ascii_title_takes_its_slug_from_governs_or_asks_for_one() {
+    let r = common::repo();
+    let (code, v) = r.json(&["new", "adr", "--governs", "services/shop/src/cart", "--title", "결제는 PG 하나만 쓴다"]);
+    assert_eq!(code, 0, "{v}");
+    assert!(v["path"].as_str().unwrap().ends_with("-cart.adr.md"), "{v}");
+    assert!(v["slug_note"].as_str().unwrap().contains("--slug"), "{v}");
+    let (code, v) = r.json(&["new", "adr", "--title", "결제"]);
+    assert_ne!(code, 0);
+    assert!(v["error"].as_str().unwrap().contains("--slug"), "{v}");
+}
+
+#[test]
+fn the_first_local_document_keeps_the_local_directory_out_of_git() {
+    let r = common::repo();
+    let (code, v) = r.json(&["new", "plan", "--title", "Try it", "--local"]);
+    assert_eq!(code, 0, "{v}");
+    let status =
+        std::process::Command::new("git").arg("-C").arg(r.path()).args(["status", "--porcelain"]).output().unwrap();
+    assert!(!String::from_utf8_lossy(&status.stdout).contains(".spec.local"), "{v}");
+    let (_, v) = r.json(&["new", "plan", "--title", "Again", "--local"]);
+    assert!(v.get("ignored").is_none(), "only once: {v}");
 }
