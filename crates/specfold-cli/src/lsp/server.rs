@@ -93,26 +93,115 @@ pub fn code_actions(uri: &str, path: Option<&Path>, params: &Value) -> Vec<Value
     let Some(path) = path else { return vec![] };
     let Ok(text) = overlay::read(&check::absolute(path)) else { return vec![] };
     let diags = params.pointer("/context/diagnostics").and_then(Value::as_array).cloned().unwrap_or_default();
-    diags
-        .iter()
-        .filter_map(|d| {
-            let data = d.get("data")?;
-            let line = data.get("line")?.as_u64()? as usize;
-            let (from, to) = (data.get("from")?.as_str()?, data.get("to")?.as_str()?);
+    let mut out = vec![];
+    for d in &diags {
+        let Some(data) = d.get("data") else { continue };
+        let line = data.get("line").and_then(Value::as_u64).unwrap_or(0) as usize;
+        let edit = |from: &str, to: &str| -> Option<Value> {
             let l = text.lines().nth(line.checked_sub(1)?)?;
             let b = l.find(from)?;
             let (start, end) = (utf16(l, b), utf16(l, b + from.len()));
             let range =
                 json!({"start": {"line": line - 1, "character": start}, "end": {"line": line - 1, "character": end}});
-            Some(json!({
+            Some(json!({uri: [{"range": range, "newText": to}]}))
+        };
+        if let (Some(from), Some(to)) =
+            (data.get("from").and_then(Value::as_str), data.get("to").and_then(Value::as_str))
+            && let Some(changes) = edit(from, to)
+        {
+            out.push(json!({
                 "title": format!("spec: replace `{from}` with `{to}`"),
                 "kind": "quickfix",
                 "diagnostics": [d],
                 "isPreferred": true,
-                "edit": {"changes": {uri: [{"range": range, "newText": to}]}},
-            }))
-        })
-        .collect()
+                "edit": {"changes": changes},
+            }));
+        }
+        for c in data.get("choices").and_then(Value::as_array).into_iter().flatten() {
+            let (Some(from), Some(to)) = (c.get("from").and_then(Value::as_str), c.get("to").and_then(Value::as_str))
+            else {
+                continue;
+            };
+            if let Some(changes) = edit(from, to) {
+                out.push(json!({
+                    "title": format!("spec: use `{to}`"),
+                    "kind": "quickfix",
+                    "diagnostics": [d],
+                    "edit": {"changes": changes},
+                }));
+            }
+        }
+        if let Some(cmd) = data.get("command").and_then(Value::as_str) {
+            out.push(json!({
+                "title": format!("spec: run `{cmd}`"),
+                "kind": "quickfix",
+                "diagnostics": [d],
+                "command": {"title": format!("run `{cmd}`"), "command": RUN, "arguments": [cmd]},
+            }));
+        }
+    }
+    out
+}
+
+/// The one command the server executes: a finding's own `--write` fix command.
+const RUN: &str = "spec.run";
+
+/// What a quick fix may change for a finding: one replacement per candidate it lists, written
+/// the way `spec fix --pick` would.
+fn choices(f: &Finding) -> Vec<(String, String)> {
+    let each = |from: &str, to: &dyn Fn(&str) -> String| -> Vec<(String, String)> {
+        f.candidates.iter().map(|c| (from.to_string(), to(c))).collect()
+    };
+    match f.rule.as_str() {
+        "L1" if f.message.contains("]] is ambiguous") => {
+            let Some(target) = f.message.split("]]").next().and_then(|s| s.strip_prefix("[[")) else { return vec![] };
+            let base = target.split('#').next().unwrap_or(target);
+            each(&format!("[[{base}"), &|c| format!("[[{c}"))
+        }
+        "L1" => match f.message.split_once(" has no anchor #") {
+            Some((_, a)) => each(&format!("#{a}"), &|c| format!("#{c}")),
+            None => vec![],
+        },
+        "L2" => match f.message.strip_prefix("cites the path ") {
+            Some(p) => each(p, &|c| format!("[[{c}]]")),
+            None => vec![],
+        },
+        _ => vec![],
+    }
+}
+
+/// A fix command the editor may run for the user: it writes with `--write` and needs nothing
+/// filled in.
+fn runnable(f: &Finding) -> Option<&str> {
+    match &f.fix {
+        Some(Fix::Cmd(c)) if c.starts_with("spec ") && c.contains(" --write") && !c.contains('…') => Some(c),
+        _ => None,
+    }
+}
+
+/// Splits a command the way a POSIX shell would for the quoting `spec` itself writes.
+fn split_words(s: &str) -> Vec<String> {
+    let (mut out, mut cur, mut quoted, mut any) = (vec![], String::new(), false, false);
+    for ch in s.chars() {
+        match ch {
+            '\'' => {
+                quoted = !quoted;
+                any = true;
+            }
+            ' ' if !quoted => {
+                if any || !cur.is_empty() {
+                    out.push(std::mem::take(&mut cur));
+                }
+                any = false;
+            }
+            '\\' if !quoted => {}
+            c => cur.push(c),
+        }
+    }
+    if any || !cur.is_empty() {
+        out.push(cur);
+    }
+    out
 }
 
 /// Size and modification time of every file under `root` (skipping `.git` but for HEAD and
@@ -195,12 +284,49 @@ impl Server {
                     "source": "spec",
                     "message": ci::message(f),
                 });
+                let mut data = json!({"line": f.line});
                 if let Some(Fix::Replace { line, from, to, .. }) = &f.fix {
-                    d["data"] = json!({"line": line, "from": from, "to": to});
+                    data = json!({"line": line, "from": from, "to": to});
+                }
+                let ch = choices(f);
+                if !ch.is_empty() {
+                    data["choices"] = ch.iter().map(|(from, to)| json!({"from": from, "to": to})).collect();
+                }
+                // A pick is offered as edits to the buffer, so not again as a command on disk.
+                if let Some(c) = runnable(f).filter(|_| ch.is_empty()) {
+                    data["command"] = json!(c);
+                }
+                if data.as_object().is_some_and(|o| o.len() > 1) {
+                    d["data"] = data;
                 }
                 d
             })
             .collect()
+    }
+
+    /// Runs a fix command a current finding offers; anything else is refused.
+    fn execute(&mut self, params: &Value, id: &Value) -> Value {
+        let fail = |m: String| json!({"jsonrpc": "2.0", "id": id, "error": {"code": -32602, "message": m}});
+        let cmd = params.pointer("/arguments/0").and_then(Value::as_str).unwrap_or("");
+        if params.get("command").and_then(Value::as_str) != Some(RUN) {
+            return fail(format!("unknown command; this server runs only {RUN}"));
+        }
+        let offered = self.cache.as_ref().is_some_and(|(_, all)| all.iter().any(|f| runnable(f) == Some(cmd)));
+        let Some(root) = self.root() else { return fail("no spec directory".into()) };
+        if !offered {
+            return fail(format!("{cmd:?} is not a fix any current finding offers"));
+        }
+        let Ok(exe) = std::env::current_exe() else { return fail("cannot find the spec binary".into()) };
+        let words = split_words(cmd);
+        let dir = self.global.dir.clone().unwrap_or(root);
+        match std::process::Command::new(exe).args(&words[1..]).current_dir(dir).output() {
+            Ok(o) => {
+                self.cache = None;
+                let text = String::from_utf8_lossy(&o.stdout).into_owned();
+                json!({"jsonrpc": "2.0", "id": id, "result": {"exit": o.status.code(), "output": text}})
+            }
+            Err(e) => fail(format!("cannot run spec: {e}")),
+        }
     }
 
     fn publish(&mut self, uri: &str, path: &Path) -> Value {
@@ -229,7 +355,8 @@ impl Server {
                         vec![reply(json!({
                             "capabilities": {
                                 "textDocumentSync": {"openClose": true, "change": 1, "save": {"includeText": true}},
-                                "codeActionProvider": {"codeActionKinds": ["quickfix"]}
+                                "codeActionProvider": {"codeActionKinds": ["quickfix"]},
+                                "executeCommandProvider": {"commands": [RUN]}
                             },
                             "serverInfo": {"name": "specfold", "version": env!("CARGO_PKG_VERSION")}
                         }))],
@@ -237,6 +364,7 @@ impl Server {
                     )
                 }
                 "shutdown" => (vec![reply(Value::Null)], false),
+                "workspace/executeCommand" => (vec![self.execute(&params, &id)], false),
                 "textDocument/codeAction" => {
                     (vec![reply(Value::Array(code_actions(&uri, path.as_deref(), &params)))], false)
                 }
