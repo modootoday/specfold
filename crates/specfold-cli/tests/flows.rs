@@ -472,3 +472,20 @@ fn a_pinned_document_is_stale_after_any_commit_to_its_code() {
     let (_, v) = r.json(&["audit", "--kind", "stale"]);
     assert!(v.to_string().contains("is not a commit in this repository"), "{v}");
 }
+
+#[test]
+fn check_extra_keys_allow_project_keys_on_every_type() {
+    let r = common::repo();
+    let id = r.new_doc("adr", "services/shop", "Cart totals");
+    let path = r.json(&["resolve", &id]).1["path"].as_str().unwrap().to_string();
+    r.write(&path, &r.read(&path).replacen("title:", "team: payments\nreview_by: 2027-01-01\nsquad: x\ntitle:", 1));
+    let (_, v) = r.json(&["check"]);
+    let t = v.to_string();
+    assert!(t.contains("unknown key 'team'") && t.contains("[check] extra_keys"), "{v}");
+    let toml = r.read("spec.toml") + "[check]\nextra_keys = [\"team\", \"review_*\"]\n";
+    r.write("spec.toml", &toml);
+    let (_, v) = r.json(&["check"]);
+    let t = v.to_string();
+    assert!(!t.contains("unknown key 'team'") && !t.contains("unknown key 'review_by'"), "{v}");
+    assert!(t.contains("unknown key 'squad'"), "only listed keys pass: {v}");
+}

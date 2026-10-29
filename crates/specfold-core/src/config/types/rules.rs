@@ -35,6 +35,20 @@ pub struct CheckSection {
     /// Rule id → "error", "warn" or "off".
     #[serde(default)]
     pub severity: BTreeMap<String, String>,
+    /// Frontmatter keys every type may carry beyond the common set (rule S1); `prefix*` allows a
+    /// family such as `review_*`.
+    #[serde(default)]
+    pub extra_keys: Vec<String>,
+}
+
+impl CheckSection {
+    /// Whether `key` is allowed on every type by `extra_keys`.
+    pub fn extra_key(&self, key: &str) -> bool {
+        self.extra_keys.iter().any(|p| match p.strip_suffix('*') {
+            Some(prefix) => key.starts_with(prefix),
+            None => p == key,
+        })
+    }
 }
 
 /// Files outside spec documents whose citations of documents are checked (rule L6): code

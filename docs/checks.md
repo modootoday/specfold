@@ -16,6 +16,10 @@ spec check --new        # documents not in the last commit
 spec check --summary    # findings per rule; -q lists errors only
 ```
 
+A frontmatter key outside the common set and the type's fields is a warning (S1). Keep a key for
+one type with `[types.<type>] fields = [...]`, or for every type with
+`[check] extra_keys = ["team", "review_*"]` (a trailing `*` allows a prefix).
+
 ## Guards
 
 Guards (`[[guards]]`, `spec guard`) check any file and commit message in a range for denied
