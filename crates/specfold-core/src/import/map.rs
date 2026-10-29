@@ -22,9 +22,21 @@ pub struct ImportMap {
     /// alias, for layouts whose documents referred to each other by name.
     #[serde(default)]
     pub stem_aliases: bool,
+    /// Status values that carry more than a word (`superseded by ADR-0123`): a regex, tried
+    /// case-insensitively in order after `[status]`, and the status it means. A `by` group names
+    /// the record that replaced it, shown in the plan for review.
+    #[serde(default)]
+    pub status_patterns: Vec<StatusPattern>,
     /// Status, date and links read from the body, for layouts that keep them there.
     #[serde(default)]
     pub body: BodyMap,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct StatusPattern {
+    pub pattern: String,
+    pub status: String,
 }
 
 /// Where the body keeps metadata. `status` and `date` take `section:<heading>` (first line of
@@ -102,6 +114,11 @@ impl ImportMap {
                     "invalid import map {}: body '{how}' must be section:<heading>, bullet:<label> or line:<label>",
                     path.display()
                 );
+            }
+        }
+        for p in &map.status_patterns {
+            if let Err(e) = regex::Regex::new(&p.pattern) {
+                anyhow::bail!("invalid import map {}: status pattern '{}': {e}", path.display(), p.pattern);
             }
         }
         Ok(map)

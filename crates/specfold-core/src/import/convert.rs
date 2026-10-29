@@ -10,6 +10,8 @@ pub struct Converted {
     pub status_from: String,
     pub aliases: Vec<String>,
     pub unresolved: Vec<String>,
+    /// For review, not a decision: what a status pattern read.
+    pub notes: Vec<String>,
 }
 
 /// A document named in an old relation, without the notes people wrote around it:
@@ -24,6 +26,16 @@ fn document_target(raw: &str) -> String {
         return s.trim().to_string();
     }
     s.trim_end_matches(".md").trim().to_string()
+}
+
+/// A status matched by a `[[status_patterns]]` entry, and the replacing record its `by` group
+/// names.
+fn by_pattern(map: &ImportMap, old: &str, allowed: &[String]) -> Option<(String, Option<String>)> {
+    map.status_patterns.iter().find_map(|p| {
+        let re = regex::Regex::new(&format!("(?i){}", p.pattern)).ok()?;
+        let caps = re.captures(old.trim())?;
+        allowed.contains(&p.status).then(|| (p.status.clone(), caps.name("by").map(|m| m.as_str().trim().to_string())))
+    })
 }
 
 pub fn status(map: &ImportMap, rule: &SourceRule, old: &str, allowed: &[String]) -> Option<String> {
@@ -49,6 +61,7 @@ pub fn frontmatter(
     let mut fm = Map::new();
     let mut rel = Map::new();
     let mut unresolved = vec![];
+    let mut notes = vec![];
     let mut aliases: Vec<String> = rule.alias_fields.iter().flat_map(|f| list_of(old.get(f))).collect();
     let mut fallbacks = vec![];
     for (k, v) in old {
@@ -85,7 +98,13 @@ pub fn frontmatter(
     let status_new = if status_from.is_empty() {
         rule.default_status.clone().filter(|s| allowed.contains(s))
     } else {
-        status(map, rule, &status_from, allowed)
+        status(map, rule, &status_from, allowed).or_else(|| {
+            let (st, by) = by_pattern(map, &status_from, allowed)?;
+            if let Some(by) = by {
+                notes.push(format!("replaced by {by}: check that the newer record lists rel.supersedes"));
+            }
+            Some(st)
+        })
     };
     let status_new = status_new.unwrap_or_else(|| {
         unresolved.push(format!("status '{status_from}' has no mapping"));
@@ -115,7 +134,7 @@ pub fn frontmatter(
     }
     aliases.sort();
     aliases.dedup();
-    Converted { fm: out, status_from, aliases, unresolved }
+    Converted { fm: out, status_from, aliases, unresolved, notes }
 }
 
 #[cfg(test)]

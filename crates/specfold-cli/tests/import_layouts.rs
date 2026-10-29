@@ -118,3 +118,40 @@ fn a_bad_body_form_is_refused() {
     assert_ne!(code, 0);
     assert!(v.to_string().contains("section:<heading>, bullet:<label> or line:<label>"), "{v}");
 }
+
+#[test]
+fn madr4_compound_status_matches_a_pattern_and_names_the_replacement() {
+    let r = common::repo();
+    copy_fixture(&r, "madr4");
+    r.write(
+        "import.toml",
+        r#"[status]
+accepted = "active"
+[[status_patterns]]
+pattern = '^superseded by (?P<by>.+)$'
+status = "superseded"
+[[sources]]
+glob = "docs/decisions/*.md"
+type = "adr"
+key = "created"
+"#,
+    );
+    r.commit("legacy");
+    let (code, v) = r.json(&["import", "--map", "import.toml"]);
+    assert_eq!(code, 0, "{v}");
+    let items = rows(&v);
+    assert_eq!((items[0]["status_to"].as_str(), items[1]["status_to"].as_str()), (Some("superseded"), Some("active")));
+    assert_eq!(items[0]["notes"][0], "replaced by ADR-0002: check that the newer record lists rel.supersedes");
+    assert!(items[1].get("notes").is_none());
+    let (_, text) = r.text(&["import", "--map", "import.toml"]);
+    assert!(text.contains("note: replaced by ADR-0002"), "{text}");
+    // Without the pattern the compound value is a decision, as before.
+    r.write(
+        "import.toml",
+        &r.read("import.toml")
+            .replace("[[status_patterns]]", "[[nothing]]")
+            .replace("pattern = '^superseded by (?P<by>.+)$'\nstatus = \"superseded\"\n", ""),
+    );
+    let (code, v) = r.json(&["import", "--map", "import.toml"]);
+    assert_ne!(code, 0, "{v}");
+}

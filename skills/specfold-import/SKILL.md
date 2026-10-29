@@ -79,6 +79,15 @@ Supercedes = "supersedes"      # adr-tools' spelling
 "Superceded by" = "-"          # the other side; the newer record already says it
 ```
 
+Compound status values (MADR 4 `superseded by ADR-0123`) take a pattern, tried after `[status]`;
+a `by` group puts the replacing record in the plan's notes for review:
+
+```toml
+[[status_patterns]]
+pattern = '^superseded by (?P<by>.+)$'
+status = "superseded"
+```
+
 Status values match the `[status]` table as written or in lower case. Link targets are old file
 names, so set `stem_aliases = true` for them to resolve after the apply.
 

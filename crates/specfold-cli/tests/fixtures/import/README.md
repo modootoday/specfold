@@ -4,5 +4,7 @@ Import fixtures in the shapes the tools write:
   src/_adr_add_link; compare tests/supercede-existing-adr.expected in that project). Note the
   tool's spelling, "Supercedes" / "Superceded by".
 - `madr2/`: MADR 2.1.2 template/template.md, with the `* Status:` and `* Date:` bullets.
+- `madr4/`: MADR 4 template/adr-template.md frontmatter, with a compound status
+  (`superseded by ADR-0002`).
 
 The decision text is placeholder; only the layout matters.

@@ -37,6 +37,9 @@ pub fn run(g: &Global, a: &ImportArgs) -> Result<Output> {
         if !r.owner_reason.is_empty() {
             text.push_str(&format!("\n         owner: {}", r.owner_reason));
         }
+        for n in &r.notes {
+            text.push_str(&format!("\n         note: {n}"));
+        }
         for u in &r.unresolved {
             text.push_str(&format!("\n         ! {u}"));
         }
