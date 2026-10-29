@@ -4,7 +4,7 @@ use crate::cli::describe::{self, CommandInfo};
 use serde_json::{Map, Value, json};
 
 /// Commands that make no sense as tools.
-const EXCLUDED: &[&str] = &["mcp", "help"];
+const EXCLUDED: &[&str] = &["mcp", "lsp", "help"];
 
 pub fn list() -> Value {
     let tools: Vec<Value> =

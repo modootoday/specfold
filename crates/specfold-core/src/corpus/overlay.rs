@@ -1,24 +1,61 @@
-//! Unsaved text for one file: an editor checks its buffer before it is written to disk.
+//! Unsaved text for open files: an editor checks its buffers before they are written to disk.
+//! A buffer for a file that does not exist yet joins the walk when it lies in a spec directory.
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
+use std::sync::{Mutex, MutexGuard};
 
-static OVERLAY: OnceLock<(PathBuf, String)> = OnceLock::new();
+static OVERLAY: Mutex<Option<HashMap<PathBuf, String>>> = Mutex::new(None);
 
-/// Reads of `path` (absolute) return `text` for the rest of the process. Set once, before loading.
-pub fn set(path: PathBuf, text: String) {
-    let _ = OVERLAY.set((path, text));
+fn map() -> MutexGuard<'static, Option<HashMap<PathBuf, String>>> {
+    OVERLAY.lock().unwrap_or_else(|e| e.into_inner())
 }
 
-/// The file's text, from the overlay when it names this path, otherwise from disk.
-pub fn read(path: &Path) -> std::io::Result<String> {
-    match OVERLAY.get() {
-        Some((p, t)) if p == path => Ok(t.clone()),
-        _ => std::fs::read_to_string(path),
+/// Reads of `path` (absolute) return `text` until it is cleared.
+pub fn set(path: PathBuf, text: String) {
+    map().get_or_insert_with(HashMap::new).insert(path, text);
+}
+
+/// Back to the file on disk.
+pub fn clear(path: &Path) {
+    if let Some(m) = map().as_mut() {
+        m.remove(path);
     }
 }
 
-/// Whether the overlay names this path, so a cache keyed on disk stamps rescans it.
+/// The file's text, from the overlay when it holds this path, otherwise from disk.
+pub fn read(path: &Path) -> std::io::Result<String> {
+    if let Some(t) = map().as_ref().and_then(|m| m.get(path)) {
+        return Ok(t.clone());
+    }
+    std::fs::read_to_string(path)
+}
+
+/// Whether the overlay holds this path, so a cache keyed on disk stamps rescans it.
 pub fn covers(path: &Path) -> bool {
-    OVERLAY.get().is_some_and(|(p, _)| p == path)
+    map().as_ref().is_some_and(|m| m.contains_key(path))
+}
+
+/// Buffers under `dir` with no file on disk yet.
+pub fn unsaved_under(dir: &Path) -> Vec<PathBuf> {
+    map()
+        .as_ref()
+        .map(|m| m.keys().filter(|p| p.starts_with(dir) && !p.exists()).cloned().collect())
+        .unwrap_or_default()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn set_read_clear() {
+        let p = PathBuf::from("/nonexistent/overlay-test/a.md");
+        set(p.clone(), "x".into());
+        assert_eq!(read(&p).unwrap(), "x");
+        assert!(covers(&p));
+        assert_eq!(unsaved_under(Path::new("/nonexistent/overlay-test")), vec![p.clone()]);
+        clear(&p);
+        assert!(read(&p).is_err());
+    }
 }

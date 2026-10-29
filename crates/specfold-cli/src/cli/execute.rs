@@ -78,6 +78,19 @@ pub fn execute(argv: Vec<String>) -> Executed {
         Format::Text
     };
     let page = Page { limit: cli.global.limit, offset: cli.global.offset, max_bytes: cli.global.max_bytes };
+    if matches!(cli.cmd, Cmd::Lsp) {
+        let code = match crate::lsp::server::serve(cli.global.clone()) {
+            Ok(()) => Code::Ok,
+            Err(_) => Code::Env,
+        };
+        return Executed {
+            output: Output::new("lsp").code(code),
+            format,
+            page,
+            raw: Some(String::new()),
+            serve_mcp: false,
+        };
+    }
     if matches!(cli.cmd, Cmd::Mcp) {
         return Executed { output: Output::new("mcp"), format, page, raw: None, serve_mcp: true };
     }

@@ -27,15 +27,51 @@ fn failing(list: &[Finding], fail_on: &[String]) -> usize {
     list.iter().filter(|f| f.severity == Severity::Error).filter(counts).count()
 }
 
+/// What `spec check <FILE>` lists for one file, baseline applied: the language server's source.
+pub fn file_findings(g: &Global, rel: &str) -> Result<Vec<Finding>> {
+    let s = session::open(g)?;
+    let commands = crate::cli::describe::commands().into_iter().map(|c| c.name).collect();
+    let opts = Options { run_commands: false, external: false, online: false, guards: false, commands };
+    let report = check::run(&s.corpus, &s.graph, Range::All, &opts, &Selection { only: vec![], skip: vec![] })?;
+    let list = match baseline::load(&s.corpus)? {
+        Some(b) => baseline::hold(&s.corpus, &b, report.findings).findings,
+        None => report.findings,
+    };
+    Ok(list.into_iter().filter(|f| f.path == rel).collect())
+}
+
+/// An absolute path for a file that may not exist yet: the nearest existing ancestor is resolved.
+pub fn absolute(p: &std::path::Path) -> std::path::PathBuf {
+    let p = if p.is_absolute() { p.to_path_buf() } else { std::env::current_dir().unwrap_or_default().join(p) };
+    let mut rest = vec![];
+    let mut cur = p.as_path();
+    loop {
+        if let Ok(c) = cur.canonicalize() {
+            return rest.iter().rev().fold(c, |acc, part| acc.join(part));
+        }
+        match (cur.parent(), cur.file_name()) {
+            (Some(parent), Some(name)) => {
+                rest.push(name.to_os_string());
+                cur = parent;
+            }
+            _ => return p,
+        }
+    }
+}
+
 /// The files named on the command line, repository-relative; each must be a document file.
 fn documents_named(s: &session::Session, files: &[String]) -> Result<Vec<String>> {
     let mut out = vec![];
     for f in files {
-        if !std::path::Path::new(f).exists() {
-            bail!("{f}: no such file");
-        }
-        let rel = session::repo_path(s, f);
+        let abs = absolute(std::path::Path::new(f));
+        let rel = match abs.strip_prefix(&s.corpus.cfg.root) {
+            Ok(r) => r.to_string_lossy().replace('\\', "/"),
+            Err(_) => session::repo_path(s, f),
+        };
         let known = s.corpus.docs.iter().any(|d| d.path == rel || d.chapters.iter().any(|c| c == &rel));
+        if !known && !std::path::Path::new(f).exists() {
+            bail!("{f}: no such file (an unsaved buffer given with --stdin-path must lie in a spec directory)");
+        }
         if !known {
             bail!(
                 "{f}: not a document (spec check <FILE> takes a document file; `spec doctor` lists files it skipped)"
@@ -50,9 +86,7 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
     let started = Instant::now();
     check_fail_on(&a.fail_on)?;
     if let Some(p) = &a.stdin_path {
-        let abs = std::path::Path::new(p)
-            .canonicalize()
-            .map_err(|_| anyhow::anyhow!("--stdin-path {p}: no such file; save it once so it is a document"))?;
+        let abs = absolute(std::path::Path::new(p));
         let mut text = String::new();
         std::io::Read::read_to_string(&mut std::io::stdin(), &mut text)?;
         specfold_core::corpus::overlay::set(abs, text);

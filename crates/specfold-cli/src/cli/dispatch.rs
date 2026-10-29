@@ -40,6 +40,7 @@ pub fn dispatch(cli: &Cli) -> Result<Output> {
         Cmd::Hook(a) => setup::hook::run(g, a),
         Cmd::Plugins(a) => setup::plugins::run(g, a),
         Cmd::Export(a) => setup::export::run(g, a),
+        Cmd::Lsp => bail!("`spec lsp` serves over stdio and is started by an editor, not inside another command"),
         Cmd::Mcp => bail!("`spec mcp` serves over stdio and is started by an MCP client, not inside another command"),
     }
 }

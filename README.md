@@ -112,6 +112,7 @@ times and task items: [docs/concepts/index.md](docs/concepts/index.md).
 | `spec plugins` | Configured plugins and what they provide |
 | `spec export` | Export through an exporter plugin |
 | `spec mcp` | Serve these commands as MCP tools over stdio |
+| `spec lsp` | Serve check findings as editor diagnostics (Language Server Protocol over stdio) |
 <!-- spec:commands:end -->
 
 Every command has `--help`, examples and `--json`. Writes are previews until `--write` (`new` and
@@ -127,11 +128,10 @@ declares skills, rules and subagents that `spec check` keeps consistent. See
 ## Guides
 
 - [Concepts](docs/concepts/index.md): types, ids, statuses, relations, times, task items
-- [Editing documents](docs/guides/editing.md): `spec new`, `set`, `edit`, `mv` recipes
+- [Editing documents](docs/guides/editing.md): `spec new`, `set`, `edit`, `mv` recipes; [importing an existing layout](docs/guides/import.md)
 - [Checks, guards, plugins and audits](docs/concepts/checks.md)
 - [Attachments](docs/guides/attachments.md): files beside a document and external stores
 - [Agent assets](docs/guides/agents.md): skills, rules, subagents and instruction files
-- [Importing an existing layout](docs/guides/import.md)
 - [All commands](docs/reference/commands.md)
 
 ## Exit codes and JSON

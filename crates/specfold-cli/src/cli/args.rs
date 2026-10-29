@@ -110,4 +110,10 @@ pub enum Cmd {
     /// Serve these commands as MCP tools over stdio.
     #[command(after_help = "Examples:\n  spec mcp")]
     Mcp,
+    /// Serve check findings as editor diagnostics (Language Server Protocol over stdio).
+    #[command(
+        long_about = "Serve check findings as editor diagnostics (Language Server Protocol over stdio).\n\nStarted by an editor's LSP client. Open, changed and saved documents are checked with their unsaved text; each publishes the findings `spec check <FILE>` would list for that file. Diagnostics only: no code actions yet.",
+        after_help = "Examples:\n  spec lsp\n  spec lsp --dir /path/to/repo"
+    )]
+    Lsp,
 }

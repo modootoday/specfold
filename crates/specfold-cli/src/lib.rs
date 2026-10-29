@@ -2,6 +2,7 @@
 
 pub mod cli;
 pub mod commands;
+pub mod lsp;
 pub mod mcp;
 pub mod output;
 

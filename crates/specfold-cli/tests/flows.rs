@@ -1192,3 +1192,79 @@ fn check_rejects_files_that_are_not_documents() {
     let out = r.spec().args(["check", "--stdin-path", "gone.md"]).write_stdin("x").output().unwrap();
     assert_eq!(out.status.code(), Some(2), "{out:?}");
 }
+
+fn lsp_frames(msgs: &[serde_json::Value]) -> String {
+    msgs.iter()
+        .map(|m| {
+            let b = m.to_string();
+            format!("Content-Length: {}\r\n\r\n{b}", b.len())
+        })
+        .collect()
+}
+
+fn lsp_replies(out: &[u8]) -> Vec<serde_json::Value> {
+    let text = String::from_utf8_lossy(out);
+    text.split("Content-Length: ")
+        .filter(|s| !s.is_empty())
+        .map(|s| serde_json::from_str(s.split_once("\r\n\r\n").unwrap().1).unwrap())
+        .collect()
+}
+
+#[test]
+fn lsp_publishes_diagnostics_for_buffers() {
+    use serde_json::json;
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    let path = r.json(&["show", &id]).1["path"].as_str().unwrap().to_string();
+    let abs = r.path().canonicalize().unwrap();
+    let uri = format!("file://{}/{path}", abs.display());
+    let dir = std::path::Path::new(&path).parent().unwrap().to_str().unwrap().to_string();
+    let new_uri = format!("file://{}/{dir}/fresh.sot.md", abs.display());
+    let broken = format!("{}\nsee [[sot:services/nowhere]]\n", r.read(&path));
+    let input = lsp_frames(&[
+        json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"rootUri": format!("file://{}", abs.display())}}),
+        json!({"jsonrpc": "2.0", "method": "initialized", "params": {}}),
+        json!({"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument": {"uri": uri, "languageId": "markdown", "version": 1, "text": broken}}}),
+        json!({"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument": {"uri": new_uri, "languageId": "markdown", "version": 1, "text": "# Fresh\nsee [[sot:services/nowhere]]\n"}}}),
+        json!({"jsonrpc": "2.0", "method": "textDocument/didClose", "params": {"textDocument": {"uri": uri}}}),
+        json!({"jsonrpc": "2.0", "id": 2, "method": "nope", "params": {}}),
+        json!({"jsonrpc": "2.0", "id": 3, "method": "shutdown"}),
+        json!({"jsonrpc": "2.0", "method": "exit"}),
+    ]);
+    let out = r.spec().arg("lsp").write_stdin(input).output().unwrap();
+    assert_eq!(out.status.code(), Some(0), "{out:?}");
+    let replies = lsp_replies(&out.stdout);
+    assert_eq!(replies[0]["result"]["capabilities"]["textDocumentSync"]["change"], 1, "{replies:?}");
+    let diags: Vec<&serde_json::Value> =
+        replies.iter().filter(|m| m["method"] == "textDocument/publishDiagnostics").collect();
+    assert_eq!(diags.len(), 3, "{replies:?}");
+    assert_eq!(diags[0]["params"]["uri"], uri.as_str());
+    let first = diags[0]["params"]["diagnostics"].as_array().unwrap();
+    assert!(first.iter().any(|d| d["source"] == "spec" && d["severity"] == 1), "{replies:?}");
+    assert!(!diags[1]["params"]["diagnostics"].as_array().unwrap().is_empty(), "unsaved new file: {replies:?}");
+    assert!(diags[2]["params"]["diagnostics"].as_array().unwrap().is_empty(), "close clears");
+    assert!(replies.iter().any(|m| m["id"] == 2 && m["error"]["code"] == -32601), "{replies:?}");
+    assert!(replies.iter().any(|m| m["id"] == 3 && m["result"].is_null()), "{replies:?}");
+    assert!(!r.path().join(&dir).join("fresh.sot.md").exists());
+}
+
+#[test]
+fn check_stdin_path_accepts_a_new_file_only_in_a_spec_directory() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    let path = r.json(&["show", &id]).1["path"].as_str().unwrap().to_string();
+    let dir = std::path::Path::new(&path).parent().unwrap().to_str().unwrap().to_string();
+    let fresh = format!("{dir}/fresh.sot.md");
+    let out = r
+        .spec()
+        .args(["check", "--stdin-path", &fresh, "--format", "editor"])
+        .write_stdin("# Fresh\nsee [[sot:services/nowhere]]\n")
+        .output()
+        .unwrap();
+    let text = String::from_utf8_lossy(&out.stdout).into_owned();
+    assert_eq!(out.status.code(), Some(1), "{text}");
+    assert!(text.lines().all(|l| l.starts_with(&format!("{fresh}:"))), "{text}");
+    let out = r.spec().args(["check", "--stdin-path", "services/shop/new.md"]).write_stdin("# x\n").output().unwrap();
+    assert_eq!(out.status.code(), Some(2), "{out:?}");
+    assert!(String::from_utf8_lossy(&out.stdout).contains("spec directory"), "{out:?}");
+}

@@ -39,6 +39,7 @@ specfold is a command-line tool, `spec`. Every command takes `--help` and `--jso
 - [spec plugins](docs/reference/commands.md): Configured plugins and what they provide
 - [spec export](docs/reference/commands.md): Export through an exporter plugin
 - [spec mcp](docs/reference/commands.md): Serve these commands as MCP tools over stdio
+- [spec lsp](docs/reference/commands.md): Serve check findings as editor diagnostics (Language Server Protocol over stdio)
 
 ## Docs
 
