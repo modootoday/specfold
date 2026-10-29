@@ -1,6 +1,6 @@
 ---
 name: specfold-documents
-description: Read and write a repository's specfold documents with the spec CLI - spec context before changing code, spec new to create a source of truth, decision, plan, research, evidence, audit, page, design, guide or runbook where its owner keeps it, spec set for status and relations, spec mv to move or rename, spec attach for files, and spec find, show and graph to look things up. Use when a repository has a spec.toml and you are about to change code, record a decision, start or update a plan, or need to know which document rules some code. Not for setting specfold up (specfold-setup) or fixing check failures (specfold-checks).
+description: Read and write a repository's specfold documents with the spec CLI - spec context before changing code, spec new to create a source of truth, decision, plan, research, evidence, audit, page, design, guide or runbook where its owner keeps it, spec edit for body sections, spec set for status and relations, spec mv to move, rename or promote a local draft, spec attach for files, and spec find, show and graph to look things up. Use when a repository has a spec.toml and you are about to change code, record a decision, start or update a plan, or need to know which document rules some code. Not for setting specfold up (specfold-setup) or fixing check failures (specfold-checks).
 metadata:
   tier: open
   level: L1
@@ -52,7 +52,19 @@ spec new adr --from adr:shop/20250101000000 --title "Move orders to a queue"   #
 ```
 
 `--governs` decides the owner. Use `--local` for a draft that stays out of git, and
-`--dry-run` to see the path first.
+`--dry-run` to see the path first. The new document has the sections its type requires.
+`spec mv <id> --tier committed --write` later promotes a local draft into the committed tree
+(`--tier local` takes one back out).
+
+## Edit the body
+
+```sh
+spec edit adr:shop/20250101000000 --section Decision --text "Use Postgres." --write
+spec edit plan:shop/20260101000000 --new-section Risks --after Goal --text "- none yet" --write
+```
+
+`--section` changes an existing heading; a missing required section (rule S7) is added with
+`--new-section`. Without `--write` it previews.
 
 ## Change status and relations
 
@@ -77,6 +89,8 @@ spec show adr:shop/20250101000000 --rel
 spec graph impact sot:shop/cart
 ```
 
+`spec show <id> --section <heading>` prints one section instead of the whole document, and
+`--max-bytes <n>` caps a list's output to what fits (the rest is left for `--offset`).
 `spec resolve` turns an old path, alias or slug into the current id.
 
 ## Before committing

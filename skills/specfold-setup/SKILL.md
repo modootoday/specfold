@@ -1,6 +1,6 @@
 ---
 name: specfold-setup
-description: Add specfold to a repository - install the spec CLI (npm dev dependency or cargo), write spec.toml with spec init and the owner patterns that match the repository's apps and packages, wire the pre-commit and pre-push checks through the hook manager already in use, and give every coding agent the instruction lines from spec agents. Use when a repository has no spec.toml yet, when asked to set up specfold or spec checks, or to connect specfold to hooks or agents. Not for moving an existing documentation layout in (that is specfold-import) or for writing documents.
+description: Add specfold to a repository - install the spec CLI (npm dev dependency or cargo), write spec.toml with spec init and the owner patterns that match the repository's apps and packages, wire the pre-commit and pre-push checks through the hook manager already in use, give every coding agent the instruction lines from spec agents, and connect editors (spec lsp) and CI output formats. Use when a repository has no spec.toml yet, when asked to set up specfold or spec checks, to connect specfold to hooks, agents, editors or CI, or to upgrade spec.toml after a new CLI version. Not for moving an existing documentation layout in (that is specfold-import) or for writing documents.
 metadata:
   tier: open
   level: L2
@@ -50,6 +50,12 @@ spec owners                                                                     
 `spec owners` must list every unit you expect. A missing one means a pattern is wrong; fix
 the pattern before anyone writes documents, because the owner decides where a document lives.
 
+`spec doctor` diagnoses the setup without writing anything: a spec.toml that does not load or
+has a `[types.<name>]` table that looks like a typo, merge conflict markers, local documents git
+does not ignore, and ids defined twice. Run it whenever a command fails before checking
+anything. After upgrading the CLI, `spec init --upgrade` previews the renamed keys and schema
+number for the existing spec.toml (comments kept); add `--write` to apply it.
+
 ## 3. Hooks
 
 specfold never installs hooks. Print a snippet for the hook manager the repository already
@@ -79,16 +85,27 @@ Paste the printed lines into that agent's instruction file (`CLAUDE.md`, `AGENTS
 on). They tell the agent to run `spec context` before changing code and `spec check --staged`
 before committing.
 
-## 5. Large files, public paths and guards (when they apply)
+## 5. Editors and CI
+
+- An editor with a Language Server Protocol client runs `spec lsp`: findings appear as
+  diagnostics on unsaved text, with quick fixes where `spec fix` has one.
+- An editor problem matcher or terminal jump list reads `spec check --format editor`
+  (`path:line:col: severity RULE: message`).
+- CI uses `spec check --format github`, `sarif`, `gitlab` or `rdjson` for annotations.
+
+## 6. Large files, public paths and guards (when they apply)
 
 - Attachments over `[files] inline_max_bytes` need `[files.store]`: a directory or a command
   the team already trusts (rclone, aws, wrangler). specfold has no network code.
 - A repository that publishes some paths (a public mirror, an npm package) declares them in
   `[public] paths`, so documents are never stored under them.
+- Skills, rules and agent files declared under `[[assets]]` get the asset rules (A1-A3:
+  format, duplicate names, paths and commands that exist). Hidden characters (H1) and
+  home-directory paths (A4) are checked in the usual agent files whether declared or not.
 - `[[guards]]` refuse denied terms, patterns or files in a range; `spec explain config` lists
   every key.
 
 ## Report
 
-The install method and version, the owner patterns and the `spec owners` list, where the hook
+The install method and version, the `spec doctor` result, the owner patterns and the `spec owners` list, where the hook
 lines went, which agent files got the lines, and the `spec check` exit code on the new setup.
