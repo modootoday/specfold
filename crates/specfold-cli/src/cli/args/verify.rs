@@ -4,7 +4,7 @@ use clap::Args;
 
 #[derive(Debug, Clone, Args)]
 #[command(
-    after_help = "Examples:\n  spec check --staged          # pre-commit\n  spec check --changed origin/main\n  spec check --rule L1 --rule L2 --json"
+    after_help = "Examples:\n  spec check --staged          # pre-commit\n  spec check --changed origin/main\n  spec check --rule L1 --rule L2 --json\n  spec check --new              # which documents were just recognised"
 )]
 pub struct CheckArgs {
     /// Only what the index changes (pre-commit).
@@ -40,6 +40,9 @@ pub struct CheckArgs {
     /// Record today's errors as the baseline ([check] baseline); a full run on a clean tree only.
     #[arg(long, conflicts_with_all = ["staged", "changed"])]
     pub write_baseline: bool,
+    /// Also list the documents not in the last commit (new or not yet committed).
+    #[arg(long)]
+    pub new: bool,
 }
 
 #[derive(Debug, Clone, Args)]

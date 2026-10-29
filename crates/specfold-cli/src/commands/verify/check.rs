@@ -5,6 +5,7 @@ use crate::output::{Code, Output, findings};
 use crate::session;
 use anyhow::{Result, bail};
 use specfold_core::check::{self, Finding, Options, Range, Selection, Severity, baseline};
+use specfold_core::workspace::vcs;
 use std::time::Instant;
 
 /// `--fail-on` must name rules that exist, so a gate cannot silently wait on a rule that never fires.
@@ -74,10 +75,25 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
         s.corpus.docs.len(),
         ms as f64 / 1000.0
     ));
+    let mut o = o;
+    if a.new {
+        let committed: std::collections::HashSet<String> =
+            vcs::committed(&s.corpus.cfg.root).unwrap_or_default().into_iter().collect();
+        let fresh: Vec<_> = s.corpus.docs.iter().filter(|d| !committed.contains(&d.path)).collect();
+        o = o
+            .field(
+                "new_docs",
+                fresh.iter().map(|d| serde_json::json!({"id": d.id.to_string(), "path": d.path})).collect::<Vec<_>>(),
+            )
+            .foot(format!("{} document(s) not in the last commit", fresh.len()));
+        for d in fresh {
+            o = o.foot(format!("  new  {}  {}", d.id, d.path));
+        }
+    }
     let has_fix = list.iter().any(|f| f.fix.is_some());
     Ok(match (fails, has_fix) {
         (0, _) if lowerable > 0 => o.next("spec check --write-baseline"),
-        (0, _) => o.next("spec audit"),
+        (0, _) => o.next("spec audit  # optional: stale, orphan and unfinished documents"),
         (_, true) => {
             o.code(Code::Findings).next(if a.staged { "spec fix --staged --write" } else { "spec fix --write" })
         }

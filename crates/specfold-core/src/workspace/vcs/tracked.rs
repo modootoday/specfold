@@ -10,3 +10,8 @@ pub fn tracked(root: &Path, bases: &[String]) -> Option<Vec<String>> {
     args.extend(bases.iter().map(String::as_str));
     git(root, &args).map(split_nul)
 }
+
+/// Files in the last commit, so callers can tell which documents are new since then.
+pub fn committed(root: &Path) -> Option<Vec<String>> {
+    git(root, &["ls-tree", "-r", "-z", "--name-only", "HEAD"]).map(split_nul)
+}
