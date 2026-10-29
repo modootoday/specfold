@@ -33,7 +33,9 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
         (None, true) => Range::Staged,
         (None, false) => Range::All,
     };
-    let opts = Options { run_commands: a.run_commands, external: a.external, online: a.online, guards: a.guards };
+    let commands = crate::cli::describe::commands().into_iter().map(|c| c.name).collect();
+    let opts =
+        Options { run_commands: a.run_commands, external: a.external, online: a.online, guards: a.guards, commands };
     let report =
         check::run(&s.corpus, &s.graph, range, &opts, &Selection { only: a.rules.clone(), skip: a.skip.clone() })?;
     if a.write_baseline {
