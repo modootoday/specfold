@@ -73,7 +73,7 @@ fn derive_slug(title: &str, governs: &[String]) -> Result<(String, Option<String
             Ok((from_title, Some(note)))
         }
         (None, false) => bail!(
-            "the title has no ASCII words to make a slug from; pass --slug <kebab-case>, e.g. --slug payment-gateway"
+            "the title has no ASCII words to make a slug from; give an English kebab-case --slug (replace my-slug); rerun with --slug my-slug"
         ),
     }
 }

@@ -31,6 +31,10 @@ pub fn run(g: &Global) -> Result<Output> {
         }
     };
     let root = cfg.root.clone();
+    let no_config = !root.join("spec.toml").exists();
+    if no_config {
+        o = add(o, "config", "spec.toml", "no spec.toml here; spec runs on defaults".into(), "spec init --write");
+    }
     let mut files = vec![];
     walk(&root, &mut files);
     for f in &files {
@@ -107,7 +111,11 @@ pub fn run(g: &Global) -> Result<Output> {
         }
     }
     o = o.head(format!("{} spec files read", files.len()));
-    Ok(if found == 0 { o.foot("no setup problems found").next("spec check") } else { o.code(Code::Findings) })
+    Ok(if found == 0 {
+        o.foot("no setup problems found").next("spec check")
+    } else {
+        if no_config { o.code(Code::Findings).next("spec init --write") } else { o.code(Code::Findings) }
+    })
 }
 
 /// Markdown files under any spec directory (.spec or .spec.local), skipping build and VCS dirs.
