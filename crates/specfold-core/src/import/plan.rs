@@ -118,6 +118,7 @@ pub fn build(c: &Corpus, map: &ImportMap) -> Result<ImportPlan> {
             ..Row::default()
         });
     }
+    canonical_links(&mut out, &by_source);
     link_replacements(&mut out);
     rewrite_links(&mut out, &by_source);
     Ok(out)
@@ -192,6 +193,53 @@ fn link_replacements(out: &mut ImportPlan) {
                 "replaced by {by}, which this import does not include: add rel.supersedes: [{old}] to the newer record"
             )),
         }
+    }
+}
+
+/// `rel.*` values that name an imported file by its old name (`0002-use-postgres`,
+/// `0002-use-postgres.md`; document relations only, never paths) are written as the id it gets, so the
+/// link does not depend on the alias; the alias still resolves the old name elsewhere.
+fn canonical_links(out: &mut ImportPlan, by_source: &BTreeMap<String, String>) {
+    let mut names: BTreeMap<String, String> = BTreeMap::new();
+    for (src, id) in
+        by_source.iter().map(|(a, b)| (a.as_str(), b)).chain(out.alias_rows.iter().map(|(a, b)| (a.as_str(), b)))
+    {
+        names.entry(stem_of(src).to_string()).or_insert_with(|| id.clone());
+    }
+    let lookup = |v: &str| -> Option<String> {
+        let v = v.trim();
+        if v.contains(':') || v.contains('/') {
+            return None;
+        }
+        names.get(stem_of(v)).cloned()
+    };
+    let paths: Vec<String> = out.rows.iter().filter(|r| r.kind == "doc").map(|r| r.path.clone()).collect();
+    for path in paths {
+        edit_frontmatter(&mut out.plan, &path, |fm| {
+            let Some(Value::Object(rel)) = fm.get_mut("rel") else { return };
+            for (key, v) in rel.iter_mut() {
+                if !crate::graph::DOC_RELATIONS.contains(&key.as_str()) {
+                    continue;
+                }
+                match v {
+                    Value::String(t) => {
+                        if let Some(id) = lookup(t) {
+                            *t = id;
+                        }
+                    }
+                    Value::Array(items) => {
+                        for item in items.iter_mut() {
+                            if let Value::String(t) = item
+                                && let Some(id) = lookup(t)
+                            {
+                                *t = id;
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        });
     }
 }
 

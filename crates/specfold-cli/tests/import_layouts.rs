@@ -190,7 +190,10 @@ fn presets_import_their_layouts_without_edits() {
     assert_eq!(r.json(&["import", "--map", "import.toml", "--apply", "--write"]).0, 0);
     let (_, d) = r.json(&["show", "0003"]);
     assert_eq!(d["frontmatter"]["title"], "Second Record", "{d}");
-    assert_eq!(d["frontmatter"]["rel"]["supersedes"][0], "0002-first-record", "{d}");
+    // Written as the id, not the old file name; the old name still resolves as an alias.
+    let (_, older) = r.json(&["show", "0002-first-record"]);
+    assert_eq!(d["frontmatter"]["rel"]["supersedes"][0], older["id"], "{d}");
+    assert!(older["id"].as_str().unwrap().starts_with("adr:"), "{older}");
 
     let (code, v, _) = preset_plan("madr2", "madr");
     assert_eq!(code, 0, "{v}");
@@ -235,7 +238,10 @@ fn adr_tools_preset_reads_the_usual_spelling_links_records_and_rewrites_links() 
     assert!(items[0]["notes"].to_string().contains("drop_status_section"), "{v}");
     assert_eq!(r.json(&["import", "--map", "import.toml", "--apply", "--write"]).0, 0);
     let (_, d) = r.json(&["show", "0002"]);
-    assert_eq!(d["frontmatter"]["rel"]["supersedes"][0], "0001-use-files", "{d}");
+    // Written as the id, not the old file name; the old name still resolves as an alias.
+    let (_, older) = r.json(&["show", "0001-use-files"]);
+    assert_eq!(d["frontmatter"]["rel"]["supersedes"][0], older["id"], "{d}");
+    assert!(older["id"].as_str().unwrap().starts_with("adr:"), "{older}");
     assert!(d["frontmatter"].get("date").is_none(), "date moves to created only: {d}");
     let (_, first) = r.json(&["show", "0001"]);
     let first_path = first["path"].as_str().unwrap().rsplit('/').next().unwrap().to_string();

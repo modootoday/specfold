@@ -63,6 +63,12 @@ fn census_lists_translation_state_and_missing_languages_with_an_exit_code() {
     let (code, v) = r.json(&["census", "--translations", "--lang", "ja"]);
     assert_eq!(code, 1, "{v}");
     assert_eq!(v["missing"]["ja"][0], src.as_str(), "{v}");
+    // Missing translations fail by default; --fail-on stale or none report them only.
+    assert_eq!(r.json(&["census", "--translations", "--lang", "ja", "--fail-on", "stale"]).0, 0);
+    assert_eq!(r.json(&["census", "--translations", "--lang", "ja", "--fail-on", "none"]).0, 0);
+    append(&r, &src, "\nA new paragraph.\n");
+    assert_eq!(r.json(&["census", "--translations", "--fail-on", "stale"]).0, 1);
+    assert_eq!(r.json(&["census", "--translations", "--fail-on", "none"]).0, 0);
 }
 
 #[test]
@@ -83,4 +89,29 @@ fn source_rev_needs_a_translation_of() {
     let id = r.new_doc("guide", "services/shop", "Alone");
     let (code, v) = r.json(&["set", &id, "--source-rev"]);
     assert_ne!(code, 0, "{v}");
+}
+
+#[test]
+fn a_behind_translation_names_the_sections_that_changed_when_git_has_its_revision() {
+    let (r, src, ko) = pair();
+    let p = path_of(&r, &src);
+    let body = r.read(&p);
+    r.write(&p, &format!("{body}\n## Install\n\nRun the installer.\n\n## Limits\n\nNone yet.\n"));
+    assert_eq!(r.json(&["set", &ko, "--source-rev"]).0, 0);
+    r.commit("source and translation");
+    let now = r.read(&p).replace("Run the installer.", "Run the installer twice.");
+    r.write(&p, &format!("{now}\n## Support\n\nAsk the team.\n"));
+    let (_, v) = r.json(&["check", "--rule", "R1"]);
+    let m = &messages(&v)[0];
+    assert!(m.contains("in Install (1 paragraph changed), Support (new)"), "{m}");
+    assert!(!m.contains("Limits"), "{m}");
+    let (_, v) = r.json(&["census", "--translations"]);
+    assert_eq!(v["translations"][0]["sections"][0]["section"], "Install", "{v}");
+    assert_eq!(v["translations"][0]["sections"][1]["change"], "added", "{v}");
+    // Without the revision in git, the warning still says the source changed.
+    let (_, v) = r.json(&["set", &ko, "source_rev=sha256:000000000000"]);
+    assert_eq!(v["ok"], true, "{v}");
+    let (_, v) = r.json(&["check", "--rule", "R1"]);
+    let m = &messages(&v)[0];
+    assert!(m.contains("changed since source_rev sha256:000000000000: update"), "{m}");
 }

@@ -1642,12 +1642,18 @@ fn machine_paths_in_undeclared_agent_files_are_reported_once() {
 fn a_type_table_that_looks_like_a_typo_is_warned_about() {
     let r = common::repo();
     r.write("spec.toml", "[types.adrs]\nsections = [\"Decision\"]\n");
+    // Other commands stay quiet about it; check shows it once, check -q not at all.
     let out = r.spec().args(["list"]).output().unwrap();
+    assert!(!String::from_utf8_lossy(&out.stderr).contains("[types.adr]"));
+    let out = r.spec().args(["check"]).output().unwrap();
     let err = String::from_utf8_lossy(&out.stderr);
     assert_eq!(err.matches("did you mean [types.adr]").count(), 1, "{err}");
+    let out = r.spec().args(["check", "-q"]).output().unwrap();
+    assert!(!String::from_utf8_lossy(&out.stderr).contains("[types.adr]"));
+    // doctor lists it once, as a finding.
     let out = r.spec().args(["doctor"]).output().unwrap();
-    assert!(String::from_utf8_lossy(&out.stderr).is_empty());
-    assert!(String::from_utf8_lossy(&out.stdout).contains("did you mean [types.adr]"));
+    let all = format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+    assert_eq!(all.matches("did you mean [types.adr]").count(), 1, "{all}");
 }
 
 #[test]
@@ -1678,4 +1684,20 @@ fn an_unknown_id_points_at_a_search_not_at_help() {
     assert_ne!(code, 0);
     assert!(out.contains("next: spec find nope"), "{out}");
     assert!(!out.contains("spec help show"), "{out}");
+}
+
+#[test]
+fn a_unique_timestamp_part_of_an_id_opens_the_document() {
+    let r = common::repo();
+    let (code, v) = r.json(&["new", "adr", "--title", "Use files"]);
+    assert_eq!(code, 0, "{v}");
+    let id = v["id"].as_str().unwrap().to_string();
+    let stamp = id.rsplit('/').next().unwrap().to_string();
+    let (code, d) = r.json(&["show", &stamp]);
+    assert_eq!(code, 0, "{d}");
+    assert_eq!(d["id"], id.as_str(), "{d}");
+    // Part of the timestamp is still only a prefix: it names candidates, it does not open one.
+    let (code, text) = r.text(&["show", &stamp[..10]]);
+    assert_ne!(code, 0, "{text}");
+    assert!(text.contains("starts with it") && text.contains(&id), "{text}");
 }

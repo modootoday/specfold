@@ -16,7 +16,7 @@ pub fn run(g: &Global, a: &CensusArgs) -> Result<Output> {
         o.summary.extend(m);
     }
     if a.translations {
-        return translations(&s, &a.lang);
+        return translations(&s, &a.lang, &a.fail_on);
     }
     if a.legacy {
         let gone = c.legacy_paths == 0 && c.strays == 0 && c.links_via_alias == 0 && c.path_cites == 0;
@@ -41,7 +41,7 @@ pub fn run(g: &Global, a: &CensusArgs) -> Result<Output> {
     Ok(o.next("spec audit"))
 }
 
-fn translations(s: &session::Session, langs: &[String]) -> Result<Output> {
+fn translations(s: &session::Session, langs: &[String], fail_on: &str) -> Result<Output> {
     let r = translation::report(&s.corpus, &s.graph, langs);
     let mut o = Output::new("census").unpaged();
     if let serde_json::Value::Object(m) = to_value(&r)? {
@@ -78,5 +78,10 @@ fn translations(s: &session::Session, langs: &[String]) -> Result<Output> {
         .find(|t| matches!(t.state, State::Behind | State::Unrecorded))
         .map(|t| format!("spec set {} --source-rev  # after updating the translation", t.id))
         .unwrap_or_else(|| "spec check --rule R1 --rule L3".to_string());
-    Ok(o.code(Code::Findings).next(next))
+    let fails = match fail_on {
+        "none" => false,
+        "stale" => behind + unrecorded + gone > 0,
+        _ => true,
+    };
+    Ok(if fails { o.code(Code::Findings) } else { o }.next(next))
 }
