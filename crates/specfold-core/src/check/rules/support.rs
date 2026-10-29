@@ -59,7 +59,7 @@ pub(super) fn distance(a: &str, b: &str) -> usize {
 
 /// The one value close enough to `want` to be a typo of it: within a third of its length (at
 /// least two edits), and strictly closer than any other value.
-pub(super) fn nearest<'a>(want: &str, values: impl Iterator<Item = &'a str>) -> Option<&'a str> {
+pub(crate) fn nearest<'a>(want: &str, values: impl Iterator<Item = &'a str>) -> Option<&'a str> {
     let mut scored: Vec<(usize, &str)> = values
         .map(|v| (distance(&want.to_lowercase(), &v.to_lowercase()), v))
         .filter(|(d, v)| *d > 0 && *d <= 2.max(v.chars().count() / 3))

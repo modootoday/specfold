@@ -124,7 +124,7 @@ pub fn plan(c: &Corpus, idx: usize, e: &Edit) -> Result<Outcome> {
         Some(name) => {
             let Some((start, end)) = sections::span(split.body, name) else {
                 let have: Vec<String> = sections::outline(split.body).into_iter().map(|(_, t)| t).collect();
-                bail!("no section '{name}' (sections: {})", have.join(" | "));
+                bail!("no section '{name}' (sections: {}); to add it: --new-section {name:?}", have.join(" | "));
             };
             // Trailing blank lines separate sections; keep them outside the edited content.
             let mut last = end;

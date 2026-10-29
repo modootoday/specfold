@@ -4,7 +4,7 @@ use crate::cli::args::{global::Global, verify::CheckArgs};
 use crate::output::{Code, Output, ci, findings};
 use crate::session;
 use anyhow::{Result, bail};
-use specfold_core::check::{self, Finding, Options, Range, Selection, Severity, baseline};
+use specfold_core::check::{self, Finding, Fix, Options, Range, Selection, Severity, baseline};
 use specfold_core::workspace::vcs;
 use std::time::Instant;
 
@@ -248,7 +248,10 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
             o = o.foot(format!("  new  {}  {}", d.id, d.path));
         }
     }
-    let has_fix = list.iter().any(|f| f.fix.is_some());
+    // Only fixes `spec fix` applies; a command to finish by hand is shown with its finding.
+    let has_fix = list.iter().any(|f| {
+        matches!(&f.fix, Some(Fix::Replace { .. })) || matches!(&f.fix, Some(Fix::Cmd(c)) if c.starts_with("spec fix"))
+    });
     Ok(match (fails, has_fix) {
         (0, _) if lowerable > 0 => o.next("spec check --write-baseline"),
         (0, _) if !excluded.is_empty() => {
@@ -259,8 +262,11 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
             // Point at the warnings before the optional audit: an autofix when one exists,
             // otherwise the first warning's rule.
             let w: Vec<_> = list.iter().filter(|f| f.severity != Severity::Error).collect();
-            if w.iter().any(|f| f.fix.is_some()) {
+            if w.iter().any(|f| matches!(f.fix, Some(Fix::Replace { .. }))) {
                 o.next(if a.staged { "spec fix --staged --write" } else { "spec fix --write" })
+            } else if let Some(Fix::Cmd(c)) = &w[0].fix {
+                // A command to finish by hand, such as the section a type requires.
+                o.next(format!("{c}  # {} warning(s) to fix", w.len()))
             } else {
                 o.next(format!("spec explain {}  # {} warning(s) to fix", w[0].rule, w.len()))
             }
