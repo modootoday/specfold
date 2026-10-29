@@ -37,7 +37,7 @@ pub fn run(g: &Global, a: &MvArgs) -> Result<Output> {
         // them; listing them lets the caller fix each one.
         let root = &s.corpus.cfg.root;
         let docs: std::collections::HashSet<&str> = s.corpus.docs.iter().map(|d| d.path.as_str()).collect();
-        for f in vcs::committed(root).unwrap_or_default() {
+        for f in vcs::tracked(root, &[]).unwrap_or_default() {
             if !f.ends_with(".md") || docs.contains(f.as_str()) {
                 continue;
             }

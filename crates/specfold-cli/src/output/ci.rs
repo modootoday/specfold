@@ -71,6 +71,17 @@ pub fn github(findings: &[Finding], errors: usize, warnings: usize) -> String {
     s
 }
 
+/// `path:line:col: severity RULE: message`, the errorformat most editors read; col is 1.
+pub fn editor(findings: &[Finding]) -> String {
+    findings
+        .iter()
+        .map(|f| {
+            let level = if f.severity == Severity::Error { "error" } else { "warning" };
+            format!("{}:{}:1: {level} {}: {}\n", f.path, f.line.max(1), f.rule, message(f).replace('\n', " "))
+        })
+        .collect()
+}
+
 /// The step summary: a Markdown table GitHub shows on the run page.
 pub fn github_summary(findings: &[Finding], errors: usize, warnings: usize) -> String {
     let mut s = format!("### spec check\n\n{errors} error(s), {warnings} warning(s)\n");

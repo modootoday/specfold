@@ -4,9 +4,13 @@ use clap::Args;
 
 #[derive(Debug, Clone, Args)]
 #[command(
-    after_help = "Examples:\n  spec check --staged          # pre-commit\n  spec check --changed origin/main\n  spec check --rule L1 --rule L2 --json\n  spec check --new              # which documents were just recognised\n  spec check --summary          # findings per rule\n  spec check -q                 # errors only\n  spec check --rule N1          # counts in spec:count markers"
+    after_help = "Examples:\n  spec check --staged          # pre-commit\n  spec check --changed origin/main\n  spec check --rule L1 --rule L2 --json\n  spec check --new              # which documents were just recognised\n  spec check --summary          # findings per rule\n  spec check -q                 # errors only\n  spec check docs/a.md --format editor  # one file, for an editor on save\n  spec check --rule N1          # counts in spec:count markers"
 )]
 pub struct CheckArgs {
+    /// Only report findings in these files (an editor checking the file it saved). Every
+    /// document is still read so references resolve; counts and the exit code follow the files.
+    #[arg(value_name = "FILE")]
+    pub files: Vec<String>,
     /// Only what the index changes (pre-commit).
     #[arg(long, conflicts_with = "changed")]
     pub staged: bool,
@@ -51,8 +55,9 @@ pub struct CheckArgs {
     #[arg(long, short = 'q')]
     pub errors_only: bool,
     /// Findings for CI: github (workflow annotations and step summary), sarif (code scanning),
-    /// gitlab (Code Quality) or rdjson (reviewdog); text is the default.
-    #[arg(long, default_value = "text", value_parser = ["text", "github", "sarif", "gitlab", "rdjson"])]
+    /// gitlab (Code Quality) or rdjson (reviewdog); for editors: editor
+    /// (`path:line:col: severity RULE: message`); text is the default.
+    #[arg(long, default_value = "text", value_parser = ["text", "github", "sarif", "gitlab", "rdjson", "editor"])]
     pub format: String,
 }
 

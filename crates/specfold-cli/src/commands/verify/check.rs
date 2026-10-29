@@ -60,6 +60,12 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
         }
         None => (report.findings, 0, 0),
     };
+    let list = if a.files.is_empty() {
+        list
+    } else {
+        let only: Vec<String> = a.files.iter().map(|f| session::repo_path(&s, f)).collect();
+        list.into_iter().filter(|f| only.contains(&f.path)).collect()
+    };
     let (errors, warnings) = findings::counts(&list);
     let fails = failing(&list, &a.fail_on);
     let ms = started.elapsed().as_millis();
@@ -200,6 +206,7 @@ fn ci_output(
         }
         "sarif" => ci::sarif(&shown),
         "gitlab" => ci::gitlab(&shown),
+        "editor" => ci::editor(&shown),
         _ => ci::rdjson(&shown, root),
     };
     let mut out = Output::new("check").unpaged();
