@@ -1,5 +1,6 @@
 //! The rule catalog, one module per family.
 
+mod assets;
 mod attachments;
 mod cites;
 mod commands;
@@ -49,5 +50,7 @@ pub fn catalog() -> Vec<Box<dyn Rule>> {
         Box::new(commands::VerifyDeclared),
         Box::new(commands::GeneratedInSync),
         Box::new(guarded::GuardsPass),
+        Box::new(assets::AssetFrontmatter),
+        Box::new(assets::AssetNamesUnique),
     ]
 }

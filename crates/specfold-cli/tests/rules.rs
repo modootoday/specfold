@@ -285,3 +285,29 @@ fn an_unknown_key_shows_how_to_declare_it_and_declaring_it_quiets_s1() {
     assert_eq!(code, 0, "{v}");
     assert!(rules_hit(&v).is_empty(), "{v}");
 }
+
+#[test]
+fn agent_assets_need_a_name_and_description_and_warn_on_the_rest() {
+    let r = common::repo();
+    let toml = r.read("spec.toml")
+        + "[[assets]]\nkind = \"skill\"\npath = \".agents/skills\"\n[[assets]]\nkind = \"skill\"\npath = \".claude/skills\"\n[[assets]]\nkind = \"rule\"\npath = \".cursor/rules\"\n";
+    r.write("spec.toml", &toml);
+    r.write(".agents/skills/pdf-tools/SKILL.md", "---\nname: pdf-tools\ndescription: Read PDFs.\n---\n# PDF\n");
+    let (code, v) = r.json(&["check", "--rule", "A1", "--rule", "A2"]);
+    assert_eq!(code, 0, "a valid skill passes: {v}");
+    r.write(".agents/skills/broken/SKILL.md", "---\nname: Broken\nDescription: x\n---\n");
+    r.write(".claude/skills/one/SKILL.md", "---\nname: same\ndescription: a\n---\n");
+    r.write(".claude/skills/two/SKILL.md", "---\nname: same\ndescription: b\n---\n");
+    r.write(".cursor/rules/style.md", "Use tabs.\n");
+    let (code, v) = r.json(&["check", "--rule", "A1", "--rule", "A2"]);
+    assert_eq!(code, 1, "{v}");
+    let text = v.to_string();
+    assert_eq!(v["errors"], 1, "only the missing description is an error: {v}");
+    assert!(text.contains("skill has no description"), "{v}");
+    assert!(text.contains("the field is spelled 'description'"), "{v}");
+    assert!(text.contains("differs from its directory 'broken'"), "{v}");
+    assert!(text.contains("lowercase letters"), "{v}");
+    assert!(text.contains("skill name 'same' is also used by .claude/skills/"), "{v}");
+    assert!(text.contains("Cursor reads only .mdc"), "{v}");
+    assert!(!text.contains("pdf-tools"), "the valid skill stays quiet: {v}");
+}
