@@ -67,6 +67,14 @@ pub fn plan(c: &Corpus, idx: usize, req: &Move) -> Result<(Moved, Plan)> {
         for file in std::iter::once(&other.path).chain(&other.chapters) {
             let text = std::fs::read_to_string(c.cfg.root.join(file))?;
             let mut body = refs::rewrite_body(&text, &old_s, &new_s);
+            if j != idx {
+                // Plain paths to the moved file break with the move; cite the new id instead (L2).
+                for cite in other.path_cites.iter().filter(|p| &p.path == file) {
+                    if refs::same_path(&cite.item, &d.path) {
+                        body = body.replace(&cite.item, &format!("[[{new_s}]]"));
+                    }
+                }
+            }
             let is_main = file == &other.path;
             if is_main {
                 let mut rel_changed = false;

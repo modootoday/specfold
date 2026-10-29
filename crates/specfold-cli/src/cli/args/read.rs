@@ -44,7 +44,7 @@ pub struct FindArgs {
 
 #[derive(Debug, Clone, Args)]
 #[command(
-    after_help = "Examples:\n  spec show sot:shop/cart\n  spec show sot:shop/cart --section rules\n  spec show adr:shop/20260101000000 --rel"
+    after_help = "Examples:\n  spec show sot:shop/cart\n  spec show sot:shop/cart --section rules\n  spec show adr:shop/20260101000000 --rel\n  spec show plan:shop/20260101000000 --tasks"
 )]
 pub struct ShowArgs {
     /// An id, alias, path, or unique slug.
@@ -58,6 +58,9 @@ pub struct ShowArgs {
     /// The whole body (otherwise frontmatter and outline).
     #[arg(long)]
     pub body: bool,
+    /// List the task items (`- [ ]`, `- [x]`) with their lines and whether each is done.
+    #[arg(long)]
+    pub tasks: bool,
 }
 
 #[derive(Debug, Clone, Args)]

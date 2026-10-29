@@ -71,7 +71,8 @@ document has chapters or attachments. Projects can disable, change or add types 
 Statuses are `draft`, `active`, `superseded`, `archived` and `rejected`, and only move forward.
 Relations are written once, on the document that makes them: `rel.governs` (code paths),
 `rel.supersedes`, `rel.implements`, `rel.evidence`, `rel.depends_on`. Body references are
-`[[<id>]]` or `[[<id>#<anchor>]]`.
+`[[<id>]]` or `[[<id>#<anchor>]]`. Task items (`- [ ]`, `- [x]`) are counted: `spec show` reports
+a document's progress and `spec show <id> --tasks` lists each item with its file and line.
 
 ## Commands
 
@@ -80,10 +81,13 @@ examples and output schemas. `spec explain` documents every rule.
 
 | read                                | write                       | check                       |
 | ----------------------------------- | --------------------------- | --------------------------- |
-| context, find, show, resolve, graph | new, set, mv, fix           | check, verify, guard        |
+| context, find, show, resolve, graph | new, set, edit, mv, fix     | check, verify, guard        |
 | owners, log, files                  | attach, fetch, import, init | audit, census               |
 
 Writes are previews until `--write` (or plain for `new` and `set`, which accept `--dry-run`).
+`spec edit` changes bodies: it replaces or appends to one section (`--section`) or the whole
+body, from `--text`, `--file`, or stdin (`--file -`), and bumps `updated`. Sealed and closed
+documents are refused.
 Exit codes: 0 nothing to report, 1 findings or an ambiguous answer, 2 usage, 3 environment.
 
 ## Attachments

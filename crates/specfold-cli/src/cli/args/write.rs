@@ -149,3 +149,27 @@ pub struct ImportArgs {
     #[arg(long)]
     pub write: bool,
 }
+
+#[derive(Debug, Clone, Args)]
+#[command(
+    after_help = "Examples:\n  spec edit adr:shop/20260101000000 --section Decision --text \"Use Postgres.\"\n  spec edit adr:shop/20260101000000 --append --file addendum.md --write\n  cat body.md | spec edit research:shop/20260101000000 --file - --write"
+)]
+pub struct EditArgs {
+    /// An id, alias, path, or unique slug.
+    pub doc: String,
+    /// Change only this section (heading text or anchor); without it the whole body.
+    #[arg(long)]
+    pub section: Option<String>,
+    /// Add after the existing content instead of replacing it.
+    #[arg(long)]
+    pub append: bool,
+    /// The new Markdown text.
+    #[arg(long, conflicts_with = "file", required_unless_present = "file")]
+    pub text: Option<String>,
+    /// Read the new Markdown text from a file; `-` reads standard input.
+    #[arg(long)]
+    pub file: Option<PathBuf>,
+    /// Apply the change; without it only the preview is shown.
+    #[arg(long)]
+    pub write: bool,
+}

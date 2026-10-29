@@ -17,6 +17,7 @@ pub fn dispatch(cli: &Cli) -> Result<Output> {
         Cmd::Log(a) => read::log::run(g, a),
         Cmd::New(a) => write::new::run(g, a),
         Cmd::Set(a) => write::set::run(g, a),
+        Cmd::Edit(a) => write::edit::run(g, a),
         Cmd::Mv(a) => write::mv::run(g, a),
         Cmd::Fix(a) => write::fix::run(g, a),
         Cmd::Init(a) => write::init::run(g, a),

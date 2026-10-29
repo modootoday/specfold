@@ -115,7 +115,7 @@ impl Rule for NoPathCites {
         &RuleInfo {
             id: "L2",
             title: "documents are cited by id, not by path",
-            explain: "A path breaks when a document moves; an id does not. Plain-text paths into a spec directory are reported with the id to write instead.",
+            explain: "A path breaks when a document moves; an id does not. Plain-text paths into a spec directory are reported with the id to write instead; a stale path (after a move or an import) is matched by file name or slug, and `spec fix --rule L2 --write` rewrites every cite with one match. `spec mv` rewrites plain paths to the moved file itself.",
             on_commit: true,
         }
     }
@@ -131,11 +131,42 @@ impl Rule for NoPathCites {
                     Resolution::Doc { idx, .. } => {
                         f.fix_replace(c.item.clone(), format!("[[{}]]", ctx.corpus.docs[idx].id))
                     }
-                    _ => f,
+                    _ => match by_file_name(ctx, &c.item).as_slice() {
+                        [idx] => f.fix_replace(c.item.clone(), format!("[[{}]]", ctx.corpus.docs[*idx].id)),
+                        [] => f,
+                        many => f.with_candidates(ids(ctx, many)),
+                    },
                 });
             }
         }
     }
+}
+
+/// Documents a stale path still names by its file: the same file name, or the same slug once a
+/// stamp prefix and a `.<type>` suffix are stripped. Moves and imports keep slugs, so this finds
+/// most documents whose old paths were cited.
+fn by_file_name(ctx: &Ctx, cited: &str) -> Vec<usize> {
+    let file = cited.rsplit('/').next().unwrap_or(cited);
+    let docs = &ctx.corpus.docs;
+    let same: Vec<usize> = (0..docs.len()).filter(|&i| docs[i].path.rsplit('/').next() == Some(file)).collect();
+    if !same.is_empty() {
+        return same;
+    }
+    let mut stem = file.strip_suffix(".md").unwrap_or(file);
+    if let Some((s, ty)) = stem.rsplit_once('.')
+        && ctx.corpus.cfg.registry.get(ty).is_some()
+    {
+        stem = s;
+    }
+    if let Some((stamp, rest)) = stem.split_once('-')
+        && crate::model::stamp::is_stamp(stamp)
+    {
+        stem = rest;
+    }
+    if stem.is_empty() {
+        return vec![];
+    }
+    (0..docs.len()).filter(|&i| docs[i].slug == stem).collect()
 }
 
 /// The types a relation may point at; `None` means any type, `Some(&[])` means the same type.
