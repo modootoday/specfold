@@ -82,3 +82,13 @@ fn the_pre_commit_snippet_uses_the_current_language_name() {
         std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../.pre-commit-hooks.yaml")).unwrap();
     assert!(manifest.contains("id: spec-check") && manifest.contains("minimum_pre_commit_version"));
 }
+
+/// The GitHub Action's install and check steps, against a fake release served from disk.
+#[cfg(unix)]
+#[test]
+fn the_action_scripts_pass_their_own_tests() {
+    let script = concat!(env!("CARGO_MANIFEST_DIR"), "/../../.github/action/test.sh");
+    let out = std::process::Command::new("bash").arg(script).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(out.status.success() && text.contains("all passed"), "{text}{}", String::from_utf8_lossy(&out.stderr));
+}

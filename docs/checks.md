@@ -56,3 +56,33 @@ A document is stale when its governed code changed more than `audit.stale_days` 
 To track it by commit instead, pin it with `spec set <id> verified_at=HEAD` after checking the body
 against the code: `spec audit --kind stale` then reports any later commit to the governed paths,
 or a pin that is no longer a commit, and suggests the `git diff` to read before re-pinning.
+
+## In CI
+
+`spec check --format` prints a document CI systems read instead of the text: `github` (workflow annotations, plus a table in the step summary), `sarif` (code scanning), `gitlab` (Code Quality) or `rdjson` (reviewdog). The exit code is the same as without it.
+
+The repository's `action.yml` installs a release, checks the archive against its `.sha256` file, and runs `spec check`. Pin `version` to a tag from the releases page:
+
+```yaml
+name: specs
+on: [pull_request]
+permissions:
+  contents: read
+  security-events: write   # only for the SARIF upload
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: modootoday/specfold@<tag>
+        with:
+          version: <tag>
+          format: sarif
+          args: --changed origin/${{ github.base_ref }}
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with: { sarif_file: spec-check.sarif.json }
+```
+
+With `format: github` (the default) the findings show up on the pull request without the upload step. For pre-commit, the repository ships `.pre-commit-hooks.yaml` (`spec-check`, `spec-check-push`); they need pre-commit 4.4.0 or later and `spec` on PATH.
