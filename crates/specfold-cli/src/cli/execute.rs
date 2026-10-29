@@ -157,11 +157,12 @@ fn split_next(msg: &str, argv: &[String]) -> (String, Option<String>) {
     }
     if let Some((m, flag)) = msg.rsplit_once("; rerun with ")
         && flag.starts_with("--")
-        && !flag.contains(' ')
+        && flag.split(' ').count() <= 2
+        && flag.split(' ').nth(1).is_none_or(|v| !v.starts_with('-'))
     {
         let mut cmd: Vec<String> =
             std::iter::once("spec".to_string()).chain(argv.iter().skip(1).map(|a| quote(a))).collect();
-        cmd.push(flag.to_string());
+        cmd.extend(flag.split(' ').map(str::to_string));
         return (m.to_string(), Some(cmd.join(" ")));
     }
     (msg.to_string(), None)

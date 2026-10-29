@@ -1268,3 +1268,33 @@ fn check_stdin_path_accepts_a_new_file_only_in_a_spec_directory() {
     assert_eq!(out.status.code(), Some(2), "{out:?}");
     assert!(String::from_utf8_lossy(&out.stdout).contains("spec directory"), "{out:?}");
 }
+
+#[test]
+fn doctor_says_when_there_is_no_spec_toml() {
+    let r = common::repo();
+    std::fs::remove_file(r.path().join("spec.toml")).unwrap();
+    let (code, v) = r.json(&["doctor"]);
+    assert_eq!(code, 1, "{v}");
+    assert_eq!(v["next"], "spec init --write", "{v}");
+}
+
+#[test]
+fn check_points_at_errors_left_out_by_fail_on() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    let p = r.json(&["show", &id]).1["path"].as_str().unwrap().to_string();
+    let t = r.read(&p);
+    r.write(&p, &format!("{t}\nsee [[sot:services/nowhere]]\n"));
+    let (code, v) = r.json(&["check", "--fail-on", "none"]);
+    assert_eq!(code, 0, "{v}");
+    assert!(v["next"].as_str().unwrap().starts_with("spec explain "), "{v}");
+}
+
+#[test]
+fn new_without_ascii_words_suggests_the_full_command() {
+    let r = common::repo();
+    let (code, v) = r.json(&["new", "sot", "--title", "장바구니"]);
+    assert_eq!(code, 2, "{v}");
+    let next = v["next"].as_str().unwrap();
+    assert!(next.starts_with("spec new sot --title") && next.ends_with("--slug my-slug"), "{v}");
+}

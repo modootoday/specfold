@@ -211,6 +211,10 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
     let has_fix = list.iter().any(|f| f.fix.is_some());
     Ok(match (fails, has_fix) {
         (0, _) if lowerable > 0 => o.next("spec check --write-baseline"),
+        (0, _) if !excluded.is_empty() => {
+            let (rule, n) = excluded.iter().next().map(|(r, n)| (r.clone(), *n)).unwrap_or_default();
+            o.next(format!("spec explain {rule}  # {n} error(s) left out of the exit code"))
+        }
         (0, _) if warnings > 0 => {
             // Point at the warnings before the optional audit: an autofix when one exists,
             // otherwise the first warning's rule.
