@@ -31,7 +31,8 @@ pub struct CheckArgs {
     /// In a full run, also run every guard over the whole tree (staged and ranged runs always do).
     #[arg(long)]
     pub guards: bool,
-    /// Only errors of these rules fail the run (repeatable); `any` means every rule.
+    /// Only errors of these rules fail the run (repeatable); `any` means every rule, `none` reports
+    /// without failing.
     #[arg(long = "fail-on", value_name = "RULE")]
     pub fail_on: Vec<String>,
     /// Show every finding, ignoring [check] baseline.

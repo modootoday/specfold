@@ -61,3 +61,39 @@ pub fn resolve(s: &Session, text: &str) -> Result<usize> {
         ),
     }
 }
+
+/// A document to put in an example command: of the preferred type if there is one, else the
+/// most connected one, so the example shows something.
+pub fn example_doc(s: &Session, prefer_ty: Option<&str>) -> Option<String> {
+    let docs = &s.corpus.docs;
+    if let Some(ty) = prefer_ty
+        && let Some(d) = docs.iter().find(|d| d.id.ty == ty)
+    {
+        return Some(d.id.to_string());
+    }
+    let degree = |i: usize| s.graph.edges.iter().filter(|e| e.from == i || e.to == i).count();
+    (0..docs.len()).max_by_key(|&i| (degree(i), std::cmp::Reverse(i))).map(|i| docs[i].id.to_string())
+}
+
+/// The same, opened from a command line that clap refused: honours -C/--dir and --no-local.
+pub fn example_doc_for(argv: &[String], prefer_ty: Option<&str>) -> Option<String> {
+    let mut dir = None;
+    let mut it = argv.iter();
+    while let Some(a) = it.next() {
+        if a == "-C" || a == "--dir" {
+            dir = it.next().map(PathBuf::from);
+        } else if let Some(d) = a.strip_prefix("--dir=") {
+            dir = Some(PathBuf::from(d));
+        }
+    }
+    let g = Global {
+        json: false,
+        jsonl: false,
+        limit: 30,
+        offset: 0,
+        dir,
+        no_local: argv.iter().any(|a| a == "--no-local"),
+    };
+    let s = open(&g).ok()?;
+    example_doc(&s, prefer_ty)
+}

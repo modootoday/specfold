@@ -31,6 +31,13 @@ check "adds it to GITHUB_PATH" "$(cat "$tmp/path")" "$bin"
 check "the binary runs" "$("$bin/spec" check)" "fake spec check"
 
 if main "" "$tmp/b" >/dev/null 2>&1; then bad "an empty tag must fail"; else ok "an empty tag is refused"; fi
+check "the version input wins" "$(resolve_tag v1.0.0 v2.0.0)" v1.0.0
+check "the action's own tag is the default" "$(resolve_tag "" v2.3.4)" v2.3.4
+check "a bare semver ref is accepted" "$(resolve_tag "" 2.3.4-rc.1)" 2.3.4-rc.1
+for ref in main 0bc9694deadbeef0bc9694deadbeef0bc9694dea v2 ""; do
+  if resolve_tag "" "$ref" >/dev/null 2>&1; then bad "ref '$ref' must not pick a release"; else ok "ref '$ref' needs the version input"; fi
+done
+bin="$(SPECFOLD_ACTION_REF=v0.0.0 main "" "$tmp/e" 2>&1)" && ok "installs from the action's own tag" || bad "own tag: $bin"
 echo "0000000000000000000000000000000000000000000000000000000000000000  x" > "$rel/specfold-x86_64-unknown-linux-gnu.tar.gz.sha256"
 if out="$(main v0.0.0 "$tmp/c" 2>&1)"; then bad "a bad checksum must fail"; else
   case "$out" in *"checksum mismatch"*) ok "a bad checksum is refused" ;; *) bad "checksum message: $out" ;; esac; fi

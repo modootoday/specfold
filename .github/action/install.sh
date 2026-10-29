@@ -26,12 +26,23 @@ sha256_of() {
   else shasum -a 256 "$1" | cut -d' ' -f1; fi
 }
 
-main() {
-  local tag="${1:-}" dest="${2:-${RUNNER_TEMP:-/tmp}/specfold}"
-  if [ -z "$tag" ]; then
-    echo "a release tag is required (for example the tag on https://github.com/${SPECFOLD_REPOSITORY:-modootoday/specfold}/releases)" >&2
-    return 1
+# The release to install: the version input, else the ref the action itself was used at when
+# that ref is a release tag (uses: owner/specfold@v1.2.3). A branch, a commit SHA or a local
+# `uses: ./` has no matching release, so those need the version input.
+resolve_tag() {
+  local tag="${1:-}" ref="${2:-}"
+  if [ -n "$tag" ]; then echo "$tag"; return 0; fi
+  if printf '%s' "$ref" | grep -Eq '^v?[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$'; then
+    echo "$ref"; return 0
   fi
+  local how="the action ref '${ref}'"; [ -z "$ref" ] && how="a local or unknown action ref"
+  echo "no version input, and $how is not a release tag; pin the action to a release tag (uses: ${SPECFOLD_REPOSITORY:-modootoday/specfold}@v1.2.3) or set version (tags on https://github.com/${SPECFOLD_REPOSITORY:-modootoday/specfold}/releases)" >&2
+  return 1
+}
+
+main() {
+  local tag dest="${2:-${RUNNER_TEMP:-/tmp}/specfold}"
+  tag="$(resolve_tag "${1:-}" "${SPECFOLD_ACTION_REF:-}")" || return 1
   case "$tag" in v*) ;; *) tag="v$tag" ;; esac
   local os="${SPECFOLD_OS:-${RUNNER_OS:-}}" arch="${SPECFOLD_ARCH:-${RUNNER_ARCH:-}}"
   local target; target="$(target_for "$os" "$arch")"
