@@ -5,6 +5,7 @@ mod assets;
 mod attachments;
 mod cites;
 mod commands;
+mod counts;
 mod forbid;
 mod guarded;
 mod ids;
@@ -54,5 +55,6 @@ pub fn catalog() -> Vec<Box<dyn Rule>> {
         Box::new(assets::AssetFrontmatter),
         Box::new(assets::AssetNamesUnique),
         Box::new(asset_refs::AssetRefsExist),
+        Box::new(counts::CountsMatch),
     ]
 }
