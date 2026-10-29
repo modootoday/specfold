@@ -10,30 +10,47 @@ use specfold_core::corpus::overlay;
 use std::io::{BufRead, Write};
 use std::path::{Path, PathBuf};
 
-/// One framed message, or None at the end of input.
-pub fn read_message(r: &mut impl BufRead) -> std::io::Result<Option<Value>> {
+/// Largest message body accepted; a bigger Content-Length is treated as a broken stream.
+const MAX_BODY: usize = 64 << 20;
+
+fn broken(why: String) -> std::io::Error {
+    std::io::Error::new(std::io::ErrorKind::InvalidData, why)
+}
+
+/// One framed message (`Err` holds a JSON parse error for a -32700 reply), or None at the end
+/// of input. A frame that cannot be delimited is an I/O error naming why.
+pub fn read_message(r: &mut impl BufRead) -> std::io::Result<Option<Result<Value, String>>> {
     let mut len = None;
+    let mut headers = false;
     loop {
         let mut line = String::new();
         if r.read_line(&mut line)? == 0 {
+            if headers {
+                return Err(broken("input ended inside message headers".into()));
+            }
             return Ok(None);
         }
         let line = line.trim_end();
         if line.is_empty() {
-            if len.is_some() {
+            if headers {
                 break;
             }
             continue;
         }
+        headers = true;
         if let Some((k, v)) = line.split_once(':')
             && k.eq_ignore_ascii_case("content-length")
         {
-            len = v.trim().parse::<usize>().ok();
+            len = Some(v.trim().parse::<usize>().map_err(|_| broken(format!("bad Content-Length header: {line}")))?);
         }
     }
-    let mut body = vec![0; len.unwrap_or(0)];
-    r.read_exact(&mut body)?;
-    Ok(Some(serde_json::from_slice(&body).unwrap_or(Value::Null)))
+    let len = len.ok_or_else(|| broken("message headers have no Content-Length".into()))?;
+    if len > MAX_BODY {
+        return Err(broken(format!("Content-Length {len} exceeds the {MAX_BODY}-byte limit")));
+    }
+    let mut body = vec![0; len];
+    r.read_exact(&mut body).map_err(|_| broken(format!("input ended inside a {len}-byte message body")))?;
+    Ok(Some(serde_json::from_slice(&body).map_err(|e| e.to_string())))
 }
 
 pub fn write_message(w: &mut impl Write, v: &Value) -> std::io::Result<()> {
@@ -264,7 +281,20 @@ pub fn serve(global: Global) -> std::io::Result<()> {
     let mut input = stdin.lock();
     let mut out = std::io::stdout();
     let mut server = Server::new(global);
-    while let Some(msg) = read_message(&mut input)? {
+    loop {
+        let msg = match read_message(&mut input) {
+            Ok(None) => break,
+            Ok(Some(Ok(m))) => m,
+            Ok(Some(Err(e))) => {
+                let err = json!({"jsonrpc": "2.0", "id": null, "error": {"code": -32700, "message": format!("parse error: {e}")}});
+                write_message(&mut out, &err)?;
+                continue;
+            }
+            Err(e) => {
+                eprintln!("spec lsp: stopping: {e}");
+                return Err(e);
+            }
+        };
         let (replies, stop) = server.handle(&msg);
         for r in &replies {
             write_message(&mut out, r)?;

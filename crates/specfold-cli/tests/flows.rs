@@ -1399,3 +1399,49 @@ fn check_takes_document_ids_as_well_as_files() {
         "{text}"
     );
 }
+
+#[test]
+fn check_stdin_errors_name_the_real_problem() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    let path = r.json(&["show", &id]).1["path"].as_str().unwrap().to_string();
+    let dir = std::path::Path::new(&path).parent().unwrap().to_str().unwrap().to_string();
+    // Without --stdin-path the error says nothing about it.
+    let out = r.spec().args(["check", "nope.md"]).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert_eq!(out.status.code(), Some(2));
+    assert!(!text.contains("stdin"), "{text}");
+    // A buffer whose name breaks the naming: say so and show how to get a usable path.
+    let bad = format!("{dir}/notes.md");
+    let out = r.spec().args(["check", "--stdin-path", &bad]).write_stdin("# Notes\n").output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert_eq!(out.status.code(), Some(2));
+    assert!(text.contains("does not follow this directory's document naming"), "{text}");
+    assert!(text.contains("next: spec new sot --title"), "{text}");
+    // `-` stands for the --stdin-path buffer, and is explained without it.
+    let out = r.spec().args(["check", "--stdin-path", &path, "-"]).write_stdin(r.read(&path)).output().unwrap();
+    assert!(matches!(out.status.code(), Some(0 | 1)), "{out:?}");
+    let out = r.spec().args(["check", "-"]).output().unwrap();
+    assert_eq!(out.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&out.stdout).contains("spec check --stdin-path <FILE>"), "{out:?}");
+}
+
+#[test]
+fn lsp_answers_parse_errors_and_explains_broken_frames() {
+    let r = common::repo();
+    let input = "Content-Length: 5\r\n\r\n{nope".to_string()
+        + &lsp_frames(&[serde_json::json!({"jsonrpc": "2.0", "id": 1, "method": "shutdown"})]);
+    let out = r.spec().arg("lsp").write_stdin(input).output().unwrap();
+    let replies = lsp_replies(&out.stdout);
+    assert_eq!(replies[0]["error"]["code"], -32700, "{replies:?}");
+    assert_eq!(replies[1]["id"], 1, "keeps serving after a parse error");
+    for (input, why) in [
+        ("Content-Type: x\r\n\r\n{}", "no Content-Length"),
+        ("Content-Length: 999999999999\r\n\r\n{}", "exceeds"),
+        ("Content-Length: 50\r\n\r\n{}", "inside a 50-byte message body"),
+    ] {
+        let out = r.spec().arg("lsp").write_stdin(input).output().unwrap();
+        assert_eq!(out.status.code(), Some(3), "{input}");
+        assert!(String::from_utf8_lossy(&out.stderr).contains(why), "{input}: {out:?}");
+    }
+}

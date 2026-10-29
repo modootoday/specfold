@@ -12,6 +12,17 @@ authors.workspace = true
 keywords.workspace = true
 categories.workspace = true
 
+# `cargo binstall specfold` downloads the release archive instead of compiling. The names
+# follow the Package step of .github/workflows/release.yml (tests/packaging.rs checks this).
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/v{ version }/specfold-{ target }.tar.gz"
+bin-dir = "specfold-{ target }/{ bin }{ binary-ext }"
+pkg-fmt = "tgz"
+
+[package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
+pkg-url = "{ repo }/releases/download/v{ version }/specfold-{ target }.zip"
+pkg-fmt = "zip"
+
 [[bin]]
 name = "specfold"
 path = "src/main.rs"
