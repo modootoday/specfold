@@ -53,7 +53,7 @@ pub fn run(g: &Global, a: &EditArgs) -> Result<Output> {
         rerun.push_str(" --append");
     }
     match (&a.text, &a.file) {
-        (Some(t), _) => rerun.push_str(&format!(" --text {}", sh(t))),
+        (Some(t), _) => rerun.push_str(&format!(" --text={}", sh(t))),
         (None, Some(p)) if p.as_os_str() == "-" => rerun.push_str(" --file <saved-input>"),
         (None, Some(p)) => rerun.push_str(&format!(" --file {}", sh(&p.display().to_string()))),
         (None, None) => {}
