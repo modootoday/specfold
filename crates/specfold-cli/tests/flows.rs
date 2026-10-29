@@ -691,3 +691,26 @@ fn set_rejecting_a_status_names_the_allowed_ones_and_the_next_command() {
     let e = v["error"].as_str().unwrap();
     assert!(e.contains("allowed:") && e.contains(&format!("next: spec set {id} status=archived")), "{e}");
 }
+
+#[test]
+fn mv_refuses_a_forbidden_target_before_writing() {
+    let r = common::repo();
+    let id = r.new_doc("adr", "services/shop", "Use files");
+    r.write("spec.toml", &(r.read("spec.toml") + "[forbid]\npaths = [\"services/blog/.spec\"]\n"));
+    let (code, v) = r.json(&["mv", &id, "--owner", "services/blog", "--write"]);
+    assert_ne!(code, 0, "{v}");
+    let e = v["error"].as_str().unwrap();
+    assert!(e.contains("matches the forbidden path services/blog/.spec in spec.toml [forbid]"), "{e}");
+    assert!(e.contains("--local"), "{e}");
+    assert!(!r.path().join("services/blog/.spec").exists(), "nothing written");
+}
+
+#[test]
+fn set_with_no_matching_finished_status_names_only_the_allowed_ones() {
+    let r = common::repo();
+    let id = r.new_doc("adr", "services/shop", "Use files");
+    let (code, v) = r.json(&["set", &id, "status=done"]);
+    assert_ne!(code, 0);
+    let e = v["error"].as_str().unwrap();
+    assert!(e.contains("allowed:") && !e.contains("next:") && !e.contains("status=superseded"), "{e}");
+}

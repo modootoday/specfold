@@ -50,6 +50,12 @@ pub fn plan(c: &Corpus, idx: usize, req: &Move) -> Result<(Moved, Plan)> {
             Plan::default(),
         ));
     }
+    let hint = if d.tier == Tier::Local {
+        "change [forbid] paths or the type's directory"
+    } else {
+        "choose another --owner, or keep it local: spec new --local, then move the body"
+    };
+    super::forbid::refuse(c, &new_main, hint)?;
     if c.docs.iter().any(|x| x.id == new_id) {
         bail!("{new_id} already exists");
     }

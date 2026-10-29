@@ -134,7 +134,7 @@ pub fn plan(c: &Corpus, idx: usize, assigns: &[Assign]) -> Result<Plan> {
                 let from = d.status().unwrap_or_else(|| ty.initial.clone());
                 let reachable: Vec<&String> =
                     ty.statuses.iter().filter(|s| **s != from && ty.transition_allowed(&from, s)).collect();
-                let pick = finishing_status(&a.value, &reachable).or_else(|| reachable.first().map(|s| s.as_str()));
+                let pick = finishing_status(&a.value, &reachable);
                 let next = pick.map(|s| format!("; next: spec set {} status={s}", d.id)).unwrap_or_default();
                 bail!(
                     "status '{}' is not allowed for {} (allowed: {}; from '{from}': {}){next}",
