@@ -135,10 +135,16 @@ pub struct CensusArgs {
     #[arg(long)]
     pub legacy: bool,
     /// Report translations (rel.translation_of): which are behind their source, which record no
-    /// source_rev, and which sources each language lacks. Exit 1 if any.
+    /// source_rev, and which sources each language lacks. Exit 1 if any (see --fail-on).
     #[arg(long)]
     pub translations: bool,
     /// With --translations: the languages to cover (repeatable); default every language used.
     #[arg(long, requires = "translations")]
     pub lang: Vec<String>,
+    /// With --translations: what fails the run (exit 1). `any` (default) is every finding,
+    /// missing translations included; `stale` only translations behind, without source_rev or
+    /// without a source; `none` reports without failing.
+    #[arg(long = "fail-on", value_name = "WHAT", default_value = "any", requires = "translations",
+          value_parser = ["any", "stale", "none"])]
+    pub fail_on: String,
 }

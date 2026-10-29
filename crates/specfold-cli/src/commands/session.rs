@@ -11,8 +11,9 @@ pub struct Session {
     pub graph: Graph,
 }
 
-/// The configuration, with a warning on standard error for `[types.<name>]` tables that look
-/// like typos (doctor lists them as findings instead).
+/// The configuration. `[types.<name>]` tables that look like typos are warned about on standard
+/// error only when a command asked for it (`spec check` without `-q`); doctor lists them as
+/// findings, and every other command stays quiet about them.
 pub fn config(g: &Global) -> Result<Config> {
     let cfg = config_quiet(g)?;
     if !WARNED.swap(true, std::sync::atomic::Ordering::Relaxed) {
@@ -23,9 +24,15 @@ pub fn config(g: &Global) -> Result<Config> {
     Ok(cfg)
 }
 
-/// Set once the config warnings were shown, or by a command that reports them itself.
-static WARNED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// Set once the config warnings were shown, or while no command asked for them.
+static WARNED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
 
+/// Shows the config warnings with the next configuration loaded (`spec check`).
+pub fn show_config_warnings() {
+    WARNED.store(false, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// Keeps them back: the command reports them itself (doctor).
 pub fn hold_config_warnings() {
     WARNED.store(true, std::sync::atomic::Ordering::Relaxed);
 }
@@ -79,7 +86,12 @@ pub fn resolve(s: &Session, text: &str) -> Result<usize> {
             Resolution::Missing => {}
         }
     }
-    let by_slug: Vec<usize> = (0..s.corpus.docs.len()).filter(|&i| s.corpus.docs[i].slug == text).collect();
+    let mut by_slug: Vec<usize> = (0..s.corpus.docs.len()).filter(|&i| s.corpus.docs[i].slug == text).collect();
+    if by_slug.is_empty() {
+        // The whole part after the owner (`20240401000000`) names the one id that ends with it.
+        let tail = format!("/{text}");
+        by_slug = (0..s.corpus.docs.len()).filter(|&i| s.corpus.docs[i].id.to_string().ends_with(&tail)).collect();
+    }
     match by_slug.as_slice() {
         [i] => Ok(*i),
         [] => {

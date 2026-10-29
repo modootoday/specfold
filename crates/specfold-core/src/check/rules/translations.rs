@@ -13,7 +13,7 @@ impl Rule for TranslationsCurrent {
         &RuleInfo {
             id: "R1",
             title: "translations are current with their source",
-            explain: "A translated document names its source with rel.translation_of and records the source it was made from as source_rev: sha256:<12 hex>, a hash of the source body with frontmatter removed and whitespace collapsed (no git history needed, and reformatting does not count). When the source body changes, the translation is reported as behind until it is re-translated and source_rev is recorded again with `spec set <id> --source-rev`. A translation without source_rev gets the same command. A source that does not resolve is reported by L3. Reported as warnings; `spec census --translations` lists every translation and the sources each language lacks.",
+            explain: "A translated document names its source with rel.translation_of and records the source it was made from as source_rev: sha256:<12 hex>, a hash of the source body (main file, then the bundle's chapters in path order) with frontmatter removed and whitespace collapsed (no git history needed, and reformatting does not count). When git still has a commit with the recorded revision, the warning names the sections that changed since, with the number of paragraphs changed, new and removed sections (chapters are prefixed with their file name). When the source body changes, the translation is reported as behind until it is re-translated and source_rev is recorded again with `spec set <id> --source-rev`. A translation without source_rev gets the same command. A source that does not resolve is reported by L3. Reported as warnings; `spec census --translations` lists every translation and the sources each language lacks.",
             on_commit: false,
         }
     }
@@ -38,21 +38,31 @@ impl Rule for TranslationsCurrent {
                 ));
             }
             let source = &c.docs[src];
-            let now = ctx.current(&source.path).map(|t| translation::rev_of_text(&t));
+            let now_parts = translation::parts_of(c, src, |p| ctx.current(p));
+            let now = now_parts.as_ref().map(|p| translation::rev_of_parts(p));
             match d.str_field(KEY) {
                 None => out.push(
                     Finding::warn("R1", &d.path, 1, format!("translation of {} records no source_rev", source.id))
                         .fix_cmd(fix),
                 ),
-                Some(r) if now.as_deref().is_some_and(|n| n != r) => out.push(
-                    Finding::warn(
-                        "R1",
-                        &d.path,
-                        line,
-                        format!("{} changed since source_rev {r}: update the translation", source.id),
+                Some(r) if now.as_deref().is_some_and(|n| n != r) => {
+                    // Name the sections when git still has the recorded revision.
+                    let what = now_parts
+                        .as_deref()
+                        .and_then(|p| translation::changes_since(c, src, &r, p))
+                        .filter(|ch| !ch.is_empty())
+                        .map(|ch| format!(" in {}", translation::describe(&ch)))
+                        .unwrap_or_default();
+                    out.push(
+                        Finding::warn(
+                            "R1",
+                            &d.path,
+                            line,
+                            format!("{} changed since source_rev {r}{what}: update the translation", source.id),
+                        )
+                        .fix_cmd(fix),
                     )
-                    .fix_cmd(fix),
-                ),
+                }
                 Some(_) => {}
             }
         }
