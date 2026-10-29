@@ -155,3 +155,66 @@ key = "created"
     let (code, v) = r.json(&["import", "--map", "import.toml"]);
     assert_ne!(code, 0, "{v}");
 }
+
+/// The plan rows for a fixture imported with a preset map as printed.
+fn preset_plan(fixture: &str, preset: &str) -> (i32, serde_json::Value, common::Repo) {
+    let r = common::repo();
+    copy_fixture(&r, fixture);
+    let (code, map) = r.text(&["import", "--preset", preset]);
+    assert_eq!(code, 0, "{map}");
+    assert!(!map.contains("next:"), "the printed map is redirected into a file as is: {map}");
+    r.write("import.toml", &map);
+    r.commit("legacy");
+    let (code, v) = r.json(&["import", "--map", "import.toml"]);
+    (code, v, r)
+}
+
+fn summary(v: &serde_json::Value) -> Vec<(String, String, String)> {
+    rows(v)
+        .iter()
+        .map(|i| {
+            let title = i["source"].as_str().unwrap().rsplit('/').next().unwrap().to_string();
+            (title, i["status_to"].as_str().unwrap().to_string(), i["id"].as_str().unwrap().to_string())
+        })
+        .collect()
+}
+
+#[test]
+fn presets_import_their_layouts_without_edits() {
+    let (code, v, r) = preset_plan("adr-tools", "adr-tools");
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(summary(&v).iter().map(|s| s.1.as_str()).collect::<Vec<_>>(), ["active", "superseded", "active"]);
+    assert_eq!(r.json(&["import", "--map", "import.toml", "--apply", "--write"]).0, 0);
+    let (_, d) = r.json(&["show", "0003"]);
+    assert_eq!(d["frontmatter"]["title"], "Second Record", "{d}");
+    assert_eq!(d["frontmatter"]["rel"]["supersedes"][0], "0002-first-record", "{d}");
+
+    let (code, v, _) = preset_plan("madr2", "madr");
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(summary(&v).iter().map(|s| s.1.as_str()).collect::<Vec<_>>(), ["superseded", "active"]);
+
+    let (code, v, _) = preset_plan("madr4", "madr");
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(summary(&v).iter().map(|s| s.1.as_str()).collect::<Vec<_>>(), ["superseded", "active"]);
+
+    let (code, v, _) = preset_plan("log4brains", "log4brains");
+    assert_eq!(code, 0, "{v}");
+    let got = summary(&v);
+    let names: Vec<&str> = got.iter().map(|s| s.0.as_str()).collect();
+    assert_eq!(names, ["20260601-use-markdown-records.md", "20260701-use-log4brains.md", "20260801-use-a-router.md"]);
+    assert_eq!(got.iter().map(|s| s.1.as_str()).collect::<Vec<_>>(), ["superseded", "active", "draft"]);
+    assert_eq!(got[0].2, "adr:ws/20260601000000");
+}
+
+#[test]
+fn a_preset_is_not_combined_with_a_map_and_names_are_checked() {
+    let r = common::repo();
+    let out = r.spec().args(["import", "--preset", "nope"]).output().unwrap();
+    assert_eq!(out.status.code(), Some(2));
+    let all = format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+    assert!(all.contains("adr-tools"), "{all}");
+    let out = r.spec().args(["import", "--preset", "madr", "--map", "x.toml"]).output().unwrap();
+    assert_eq!(out.status.code(), Some(2));
+    let (_, v) = r.json(&["import", "--preset", "madr"]);
+    assert!(v["items"][0]["map"].as_str().unwrap().contains("[[status_patterns]]"), "{v}");
+}

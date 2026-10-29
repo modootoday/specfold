@@ -155,8 +155,11 @@ pub struct InitArgs {
 )]
 pub struct ImportArgs {
     /// The import map (TOML).
-    #[arg(long)]
-    pub map: PathBuf,
+    #[arg(long, required_unless_present = "preset")]
+    pub map: Option<PathBuf>,
+    /// Print a starter map for adr-tools, madr or log4brains to edit (nothing is imported).
+    #[arg(long, value_parser = ["adr-tools", "madr", "log4brains"], conflicts_with_all = ["map", "apply", "write"])]
+    pub preset: Option<String>,
     /// Print the plan rows (the default).
     #[arg(long, conflicts_with = "apply")]
     pub plan: bool,

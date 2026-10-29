@@ -22,6 +22,9 @@ pub struct ImportMap {
     /// alias, for layouts whose documents referred to each other by name.
     #[serde(default)]
     pub stem_aliases: bool,
+    /// Drop a leading record number from titles taken from the heading (`# 2. Use X` → `Use X`).
+    #[serde(default)]
+    pub strip_title_number: bool,
     /// Status values that carry more than a word (`superseded by ADR-0123`): a regex, tried
     /// case-insensitively in order after `[status]`, and the status it means. A `by` group names
     /// the record that replaced it, shown in the plan for review.

@@ -27,6 +27,12 @@ chosen, and which statuses map to which.
 
 ## 2. Write the map
 
+Records from adr-tools, MADR or Log4brains have a starter map: `spec import --preset
+adr-tools|madr|log4brains > import.toml` prints one (nothing is imported). It skips the
+tools' index and template files, keeps old record numbers as aliases, and with
+`strip_title_number = true` drops the "N. " prefix from titles. Edit it for custom
+directories, statuses and templates, then review the plan as below.
+
 ```toml
 stem_aliases = true            # old documents referred to each other by bare name
 
