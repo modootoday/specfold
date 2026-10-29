@@ -29,7 +29,8 @@ pub fn run(g: &Global, a: &NewArgs) -> Result<Output> {
         .field("path", created.path.clone())
         .field("owner_reason", created.owner_reason.clone())
         .head(format!("{} {}  {}", if a.dry_run { "would create" } else { "created" }, created.id, created.path))
-        .head(format!("owner: {}", created.owner_reason));
+        .head(format!("owner: {}", created.owner_reason))
+        .head("dates and timestamp keys are UTC");
     let o = preview::finish(o, &plan, &s.corpus.cfg.root, !a.dry_run, "rerun without --dry-run")?;
     Ok(if a.dry_run { o } else { o.next(format!("spec show {}", created.id)) })
 }

@@ -69,6 +69,8 @@ spec hook print --for pre-commit             # a hook for your hook manager
 Ids are `<type>:<owner>/<key>`, computed from where a document lives. Files are
 `<owner>/.spec/<type>/<key>-<slug>.<type>.md`, or a directory with `index.<type>.md` when the
 document has chapters or attachments. Projects can disable, change or add types in `spec.toml`.
+Timestamp keys (`YYYYMMDDHHMMSS`) and the `created` and `updated` dates are in UTC, so a
+document written early in the morning east of UTC carries the previous day's date.
 
 Statuses are `draft`, `active`, `superseded`, `archived` and `rejected`, and only move forward.
 Relations are written once, on the document that makes them: `rel.governs` (code paths),
