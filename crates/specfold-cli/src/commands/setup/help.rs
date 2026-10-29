@@ -12,14 +12,19 @@ pub fn run(_g: &Global, a: &HelpArgs) -> Result<Output> {
         Some(name) => {
             let c: Vec<_> = all.iter().filter(|c| &c.name == name).cloned().collect();
             if c.is_empty() {
-                bail!("no command '{name}'");
+                let near = nearest(name, all.iter().map(|c| c.name.as_str()));
+                let hint = near.map(|n| format!("; did you mean '{n}'? (spec help {n})")).unwrap_or_default();
+                bail!("no command '{name}'{hint}");
             }
             c
         }
         None => all,
     };
     if a.markdown {
-        return Ok(markdown(&picked));
+        return Ok(match (&a.command, picked.as_slice()) {
+            (Some(_), [one]) => reference(one),
+            _ => markdown(&picked),
+        });
     }
     let mut o = Output::new("help")
         .unpaged()
@@ -52,4 +57,58 @@ fn markdown(cmds: &[describe::CommandInfo]) -> Output {
         o = o.item(to_value(c).unwrap_or_default(), format!("| `spec {}` | {about} |", c.name));
     }
     o
+}
+
+fn cell(s: &str) -> String {
+    s.trim_end_matches('.').replace('|', "\\|").replace('\n', " ")
+}
+
+/// One command's reference page: the table row's wording, then its arguments and examples.
+/// It opens with a blank line for the same reason the table does.
+fn reference(c: &describe::CommandInfo) -> Output {
+    let mut o = Output::new("help")
+        .unpaged()
+        .head("")
+        .head(format!("## `spec {}`", c.name))
+        .head("")
+        .head(format!("{}.", cell(&c.about)));
+    if !c.args.is_empty() {
+        o = o.head("").head("| argument | what it does |").head("| -------- | ------------ |");
+        for arg in &c.args {
+            let flag = arg.long.as_ref().map(|l| format!("--{l}")).unwrap_or_else(|| format!("<{}>", arg.name));
+            let req = if arg.required { " (required)" } else { "" };
+            o = o.head(format!("| `{flag}` | {}{req} |", cell(&arg.help)));
+        }
+    }
+    if !c.examples.is_empty() {
+        o = o.head("").head("```sh");
+        for e in &c.examples {
+            o = o.head(e.clone());
+        }
+        o = o.head("```");
+    }
+    o.item(to_value(c).unwrap_or_default(), String::new())
+}
+
+/// The closest name by edit distance, if it is close enough to be a typo.
+fn nearest<'a>(want: &str, names: impl Iterator<Item = &'a str>) -> Option<&'a str> {
+    let dist = |a: &str, b: &str| {
+        let b: Vec<char> = b.chars().collect();
+        let mut row: Vec<usize> = (0..=b.len()).collect();
+        for (i, ca) in a.chars().enumerate() {
+            let mut prev = row[0];
+            row[0] = i + 1;
+            for j in 0..b.len() {
+                let cur = row[j + 1];
+                row[j + 1] = (prev + usize::from(ca != b[j])).min(row[j] + 1).min(cur + 1);
+                prev = cur;
+            }
+        }
+        row[b.len()]
+    };
+    names
+        .map(|n| (dist(want, n), n))
+        .filter(|(d, n)| *d <= 2.max(n.len() / 3) || n.starts_with(want))
+        .min_by_key(|(d, _)| *d)
+        .map(|(_, n)| n)
 }

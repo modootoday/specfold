@@ -216,6 +216,7 @@ fn doc_row(c: &Corpus, map: &ImportMap, u: &Unit, taken: &mut BTreeSet<String>, 
     }
     let body = if generated { format!("\n# {title}\n") } else { split.body.to_string() };
     let content = format!("{}{}", frontmatter::render(&crate::markdown::frontmatter::edit::ordered(fm)), body);
+    crate::authoring::forbid::refuse(c, &main, crate::authoring::forbid::NO_LOCAL_HINT)?;
     out.plan.write(main.clone(), content, true);
     out.plan.remove(u.source.clone());
     // Old paths of chapters and attachments name the document too, so their citations resolve.

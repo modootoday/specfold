@@ -3,6 +3,7 @@
 
 pub mod edit;
 pub mod fix;
+pub mod forbid;
 pub mod mv;
 pub mod new;
 pub mod plan;
