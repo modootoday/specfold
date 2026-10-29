@@ -161,3 +161,28 @@ fn usage_errors_exit_2_and_suggest_help() {
     assert_eq!(code, 2);
     assert_eq!(v["next"], "spec help");
 }
+
+#[test]
+fn edit_reads_piped_text_without_text_or_file() {
+    let (r, _sot, adr) = populated();
+    let out = r
+        .spec()
+        .args(["edit", &adr, "--section", "Decision", "--json"])
+        .write_stdin("Piped decision.\n")
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0), "{}", String::from_utf8_lossy(&out.stderr));
+    let v: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert!(v.to_string().contains("--file <saved-input> --write"), "{v}");
+    let out = r
+        .spec()
+        .args(["edit", &adr, "--section", "Decision", "--replace", "--write"])
+        .write_stdin("Piped decision.\n")
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let path = r.json(&["resolve", &adr]).1["path"].as_str().unwrap().to_string();
+    assert!(r.read(&path).contains("Piped decision."));
+    let out = r.spec().args(["edit", &adr, "--section", "Decision"]).write_stdin("").output().unwrap();
+    assert_ne!(out.status.code(), Some(0), "empty input is refused");
+}

@@ -152,7 +152,7 @@ pub struct ImportArgs {
 
 #[derive(Debug, Clone, Args)]
 #[command(
-    after_help = "Examples:\n  spec edit adr:shop/20260101000000 --section Decision --text \"Use Postgres.\"\n  spec edit adr:shop/20260101000000 --append --file addendum.md --write\n  cat body.md | spec edit research:shop/20260101000000 --file - --write"
+    after_help = "Examples:\n  spec edit adr:shop/20260101000000 --section Decision --text \"Use Postgres.\"\n  spec edit adr:shop/20260101000000 --append --file addendum.md --write\n  cat body.md | spec edit research:shop/20260101000000 --write\n  spec edit adr:shop/20260101000000 --section Decision --replace --write < decision.md\n\nWithout --text or --file, text piped or redirected into standard input is read; at a terminal one of them is required."
 )]
 pub struct EditArgs {
     /// An id, alias, path, or unique slug.
@@ -163,10 +163,13 @@ pub struct EditArgs {
     /// Add after the existing content instead of replacing it.
     #[arg(long)]
     pub append: bool,
+    /// Replace the content (the default; spelled out for scripts).
+    #[arg(long, conflicts_with = "append")]
+    pub replace: bool,
     /// The new Markdown text.
-    #[arg(long, conflicts_with = "file", required_unless_present = "file")]
+    #[arg(long, conflicts_with = "file")]
     pub text: Option<String>,
-    /// Read the new Markdown text from a file; `-` reads standard input.
+    /// Read the new Markdown text from a file; `-` reads standard input, as does no --text or --file when input is piped.
     #[arg(long)]
     pub file: Option<PathBuf>,
     /// Apply the change; without it only the preview is shown.
