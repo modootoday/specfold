@@ -44,6 +44,8 @@ pub enum Cmd {
     New(write::NewArgs),
     /// Change frontmatter with the lifecycle enforced.
     Set(write::SetArgs),
+    /// Replace or append to a section or the whole body; previews until --write.
+    Edit(write::EditArgs),
     /// Move or rename a document and rewrite every reference to it.
     Mv(write::MvArgs),
     /// Apply fixes that need no judgement.

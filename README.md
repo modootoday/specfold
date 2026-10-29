@@ -81,10 +81,13 @@ examples and output schemas. `spec explain` documents every rule.
 
 | read                                | write                       | check                       |
 | ----------------------------------- | --------------------------- | --------------------------- |
-| context, find, show, resolve, graph | new, set, mv, fix           | check, verify, guard        |
+| context, find, show, resolve, graph | new, set, edit, mv, fix     | check, verify, guard        |
 | owners, log, files                  | attach, fetch, import, init | audit, census               |
 
 Writes are previews until `--write` (or plain for `new` and `set`, which accept `--dry-run`).
+`spec edit` changes bodies: it replaces or appends to one section (`--section`) or the whole
+body, from `--text`, `--file`, or stdin (`--file -`), and bumps `updated`. Sealed and closed
+documents are refused.
 Exit codes: 0 nothing to report, 1 findings or an ambiguous answer, 2 usage, 3 environment.
 
 ## Attachments

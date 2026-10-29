@@ -167,3 +167,38 @@ fn show_counts_task_items_with_file_lines() {
     let line = open["line"].as_u64().unwrap() as usize;
     assert_eq!(text.lines().nth(line - 1), Some("- [ ] payment"));
 }
+
+#[test]
+fn edit_previews_then_replaces_and_appends_sections() {
+    let r = common::repo();
+    let id = r.new_doc("adr", "services/shop", "Pay by card");
+    let (_, v) = r.json(&["show", &id]);
+    let path = v["path"].as_str().unwrap().to_string();
+    let before = r.read(&path);
+    let (code, v) = r.json(&["edit", &id, "--section", "Decision", "--text", "Use cards."]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(r.read(&path), before, "preview must not write");
+    let (code, v) = r.json(&["edit", &id, "--section", "Decision", "--text", "Use cards.", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    let (code, _) = r.json(&["edit", &id, "--section", "decision", "--append", "--text", "And refunds.", "--write"]);
+    assert_eq!(code, 0);
+    let (code, _) = r.json(&["edit", &id, "--append", "--text", "## Addendum\n\nLater note.", "--write"]);
+    assert_eq!(code, 0);
+    let text = r.read(&path);
+    assert!(text.contains("## Decision\n\nUse cards.\n\nAnd refunds.\n\n## Consequences"), "{text}");
+    assert!(text.trim_end().ends_with("## Addendum\n\nLater note."), "{text}");
+    let (code, v) = r.json(&["edit", &id, "--section", "Nope", "--text", "x"]);
+    assert_ne!(code, 0, "{v}");
+    let (code, v) = r.json(&["check"]);
+    assert_eq!(code, 0, "{v}");
+}
+
+#[test]
+fn edit_refuses_closed_documents() {
+    let r = common::repo();
+    let id = r.new_doc("adr", "services/shop", "Old idea");
+    let (code, _) = r.json(&["set", &id, "status=rejected"]);
+    assert_eq!(code, 0);
+    let (code, v) = r.json(&["edit", &id, "--append", "--text", "more", "--write"]);
+    assert_ne!(code, 0, "{v}");
+}
