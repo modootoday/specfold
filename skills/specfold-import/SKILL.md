@@ -33,6 +33,14 @@ tools' index and template files, keeps old record numbers as aliases, and with
 `strip_title_number = true` drops the "N. " prefix from titles. Edit it for custom
 directories, statuses and templates, then review the plan as below.
 
+Applying needs the alias table in `spec.toml`; add it before the first apply (the plan's
+`next` prints the line when it is missing):
+
+```toml
+[aliases]
+file = ".spec/_aliases.tsv"
+```
+
 ```toml
 stem_aliases = true            # old documents referred to each other by bare name
 
@@ -81,12 +89,18 @@ wins when both have a value, and a file where the value is missing gets an `unre
 status = "section:Status"      # first line under "## Status"; or bullet:Status, line:Status
 date = "line:Date"             # "Date: 2016-02-12"; MADR 2 uses bullet:Date
 [body.links]                   # a line opening with the phrase, then [title](file) links
-Supercedes = "supersedes"      # adr-tools' spelling
+Supercedes = "supersedes"      # adr-tools' spelling; the presets map both spellings
+Supersedes = "supersedes"
 "Superceded by" = "-"          # the other side; the newer record already says it
+"Superseded by" = "-"
 ```
 
-Compound status values (MADR 4 `superseded by ADR-0123`) take a pattern, tried after `[status]`;
-a `by` group puts the replacing record in the plan's notes for review:
+The date becomes `created`; no `date` key is left behind. A body that still has its Status
+section is noted in the plan; `drop_status_section = true` under `[body]` removes it.
+
+Compound status values (MADR 4 `superseded by ADR-0123`) take a pattern, tried after `[status]`.
+A `by` group names the replacing record (`ADR-0123`, or a link to its file): when it is in the
+same import, that record gets `rel.supersedes`; when it is not, the row needs a decision:
 
 ```toml
 [[status_patterns]]
@@ -104,8 +118,13 @@ spec import --map import.toml --plan --json > plan.json
 ```
 
 Read every row with an `unresolved` entry: a status with no mapping, frontmatter that does not
-parse, a stub whose target is not imported. Fix the map or the source and plan again until
-nothing is unresolved that you did not mean.
+parse, a stub whose target is not imported, a replacing record outside the import. For a status,
+the plan's `next` is the `[status]` line to add (pick the status if it shows several); never
+apply while rows are unresolved. Fix the map or the source and plan again.
+
+Read the notes too: relative links between imported records are rewritten to the new paths
+(links to files outside the import are left for L1/L2), and a mostly non-ASCII file name gives
+a slug without its words. Rename those after the apply with `spec mv <id> --slug <slug> --write`.
 
 ## 4. Apply on a clean tree
 

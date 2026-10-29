@@ -151,7 +151,7 @@ pub struct InitArgs {
 
 #[derive(Debug, Clone, Args)]
 #[command(
-    after_help = "Examples:\n  spec import --map import.toml --plan\n  spec import --map import.toml --apply --write"
+    after_help = "Examples:\n  spec import --preset madr > import.toml\n  spec import --map import.toml --plan\n  spec import --map import.toml --apply --write"
 )]
 pub struct ImportArgs {
     /// The import map (TOML).

@@ -143,10 +143,11 @@ key = "created"
     assert_eq!(code, 0, "{v}");
     let items = rows(&v);
     assert_eq!((items[0]["status_to"].as_str(), items[1]["status_to"].as_str()), (Some("superseded"), Some("active")));
-    assert_eq!(items[0]["notes"][0], "replaced by ADR-0002: check that the newer record lists rel.supersedes");
+    let newer = items[1]["id"].as_str().unwrap();
+    assert_eq!(items[0]["notes"][0], format!("replaced by {newer}: rel.supersedes added there"));
     assert!(items[1].get("notes").is_none());
     let (_, text) = r.text(&["import", "--map", "import.toml"]);
-    assert!(text.contains("note: replaced by ADR-0002"), "{text}");
+    assert!(text.contains(&format!("note: replaced by {newer}")), "{text}");
     // Without the pattern the compound value is a decision, as before.
     r.write(
         "import.toml",
@@ -219,4 +220,74 @@ fn a_preset_is_not_combined_with_a_map_and_names_are_checked() {
     assert_eq!(out.status.code(), Some(2));
     let (_, v) = r.json(&["import", "--preset", "madr"]);
     assert!(v["items"][0]["map"].as_str().unwrap().contains("[[status_patterns]]"), "{v}");
+}
+
+#[test]
+fn adr_tools_preset_reads_the_usual_spelling_links_records_and_rewrites_links() {
+    let (code, v, r) = preset_plan("adr-tools-spelling", "adr-tools");
+    assert_eq!(code, 0, "{v}");
+    let got = summary(&v);
+    assert_eq!(got.iter().map(|s| s.1.as_str()).collect::<Vec<_>>(), ["superseded", "active", "active"], "{v}");
+    let items = rows(&v);
+    let korean = items[2]["notes"].to_string();
+    assert!(korean.contains("mostly non-ASCII") && korean.contains("spec mv"), "{korean}");
+    assert!(items[1]["notes"].to_string().contains("link(s) to old file names"), "{v}");
+    assert!(items[0]["notes"].to_string().contains("drop_status_section"), "{v}");
+    assert_eq!(r.json(&["import", "--map", "import.toml", "--apply", "--write"]).0, 0);
+    let (_, d) = r.json(&["show", "0002"]);
+    assert_eq!(d["frontmatter"]["rel"]["supersedes"][0], "0001-use-files", "{d}");
+    assert!(d["frontmatter"].get("date").is_none(), "date moves to created only: {d}");
+    let (_, first) = r.json(&["show", "0001"]);
+    let first_path = first["path"].as_str().unwrap().rsplit('/').next().unwrap().to_string();
+    let body = r.read(d["path"].as_str().unwrap());
+    assert!(body.contains(&format!("]({first_path}#context)")), "{body}");
+    assert!(body.contains("](../guide.md)"), "a link outside the import stays: {body}");
+    let (_, k) = r.json(&["show", "0003"]);
+    assert_eq!(k["frontmatter"]["title"], "한국어 결정", "{k}");
+    let (code, c) = r.json(&["check"]);
+    assert_eq!((code, &c["errors"], &c["warnings"]), (0, &serde_json::json!(0), &serde_json::json!(0)), "{c}");
+}
+
+#[test]
+fn madr_superseded_by_a_link_names_the_newer_record_or_needs_a_decision() {
+    let (code, v, r) = preset_plan("madr-linked", "madr");
+    assert_eq!(code, 1, "the record outside the import is a decision: {v}");
+    assert_eq!(v["unresolved"], 1, "{v}");
+    let items = rows(&v);
+    let newer = items[1]["id"].as_str().unwrap().to_string();
+    assert_eq!(items[0]["notes"][0], format!("replaced by {newer}: rel.supersedes added there"));
+    assert!(items[2]["unresolved"][0].as_str().unwrap().contains("does not include"), "{v}");
+    let (_, text) = r.text(&["import", "--map", "import.toml"]);
+    assert!(text.contains("1 need a decision") && !text.contains("--apply --write"), "{text}");
+    // Without the third record the import goes through and check finds no T1.
+    std::fs::remove_file(r.path().join("docs/decisions/0003-use-a-log.md")).unwrap();
+    let (code, v) = r.json(&["import", "--map", "import.toml"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(r.json(&["import", "--map", "import.toml", "--apply", "--write"]).0, 0);
+    let (_, d) = r.json(&["show", "0002"]);
+    assert_eq!(d["frontmatter"]["rel"]["supersedes"][0], items[0]["id"], "{d}");
+    let (_, c) = r.json(&["check"]);
+    assert!(c["by_rule"].get("T1").is_none(), "{c}");
+}
+
+#[test]
+fn the_plan_names_the_status_line_and_the_alias_setting_before_writing() {
+    let r = common::repo();
+    copy_fixture(&r, "madr4");
+    r.write("import.toml", "[[sources]]\nglob = \"docs/decisions/*.md\"\ntype = \"adr\"\nkey = \"created\"\n[status]\naccepted = \"active\"\n");
+    r.commit("legacy");
+    let (code, v) = r.json(&["import", "--map", "import.toml"]);
+    assert_eq!(code, 1, "{v}");
+    let next = v["next"].to_string();
+    assert!(next.contains("\\\"superseded by adr-0002\\\" = ") && next.contains("[status]"), "{next}");
+    assert!(!next.contains("--apply --write"), "{next}");
+    // With every status mapped, a repository without [aliases] file is told what to add.
+    r.write("import.toml", &format!("{}\"superseded by adr-0002\" = \"superseded\"\n", r.read("import.toml")));
+    let toml = r.read("spec.toml");
+    let without: String =
+        toml.lines().filter(|l| !l.starts_with("file") && l.trim() != "[aliases]").map(|l| format!("{l}\n")).collect();
+    r.write("spec.toml", &without);
+    let (code, v) = r.json(&["import", "--map", "import.toml", "--apply"]);
+    assert_eq!(code, 0, "{v}");
+    assert!(v["next"].to_string().contains("[aliases]"), "{v}");
 }

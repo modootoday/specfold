@@ -52,15 +52,10 @@ pub fn run(g: &Global, a: &ImportArgs) -> Result<Output> {
         }
         o = o.item(to_value(r)?, text);
     }
-    if !a.apply {
-        return Ok(o
-            .code(if unresolved > 0 { Code::Findings } else { Code::Ok })
-            .next(format!("spec import --map {} --apply --write", map_path.display())));
-    }
-    if !a.write {
-        return Ok(o
-            .foot("preview only; nothing was written")
-            .next(format!("spec import --map {} --apply --write", map_path.display())));
+    if !a.apply || !a.write {
+        let o = if a.apply { o.foot("preview only; nothing was written") } else { o };
+        let o = if unresolved > 0 { o.code(Code::Findings) } else { o };
+        return Ok(before_write(&s, &p, o, &map_path.display().to_string()));
     }
     let Some(alias_file) = s.corpus.cfg.raw.aliases.file.clone() else {
         bail!("set [aliases] file = \".spec/_aliases.tsv\" in spec.toml before applying an import")
@@ -82,4 +77,62 @@ pub fn run(g: &Global, a: &ImportArgs) -> Result<Output> {
     }
     Ok(o.foot(format!("imported; commit with SPECFOLD_IMPORT=1 so the alias table may grow ({alias_file})"))
         .next("spec check && spec fix --rule L1 --rule L2 --write"))
+}
+
+/// What to do before `--apply --write`: settle the decisions, then set the alias table, and only
+/// then write. A status without a mapping is answered by a line in the map's `[status]` table.
+fn before_write(s: &session::Session, p: &import::ImportPlan, o: Output, map: &str) -> Output {
+    let mut statuses: Vec<String> = vec![];
+    let mut other = 0;
+    for r in &p.rows {
+        for u in &r.unresolved {
+            let old = u.strip_prefix("status '").and_then(|x| x.strip_suffix("' has no mapping"));
+            match old {
+                Some(old) => {
+                    let ty = r.id.split(':').next().unwrap_or("");
+                    let allowed = s.corpus.cfg.registry.get(ty).map(|t| t.statuses.clone()).unwrap_or_default();
+                    let lower = old.to_lowercase();
+                    let to = crate::commands::setup::help::nearest(&lower, allowed.iter().map(String::as_str))
+                        .map(str::to_string)
+                        .unwrap_or_else(|| format!("<{}>", allowed.join("|")));
+                    let line = format!("{} = \"{to}\"", toml_key(&lower));
+                    if !statuses.contains(&line) {
+                        statuses.push(line);
+                    }
+                }
+                None => other += 1,
+            }
+        }
+    }
+    if !statuses.is_empty() {
+        let mut o = o.foot(format!("add under [status] in {map}, then plan again:"));
+        for l in &statuses {
+            o = o.foot(format!("  {l}"));
+        }
+        return o.next(format!("{}  # under [status] in {map}", statuses[0]));
+    }
+    if other > 0 {
+        return o
+            .foot(format!("{other} line(s) marked ! need a decision; edit {map} or the sources, then plan again"))
+            .next(format!("spec import --map {map}"));
+    }
+    if s.corpus.cfg.raw.aliases.file.is_none() {
+        let toml = std::fs::read_to_string(s.corpus.cfg.root.join("spec.toml")).unwrap_or_default();
+        let o = o.foot("applying needs [aliases] file in spec.toml: old names and links resolve through it");
+        return if toml.lines().any(|l| l.trim() == "[aliases]") {
+            o.next("file = \".spec/_aliases.tsv\"  # under [aliases] in spec.toml")
+        } else {
+            o.next("printf '\\n[aliases]\\nfile = \".spec/_aliases.tsv\"\\n' >> spec.toml")
+        };
+    }
+    o.next(format!("spec import --map {map} --apply --write"))
+}
+
+/// A status as a TOML key: bare when it can be, quoted otherwise.
+fn toml_key(k: &str) -> String {
+    if !k.is_empty() && k.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
+        k.to_string()
+    } else {
+        format!("{k:?}")
+    }
 }
