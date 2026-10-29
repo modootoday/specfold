@@ -40,7 +40,7 @@ impl Rule for HiddenChars {
         &RuleInfo {
             id: "H1",
             title: "no invisible characters in documents or agent assets",
-            explain: "Zero-width spaces, word joiners, a byte-order mark after the start of the file, and bidirectional embedding, override or isolate controls do not show in an editor or a diff, but agents and tools read them: a link or a command can look right and not be. Each one is reported per line with its code point; `spec fix --rule H1 --write` removes it. Joiners used inside emoji and scripts (U+200C, U+200D) are not reported. Reported as warnings.",
+            explain: "Agent files are scanned whether declared in spec.toml or not: AGENTS.md, CLAUDE.md, GEMINI.md, .github/copilot-instructions.md, .agents/skills/*/SKILL.md, .claude/skills/*/SKILL.md, .cursor/rules/*.mdc, .claude/agents/*.md and .claude/commands/*.md. Zero-width spaces, word joiners, a byte-order mark after the start of the file, and bidirectional embedding, override or isolate controls do not show in an editor or a diff, but agents and tools read them: a link or a command can look right and not be. Each one is reported per line with its code point; `spec fix --rule H1 --write` removes it. Joiners used inside emoji and scripts (U+200C, U+200D) are not reported. Reported as warnings.",
             on_commit: true,
         }
     }
@@ -56,10 +56,50 @@ impl Rule for HiddenChars {
                 }
             }
         }
+        let mut seen = std::collections::HashSet::new();
         for a in assets::load(&ctx.corpus.cfg) {
+            seen.insert(a.path.clone());
             if ctx.scope.covers_path(&a.path) {
                 scan(&a.path, &a.text, out);
             }
         }
+        // Agent files are read whether or not spec.toml declares them, so the usual ones are
+        // scanned too.
+        for p in well_known(&ctx.corpus.cfg.root) {
+            if seen.insert(p.clone())
+                && ctx.scope.covers_path(&p)
+                && let Some(t) = ctx.current(&p)
+            {
+                scan(&p, &t, out);
+            }
+        }
     }
+}
+
+/// Agent instruction and skill files at their usual places, relative to the root.
+fn well_known(root: &std::path::Path) -> Vec<String> {
+    let mut out: Vec<String> = ["AGENTS.md", "CLAUDE.md", "GEMINI.md", ".github/copilot-instructions.md"]
+        .iter()
+        .filter(|p| root.join(p).is_file())
+        .map(|p| p.to_string())
+        .collect();
+    let mut listed = |dir: &str, each: &dyn Fn(&std::path::Path) -> Option<String>| {
+        let Ok(rd) = std::fs::read_dir(root.join(dir)) else { return };
+        let mut found: Vec<String> = rd.flatten().filter_map(|e| each(&e.path())).collect();
+        found.sort();
+        out.extend(found);
+    };
+    for skills in [".agents/skills", ".claude/skills"] {
+        listed(skills, &|p| {
+            let name = p.file_name()?.to_string_lossy().to_string();
+            p.join("SKILL.md").is_file().then(|| format!("{skills}/{name}/SKILL.md"))
+        });
+    }
+    for (dir, ext) in [(".cursor/rules", "mdc"), (".claude/agents", "md"), (".claude/commands", "md")] {
+        listed(dir, &|p| {
+            let name = p.file_name()?.to_string_lossy().to_string();
+            (p.is_file() && p.extension()? == ext).then(|| format!("{dir}/{name}"))
+        });
+    }
+    out
 }

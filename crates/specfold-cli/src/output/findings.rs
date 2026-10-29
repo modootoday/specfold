@@ -2,6 +2,7 @@
 
 use super::envelope::Output;
 use serde_json::to_value;
+use specfold_core::check::finding::visible;
 use specfold_core::check::{Finding, Fix, Severity};
 
 pub fn line(f: &Finding) -> String {
@@ -10,15 +11,20 @@ pub fn line(f: &Finding) -> String {
         Severity::Warn => "warn",
     };
     let loc = if f.line > 0 { format!("{}:{}", f.path, f.line) } else { f.path.clone() };
-    let mut s = format!("{loc}  {} {sev}  {}", f.rule, f.message);
+    let mut s = format!("{loc}  {} {sev}  {}", f.rule, visible(&f.message));
     if !f.candidates.is_empty() {
         s.push_str(&format!("\n  candidates: {}", f.candidates.join(", ")));
     }
     match &f.fix {
         Some(Fix::Cmd(c)) => s.push_str(&format!("\n  fix: {c}")),
-        Some(Fix::Replace { from, to, .. }) => {
-            s.push_str(&format!("\n  fix: replace `{from}` with `{to}`  (spec fix --write {loc})"))
+        Some(Fix::Replace { from, to, .. }) if to.is_empty() => {
+            s.push_str(&format!("\n  fix: remove `{}`  (spec fix --write {loc})", visible(from)))
         }
+        Some(Fix::Replace { from, to, .. }) => s.push_str(&format!(
+            "\n  fix: replace `{}` with `{}`  (spec fix --write {loc})",
+            visible(from),
+            visible(to)
+        )),
         None => {}
     }
     s

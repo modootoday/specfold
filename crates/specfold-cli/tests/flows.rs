@@ -1582,3 +1582,47 @@ fn types_can_require_sections() {
     assert_eq!(items.len(), 1, "{v}");
     assert!(items[0]["message"].as_str().unwrap().contains("'Never written here'"), "{v}");
 }
+
+#[test]
+fn hidden_characters_in_undeclared_agent_files_print_escaped_and_point_at_one_char() {
+    use serde_json::json;
+    let r = common::repo();
+    r.write("AGENTS.md", "# Agents\nrun \u{2066}x\u{2069} and a\u{200B}b\n");
+    r.write(".agents/skills/s/SKILL.md", "---\nname: s\ndescription: d\n---\nhi\u{202E}\n");
+    let (_, v) = r.json(&["check", "--rule", "H1"]);
+    let paths: Vec<&str> = v["items"].as_array().unwrap().iter().map(|f| f["path"].as_str().unwrap()).collect();
+    assert_eq!(paths.iter().filter(|p| **p == "AGENTS.md").count(), 3, "{v}");
+    assert!(paths.contains(&".agents/skills/s/SKILL.md"), "{v}");
+    // Text output escapes what it would otherwise print raw.
+    let out = r.spec().args(["check", "--rule", "H1"]).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(!text.contains('\u{202E}') && !text.contains('\u{2066}'), "{text}");
+    assert!(text.contains("remove `\\u{2066}`"), "{text}");
+    // The preview shows the lines before and after.
+    let out = r.spec().args(["fix", "--rule", "H1"]).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(text.contains("update  AGENTS.md:2") && text.contains("  + run x and ab"), "{text}");
+    let (_, v) = r.json(&["fix", "--rule", "H1"]);
+    let item = v["items"].as_array().unwrap().iter().find(|i| i["path"] == "AGENTS.md").unwrap().clone();
+    assert_eq!(item["after"][0], "run x and ab", "{v}");
+    // In an editor the diagnostic covers the one character.
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    let pc = r.json(&["show", &id]).1["path"].as_str().unwrap().to_string();
+    let doc = format!("{}\nab\u{200B}c\n", r.read(&pc));
+    std::fs::write(r.path().join(&pc), &doc).unwrap();
+    let line = doc.lines().count() - 1;
+    let abs = r.path().canonicalize().unwrap();
+    let uri = format!("file://{}/{pc}", abs.display());
+    let init = json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"rootUri": format!("file://{}", abs.display())}});
+    let open = json!({"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument": {"uri": uri, "text": doc}}});
+    let out = r.spec().arg("lsp").write_stdin(lsp_frames(&[init.clone(), open.clone()])).output().unwrap();
+    let replies = lsp_replies(&out.stdout);
+    let diags = replies[1]["params"]["diagnostics"].as_array().unwrap().clone();
+    let h1 = diags.iter().find(|d| d["code"] == "H1").expect("H1").clone();
+    assert_eq!(h1["range"], json!({"start": {"line": line, "character": 2}, "end": {"line": line, "character": 3}}));
+    let action = json!({"jsonrpc": "2.0", "id": 2, "method": "textDocument/codeAction", "params": {"textDocument": {"uri": uri}, "range": h1["range"], "context": {"diagnostics": [h1]}}});
+    let out = r.spec().arg("lsp").write_stdin(lsp_frames(&[init, open, action])).output().unwrap();
+    let replies = lsp_replies(&out.stdout);
+    let got = replies.iter().find(|m| m["id"] == 2).unwrap();
+    assert_eq!(got["result"][0]["title"], "spec: remove `\\u{200B}`", "{got}");
+}
