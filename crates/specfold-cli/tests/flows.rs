@@ -247,3 +247,24 @@ fn check_summary_counts_per_rule_and_quiet_hides_warnings() {
     let (_, v) = r.json(&["check", "-q"]);
     assert!(v["items"].as_array().unwrap().iter().all(|i| i["severity"] == "error"), "{v}");
 }
+
+#[test]
+fn fix_i2_keeps_a_shared_alias_on_the_picked_document() {
+    let r = common::repo();
+    let a = r.new_doc("adr", "services/shop", "First readme");
+    let b = r.new_doc("adr", "services/shop", "Second readme");
+    for id in [&a, &b] {
+        let (code, v) = r.json(&["set", id, "aliases+=README"]);
+        assert_eq!(code, 0, "{v}");
+    }
+    let (_, v) = r.json(&["check", "--rule", "I2"]);
+    assert_eq!(v["warnings"], 2, "{v}");
+    let (_, v) = r.json(&["show", &a]);
+    let a_path = v["path"].as_str().unwrap().to_string();
+    let (code, v) = r.json(&["fix", "--rule", "I2", "--pick", &a, "--write", &format!("{a_path}:1")]);
+    assert_eq!(code, 0, "{v}");
+    let (_, v) = r.json(&["check", "--rule", "I2"]);
+    assert_eq!(v["warnings"], 0, "{v}");
+    let (_, v) = r.json(&["resolve", "README"]);
+    assert_eq!(v["id"], a.as_str(), "{v}");
+}
