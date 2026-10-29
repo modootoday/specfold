@@ -20,6 +20,18 @@ A frontmatter key outside the common set and the type's fields is a warning (S1)
 one type with `[types.<type>] fields = [...]`, or for every type with
 `[check] extra_keys = ["team", "review_*"]` (a trailing `*` allows a prefix).
 
+A number in prose can name where it comes from, and `spec check` warns when it drifts (N1);
+`spec fix --write` rewrites it. Sources are spec's own counts, never shell commands:
+
+```md
+We keep <!-- spec:count find type=adr status=active -->12<!-- /spec:count --> active decisions.
+<!-- spec:count rows="Open items" -->3<!-- /spec:count --> rows are open.
+```
+
+`find` takes `type`, `owner`, `status` and `tag` (comma for several); `rows=<section>` counts the
+table body rows in that section of the same file. A marker opens and closes on one line, does
+not nest, and is ignored inside code.
+
 ## Guards
 
 Guards (`[[guards]]`, `spec guard`) check any file and commit message in a range for denied

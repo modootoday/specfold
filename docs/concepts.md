@@ -65,7 +65,9 @@ relation and its target (`├─ implements → sot:shop/cart`), `governs` lines
 document already shown ends in `(*)`. `--depth N` stops N relations away; `--ascii` uses plain
 lines, and is chosen automatically when the locale is not UTF-8. No color is printed, so
 `NO_COLOR` changes nothing. `--format mermaid` or `--format dot` prints the same graph for a
-Markdown renderer or Graphviz. `spec graph impact <id>` lists what reaches a document with the
+Markdown renderer or Graphviz. `--format box` draws boxes in layers from left to right, sized to
+`COLUMNS` (100 when unset); a graph over 60 documents, or one too wide, prints the tree with the
+reason, and `--depth N` keeps it smaller. Edge letters are explained under the drawing. `spec graph impact <id>` lists what reaches a document with the
 relation and distance, and `spec graph chain <id>` shows its supersede chain in both directions.
 
 ## Task items

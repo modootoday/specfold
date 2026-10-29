@@ -71,15 +71,15 @@ pub struct RefArgs {
 
 #[derive(Debug, Clone, Args)]
 #[command(
-    after_help = "Without a query the whole graph prints as a tree from the documents nothing points at: each line is a relation and its target, governs lines name code paths, and a document already shown ends in (*).\nimpact lists what reaches a document, with the relation and the distance; chain shows the supersede chain both ways.\n\nExamples:\n  spec graph\n  spec graph --depth 2 --ascii\n  spec graph --format mermaid > docs-graph.mmd\n  spec graph --format dot | dot -Tsvg > docs-graph.svg\n  spec graph impact sot:shop/cart --depth 1\n  spec graph chain adr:shop/20250101000000\n  spec graph governs services/shop/src\n  spec graph --json > docs-graph.out"
+    after_help = "Without a query the whole graph prints as a tree from the documents nothing points at: each line is a relation and its target, governs lines name code paths, and a document already shown ends in (*).\nimpact lists what reaches a document, with the relation and the distance; chain shows the supersede chain both ways.\n\nExamples:\n  spec graph\n  spec graph --depth 2 --ascii\n  spec graph --format box\n  COLUMNS=200 spec graph --format box --depth 3\n  spec graph --format mermaid > docs-graph.mmd\n  spec graph --format dot | dot -Tsvg > docs-graph.svg\n  spec graph impact sot:shop/cart --depth 1\n  spec graph chain adr:shop/20250101000000\n  spec graph governs services/shop/src\n  spec graph --json > docs-graph.out"
 )]
 pub struct GraphArgs {
     /// impact, chain or governs. Without one, prints the whole graph.
     pub query: Option<String>,
     /// The document (impact, chain) or path (governs).
     pub target: Option<String>,
-    /// The whole graph as a tree (default), Mermaid or Graphviz DOT text.
-    #[arg(long, value_parser = ["tree", "mermaid", "dot"], default_value = "tree")]
+    /// The whole graph as a tree (default), boxes in layers (fits COLUMNS), Mermaid or Graphviz DOT text.
+    #[arg(long, value_parser = ["tree", "box", "mermaid", "dot"], default_value = "tree")]
     pub format: String,
     /// Stop this many relations away (tree and impact).
     #[arg(long)]
