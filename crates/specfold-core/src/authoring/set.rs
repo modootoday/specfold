@@ -89,6 +89,26 @@ fn apply_one(map: &mut Map<String, Value>, a: &Assign) {
     }
 }
 
+/// What to run instead of a refused status move: never the command that was just refused.
+fn move_hint(ty: &crate::model::doctype::TypeDef, from: &str, to: &str, id: &str) -> String {
+    let next: Vec<&str> =
+        ty.statuses.iter().map(String::as_str).filter(|s| *s != from && ty.transition_allowed(from, s)).collect();
+    if to == "superseded" && from == "draft" {
+        return format!(
+            "a draft has not taken effect, so nothing supersedes it: make it active first with `spec set {id} status=active`, then run `spec new {} --from {id}`; or change the draft itself with `spec edit {id}`",
+            ty.name
+        );
+    }
+    if to == "superseded" && ty.transition_allowed("active", "superseded") && from != "active" {
+        return format!("only an active {} can be superseded, and this one is {from}", ty.name);
+    }
+    if next.is_empty() {
+        format!("'{from}' is final")
+    } else {
+        format!("from '{from}' it can move to: {}", next.join(", "))
+    }
+}
+
 pub fn plan(c: &Corpus, idx: usize, assigns: &[Assign]) -> Result<Plan> {
     let d = &c.docs[idx];
     let ty = c.cfg.registry.get(&d.id.ty).ok_or_else(|| anyhow!("unknown type {}", d.id.ty))?;
@@ -106,10 +126,9 @@ pub fn plan(c: &Corpus, idx: usize, assigns: &[Assign]) -> Result<Plan> {
             let from = d.status().unwrap_or_else(|| ty.initial.clone());
             if !ty.transition_allowed(&from, &a.value) {
                 bail!(
-                    "status cannot move from '{from}' to '{}'; supersede it with spec new {} --from {}",
+                    "status cannot move from '{from}' to '{}'; {}",
                     a.value,
-                    ty.name,
-                    d.id
+                    move_hint(ty, &from, &a.value, &d.id.to_string())
                 );
             }
         }

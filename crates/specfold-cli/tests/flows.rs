@@ -579,3 +579,18 @@ fn change_notes_collect_until_a_release_archives_them() {
     let (code, v) = r.json(&["check"]);
     assert_eq!(code, 0, "kind and release are known keys: {v}");
 }
+
+#[test]
+fn superseding_a_draft_points_at_activating_it_not_at_the_same_command() {
+    let r = common::repo();
+    let old = r.new_doc("adr", "services/shop/src", "Cart rounding");
+    let (code, text) =
+        r.text(&["new", "adr", "--governs", "services/shop/src", "--title", "New rounding", "--from", &old]);
+    assert_ne!(code, 0, "{text}");
+    assert!(text.contains(&format!("spec set {old} status=active")), "{text}");
+    assert!(!text.contains("supersede it with"), "{text}");
+    let path = r.json(&["resolve", &old]).1["path"].as_str().unwrap().to_string();
+    r.write(&path, &r.read(&path).replace("status: draft", "status: accepted"));
+    let (_, text) = r.text(&["check"]);
+    assert!(text.contains("for 'accepted' use 'active'"), "{text}");
+}

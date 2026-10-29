@@ -199,7 +199,7 @@ impl Rule for StatusAllowed {
         &RuleInfo {
             id: "S4",
             title: "status is one the type allows",
-            explain: "Statuses come from one lifecycle (draft, active, superseded, archived, rejected); each type allows a subset. Change status with `spec set <id> status=<value>`, which also checks the transition.",
+            explain: "Statuses come from one lifecycle (draft, active, superseded, archived, rejected); each type allows a subset. Words from other tools are not accepted but named: accepted means active, proposed means draft, deprecated means superseded. Change status with `spec set <id> status=<value>`, which also checks the transition.",
             on_commit: true,
         }
     }
@@ -218,9 +218,10 @@ impl Rule for StatusAllowed {
                         &d.path,
                         line,
                         format!(
-                            "status '{status}' is not allowed for {} (allowed: {})",
+                            "status '{status}' is not allowed for {} (allowed: {}){}",
                             ty.name,
-                            ty.statuses.join(", ")
+                            ty.statuses.join(", "),
+                            status_hint(&status, &ty.statuses)
                         ),
                     )
                     .with_candidates(ty.statuses.clone()),
@@ -281,6 +282,19 @@ impl Rule for Dates {
             }
         }
     }
+}
+
+/// A common word from other tools mapped to the status meant; a hint only, never accepted as-is.
+fn status_hint(status: &str, allowed: &[String]) -> String {
+    let meant = match status.to_ascii_lowercase().as_str() {
+        "accepted" | "approved" | "adopted" | "done" | "implemented" | "current" => "active",
+        "proposed" | "proposal" | "wip" | "open" | "pending" => "draft",
+        "deprecated" | "replaced" => "superseded",
+        "declined" => "rejected",
+        "closed" | "obsolete" | "retired" => "archived",
+        _ => return String::new(),
+    };
+    if allowed.iter().any(|s| s == meant) { format!("; for '{status}' use '{meant}'") } else { String::new() }
 }
 
 #[cfg(test)]
