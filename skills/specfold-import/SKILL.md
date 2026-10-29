@@ -67,6 +67,21 @@ is the main document, other Markdown files are chapters, the rest are attachment
 `name` (from the `key` group), `first-commit` or `created`. `owner` is `auto` (from governs,
 then from code paths the text mentions) or a fixed owner id.
 
+Layouts that keep metadata in the body (adr-tools, MADR 2) say where with `[body]`; frontmatter
+wins when both have a value, and a file where the value is missing gets an `unresolved` entry:
+
+```toml
+[body]
+status = "section:Status"      # first line under "## Status"; or bullet:Status, line:Status
+date = "line:Date"             # "Date: 2016-02-12"; MADR 2 uses bullet:Date
+[body.links]                   # a line opening with the phrase, then [title](file) links
+Supercedes = "supersedes"      # adr-tools' spelling
+"Superceded by" = "-"          # the other side; the newer record already says it
+```
+
+Status values match the `[status]` table as written or in lower case. Link targets are old file
+names, so set `stem_aliases = true` for them to resolve after the apply.
+
 ## 3. Review the plan
 
 ```sh
