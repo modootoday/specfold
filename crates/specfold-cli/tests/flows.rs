@@ -1030,3 +1030,94 @@ fn guards_skip_spec_toml_and_explain_an_empty_scope() {
     assert_ne!(code, 0, "{text}");
     assert!(text.contains("fail_if_empty = false"), "{text}");
 }
+
+#[test]
+fn mv_renames_the_slug_of_a_timestamp_keyed_document() {
+    let r = common::repo();
+    let id = r.new_doc("plan", "services/shop", "Checkout");
+    let (code, v) = r.json(&["mv", &id, "--slug", "pay-flow", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["to"], id.as_str(), "{v}");
+    assert!(v["path"].as_str().unwrap().ends_with("-pay-flow.plan.md"), "{v}");
+}
+
+#[test]
+fn check_with_only_warnings_points_at_them() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    let (_, v) = r.json(&["show", &id]);
+    let path = v["path"].as_str().unwrap().to_string();
+    r.write(&path, &r.read(&path).replacen("status:", "colour: red\nstatus:", 1));
+    let (code, v) = r.json(&["check"]);
+    assert_eq!(code, 0, "{v}");
+    assert!(v["warnings"].as_u64().unwrap() > 0, "{v}");
+    let next = v["next"].as_str().unwrap();
+    assert!(!next.starts_with("spec audit"), "{next}");
+    assert!(next.starts_with("spec fix") || next.starts_with("spec explain S1"), "{next}");
+}
+
+#[test]
+fn sync_says_when_there_are_no_agent_files() {
+    let r = common::repo();
+    let (_, text) = r.text(&["sync", "assets"]);
+    assert!(text.contains("no agent files found"), "{text}");
+    r.write("AGENTS.md", "# agents\n");
+    let (_, text) = r.text(&["sync", "assets"]);
+    assert!(text.contains("agent files found (AGENTS.md)"), "{text}");
+}
+
+#[test]
+fn mv_lists_plain_text_paths_that_would_break() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    let (_, v) = r.json(&["show", &id]);
+    let old = v["path"].as_str().unwrap().to_string();
+    r.write("NOTES.md", &format!("intro\nsee {old}\n"));
+    r.git(&["add", "-A"]);
+    r.git(&["commit", "-qm", "x"]);
+    let (_, v) = r.json(&["mv", &id, "--slug", "basket"]);
+    assert!(v.get("cited_paths").is_none(), "off by default: {v}");
+    let (code, v) = r.json(&["mv", &id, "--slug", "basket", "--cited-paths", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["cited_paths"], 1, "{v}");
+    assert_eq!(v["items"][0]["path"], "NOTES.md:2", "{v}");
+    assert!(v["next"].as_str().unwrap().starts_with("replace "), "{v}");
+}
+
+#[test]
+fn new_warns_about_a_repeated_title() {
+    let r = common::repo();
+    let first = r.new_doc("plan", "services/shop", "Second plan");
+    let (code, v) = r.json(&["new", "plan", "--governs", "services/shop", "--title", "Second plan", "--dry-run"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["same_title"], serde_json::json!([first]), "{v}");
+}
+
+#[test]
+fn graph_json_and_id_prefixes_get_real_next_steps() {
+    let r = common::repo();
+    let id = r.new_doc("plan", "services/shop", "Checkout");
+    let (_, text) = r.text(&["graph", "json"]);
+    assert!(text.contains("spec graph --json"), "{text}");
+    let prefix = &id[..id.len() - 4];
+    let (code, text) = r.text(&["show", prefix]);
+    assert_ne!(code, 0);
+    assert!(text.contains(&id), "{text}");
+}
+
+#[test]
+fn init_upgrade_raises_an_old_schema() {
+    let r = common::repo();
+    let (_, text) = r.text(&["init", "--upgrade"]);
+    assert!(text.contains("is current (schema 1)"), "{text}");
+    r.write("spec.toml", &r.read("spec.toml").replacen("schema = 1", "schema = 0", 1));
+    let (code, text) = r.text(&["check"]);
+    assert_ne!(code, 0);
+    assert!(text.contains("spec init --upgrade"), "{text}");
+    let (code, v) = r.json(&["init", "--upgrade"]);
+    assert_eq!((code, &v["written"]), (0, &serde_json::json!(false)), "{v}");
+    let (code, v) = r.json(&["init", "--upgrade", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    assert!(r.read("spec.toml").contains("schema = 1"));
+    assert_eq!(r.json(&["check"]).0, 0);
+}

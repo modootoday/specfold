@@ -37,9 +37,30 @@ impl Config {
 
     pub fn load(path: &Path) -> Result<Self> {
         let text = std::fs::read_to_string(path).with_context(|| format!("cannot read {}", path.display()))?;
-        let raw: RawConfig = toml::from_str(&text).with_context(|| format!("invalid {}", path.display()))?;
+        let raw: RawConfig = match toml::from_str(&text) {
+            Ok(r) => r,
+            Err(e) => {
+                let (_, changes) = super::upgrade::plan(&text, super::upgrade::RENAMED);
+                let hint =
+                    if changes.is_empty() { String::new() } else { "; renamed keys: spec init --upgrade".into() };
+                return Err(anyhow::Error::new(e).context(format!("invalid {}{hint}", path.display())));
+            }
+        };
+        if raw.spec.schema > defaults::schema() {
+            bail!(
+                "{}: schema {} was written by a newer specfold (this version reads {}); install the latest spec",
+                path.display(),
+                raw.spec.schema,
+                defaults::schema()
+            );
+        }
         if raw.spec.schema != defaults::schema() {
-            bail!("{}: schema {} is not supported by this version (expected 1)", path.display(), raw.spec.schema);
+            bail!(
+                "{}: schema {} is older than this version reads ({}); preview the upgrade: spec init --upgrade",
+                path.display(),
+                raw.spec.schema,
+                defaults::schema()
+            );
         }
         let root = path.parent().unwrap_or(Path::new(".")).to_path_buf();
         Ok(Self::from_raw(root, raw, false))

@@ -187,6 +187,7 @@ pub fn run(g: &Global, a: &GraphArgs) -> Result<Output> {
                 "tree" => "spec graph".to_string(),
                 "ascii" => "spec graph --ascii".to_string(),
                 "mermaid" | "dot" | "box" => format!("spec graph --format {q}"),
+                "json" => "spec graph --json".to_string(),
                 _ => "spec graph impact <id>".to_string(),
             };
             bail!("unknown query '{q}' (impact, chain, governs; the whole graph takes no query); next: {whole}")

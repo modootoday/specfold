@@ -14,7 +14,18 @@ pub fn run(g: &Global, a: &SyncArgs) -> Result<Output> {
     let (pairs, plan) = sync::plan(cfg, a.prune)?;
     let mut o = Output::new("sync").field("roots", pairs.len()).field("changes", plan.changes.len());
     if pairs.is_empty() {
-        return Ok(o.next("declare a copy in spec.toml: [[assets]] kind = \"skill\", path = \".claude/skills\", copy_of = \".agents/skills\""));
+        let found: Vec<&str> =
+            [".agents", ".claude", ".cursor", ".github/copilot-instructions.md", "AGENTS.md", "CLAUDE.md"]
+                .into_iter()
+                .filter(|p| cfg.root.join(p).exists())
+                .collect();
+        o = o.field("agent_files", json!(found));
+        if found.is_empty() {
+            return Ok(o
+                .head("no agent files found (.agents, .claude, .cursor, AGENTS.md, CLAUDE.md): nothing to sync")
+                .next("spec new skill <name>   # or add agent files, then declare a copy in spec.toml"));
+        }
+        return Ok(o.head(format!("agent files found ({}), but no copy is declared", found.join(", "))).next("declare a copy in spec.toml: [[assets]] kind = \"skill\", path = \".claude/skills\", copy_of = \".agents/skills\""));
     }
     o = o.field("pairs", json!(pairs.iter().map(|p| json!({"source": p.source, "copy": p.copy})).collect::<Vec<_>>()));
     for p in &pairs {

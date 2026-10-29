@@ -60,7 +60,7 @@ pub struct SetArgs {
 
 #[derive(Debug, Clone, Args)]
 #[command(
-    after_help = "Examples:\n  spec mv adr:root/20260101000000 --write      # to where its governs says\n  spec mv sot:shop/cart --slug checkout-cart --write\n  spec mv sot:shop/cart --tier committed --write   # promote a local document"
+    after_help = "Examples:\n  spec mv adr:root/20260101000000 --write      # to where its governs says\n  spec mv sot:shop/cart --slug checkout-cart --write\n  spec mv sot:shop/cart --tier committed --write   # promote a local document\n  spec mv sot:shop/cart --slug basket --cited-paths"
 )]
 pub struct MvArgs {
     /// An id, alias, path, or unique slug.
@@ -75,6 +75,10 @@ pub struct MvArgs {
     /// local document, `local` takes one out of the commit.
     #[arg(long, value_parser = ["committed", "local"])]
     pub tier: Option<String>,
+    /// Also list committed Markdown files outside the documents that cite the old path
+    /// (`file:line`); they are reported, not rewritten. Off by default: it reads every such file.
+    #[arg(long)]
+    pub cited_paths: bool,
     /// Apply the move (otherwise a preview).
     #[arg(long)]
     pub write: bool,
@@ -127,7 +131,7 @@ pub struct AttachArgs {
 
 #[derive(Debug, Clone, Args)]
 #[command(
-    after_help = "Examples:\n  spec init\n  spec init --owner 'services/*={1}' --owner 'libs/*=lib.{1}:manifest' --root ws"
+    after_help = "Examples:\n  spec init\n  spec init --owner 'services/*={1}' --owner 'libs/*=lib.{1}:manifest' --root ws\n  spec init --upgrade          # preview renamed keys and the schema number"
 )]
 pub struct InitArgs {
     /// Owner kinds as `pattern=id-template`, with `:manifest` to require a package manifest.
@@ -136,6 +140,10 @@ pub struct InitArgs {
     /// Id of the repository root owner.
     #[arg(long, default_value = "root")]
     pub root: String,
+    /// Upgrade an existing spec.toml to this version: renamed keys and the schema number,
+    /// keeping comments. A preview without --write.
+    #[arg(long, conflicts_with_all = ["owners"])]
+    pub upgrade: bool,
     /// Write spec.toml (otherwise a preview).
     #[arg(long)]
     pub write: bool,

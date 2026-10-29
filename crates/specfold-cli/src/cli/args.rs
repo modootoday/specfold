@@ -65,7 +65,7 @@ pub enum Cmd {
     /// A document's attachments and where each is kept.
     #[command(after_help = "Examples:\n  spec files evidence:services/shop/20261030021100")]
     Files(read::RefArgs),
-    /// Write a starter spec.toml.
+    /// Write a starter spec.toml, or upgrade an existing one.
     Init(write::InitArgs),
     /// Bring documents from another layout in through an import map.
     Import(write::ImportArgs),

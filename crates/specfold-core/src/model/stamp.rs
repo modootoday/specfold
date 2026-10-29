@@ -114,8 +114,11 @@ pub fn slugify(title: &str) -> String {
     }
     let mut s = out.trim_matches('-').to_string();
     if s.len() > 60 {
-        s.truncate(60);
-        s = s.trim_end_matches('-').to_string();
+        // Cut at the last word boundary that fits, so no word is left half-written.
+        s = match s[..61].rfind('-') {
+            Some(i) if i > 0 => s[..i].to_string(),
+            _ => s[..60].to_string(),
+        };
     }
     s
 }
@@ -152,6 +155,9 @@ mod tests {
             slugify("Keep a general core, take behaviour by config!"),
             "keep-a-general-core-take-behaviour-by-config"
         );
+        let long = slugify("A very long title that keeps on going and going beyond the limit words");
+        assert_eq!(long, "a-very-long-title-that-keeps-on-going-and-going-beyond-the");
+        assert!(slugify(&"x".repeat(70)).len() == 60);
         assert!(is_slug("guard-policy"));
         assert!(!is_slug("Guard"));
         assert!(!is_slug("a--b"));

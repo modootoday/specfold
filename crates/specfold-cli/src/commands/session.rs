@@ -54,7 +54,24 @@ pub fn resolve(s: &Session, text: &str) -> Result<usize> {
     let by_slug: Vec<usize> = (0..s.corpus.docs.len()).filter(|&i| s.corpus.docs[i].slug == text).collect();
     match by_slug.as_slice() {
         [i] => Ok(*i),
-        [] => bail!("'{text}' names no document"),
+        [] => {
+            // A partial id (a type, owner or timestamp prefix) gets the ids it could mean.
+            let near: Vec<String> = s
+                .corpus
+                .docs
+                .iter()
+                .map(|d| d.id.to_string())
+                .filter(|id| text.len() >= 3 && id.starts_with(text))
+                .collect();
+            match near.len() {
+                0 => bail!("'{text}' names no document"),
+                n => bail!(
+                    "'{text}' names no document; {n} id(s) start with it: {}{}",
+                    near.iter().take(5).cloned().collect::<Vec<_>>().join(", "),
+                    if n > 5 { ", ..." } else { "" }
+                ),
+            }
+        }
         many => bail!(
             "'{text}' is ambiguous: {}",
             many.iter().map(|&i| s.corpus.docs[i].id.to_string()).collect::<Vec<_>>().join(", ")

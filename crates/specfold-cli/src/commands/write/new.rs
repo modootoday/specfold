@@ -5,6 +5,7 @@ use crate::cli::args::{global::Global, write::NewArgs};
 use crate::output::Output;
 use crate::session;
 use anyhow::{Context, Result, bail};
+use serde_json::json;
 use specfold_core::assets;
 use specfold_core::authoring::new::{self, NewDoc};
 use specfold_core::config::types::AssetKind;
@@ -40,6 +41,21 @@ pub fn run(g: &Global, a: &NewArgs) -> Result<Output> {
     let o = match &created.slug_note {
         Some(note) => o.field("slug_note", note.clone()).head(format!("warn  {note}")),
         None => o,
+    };
+    // The same title twice is usually a rerun; say so before a second copy is written.
+    let same: Vec<String> = s
+        .corpus
+        .docs
+        .iter()
+        .filter(|d| {
+            d.id.ty == a.ty && d.str_field("title").is_some_and(|t| t.trim().eq_ignore_ascii_case(a.title().trim()))
+        })
+        .map(|d| d.id.to_string())
+        .collect();
+    let o = if same.is_empty() {
+        o
+    } else {
+        o.field("same_title", json!(same)).head(format!("warn  same title as {}", same.join(", ")))
     };
     let mut o = preview::finish(o, &plan, &s.corpus.cfg.root, !a.dry_run, "rerun without --dry-run")?;
     if a.local
