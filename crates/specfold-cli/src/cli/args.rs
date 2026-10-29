@@ -112,7 +112,7 @@ pub enum Cmd {
     Mcp,
     /// Serve check findings as editor diagnostics (Language Server Protocol over stdio).
     #[command(
-        long_about = "Serve check findings as editor diagnostics (Language Server Protocol over stdio).\n\nStarted by an editor's LSP client. Open, changed and saved documents are checked with their unsaved text; each publishes the findings `spec check <FILE>` would list for that file. Findings with a replacement fix offer it as a quick fix on the unsaved text; an ambiguous link or a stale path offers one quick fix per candidate, and a fix command that writes with --write and needs nothing filled in is offered as a command the server runs (workspace/executeCommand `spec.run`, only for a command a current finding offers).",
+        long_about = "Serve check findings as editor diagnostics (Language Server Protocol over stdio).\n\nStarted by an editor's LSP client. Open, changed and saved documents are checked with their unsaved text; each publishes the findings `spec check <FILE>` would list for that file. Findings with a replacement fix offer it as a quick fix on the unsaved text; an ambiguous link or a stale path offers one quick fix per candidate, and a fix command that writes with --write and needs nothing filled in is offered as a command the server runs (workspace/executeCommand `spec.run`, only for a command a current finding offers). Such a command acts on the files on disk, not on unsaved editor text: save first. Every change re-runs the whole check (the last result is kept while nothing on disk or in open buffers changes).",
         after_help = "Examples:\n  spec lsp\n  spec lsp --dir /path/to/repo"
     )]
     Lsp,
