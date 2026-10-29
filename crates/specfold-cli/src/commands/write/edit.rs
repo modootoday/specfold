@@ -45,14 +45,38 @@ pub fn run(g: &Global, a: &EditArgs) -> Result<Output> {
     if more > 0 {
         o = o.head(format!("  … {more} more line(s)"));
     }
-    let mut rerun = format!("spec edit {}", a.doc);
+    let mut rerun = format!("spec edit {}", sh(&a.doc));
     if let Some(sec) = &a.section {
-        rerun.push_str(&format!(" --section {sec:?}"));
+        rerun.push_str(&format!(" --section {}", sh(sec)));
     }
     if a.append {
         rerun.push_str(" --append");
     }
-    rerun.push_str(" … --write");
+    match (&a.text, &a.file) {
+        (Some(t), _) => rerun.push_str(&format!(" --text {}", sh(t))),
+        (None, Some(p)) if p.as_os_str() == "-" => rerun.push_str(" --file <saved-input>"),
+        (None, Some(p)) => rerun.push_str(&format!(" --file {}", sh(&p.display().to_string()))),
+        (None, None) => {}
+    }
+    rerun.push_str(" --write");
     let o = preview::finish(o, &out.plan, &s.corpus.cfg.root, a.write, &rerun)?;
     Ok(if a.write { o.next(format!("spec check  # then: spec show {id}")) } else { o })
+}
+
+/// Quotes for a POSIX shell when needed, so the rerun hint can be pasted as is.
+fn sh(s: &str) -> String {
+    if !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric() || "-_./:@=+,".contains(c)) {
+        s.to_string()
+    } else {
+        format!("'{}'", s.replace('\'', "'\\''"))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn quotes_for_the_shell() {
+        assert_eq!(super::sh("adr:shop/1"), "adr:shop/1");
+        assert_eq!(super::sh("it's ok"), "'it'\\''s ok'");
+    }
 }

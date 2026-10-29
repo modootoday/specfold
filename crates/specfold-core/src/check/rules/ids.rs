@@ -45,7 +45,7 @@ impl Rule for AliasesClean {
         &RuleInfo {
             id: "I2",
             title: "aliases do not shadow ids and point at one document",
-            explain: "Aliases carry identifiers from before an import. An alias equal to a current id would hide that document; an alias shared by two documents makes references to it ambiguous, which `spec check` reports at each use with both candidates.",
+            explain: "Aliases carry identifiers from before an import. An alias equal to a current id would hide that document; an alias shared by two documents makes references to it ambiguous, which `spec check` reports at each use with both candidates. `spec fix --rule I2 --pick <id> --write <path>:1` keeps the alias on that document and removes it from the others (frontmatter and alias table).",
             on_commit: true,
         }
     }
@@ -72,7 +72,12 @@ impl Rule for AliasesClean {
                             1,
                             format!("alias '{alias}' names {} documents", ids.len()),
                         )
-                        .with_candidates(ids.clone()),
+                        .with_candidates(ids.clone())
+                        .fix_cmd(format!(
+                            "spec fix --rule I2 --pick {} --write {}:1",
+                            ctx.corpus.docs[i].id,
+                            super::support::quote(&ctx.corpus.docs[i].path)
+                        )),
                     );
                 }
             }

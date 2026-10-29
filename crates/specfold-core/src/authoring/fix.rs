@@ -48,6 +48,50 @@ fn fill_frontmatter(c: &Corpus, idx: usize, text: &str) -> Result<String> {
     })
 }
 
+/// Keeps `alias` on the document `keep` and removes it from every other document that carries
+/// it, in frontmatter `aliases` and in the alias table. Returns the number of files changed.
+fn drop_alias(c: &Corpus, texts: &mut BTreeMap<String, String>, alias: &str, keep: &str) -> Result<usize> {
+    let mut changed = 0;
+    for d in &c.docs {
+        if d.id.to_string() == keep || !d.list_field("aliases").iter().any(|a| a == alias) {
+            continue;
+        }
+        let Some(t) = texts.get(&d.path).cloned().or_else(|| std::fs::read_to_string(c.cfg.root.join(&d.path)).ok())
+        else {
+            continue;
+        };
+        let n = edit::rewrite(&t, |m| {
+            if let Some(Value::Array(list)) = m.get_mut("aliases") {
+                list.retain(|v| v.as_str() != Some(alias));
+                if list.is_empty() {
+                    m.remove("aliases");
+                }
+            }
+        })?;
+        if n != t {
+            texts.insert(d.path.clone(), n);
+            changed += 1;
+        }
+    }
+    if let Some(file) = &c.aliases.file {
+        let t = texts.get(file).cloned().or_else(|| std::fs::read_to_string(c.cfg.root.join(file)).ok());
+        if let Some(t) = t {
+            let n: String = t
+                .split_inclusive('\n')
+                .filter(|l| match l.trim_end().split_once('\t') {
+                    Some((old, new)) => old != alias || new.trim() == keep,
+                    None => true,
+                })
+                .collect();
+            if n != t {
+                texts.insert(file.clone(), n);
+                changed += 1;
+            }
+        }
+    }
+    Ok(changed)
+}
+
 pub fn plan(c: &Corpus, findings: &[Finding], pick: Option<&Pick>) -> Result<(Plan, usize)> {
     let mut texts: BTreeMap<String, String> = BTreeMap::new();
     let mut applied = 0;
@@ -84,6 +128,14 @@ pub fn plan(c: &Corpus, findings: &[Finding], pick: Option<&Pick>) -> Result<(Pl
                     texts.insert(f.path.clone(), n);
                     applied += 1;
                 }
+            }
+            (_, "I2") if f.candidates.len() > 1 => {
+                let Some(p) = pick.filter(|p| p.path == f.path && f.candidates.contains(&p.id)) else { continue };
+                let Some(alias) = f.message.strip_prefix("alias '").and_then(|m| m.split_once("' names")).map(|x| x.0)
+                else {
+                    continue;
+                };
+                applied += drop_alias(c, &mut texts, alias, &p.id)?;
             }
             _ => {}
         }
