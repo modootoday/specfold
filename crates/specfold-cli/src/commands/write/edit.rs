@@ -21,7 +21,18 @@ pub fn run(g: &Global, a: &EditArgs) -> Result<Output> {
             t
         }
         (None, Some(p)) => std::fs::read_to_string(p).with_context(|| format!("reading {}", p.display()))?,
-        (None, None) => anyhow::bail!("give --text or --file"),
+        (None, None) => {
+            use std::io::IsTerminal;
+            if std::io::stdin().is_terminal() {
+                anyhow::bail!("give --text or --file, or pipe the text in (spec edit ... < body.md)");
+            }
+            let mut t = String::new();
+            std::io::stdin().read_to_string(&mut t).context("reading standard input")?;
+            if t.is_empty() {
+                anyhow::bail!("standard input was empty; give --text or --file, or pipe the text in");
+            }
+            t
+        }
     };
     let mode = if a.append { Mode::Append } else { Mode::Replace };
     let e = Edit { section: a.section.clone(), mode, text };
@@ -55,8 +66,8 @@ pub fn run(g: &Global, a: &EditArgs) -> Result<Output> {
     match (&a.text, &a.file) {
         (Some(t), _) => rerun.push_str(&format!(" --text={}", sh(t))),
         (None, Some(p)) if p.as_os_str() == "-" => rerun.push_str(" --file <saved-input>"),
+        (None, None) => rerun.push_str(" --file <saved-input>"),
         (None, Some(p)) => rerun.push_str(&format!(" --file {}", sh(&p.display().to_string()))),
-        (None, None) => {}
     }
     rerun.push_str(" --write");
     let o = preview::finish(o, &out.plan, &s.corpus.cfg.root, a.write, &rerun)?;

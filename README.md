@@ -93,7 +93,8 @@ examples and output schemas. `spec explain` documents every rule.
 
 Writes are previews until `--write` (or plain for `new` and `set`, which accept `--dry-run`).
 `spec edit` changes bodies: it replaces or appends to one section (`--section`) or the whole
-body, from `--text`, `--file`, or stdin (`--file -`), and bumps `updated`. Sealed and closed
+body, from `--text`, `--file`, or stdin (`--file -`, or simply piped or redirected:
+`spec edit <id> --section Notes --write < notes.md`, `cat body.md | spec edit <id>`, a heredoc), and bumps `updated`. Sealed and closed
 documents are refused.
 Exit codes: 0 nothing to report, 1 findings or an ambiguous answer, 2 usage, 3 environment.
 
