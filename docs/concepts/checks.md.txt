@@ -1,0 +1,5 @@
+---
+layout: twin
+twin_of: concepts/checks.md
+permalink: /concepts/checks/index.md
+---

@@ -1,5 +1,0 @@
----
-layout: twin
-twin_of: import.md
-permalink: /import/index.md
----

@@ -1,0 +1,5 @@
+---
+layout: twin
+twin_of: reference/rules.md
+permalink: /reference/rules/index.md
+---

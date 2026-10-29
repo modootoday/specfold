@@ -2,14 +2,20 @@
 layout: default
 ---
 {% include docs-list.html %}{% include twin-url.html page=page %}
+{%- for n in docs -%}{%- if n.url == page.url -%}{%- assign at = forloop.index0 -%}{%- endif -%}{%- endfor -%}
+{%- if at -%}{%- assign pi = at | minus: 1 -%}{%- assign ni = at | plus: 1 -%}{%- if at > 0 -%}{%- assign prev = docs[pi] -%}{%- endif -%}{%- assign next = docs[ni] -%}{%- endif -%}
+{%- assign group = "" -%}{%- for g in site.data.nav -%}{%- if g.pages contains page.path -%}{%- assign group = g.title -%}{%- endif -%}{%- endfor -%}
+{%- capture body %}{% include md-components.html content=content lang=page.lang %}{% endcapture -%}
+{%- assign body = body | replace_first: 'class="md-callout md-callout-tip"', 'class="md-callout md-callout-tip md-tldr"' -%}
 <div class="mx-auto max-w-6xl px-4 py-10 grid gap-10 lg:grid-cols-[13rem_minmax(0,1fr)] xl:grid-cols-[13rem_minmax(0,1fr)_11rem]">
- <nav aria-label="Documentation" class="text-sm min-w-0"><details class="lg:hidden rounded-lg border border-line"><summary class="cursor-pointer px-3 py-2 font-semibold">Docs: {{ page.title }}</summary><ul class="space-y-1 p-2">{% for n in docs %}<li><a class="side" href="{{ n.url | relative_url }}" {% if page.url == n.url %}aria-current="page"{% endif %}>{{ n.title }}</a></li>{% endfor %}</ul></details><div class="hidden lg:block"><p class="font-semibold mb-3">Docs</p><ul class="space-y-1">{% for n in docs %}<li><a class="side" href="{{ n.url | relative_url }}" {% if page.url == n.url %}aria-current="page"{% endif %}>{{ n.title }}</a></li>{% endfor %}</ul></div></nav>
+ <nav aria-label="Documentation" class="text-sm min-w-0"><details class="lg:hidden rounded-lg border border-line"><summary class="cursor-pointer px-3 py-2 font-semibold">Docs: {{ page.title }}</summary><div class="p-2">{% include sidebar.html %}</div></details><div class="hidden lg:block">{% include sidebar.html %}</div></nav>
  <article class="prose min-w-0">
   <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-   <nav aria-label="Breadcrumb" class="crumbs text-sm text-muted"><ol class="flex gap-2"><li><a class="link" href="{{ '/' | relative_url }}">Home</a></li><li aria-hidden="true">/</li><li aria-current="page">{{ page.title }}</li></ol></nav>
+   <nav aria-label="Breadcrumb" class="crumbs text-sm text-muted"><ol class="flex gap-2"><li><a class="link" href="{{ '/' | relative_url }}">Home</a></li>{% if group != "" %}<li aria-hidden="true">/</li><li>{{ group }}</li>{% endif %}<li aria-hidden="true">/</li><li aria-current="page">{{ page.title }}</li></ol></nav>
    {% if twin %}<div class="flex gap-2 text-sm"><a class="btn-ghost border border-line whitespace-nowrap no-underline" href="{{ twin.url | relative_url }}" type="text/markdown">View as Markdown</a><button type="button" class="btn-ghost border border-line whitespace-nowrap no-underline" data-copy-md="{{ twin.url | relative_url }}" aria-label="Copy this page as Markdown for AI">Copy for AI</button></div>{% endif %}
   </div>
-  {{ content }}
+  {{ body }}
+  {% if prev or next %}<nav aria-label="Previous and next page" class="pager not-prose">{% if prev %}<a class="pager-prev" href="{{ prev.url | relative_url }}" rel="prev"><span class="label">Previous</span><span>{{ prev.title }}</span></a>{% endif %}{% if next %}<a class="pager-next" href="{{ next.url | relative_url }}" rel="next"><span class="label">Next</span><span>{{ next.title }}</span></a>{% endif %}</nav>{% endif %}
  </article>
  <aside aria-label="On this page" class="hidden xl:block text-sm min-w-0"><p class="font-semibold mb-3">On this page</p><ul id="toc" class="space-y-1"></ul></aside>
 </div>

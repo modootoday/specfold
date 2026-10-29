@@ -1,5 +1,0 @@
----
-layout: twin
-twin_of: editing.md
-permalink: /editing/index.md
----

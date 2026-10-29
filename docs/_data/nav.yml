@@ -1,0 +1,11 @@
+# Sidebar, prev/next and llms.txt order. Add a page here to publish it in the docs.
+- title: Start
+  pages: [start/index.md, start/install.md]
+- title: Concepts
+  pages: [concepts/index.md, concepts/document-types.md, concepts/lifecycle.md, concepts/owners-ids.md, concepts/graph.md, concepts/checks.md, concepts/times-relations.md]
+- title: Guides
+  pages: [guides/agents.md, guides/ci.md, guides/import.md, guides/editing.md, guides/attachments.md]
+- title: Reference
+  pages: [reference/commands.md, reference/rules.md, reference/config.md]
+- title: More
+  pages: [faq.md, changelog.md]

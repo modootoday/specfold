@@ -1,0 +1,5 @@
+---
+layout: twin
+twin_of: guides/editing.md
+permalink: /guides/editing/index.md
+---

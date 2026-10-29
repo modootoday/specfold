@@ -12,7 +12,7 @@ markdown: kramdown
 kramdown:
   input: GFM
   syntax_highlighter: rouge
-plugins: [jekyll-seo-tag, jekyll-sitemap, jekyll-relative-links]
+plugins: [jekyll-seo-tag, jekyll-sitemap, jekyll-relative-links, jekyll-redirect-from]
 relative_links: { enabled: true }
 twitter: { card: summary_large_image }
 defaults:

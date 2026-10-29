@@ -87,7 +87,7 @@ it in with `spec hook print --for pre-commit`.
 Ids are `<type>:<owner>/<key>` and come from where a document lives. Statuses move forward only
 (`draft`, `active`, `superseded`, `archived`, `rejected`), and relations such as `rel.governs`
 and `rel.supersedes` are written once, on the document that makes them. Details, including
-times and task items: [docs/concepts.md](docs/concepts.md).
+times and task items: [docs/concepts/index.md](docs/concepts/index.md).
 
 ## Commands
 
@@ -142,17 +142,17 @@ Writes are previews until `--write` (`new` and `set` write directly and accept `
   `spec audit --kind drift` keep them consistent.
 
 [AGENTS.md](AGENTS.md) is for agents working *on* specfold; this README is for using it. See
-[docs/agents.md](docs/agents.md).
+[docs/guides/agents.md](docs/guides/agents.md).
 
 ## Guides
 
-- [Concepts](docs/concepts.md): types, ids, statuses, relations, times, task items
-- [Editing documents](docs/editing.md): `spec new`, `set`, `edit`, `mv` recipes
-- [Checks, guards, plugins and audits](docs/checks.md)
-- [Attachments](docs/attachments.md): files beside a document and external stores
-- [Agent assets](docs/agents.md): skills, rules, subagents and instruction files
-- [Importing an existing layout](docs/import.md)
-- [All commands](docs/commands.md)
+- [Concepts](docs/concepts/index.md): types, ids, statuses, relations, times, task items
+- [Editing documents](docs/guides/editing.md): `spec new`, `set`, `edit`, `mv` recipes
+- [Checks, guards, plugins and audits](docs/concepts/checks.md)
+- [Attachments](docs/guides/attachments.md): files beside a document and external stores
+- [Agent assets](docs/guides/agents.md): skills, rules, subagents and instruction files
+- [Importing an existing layout](docs/guides/import.md)
+- [All commands](docs/reference/commands.md)
 
 ## Exit codes and JSON
 
