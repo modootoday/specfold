@@ -42,6 +42,19 @@ pub fn last_change(root: &Path, paths: &[String]) -> Option<String> {
     if s.is_empty() { None } else { Some(s) }
 }
 
+/// Commits after `since` up to HEAD touching any of `paths` (globs allowed) outside `exclude`
+/// (globs), newest first, as short hashes; None when `since` is not a commit git knows.
+pub fn commits_since(root: &Path, since: &str, paths: &[String], exclude: &[String]) -> Option<Vec<String>> {
+    git(root, &["cat-file", "-e", &format!("{since}^{{commit}}")])?;
+    let range = format!("{since}..HEAD");
+    let mut args: Vec<String> = vec!["log".into(), "--format=%h".into(), range, "--".into()];
+    args.extend(paths.iter().map(|p| if p.contains(['*', '?', '[']) { format!(":(glob){p}") } else { p.clone() }));
+    args.extend(exclude.iter().map(|e| format!(":(exclude,glob){e}")));
+    let refs: Vec<&str> = args.iter().map(String::as_str).collect();
+    let out = git(root, &refs)?;
+    Some(String::from_utf8_lossy(&out).lines().map(str::to_string).filter(|l| !l.is_empty()).collect())
+}
+
 pub struct Revision {
     pub hash: String,
     pub date: String,

@@ -442,3 +442,33 @@ fn assets_and_show_list_the_documents_an_asset_names() {
     assert!(t.contains("assets:") && t.contains("<- skill .agents/skills/db/SKILL.md"), "{t}");
     assert_eq!(r.read(".agents/skills/db/SKILL.md"), before, "assets are only read");
 }
+
+#[test]
+fn a_pinned_document_is_stale_after_any_commit_to_its_code() {
+    let r = common::repo();
+    let id = r.new_doc("adr", "services/shop", "Cart totals");
+    assert_eq!(r.json(&["set", &id, "status=active"]).0, 0);
+    let (code, v) = r.json(&["set", &id, "verified_at=HEAD"]);
+    assert_eq!(code, 0, "{v}");
+    let (_, v) = r.json(&["show", &id]);
+    let pin = v["frontmatter"]["verified_at"].as_str().unwrap_or_default().to_string();
+    assert_eq!(pin.len(), 12, "HEAD is stored as a short hash: {v}");
+    r.commit("pinned");
+    let (code, v) = r.json(&["check"]);
+    assert_eq!(code, 0, "verified_at is a known key: {v}");
+    let (_, v) = r.json(&["audit", "--kind", "stale"]);
+    assert!(!v.to_string().contains("since verified_at"), "nothing changed yet: {v}");
+    r.write("services/shop/src/cart/total.rs", "fn total() -> u32 { 0 }\n");
+    r.commit("change totals");
+    let (_, v) = r.json(&["audit", "--kind", "stale"]);
+    let t = v.to_string();
+    assert!(t.contains("changed in 1 commit(s) since verified_at"), "{v}");
+    assert!(t.contains("verified_at=HEAD"), "the next step re-pins: {v}");
+    let (_, v) = r.json(&["set", &id, "verified_at=HEAD"]);
+    assert_eq!(v["id"], id.as_str());
+    let (_, v) = r.json(&["audit", "--kind", "stale"]);
+    assert!(!v.to_string().contains("since verified_at"), "re-pinned: {v}");
+    assert_eq!(r.json(&["set", &id, "verified_at=0000000deadbeef"]).0, 0);
+    let (_, v) = r.json(&["audit", "--kind", "stale"]);
+    assert!(v.to_string().contains("is not a commit in this repository"), "{v}");
+}

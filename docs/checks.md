@@ -34,3 +34,8 @@ named in `spec.toml` run.
 without a source of truth, stalled plans, finished plans (every task ticked but still active, or
 archived with tasks open), open items, and agent assets that drifted. `--pack` groups documents
 for a reviewer, and `spec audit record` stores a review as a sealed audit document.
+
+A document is stale when its governed code changed more than `audit.stale_days` after `updated`.
+To track it by commit instead, pin it with `spec set <id> verified_at=HEAD` after checking the body
+against the code: `spec audit --kind stale` then reports any later commit to the governed paths,
+or a pin that is no longer a commit, and suggests the `git diff` to read before re-pinning.

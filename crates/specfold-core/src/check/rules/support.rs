@@ -17,6 +17,7 @@ pub const COMMON_KEYS: &[&str] = &[
     "files",
     "generated_by",
     "check_skip",
+    "verified_at",
 ];
 pub const REQUIRED_KEYS: &[&str] = &["id", "title", "status", "created", "updated"];
 
