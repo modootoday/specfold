@@ -96,7 +96,7 @@ times and task items: [docs/concepts/index.md](docs/concepts/index.md).
 | `spec attach` | Register files with a document, in the repository or the store |
 | `spec fetch` | Download a document's stored attachments, verified by hash |
 | `spec files` | A document's attachments and where each is kept |
-| `spec init` | Write a starter spec.toml |
+| `spec init` | Write a starter spec.toml, or upgrade an existing one |
 | `spec import` | Bring documents from another layout in through an import map |
 | `spec check` | Run the rules |
 | `spec verify` | Run sot verify commands |

@@ -147,6 +147,16 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
     let has_fix = list.iter().any(|f| f.fix.is_some());
     Ok(match (fails, has_fix) {
         (0, _) if lowerable > 0 => o.next("spec check --write-baseline"),
+        (0, _) if warnings > 0 => {
+            // Point at the warnings before the optional audit: an autofix when one exists,
+            // otherwise the first warning's rule.
+            let w: Vec<_> = list.iter().filter(|f| f.severity != Severity::Error).collect();
+            if w.iter().any(|f| f.fix.is_some()) {
+                o.next(if a.staged { "spec fix --staged --write" } else { "spec fix --write" })
+            } else {
+                o.next(format!("spec explain {}  # {} warning(s) to fix", w[0].rule, w.len()))
+            }
+        }
         (0, _) => o.next("spec audit  # optional: stale, orphan and unfinished documents"),
         (_, true) => {
             o.code(Code::Findings).next(if a.staged { "spec fix --staged --write" } else { "spec fix --write" })

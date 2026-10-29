@@ -1,5 +1,5 @@
 //! Large-repository regression: a synthetic corpus must stay fast enough for CI and hooks.
-//! Bounds are generous (debug build, shared runners); the ignored test prints timings at 10k.
+//! Bounds leave room for debug builds on shared runners yet catch a regression; the ignored test prints timings at 10k.
 mod common;
 
 use std::time::{Duration, Instant};
@@ -52,7 +52,7 @@ const COMMANDS: &[&[&str]] = &[
 #[test]
 fn a_thousand_documents_stay_within_bounds() {
     let r = corpus(25, 40);
-    let bound = Duration::from_secs(30);
+    let bound = Duration::from_secs(10);
     let (code, v, _) = timed(&r, &["check"], bound);
     assert_eq!(code, 0, "the synthetic corpus is clean: {v}");
     let (_, v, _) = timed(&r, &["census"], bound);

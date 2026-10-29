@@ -23,7 +23,7 @@ specfold is a command-line tool, `spec`. Every command takes `--help` and `--jso
 - [spec attach](docs/reference/commands.md): Register files with a document, in the repository or the store
 - [spec fetch](docs/reference/commands.md): Download a document's stored attachments, verified by hash
 - [spec files](docs/reference/commands.md): A document's attachments and where each is kept
-- [spec init](docs/reference/commands.md): Write a starter spec.toml
+- [spec init](docs/reference/commands.md): Write a starter spec.toml, or upgrade an existing one
 - [spec import](docs/reference/commands.md): Bring documents from another layout in through an import map
 - [spec check](docs/reference/commands.md): Run the rules
 - [spec verify](docs/reference/commands.md): Run sot verify commands
