@@ -29,6 +29,11 @@ fn failing(list: &[Finding], fail_on: &[String]) -> usize {
 
 /// What `spec check <FILE>` lists for one file, baseline applied: the language server's source.
 pub fn file_findings(g: &Global, rel: &str) -> Result<Vec<Finding>> {
+    Ok(all_findings(g)?.into_iter().filter(|f| f.path == rel).collect())
+}
+
+/// Every finding of a full check (no commands, no network), with the baseline applied.
+pub fn all_findings(g: &Global) -> Result<Vec<Finding>> {
     let s = session::open(g)?;
     let commands = crate::cli::describe::commands().into_iter().map(|c| c.name).collect();
     let opts = Options { run_commands: false, external: false, online: false, guards: false, commands };
@@ -37,7 +42,7 @@ pub fn file_findings(g: &Global, rel: &str) -> Result<Vec<Finding>> {
         Some(b) => baseline::hold(&s.corpus, &b, report.findings).findings,
         None => report.findings,
     };
-    Ok(list.into_iter().filter(|f| f.path == rel).collect())
+    Ok(list)
 }
 
 /// An absolute path for a file that may not exist yet: the nearest existing ancestor is resolved.

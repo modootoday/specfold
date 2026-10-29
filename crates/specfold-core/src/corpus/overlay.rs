@@ -44,6 +44,18 @@ pub fn unsaved_under(dir: &Path) -> Vec<PathBuf> {
         .unwrap_or_default()
 }
 
+/// A hash of every buffer held, so a cache of whole-corpus results knows when buffers changed.
+pub fn stamp() -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    if let Some(m) = map().as_ref() {
+        let mut v: Vec<_> = m.iter().collect();
+        v.sort();
+        v.hash(&mut h);
+    }
+    h.finish()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

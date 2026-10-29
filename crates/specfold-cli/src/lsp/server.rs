@@ -5,7 +5,7 @@ use crate::cli::args::global::Global;
 use crate::commands::verify::check;
 use crate::output::ci;
 use serde_json::{Value, json};
-use specfold_core::check::{Fix, Severity};
+use specfold_core::check::{Finding, Fix, Severity};
 use specfold_core::corpus::overlay;
 use std::io::{BufRead, Write};
 use std::path::{Path, PathBuf};
@@ -98,14 +98,50 @@ pub fn code_actions(uri: &str, path: Option<&Path>, params: &Value) -> Vec<Value
         .collect()
 }
 
+/// Size and modification time of every file under `root` (skipping `.git` but for HEAD and
+/// index, and the specfold cache which checks write themselves), hashed: any change on disk that
+/// a check could see changes the stamp.
+fn disk_stamp(root: &Path) -> u64 {
+    let cache = specfold_core::config::paths::cache_dir().map(|c| c.canonicalize().unwrap_or(c));
+    use std::hash::{Hash, Hasher};
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    let mut stack = vec![root.to_path_buf()];
+    let mut seen = vec![];
+    while let Some(dir) = stack.pop() {
+        let Ok(rd) = std::fs::read_dir(&dir) else { continue };
+        for e in rd.flatten() {
+            let p = e.path();
+            let Ok(m) = e.metadata() else { continue };
+            if m.is_dir() {
+                if p.file_name().is_some_and(|n| n == ".git") {
+                    for f in ["HEAD", "index"] {
+                        if let Ok(m) = std::fs::metadata(p.join(f)) {
+                            seen.push((p.join(f), m.len(), m.modified().ok()));
+                        }
+                    }
+                } else if cache.as_deref() != Some(p.as_path()) {
+                    stack.push(p);
+                }
+            } else {
+                seen.push((p, m.len(), m.modified().ok()));
+            }
+        }
+    }
+    seen.sort();
+    seen.hash(&mut h);
+    h.finish()
+}
+
 pub struct Server {
     global: Global,
     root: Option<PathBuf>,
+    /// The last full check and the disk/buffer stamp it was made at.
+    cache: Option<((u64, u64), Vec<Finding>)>,
 }
 
 impl Server {
     pub fn new(global: Global) -> Self {
-        Server { global, root: None }
+        Server { global, root: None, cache: None }
     }
 
     fn root(&mut self) -> Option<PathBuf> {
@@ -121,8 +157,18 @@ impl Server {
         let abs = check::absolute(path);
         let Ok(rel) = abs.strip_prefix(&root) else { return vec![] };
         let rel = rel.to_string_lossy().replace('\\', "/");
-        let Ok(list) = check::file_findings(&self.global, &rel) else { return vec![] };
-        list.iter()
+        let key = (disk_stamp(&root), overlay::stamp());
+        let fresh = std::env::var_os("SPEC_LSP_NO_CACHE").is_some();
+        if fresh || self.cache.as_ref().is_none_or(|(k, _)| *k != key) {
+            if std::env::var_os("SPEC_LSP_TRACE").is_some() {
+                eprintln!("spec lsp: full check");
+            }
+            let Ok(all) = check::all_findings(&self.global) else { return vec![] };
+            self.cache = Some((key, all));
+        }
+        let all = self.cache.as_ref().map(|(_, l)| l.as_slice()).unwrap_or_default();
+        all.iter()
+            .filter(|f| f.path == rel)
             .map(|f| {
                 let line = f.line.max(1) - 1;
                 let mut d = json!({
