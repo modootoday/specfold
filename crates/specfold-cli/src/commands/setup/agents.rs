@@ -7,6 +7,7 @@ use anyhow::{Result, bail};
 const LINES: &[&str] = &[
     "Design, planning and maintenance documents (sot, adr, plan, research, evidence, audit, page, design, guide, runbook, change and their files) are managed only with the spec CLI.",
     "Before changing code, run `spec context <path>`; it names the governing documents and their verify commands.",
+    "Before changing a document, run `spec graph impact <id>` to see what reaches it (relation and distance); `spec graph chain <id>` shows what it replaced and what replaced it; `spec graph --format mermaid|dot` prints the whole graph as a diagram.",
     "Create documents with `spec new <type> --governs <path> --title ...` and change status or relations with `spec set`; never write a spec file name by hand.",
     "Change a body with `spec edit <id>`: `--section <h>`, `--new-section <h> [--after <h>]`, or one table row with `--row <key> --cell Status=done`; preview, then add `--write`.",
     "Before committing, run `spec check --staged`; apply mechanical fixes with `spec fix --staged --write`. `--summary` counts findings per rule, `-q` lists errors only. Rules: `spec explain <rule>`; commands: `spec help --json`.",
