@@ -1,148 +1,173 @@
 # specfold
 
-One command line for a repository's design, planning and maintenance documents: rules,
-decisions, plans, research, evidence, audits, page specs, design boards, guides and runbooks.
+[![crates.io](https://img.shields.io/crates/v/specfold.svg)](https://crates.io/crates/specfold)
+[![npm](https://img.shields.io/npm/v/@modootoday/specfold.svg)](https://www.npmjs.com/package/@modootoday/specfold)
+[![tests](https://github.com/modootoday/specfold/actions/workflows/cross-os-test.yml/badge.svg)](https://github.com/modootoday/specfold/actions/workflows/cross-os-test.yml)
 
-- **Documents live with the code they govern.** Each owner (the repository root, an app, a
-  package) keeps its documents in its own `.spec/` directory. `spec new --governs <path>` works
-  out which owner that is; you never pick a directory by hand.
-- **Definitions live in one place.** Types, ids, frontmatter, statuses, relations and checks come
-  from specfold and one `spec.toml`, not from conventions written in several READMEs.
-- **The graph is derived, never stored.** References between documents, supersede chains and the
-  code each document governs are computed on every run.
-- **Built for AI agents first.** Every command is non-interactive, prints text or a stable
-  `--json` schema, bounds its output, attaches a fix to every finding and ends with a suggested
-  next command. The same commands are served as MCP tools by `spec mcp`.
-- **Language- and agent-neutral.** Owners are found through any common package manifest; the CLI,
-  JSON Schemas and MCP work with any agent that can run a command.
+<!-- spec:description -->
+One CLI for a repository's design, planning and maintenance documents, built for people and AI agents.
+<!-- /spec:description -->
+
+specfold types the documents a project writes about itself (rules, decisions, plans, research,
+evidence, audits, page specs, guides, runbooks), keeps each beside the code it governs, and checks
+them from one command, `spec`.
+
+## Contents
+
+- [Why](#why)
+- [Install](#install)
+- [Quick start](#quick-start)
+- [Concepts](#concepts)
+- [Commands](#commands)
+- [Using with AI agents](#using-with-ai-agents)
+- [Guides](#guides)
+- [Exit codes and JSON](#exit-codes-and-json)
+- [Contributing](#contributing)
+- [License](#license)
+
+## Why
+
+- **Documents live with the code they govern.** Each owner (the root, an app, a package) keeps
+  its documents in its own `.spec/`; `spec new --governs <path>` finds the owner for you.
+- **Definitions live in one place.** Types, ids, statuses, relations and checks come from
+  specfold and one `spec.toml`, not from conventions spread across READMEs.
+- **The graph is derived, never stored.** References, supersede chains and governed code are
+  computed on every run.
+- **Built for AI agents first.** No prompts, stable `--json`, bounded output, a fix on every
+  finding and a suggested next command. `spec mcp` serves the same commands as MCP tools.
 
 ## Install
 
-Pick whichever fits your project. Each gives you two commands, `specfold` and its short alias
-`spec`.
-
-With Rust installed:
+Each method gives you two commands, `specfold` and its short alias `spec`.
 
 ```sh
-cargo install specfold
+cargo install specfold                        # with Rust
+npm install --save-dev @modootoday/specfold   # in a JavaScript project; run with npx spec
 ```
 
-In a JavaScript project, add it as a dev dependency so everyone on the team gets the same
-version from the lockfile:
+Ready-built binaries for Linux, macOS and Windows are on the
+[releases page](https://github.com/modootoday/specfold/releases). To update, run the same
+command again.
 
-```sh
-npm install --save-dev @modootoday/specfold
-npx spec --version
+## Quick start
+
+In a repository with apps under `services/`:
+
+<!-- spec:quickstart -->
+```console
+$ spec init --owner 'services/*={1}' --write
+$ spec new sot --governs services/shop/src/cart --title "Cart totals"
+$ spec context services/shop/src/cart/total.rs
+$ spec check
+$ spec agents --for claude
 ```
+<!-- /spec:quickstart -->
 
-Or download a ready-built binary for Linux, macOS or Windows from the
-[GitHub releases](https://github.com/modootoday/specfold/releases).
+`init` writes `spec.toml`, `new` creates a source of truth for the cart code, `context` shows
+what governs a file before you change it, `check` runs the rules, and `agents` prints the lines
+to put in your agent's instruction file. Run `spec check --staged` before each commit, or wire
+it in with `spec hook print --for pre-commit`.
 
-## Start
+## Concepts
 
-```sh
-spec init --owner 'services/*={1}' --owner 'libs/*=lib.{1}:manifest' --write
-spec new sot --governs services/shop/src/cart --title "Cart totals"
-spec context services/shop/src/cart/total.rs     # what governs this code
-spec check --staged                          # before committing
-spec check --new                             # list documents not in the last commit
-spec check --summary                         # findings per rule; -q lists errors only
-spec agents --for claude                     # lines for your agent's instructions
-spec hook print --for pre-commit             # a hook for your hook manager
-```
+| type     | what it is                                   |
+| -------- | -------------------------------------------- |
+| sot      | a source of truth: the rule that holds now   |
+| adr      | a decision and the reason for it             |
+| plan     | a plan of work and its running record        |
+| research | a study, benchmark or evaluation             |
+| evidence | the cover of a bundle of measurements        |
+| audit    | an audit snapshot, sealed once committed     |
+| page     | the specification of one screen or page      |
+| design   | a bundle of design boards                    |
+| guide    | how to develop, operate or use something     |
+| runbook  | a step-by-step operational procedure         |
 
-## Documents
-
-| type     | key       | what it is                                                     |
-| -------- | --------- | -------------------------------------------------------------- |
-| sot      | slug      | a source of truth: the rule that holds now                     |
-| adr      | timestamp | a decision and the reason for it                               |
-| plan     | timestamp | a plan of work and its running record                          |
-| research | timestamp | a study, benchmark or evaluation                               |
-| evidence | timestamp | the cover of a bundle of measurements or raw outputs           |
-| audit    | timestamp | an audit snapshot; its body is sealed once committed           |
-| page     | slug      | the specification of one screen or page                        |
-| design   | timestamp | a bundle of design boards                                      |
-| guide    | slug      | how to develop, operate or use something                       |
-| runbook  | slug      | a step-by-step operational procedure                           |
-
-Ids are `<type>:<owner>/<key>`, computed from where a document lives. Files are
-`<owner>/.spec/<type>/<key>-<slug>.<type>.md`, or a directory with `index.<type>.md` when the
-document has chapters or attachments. Projects can disable, change or add types in `spec.toml`.
-Timestamp keys (`YYYYMMDDHHMMSS`) are UTC. specfold writes `created` and `updated` as RFC 3339
-times in UTC (`2026-10-30T02:21:00Z`). It reads plain `YYYY-MM-DD` dates and any RFC 3339
-offset (`2026-10-30T11:21:00+09:00`), and, as a reading aid only, `2026-10-30 11:21 KST`
-(only UTC, GMT, KST and JST; ambiguous names such as CST are refused).
-They are compared by their UTC day.
-
-Statuses are `draft`, `active`, `superseded`, `archived` and `rejected`, and only move forward.
-Relations are written once, on the document that makes them: `rel.governs` (code paths),
-`rel.supersedes`, `rel.implements`, `rel.evidence`, `rel.depends_on`. Body references are
-`[[<id>]]` or `[[<id>#<anchor>]]`. Task items (`- [ ]`, `- [x]`) are counted: `spec show` reports
-a document's progress and `spec show <id> --tasks` lists each item with its file and line.
+Ids are `<type>:<owner>/<key>` and come from where a document lives. Statuses move forward only
+(`draft`, `active`, `superseded`, `archived`, `rejected`), and relations such as `rel.governs`
+and `rel.supersedes` are written once, on the document that makes them. Details, including
+times and task items: [docs/concepts.md](docs/concepts.md).
 
 ## Commands
 
-`spec help` lists every command; `spec help --json` describes all of them with their arguments,
-examples and output schemas. `spec explain` documents every rule.
+Every command has `--help`, examples and a `--json` form; `spec help --json` describes them all.
+This table is generated by `spec help --markdown` and tested against it.
 
-| read                                | write                       | check                       |
-| ----------------------------------- | --------------------------- | --------------------------- |
-| context, find, show, resolve, graph | new, set, edit, mv, fix     | check, verify, guard        |
-| owners, log, files, assets          | attach, fetch, import, init | audit, census               |
+<!-- spec:commands -->
+| command | what it does |
+| ------- | ------------ |
+| `spec context` | The documents that govern code paths: read this before changing code |
+| `spec find` | Find documents by words, type, owner, status or tag |
+| `spec show` | Frontmatter, outline, one section, or relations of a document |
+| `spec resolve` | Resolve an id, alias, path or slug to one document |
+| `spec graph` | Graph queries: impact, chain, governs; or the whole graph |
+| `spec owners` | Owners, their documents and where public owners store theirs |
+| `spec assets` | Agent skills, rules, subagents and instruction files declared under [[assets]]; read-only |
+| `spec log` | The history of a document's status and relations, from git |
+| `spec new` | Create a document at the place its owner and type decide |
+| `spec set` | Change frontmatter with the lifecycle enforced |
+| `spec edit` | Replace or append to a section or the whole body; previews until --write |
+| `spec mv` | Move or rename a document and rewrite every reference to it |
+| `spec fix` | Apply fixes that need no judgement |
+| `spec attach` | Register files with a document, in the repository or the store |
+| `spec fetch` | Download a document's stored attachments, verified by hash |
+| `spec files` | A document's attachments and where each is kept |
+| `spec init` | Write a starter spec.toml |
+| `spec import` | Bring documents from another layout in through an import map |
+| `spec check` | Run the rules |
+| `spec verify` | Run sot verify commands |
+| `spec guard` | Run guards over files and commit messages |
+| `spec audit` | Diagnose what passes the rules yet needs attention; build review packs; record audits |
+| `spec census` | Counts of documents, references and attachments |
+| `spec explain` | Why a rule exists and how to fix it; or the configuration keys |
+| `spec schema` | Document types and their frontmatter; or output schema names |
+| `spec help` | Commands and arguments; with --json, the whole command tree |
+| `spec agents` | The lines to put in an agent's instruction file |
+| `spec hook` | Hook snippets for git, pre-commit, lefthook or husky |
+| `spec plugins` | Configured plugins and what they provide |
+| `spec export` | Export through an exporter plugin |
+| `spec mcp` | Serve these commands as MCP tools over stdio |
+<!-- /spec:commands -->
 
-Writes are previews until `--write` (or plain for `new` and `set`, which accept `--dry-run`).
-`spec edit` changes bodies: it replaces or appends to one section (`--section`) or the whole
-body, from `--text`, `--file`, or stdin (`--file -`, or simply piped or redirected:
-`spec edit <id> --section Notes --write < notes.md`, `cat body.md | spec edit <id>`, a heredoc), adds a new section (`--new-section <heading> [--after <heading>]`), changes one table row by its first cell (`--row <key> --cell Status=done`, or the whole row as text; `--append` adds a missing row), and bumps `updated`. Sealed and closed
-documents are refused.
-Exit codes: 0 nothing to report, 1 findings or an ambiguous answer, 2 usage, 3 environment.
+Writes are previews until `--write` (`new` and `set` write directly and accept `--dry-run`).
 
-## Attachments
+## Using with AI agents
 
-Non-Markdown files belong to a document and are listed, with their SHA-256, in its `files`
-frontmatter by `spec attach`. Small files stay in the repository; larger ones go to a store
-configured in `spec.toml`: a directory, or a command you already trust (rclone, aws, gsutil,
-wrangler …). specfold contains no network code and never handles credentials.
+- `spec agents --for <claude|codex|gemini|cursor|copilot|generic>` prints instruction lines.
+- `spec mcp` serves every command as an MCP tool over stdio.
+- `[[assets]]` in `spec.toml` declares skills, rules and subagents; `spec check` and
+  `spec audit --kind drift` keep them consistent.
 
-## Guards, plugins and audits
+[AGENTS.md](AGENTS.md) is for agents working *on* specfold; this README is for using it. See
+[docs/agents.md](docs/agents.md).
 
-- **Guards** (`[[guards]]`, `spec guard`) check any file and commit message in a range for denied
-  terms, patterns, files, sizes and secret formats. Terms may come from a file outside the
-  repository or an environment variable, and are masked in output.
-- **Plugins** (`[[plugins]]`) are programs in any language that speak `specfold.plugin.v1`
-  JSON over stdin and stdout to add rules, importers, exporters, audits and event handlers. Only
-  programs named in `spec.toml` run.
-- **Audits** (`spec audit`) find what passes the rules yet needs attention: stale documents,
-  orphans, owners without a source of truth, stalled plans, finished plans
-  (every task ticked but still active, or archived with tasks open), open items, and agent
-  assets that drifted (a skill copy that differs from `.agents/`, a CLAUDE.md without `@AGENTS.md`). `--pack` groups documents
-  for a reviewer, and `spec audit record` stores a review as a sealed audit document.
+## Guides
 
-## Agent assets
+- [Concepts](docs/concepts.md): types, ids, statuses, relations, times, task items
+- [Editing documents](docs/editing.md): `spec new`, `set`, `edit`, `mv` recipes
+- [Checks, guards, plugins and audits](docs/checks.md)
+- [Attachments](docs/attachments.md): files beside a document and external stores
+- [Agent assets](docs/agents.md): skills, rules, subagents and instruction files
+- [Importing an existing layout](docs/import.md)
+- [All commands](docs/commands.md)
 
-Skills, rules, subagents and instruction files (AGENTS.md, CLAUDE.md) are declared in
-`spec.toml` and read beside the documents. They carry no ids and specfold never writes them:
+## Exit codes and JSON
 
-```toml
-[[assets]]
-kind = "skill"            # skill, rule, agent or instructions
-path = ".agents/skills"   # a directory or a glob
-```
+| exit | meaning                         |
+| ---- | ------------------------------- |
+| 0    | nothing to report               |
+| 1    | findings, or an ambiguous answer |
+| 2    | usage error                     |
+| 3    | environment error               |
 
-`spec assets` lists what was found. `spec check` reports asset frontmatter (A1: a missing
-name or description is an error, the rest warnings), duplicate names (A2) and paths or `spec`
-commands in asset text that do not exist (A3). `.agents/` is the source; `spec audit --kind drift`
-names copies that differ from it.
-`spec new skill|rule|agent --title <t> [--description <d>]` writes a template (no id) and
-never overwrites an existing file.
+With `--json` every command prints one object with `schema` (`spec.<command>.v1`), `ok`,
+`exit`, `items` and `next`. `spec schema output` lists the schema names.
 
-## Importing an existing layout
+## Contributing
 
-`spec import --map import.toml` reads files from any other layout through a map of patterns,
-types, owners, key rules, status mappings and redirect stubs; it prints a reviewable plan and,
-with `--apply --write`, moves everything and writes a frozen alias table so old ids and paths
-keep resolving until they are rewritten.
+Issues and pull requests are welcome. Read [AGENTS.md](AGENTS.md) first: it lists the rules
+every change follows. Before a commit run `cargo fmt`, `cargo clippy --all-targets -- -D warnings`
+and `cargo test`; the tests also check this README against the CLI.
 
 ## License
 
