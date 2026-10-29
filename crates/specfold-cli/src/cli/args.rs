@@ -81,7 +81,13 @@ pub enum Cmd {
     #[command(after_help = "Examples:\n  spec census\n  spec census --legacy")]
     Census(verify::CensusArgs),
     /// Read-only setup diagnosis: configuration, conflict markers, ignored local documents.
-    #[command(after_help = "Examples:\n  spec doctor\n  spec doctor --json")]
+    #[command(
+        long_about = "Read-only setup diagnosis: configuration, conflict markers, ignored local documents, \
+                      ids defined in both .spec and .spec.local, and references left by a half-done mv.\n\n\
+                      A reference counts as moved only when a document of the same type and key exists under \
+                      another owner; a changed slug is not detected (spec check reports it as a broken link).",
+        after_help = "Examples:\n  spec doctor\n  spec doctor --json"
+    )]
     Doctor,
     /// Why a rule exists and how to fix it; or the configuration keys.
     Explain(setup::ExplainArgs),

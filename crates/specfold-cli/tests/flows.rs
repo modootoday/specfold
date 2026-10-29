@@ -988,13 +988,45 @@ fn doctor_finds_local_duplicates() {
     let id = r.new_doc("sot", "services/shop", "Cart");
     let (_, v) = r.json(&["show", &id]);
     let path = v["path"].as_str().unwrap().to_string();
-    let (_, l) = r.json(&["new", "sot", "--governs", "services/shop", "--title", "Cart", "--local"]);
-    let lpath = l["path"].as_str().map(str::to_string);
-    if let Some(lp) = lpath {
-        // Same id twice: overwrite the local copy with the committed one's text.
-        r.write(&lp, &r.read(&path));
-        let (code, v) = r.json(&["doctor"]);
-        assert_eq!(code, 1, "{v}");
-        assert!(v["items"].as_array().unwrap().iter().any(|i| i["check"] == "duplicate"), "{v}");
-    }
+    let name = path.rsplit('/').next().unwrap();
+    r.write(&format!(".spec.local/shop/sot/{name}"), &r.read(&path));
+    let (code, v) = r.json(&["doctor"]);
+    assert_eq!(code, 1, "{v}");
+    let dup = v["items"].as_array().unwrap().iter().find(|i| i["check"] == "duplicate").expect("duplicate reported");
+    assert!(dup["fix"].as_str().unwrap().contains("local copy"), "{v}");
+}
+
+#[test]
+fn doctor_finds_links_left_by_a_half_done_move() {
+    let r = common::repo();
+    r.new_doc("sot", "services/shop", "Cart");
+    let plan = r.new_doc("plan", "services/shop", "Checkout");
+    let (_, v) = r.json(&["show", &plan]);
+    let path = v["path"].as_str().unwrap().to_string();
+    r.write(
+        &path,
+        &(r.read(&path)
+            + "
+See [[sot:blog/cart]].\n"),
+    );
+    let (code, v) = r.json(&["doctor"]);
+    assert_eq!(code, 1, "{v}");
+    let m = v["items"].as_array().unwrap().iter().find(|i| i["check"] == "moved").expect("moved reported");
+    assert!(m["message"].as_str().unwrap().contains("sot:shop/cart"), "{v}");
+    assert!(m["path"].as_str().unwrap().starts_with(&format!("{path}:")), "{v}");
+}
+
+#[test]
+fn guards_skip_spec_toml_and_explain_an_empty_scope() {
+    let r = common::repo();
+    let toml = r.read("spec.toml")
+        + "[[guards]]\nname = \"all\"\npaths = [\"**\"]\nrange = \"all\"\ndeny_terms = [\"acme-internal\"]\n"
+        + "[[guards]]\nname = \"none\"\npaths = [\"nowhere/**\"]\nrange = \"all\"\nfail_if_empty = true\ndeny_terms = [\"x\"]\n";
+    r.write("spec.toml", &toml);
+    r.git(&["add", "-A"]);
+    let (code, v) = r.json(&["guard", "all", "--all"]);
+    assert_eq!(code, 0, "spec.toml must not trip its own guard: {v}");
+    let (code, text) = r.text(&["guard", "none", "--all"]);
+    assert_ne!(code, 0, "{text}");
+    assert!(text.contains("fail_if_empty = false"), "{text}");
 }
