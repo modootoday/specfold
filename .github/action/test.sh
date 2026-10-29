@@ -38,19 +38,35 @@ if out="$(main v0.0.0 "$tmp/c" 2>&1)"; then bad "a bad checksum must fail"; else
 rm "$rel/specfold-x86_64-unknown-linux-gnu.tar.gz.sha256"
 if main v0.0.0 "$tmp/d" >/dev/null 2>&1; then bad "a missing checksum must fail"; else ok "a missing checksum is refused"; fi
 
-# The check step of action.yml, run with the fake spec: the document goes to the output file and
-# the exit code is passed through.
-if command -v python3 >/dev/null 2>&1; then
-  python3 -c 'import sys,yaml; print(yaml.safe_load(open(sys.argv[1]))["runs"]["steps"][1]["run"])' "$here/../../action.yml" > "$tmp/step.sh" 2>/dev/null \
-    || sed -n '/^      run: |$/,$p' "$here/../../action.yml" | sed '1d; s/^        //' > "$tmp/step.sh"
-  mkdir -p "$tmp/w" "$tmp/fakebin"
-  printf '#!/bin/sh\necho "{\\"args\\": \\"$*\\"}"\nexit 1\n' > "$tmp/fakebin/spec"; chmod +x "$tmp/fakebin/spec"
-  (cd "$tmp/w" && PATH="$tmp/fakebin:$PATH" GITHUB_OUTPUT="$tmp/w/out" SPECFOLD_FORMAT=sarif SPECFOLD_ARGS="--changed origin/main" SPECFOLD_OUTPUT="" bash "$tmp/step.sh" >/dev/null)
-  check "the step passes the exit code through" "$?" 1
-  check "the step writes the document" "$(cat "$tmp/w/spec-check.sarif.json" 2>/dev/null)" '{"args": "check --format sarif --changed origin/main"}'
-  grep -q '^report=spec-check.sarif.json$' "$tmp/w/out" && ok "the step reports the file" || bad "report output: $(cat "$tmp/w/out")"
-  (cd "$tmp/w" && GITHUB_OUTPUT="$tmp/w/out" SPECFOLD_FORMAT=html bash "$tmp/step.sh" >/dev/null)
-  check "an unknown format is refused" "$?" 2
-fi
+# run.sh, the check step, with a fake spec that echoes its arguments and exits $FAKE_EXIT.
+mkdir -p "$tmp/fakebin" "$tmp/w"
+printf '#!/bin/sh\necho "$*"\nexit ${FAKE_EXIT:-1}\n' > "$tmp/fakebin/spec"; chmod +x "$tmp/fakebin/spec"
+step() { (cd "${STEP_DIR:-$tmp/w}" && env PATH="$tmp/fakebin:$PATH" GITHUB_OUTPUT="$tmp/w/out" "$@" bash "$here/run.sh"); }
+: > "$tmp/w/out"
+step SPECFOLD_FORMAT=sarif SPECFOLD_ARGS="--changed origin/main" >/dev/null
+check "the step passes the exit code through" "$?" 1
+check "the step writes the document" "$(cat "$tmp/w/spec-check.sarif.json")" "check --format sarif --changed origin/main"
+grep -q '^report=spec-check.sarif.json$' "$tmp/w/out" && ok "the step reports the file" || bad "report output: $(cat "$tmp/w/out")"
+step SPECFOLD_FORMAT=html >/dev/null
+check "an unknown format is refused" "$?" 2
+check "fail-on becomes --fail-on flags" "$(step SPECFOLD_FAIL_ON="L1, S4")" "check --format github --fail-on L1 --fail-on S4"
+step SPECFOLD_FAIL_ON=none >/dev/null
+check "fail-on none passes findings" "$?" 0
+step SPECFOLD_FAIL_ON=none FAKE_EXIT=2 >/dev/null
+check "fail-on none still fails a usage error" "$?" 2
+check "changed outside a pull request checks everything" "$(step GITHUB_BASE_REF=)" "check --format github"
+check "an explicit changed revision" "$(step SPECFOLD_CHANGED=v1.0)" "check --format github --changed v1.0"
+
+# changed: auto in a pull request: the merge base, also from a shallow clone.
+g() { git -c user.name=t -c user.email=t@t -c init.defaultBranch=main "$@"; }
+up="$tmp/up"; g init -q "$up"
+for i in 1 2 3 4 5; do echo "$i" > "$up/f"; g -C "$up" add f; g -C "$up" commit -qm "c$i"; done
+g -C "$up" checkout -qb topic HEAD~2; echo t > "$up/t"; g -C "$up" add t; g -C "$up" commit -qm topic
+mb="$(g -C "$up" merge-base main topic)"
+g clone -q --branch topic "file://$up" "$tmp/full"
+check "a pull request checks from its merge base" "$(STEP_DIR="$tmp/full" step GITHUB_BASE_REF=main | tail -1)" "check --format github --changed $mb"
+g clone -q --depth 1 --branch topic "file://$up" "$tmp/shallow"
+check "a shallow clone is deepened to the merge base" "$(STEP_DIR="$tmp/shallow" step GITHUB_BASE_REF=main | tail -1)" "check --format github --changed $mb"
+check "args with --staged keep their own range" "$(STEP_DIR="$tmp/full" step GITHUB_BASE_REF=main SPECFOLD_ARGS=--staged)" "check --format github --staged"
 
 [ "$fails" -eq 0 ] && echo "all passed" || { echo "$fails failed"; exit 1; }

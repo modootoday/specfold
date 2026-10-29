@@ -15,6 +15,12 @@ inputs:
   args:
     description: Extra arguments for spec check, for example `--changed origin/main` or `--rule L1`.
     default: ""
+  fail-on:
+    description: Rules whose errors fail the step, separated by spaces or commas (`spec check --fail-on`). Empty means every error; `none` never fails on findings (the document is still written, and the exit-code output still tells).
+    default: ""
+  changed:
+    description: "`auto` checks only what a pull request changes, from its merge base with the base branch (other events check everything); `off` checks everything; any other value is the base revision for --changed. Ignored when args already has --changed or --staged."
+    default: auto
   output:
     description: File for the sarif, rdjson or gitlab document. Default spec-check.<format>.json in the working directory.
     default: ""
@@ -46,20 +52,6 @@ runs:
         SPECFOLD_FORMAT: ${{ inputs.format }}
         SPECFOLD_ARGS: ${{ inputs.args }}
         SPECFOLD_OUTPUT: ${{ inputs.output }}
-      run: |
-        case "$SPECFOLD_FORMAT" in github|sarif|rdjson|gitlab) ;; *) echo "::error::format must be github, sarif, rdjson or gitlab"; exit 2 ;; esac
-        # Word-split args on purpose: they are flags for spec check.
-        # shellcheck disable=SC2086
-        set -- check --format "$SPECFOLD_FORMAT" $SPECFOLD_ARGS
-        code=0
-        if [ "$SPECFOLD_FORMAT" = github ]; then
-          spec "$@" || code=$?
-          echo "report=" >> "$GITHUB_OUTPUT"
-        else
-          out="${SPECFOLD_OUTPUT:-spec-check.$SPECFOLD_FORMAT.json}"
-          spec "$@" > "$out" || code=$?
-          echo "report=$out" >> "$GITHUB_OUTPUT"
-          echo "wrote $out"
-        fi
-        echo "exit-code=$code" >> "$GITHUB_OUTPUT"
-        exit "$code"
+        SPECFOLD_FAIL_ON: ${{ inputs.fail-on }}
+        SPECFOLD_CHANGED: ${{ inputs.changed }}
+      run: bash "$GITHUB_ACTION_PATH/.github/action/run.sh"

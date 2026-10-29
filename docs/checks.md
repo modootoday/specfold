@@ -74,15 +74,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
       - uses: modootoday/specfold@<tag>
         with:
           version: <tag>
           format: sarif
-          args: --changed origin/${{ github.base_ref }}
       - uses: github/codeql-action/upload-sarif@v3
         if: always()
         with: { sarif_file: spec-check.sarif.json }
 ```
 
-With `format: github` (the default) the findings show up on the pull request without the upload step. For pre-commit, the repository ships `.pre-commit-hooks.yaml` (`spec-check`, `spec-check-push`); they need pre-commit 4.4.0 or later and `spec` on PATH.
+On a pull request the action checks only what it changes, from the merge base with the base branch (`changed: auto`, deepening a shallow checkout as needed); `changed: off` checks everything. `fail-on` limits which rules fail the step, and `fail-on: none` only reports. With `format: github` (the default) the findings show up on the pull request without the upload step. For pre-commit, the repository ships `.pre-commit-hooks.yaml` (`spec-check`, `spec-check-push`); they need pre-commit 4.4.0 or later and `spec` on PATH.
