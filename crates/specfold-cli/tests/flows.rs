@@ -233,3 +233,17 @@ fn check_new_lists_documents_not_in_the_last_commit() {
     let ids: Vec<&str> = v["new_docs"].as_array().unwrap().iter().map(|d| d["id"].as_str().unwrap()).collect();
     assert!(ids.contains(&id.as_str()), "{v}");
 }
+
+#[test]
+fn check_summary_counts_per_rule_and_quiet_hides_warnings() {
+    let r = common::repo();
+    let adr = r.new_doc("adr", "services/shop", "Totals");
+    let (_, v) = r.json(&["show", &adr]);
+    let path = v["path"].as_str().unwrap().to_string();
+    r.write(&path, &(r.read(&path) + "\n[[nothing-here]]\n"));
+    let (_, v) = r.json(&["check", "--summary"]);
+    assert_eq!(v["by_rule"]["L1"]["errors"], 1, "{v}");
+    assert!(v["items"].as_array().unwrap().iter().all(|i| i.get("rule").is_some() && i.get("errors").is_some()), "{v}");
+    let (_, v) = r.json(&["check", "-q"]);
+    assert!(v["items"].as_array().unwrap().iter().all(|i| i["severity"] == "error"), "{v}");
+}

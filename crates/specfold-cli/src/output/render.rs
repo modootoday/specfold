@@ -31,7 +31,11 @@ pub fn render(o: &Output, fmt: Format, page: &Page) -> String {
             let mut lines: Vec<String> = o.head.clone();
             lines.extend(shown.iter().map(|i| i.text.clone()));
             if more > 0 {
-                lines.push(format!("+{more} more: --offset {}", page.offset + shown.len()));
+                lines.push(format!(
+                    "+{more} more not shown: --offset {} (or --limit {})",
+                    page.offset + shown.len(),
+                    o.items.len()
+                ));
             }
             lines.extend(o.foot.iter().cloned());
             if let Some(n) = &o.next {
@@ -88,7 +92,7 @@ mod tests {
             o = o.item(json!({"i": i}), format!("item {i}"));
         }
         let t = render(&o, Format::Text, &Page { limit: 2, offset: 1 });
-        assert_eq!(t, "item 1\nitem 2\n+2 more: --offset 3\nnext: spec show a\n");
+        assert_eq!(t, "item 1\nitem 2\n+2 more not shown: --offset 3 (or --limit 5)\nnext: spec show a\n");
         let j: Value = serde_json::from_str(&render(&o, Format::Json, &Page { limit: 2, offset: 0 })).unwrap();
         assert_eq!(j["schema"], "spec.find.v1");
         assert_eq!(j["total"], 5);

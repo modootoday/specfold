@@ -122,7 +122,7 @@ fn c6_lists_are_bounded() {
     assert_eq!(v["total"], 4);
     assert_eq!(v["more"], 2);
     let (_, t) = r.text(&["find", "plan", "--limit", "2"]);
-    assert!(t.contains("+2 more: --offset 2"), "{t}");
+    assert!(t.contains("+2 more not shown: --offset 2"), "{t}");
 }
 
 #[test]

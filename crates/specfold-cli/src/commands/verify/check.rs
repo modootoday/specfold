@@ -68,8 +68,37 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
     if base.is_some() {
         o = o.field("baselined", known).field("lowerable", lowerable);
     }
-    let held = if base.is_some() { format!(" · {known} known by the baseline") } else { String::new() };
-    let o = findings::push_all(o, &list).foot(format!(
+    let mut by_rule: std::collections::BTreeMap<String, (usize, usize)> = Default::default();
+    for f in &list {
+        let e = by_rule.entry(f.rule.clone()).or_default();
+        if f.severity == Severity::Error { e.0 += 1 } else { e.1 += 1 }
+    }
+    o = o.field(
+        "by_rule",
+        by_rule
+            .iter()
+            .map(|(r, (e, w))| (r.clone(), serde_json::json!({"errors": e, "warnings": w})))
+            .collect::<serde_json::Map<_, _>>(),
+    );
+    let held = if base.is_some() && known > 0 {
+        format!(" · {known} more error(s) held by the baseline (--no-baseline shows them)")
+    } else {
+        String::new()
+    };
+    let o = if a.summary {
+        by_rule.iter().fold(o, |o, (r, (e, w))| {
+            o.item(
+                serde_json::json!({"rule": r, "errors": e, "warnings": w}),
+                format!("{r}  {e} error(s), {w} warning(s)"),
+            )
+        })
+    } else if a.errors_only {
+        let errs: Vec<Finding> = list.iter().filter(|f| f.severity == Severity::Error).cloned().collect();
+        findings::push_all(o, &errs)
+    } else {
+        findings::push_all(o, &list)
+    };
+    let o = o.foot(format!(
         "{errors} error(s), {warnings} warning(s) in {} of {} documents{held} · {:.2}s",
         report.docs_checked,
         s.corpus.docs.len(),
