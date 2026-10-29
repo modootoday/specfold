@@ -49,6 +49,10 @@ pub struct CheckArgs {
     /// List errors only; warnings are still counted.
     #[arg(long, short = 'q')]
     pub errors_only: bool,
+    /// Findings for CI: github (workflow annotations and step summary), sarif (code scanning),
+    /// gitlab (Code Quality) or rdjson (reviewdog); text is the default.
+    #[arg(long, default_value = "text", value_parser = ["text", "github", "sarif", "gitlab", "rdjson"])]
+    pub format: String,
 }
 
 #[derive(Debug, Clone, Args)]

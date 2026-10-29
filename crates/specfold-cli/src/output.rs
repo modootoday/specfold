@@ -1,5 +1,6 @@
 //! The output contract shared by every command.
 
+pub mod ci;
 pub mod envelope;
 pub mod findings;
 pub mod render;
