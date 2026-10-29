@@ -1445,3 +1445,57 @@ fn lsp_answers_parse_errors_and_explains_broken_frames() {
         assert!(String::from_utf8_lossy(&out.stderr).contains(why), "{input}: {out:?}");
     }
 }
+
+#[test]
+fn lsp_offers_each_candidate_and_runs_only_offered_fix_commands() {
+    use serde_json::json;
+    let r = common::repo();
+    let a = r.new_doc("adr", "services/shop", "First readme");
+    let b = r.new_doc("adr", "services/shop", "Second readme");
+    for id in [&a, &b] {
+        assert_eq!(r.json(&["set", id, "aliases+=README"]).0, 0);
+    }
+    let c = r.new_doc("sot", "services/shop", "Cart");
+    let pc = r.json(&["show", &c]).1["path"].as_str().unwrap().to_string();
+    let abs = r.path().canonicalize().unwrap();
+    let uri = format!("file://{}/{pc}", abs.display());
+    // Ambiguous link in the buffer; a missing key on disk, which `spec fix --rule S1` fills.
+    let disk: String = r.read(&pc).lines().filter(|l| !l.starts_with("updated:")).map(|l| format!("{l}\n")).collect();
+    std::fs::write(r.path().join(&pc), &disk).unwrap();
+    let text = format!("{disk}\nsee [[README]]\n");
+    let line = text.lines().position(|l| l.contains("[[README]]")).unwrap();
+    let init = json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"rootUri": format!("file://{}", abs.display())}});
+    let open = json!({"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument": {"uri": uri, "text": text}}});
+    let out = r.spec().arg("lsp").write_stdin(lsp_frames(&[init.clone(), open.clone()])).output().unwrap();
+    let replies = lsp_replies(&out.stdout);
+    assert_eq!(replies[0]["result"]["capabilities"]["executeCommandProvider"]["commands"][0], "spec.run");
+    let diags = replies[1]["params"]["diagnostics"].as_array().unwrap().clone();
+    let amb = diags.iter().find(|d| d["code"] == "L1").expect("ambiguous link").clone();
+    let s1 = diags.iter().find(|d| d["code"] == "S1").expect("missing key").clone();
+    let cmd = s1["data"]["command"].as_str().expect("a runnable fix").to_string();
+    let action = |id: u32, d: &serde_json::Value| json!({"jsonrpc": "2.0", "id": id, "method": "textDocument/codeAction", "params": {"textDocument": {"uri": uri}, "range": d["range"], "context": {"diagnostics": [d]}}});
+    let run = |id: u32, c: &str| json!({"jsonrpc": "2.0", "id": id, "method": "workspace/executeCommand", "params": {"command": "spec.run", "arguments": [c]}});
+    let input = lsp_frames(&[init, open, action(2, &amb), action(3, &s1), run(4, "spec mv x y --write"), run(5, &cmd)]);
+    let out = r.spec().arg("lsp").write_stdin(input).output().unwrap();
+    let replies = lsp_replies(&out.stdout);
+    let get = |id: u32| replies.iter().find(|m| m["id"] == id).unwrap().clone();
+    let picks = get(2)["result"].as_array().unwrap().clone();
+    assert_eq!(picks.len(), 2, "{picks:?}");
+    let mut chosen: Vec<String> = picks
+        .iter()
+        .map(|p| {
+            let e = &p["edit"]["changes"][&uri][0];
+            assert_eq!(e["range"]["start"], json!({"line": line, "character": 4}));
+            assert_eq!(e["range"]["end"], json!({"line": line, "character": 12}));
+            e["newText"].as_str().unwrap().to_string()
+        })
+        .collect();
+    chosen.sort();
+    let mut want = vec![format!("[[{a}"), format!("[[{b}")];
+    want.sort();
+    assert_eq!(chosen, want);
+    assert_eq!(get(3)["result"][0]["command"]["arguments"][0], cmd.as_str());
+    assert_eq!(get(4)["error"]["code"], -32602, "{:?}", get(4));
+    assert_eq!(get(5)["result"]["exit"], 0, "{:?}", get(5));
+    assert!(r.read(&pc).lines().any(|l| l.starts_with("updated:")), "S1 fix ran");
+}
