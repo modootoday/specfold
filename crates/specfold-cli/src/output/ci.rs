@@ -48,7 +48,7 @@ fn fix_text(f: &Finding) -> Option<String> {
     }
 }
 
-fn message(f: &Finding) -> String {
+pub fn message(f: &Finding) -> String {
     match fix_text(f) {
         Some(t) => format!("{}\n{t}", f.message),
         None => f.message.clone(),
