@@ -1566,3 +1566,19 @@ fn machine_paths_in_agent_assets_are_reported() {
     assert_eq!(items[0]["line"], 2, "{v}");
     assert!(items[0]["message"].as_str().unwrap().contains("/Users/ana"), "{v}");
 }
+
+#[test]
+fn types_can_require_sections() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    let (_, v) = r.json(&["check", "--rule", "S7"]);
+    assert_eq!(v["warnings"], 0, "nothing required by default: {v}");
+    let toml = r.read("spec.toml") + "[types.sot]\nsections = [\"Rules\", \"Never written here\"]\n";
+    r.write("spec.toml", &toml);
+    let path = r.json(&["show", &id]).1["path"].as_str().unwrap().to_string();
+    r.write(&path, &(r.read(&path) + "\n## rules {#rules}\n"));
+    let (_, v) = r.json(&["check", "--rule", "S7"]);
+    let items = v["items"].as_array().unwrap();
+    assert_eq!(items.len(), 1, "{v}");
+    assert!(items[0]["message"].as_str().unwrap().contains("'Never written here'"), "{v}");
+}

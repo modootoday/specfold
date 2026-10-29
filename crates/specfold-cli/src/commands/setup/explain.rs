@@ -29,7 +29,7 @@ const CONFIG_HELP: &[(&str, &str)] = &[
     ),
     (
         "[types.<name>]",
-        "Override or disable a built-in type, or add one: key, form, statuses, initial, sealed, fields, template, transitions (from → [to], rule T2), require_when (status → required keys, rule S6).",
+        "Override or disable a built-in type, or add one: key, form, statuses, initial, sealed, fields, template, transitions (from → [to], rule T2), require_when (status → required keys, rule S6), sections (headings every document needs, rule S7).",
     ),
     ("[forbid] paths, patterns", "Retired layouts and identifiers that must not come back (rule Z1)."),
     ("[aliases] file", "The frozen alias table written by spec import."),
