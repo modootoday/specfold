@@ -12,6 +12,15 @@ pub fn rewrite_body(text: &str, old: &str, new: &str) -> String {
     .into_owned()
 }
 
+/// Whether a cited path names `path` (root-relative), ignoring leading `./` and `../`.
+pub fn same_path(cited: &str, path: &str) -> bool {
+    let mut t = cited.trim_end_matches('/');
+    while let Some(rest) = t.strip_prefix("../").or_else(|| t.strip_prefix("./")) {
+        t = rest;
+    }
+    t == path
+}
+
 /// Replaces the id inside `rel.*` lists, keeping anchors.
 pub fn rewrite_rel(map: &mut Map<String, Value>, old: &str, new: &str) -> bool {
     let Some(Value::Object(rel)) = map.get_mut("rel") else { return false };

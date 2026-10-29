@@ -202,3 +202,24 @@ fn edit_refuses_closed_documents() {
     let (code, v) = r.json(&["edit", &id, "--append", "--text", "more", "--write"]);
     assert_ne!(code, 0, "{v}");
 }
+
+#[test]
+fn stale_path_cites_get_a_fix_and_mv_rewrites_them() {
+    let r = common::repo();
+    let sot = r.new_doc("sot", "services/shop", "Cart rules");
+    let adr = r.new_doc("adr", "services/shop", "Cart totals");
+    let (_, v) = r.json(&["show", &sot]);
+    let sot_path = v["path"].as_str().unwrap().to_string();
+    let (_, v) = r.json(&["show", &adr]);
+    let adr_path = v["path"].as_str().unwrap().to_string();
+    let text = r.read(&adr_path) + &format!("\nSee {sot_path} and old/.spec/sots/cart-rules.md.\n");
+    r.write(&adr_path, &text);
+    let (_, v) = r.json(&["check", "--rule", "L2"]);
+    let fixes = v["items"].as_array().unwrap().iter().filter(|f| !f["fix"].is_null()).count();
+    assert_eq!(fixes, 2, "{v}");
+    let (code, v) = r.json(&["mv", &sot, "--slug", "basket-rules", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    let new_id = v["to"].as_str().unwrap().to_string();
+    let after = r.read(&adr_path);
+    assert!(after.contains(&format!("See [[{new_id}]] and")), "{after}");
+}
