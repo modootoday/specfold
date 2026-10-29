@@ -52,7 +52,7 @@ impl Rule for Forbidden {
                 continue;
             }
             for file in std::iter::once(&d.path).chain(&d.chapters) {
-                let Ok(text) = std::fs::read_to_string(cfg.root.join(file)) else { continue };
+                let Ok(text) = crate::corpus::overlay::read(&cfg.root.join(file)) else { continue };
                 for (n, line) in text.lines().enumerate() {
                     if let Some(re) = patterns.iter().find(|r| r.is_match(line)) {
                         out.push(Finding::error(

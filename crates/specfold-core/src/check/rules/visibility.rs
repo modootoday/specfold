@@ -118,7 +118,7 @@ impl Rule for ExternalCites {
                 if !e.file_type().is_some_and(|t| t.is_file()) || e.path().extension().is_none_or(|x| x != "md") {
                     continue;
                 }
-                let Ok(text) = std::fs::read_to_string(e.path()) else { continue };
+                let Ok(text) = crate::corpus::overlay::read(e.path()) else { continue };
                 let shown = format!("{name}:{}", e.path().strip_prefix(&dir).unwrap_or(e.path()).display());
                 let scan = body::scan(&text, 1, &re);
                 for l in scan.links.iter().filter(|l| l.text.contains(':') || l.text.contains('/')) {

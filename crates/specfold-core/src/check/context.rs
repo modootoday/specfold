@@ -40,6 +40,6 @@ impl Ctx<'_> {
         if staged && !self.scope.in_submodules.contains(path) {
             return vcs::show_staged(&self.corpus.cfg.root, path);
         }
-        std::fs::read_to_string(self.corpus.cfg.root.join(path)).ok()
+        crate::corpus::overlay::read(&self.corpus.cfg.root.join(path)).ok()
     }
 }

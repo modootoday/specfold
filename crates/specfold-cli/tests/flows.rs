@@ -1160,3 +1160,35 @@ fn check_reports_only_the_named_file() {
     assert!(line.contains(": error ") || line.contains(": warning "), "{text}");
     assert!(text.lines().all(|l| l.starts_with(&format!("{pb}:"))), "{text}");
 }
+
+#[test]
+fn check_reads_an_unsaved_buffer_from_stdin() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    let path = r.json(&["show", &id]).1["path"].as_str().unwrap().to_string();
+    let saved = r.read(&path);
+    let (_, clean) = r.text(&["check", &path, "--format", "editor"]);
+    let buffer = format!("{saved}\nsee [[sot:services/nowhere]]\n");
+    let out =
+        r.spec().args(["check", "--stdin-path", &path, "--format", "editor"]).write_stdin(buffer).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout).into_owned();
+    assert!(text.lines().count() > clean.lines().count(), "{clean}\n---\n{text}");
+    assert!(text.lines().all(|l| l.starts_with(&format!("{path}:"))), "{text}");
+    assert_eq!(r.read(&path), saved, "the file on disk is left alone");
+    let (_, again) = r.text(&["check", &path, "--format", "editor"]);
+    assert_eq!(again, clean, "the buffer must not stay in the scan cache");
+}
+
+#[test]
+fn check_rejects_files_that_are_not_documents() {
+    let r = common::repo();
+    let out = r.spec().args(["check", "nowhere.md"]).output().unwrap();
+    assert_eq!(out.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&out.stdout).contains("no such file"), "{out:?}");
+    r.write("NOTES.md", "# notes\n");
+    let out = r.spec().args(["check", "NOTES.md"]).output().unwrap();
+    assert_eq!(out.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&out.stdout).contains("not a document"), "{out:?}");
+    let out = r.spec().args(["check", "--stdin-path", "gone.md"]).write_stdin("x").output().unwrap();
+    assert_eq!(out.status.code(), Some(2), "{out:?}");
+}

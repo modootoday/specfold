@@ -70,14 +70,14 @@ impl ScanCache {
             .iter()
             .zip(&stamps)
             .map(|(rel, st)| match (st, self.stored.entries.get(rel)) {
-                (Some((m, s)), Some(e)) => e.mtime_ns != *m || e.size != *s,
+                (Some((m, s)), Some(e)) => e.mtime_ns != *m || e.size != *s || super::overlay::covers(&root.join(rel)),
                 _ => true,
             })
             .collect();
         let rescanned: Vec<Option<FileScan>> = rels
             .par_iter()
             .zip(&fresh)
-            .map(|(rel, f)| f.then(|| scan(&std::fs::read_to_string(root.join(rel)).unwrap_or_default(), cite_re)))
+            .map(|(rel, f)| f.then(|| scan(&super::overlay::read(&root.join(rel)).unwrap_or_default(), cite_re)))
             .collect();
         let stale = self.stored.entries.len() != rels.len() || fresh.iter().any(|f| *f);
         self.dirty = stale;
@@ -91,7 +91,10 @@ impl ScanCache {
                     None => continue,
                 },
             };
-            if stale && let Some((mtime_ns, size)) = st {
+            if stale
+                && !super::overlay::covers(&root.join(rel))
+                && let Some((mtime_ns, size)) = st
+            {
                 self.stored.entries.insert(rel.clone(), Entry { mtime_ns, size, scan: scan.clone() });
             }
             out.insert(rel.clone(), scan);
