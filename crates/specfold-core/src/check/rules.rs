@@ -8,6 +8,7 @@ mod commands;
 mod counts;
 mod forbid;
 mod guarded;
+mod hidden;
 mod ids;
 mod lifecycle;
 mod links;
@@ -57,5 +58,6 @@ pub fn catalog() -> Vec<Box<dyn Rule>> {
         Box::new(assets::AssetNamesUnique),
         Box::new(asset_refs::AssetRefsExist),
         Box::new(counts::CountsMatch),
+        Box::new(hidden::HiddenChars),
     ]
 }
