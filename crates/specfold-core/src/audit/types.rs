@@ -19,6 +19,8 @@ pub enum Kind {
     OpenItem,
     /// Leftover compatibility: alias citations, skipped rules.
     Debt,
+    /// An agent asset copy that differs from its `.agents/` source, or CLAUDE.md not including AGENTS.md.
+    Drift,
     /// Reported by an audit plugin.
     Plugin,
 }

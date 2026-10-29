@@ -1,6 +1,7 @@
 //! The deterministic part of an audit: the same corpus and history give the same items.
 
 mod debt;
+mod drift;
 mod finished;
 mod gap;
 mod open_items;
@@ -57,6 +58,9 @@ pub fn run(c: &Corpus, g: &Graph, filter: &Filter) -> Diagnosis {
     }
     if want(Kind::OpenItem) {
         open_items::run(c, &docs, &mut items);
+    }
+    if want(Kind::Drift) {
+        drift::run(c, &mut items);
     }
     if want(Kind::Debt) {
         debt::run(c, g, &docs, &mut items);
