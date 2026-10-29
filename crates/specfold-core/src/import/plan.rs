@@ -30,6 +30,8 @@ pub struct Row {
     pub status_to: String,
     pub aliases: Vec<String>,
     pub unresolved: Vec<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub notes: Vec<String>,
 }
 
 #[derive(Debug, Default, Serialize)]
@@ -107,6 +109,7 @@ pub fn build(c: &Corpus, map: &ImportMap) -> Result<ImportPlan> {
             status_to: String::new(),
             aliases: vec![],
             unresolved,
+            notes: vec![],
         });
     }
     Ok(out)
@@ -269,6 +272,7 @@ fn doc_row(c: &Corpus, map: &ImportMap, u: &Unit, taken: &mut BTreeSet<String>, 
         status_to: fm_status(&out.plan, &id.to_string()),
         aliases,
         unresolved,
+        notes: conv.notes,
     })
 }
 
