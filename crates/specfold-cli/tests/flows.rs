@@ -406,6 +406,7 @@ fn agents_lines_name_edit_check_assets_and_audit() {
         "spec new skill",
         "--kind drift",
         "--kind finished",
+        "spec:count",
     ] {
         assert!(text.contains(want), "missing {want}: {text}");
     }

@@ -10,7 +10,7 @@ const LINES: &[&str] = &[
     "Before changing a document, run `spec graph impact <id>` to see what reaches it (relation and distance); `spec graph chain <id>` shows what it replaced and what replaced it; `spec graph --format box|mermaid|dot` prints the whole graph as a diagram.",
     "Create documents with `spec new <type> --governs <path> --title ...` and change status or relations with `spec set`; never write a spec file name by hand.",
     "Change a body with `spec edit <id>`: `--section <h>`, `--new-section <h> [--after <h>]`, or one table row with `--row <key> --cell Status=done`; preview, then add `--write`.",
-    "Before committing, run `spec check --staged`; apply mechanical fixes with `spec fix --staged --write`. `--summary` counts findings per rule, `-q` lists errors only. Rules: `spec explain <rule>`; commands: `spec help --json`.",
+    "Before committing, run `spec check --staged`; apply mechanical fixes with `spec fix --staged --write`. `--summary` counts findings per rule, `-q` lists errors only. Wrap counts in prose as `<!-- spec:count find type=adr -->12<!-- /spec:count -->` (or `rows=<section>`) so check flags drift (N1). Rules: `spec explain <rule>`; commands: `spec help --json`.",
     "Agent skills, rules and subagents are declared under `[[assets]]`: list them with `spec assets`, start one with `spec new skill|rule|agent --title ...`; `.agents/` holds the source; refresh tool copies (roots with `copy_of`) with `spec sync assets --write`.",
     "`spec audit` lists what passes checks but needs attention: stale documents (pin one with `spec set <id> verified_at=HEAD`), finished plans (`--kind finished`), asset copies that drifted (`--kind drift`).",
 ];
