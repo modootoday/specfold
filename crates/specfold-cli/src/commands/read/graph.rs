@@ -5,7 +5,7 @@ use crate::cli::args::{global::Global, read::GraphArgs};
 use crate::output::Output;
 use crate::session::{self, Session};
 use anyhow::{Result, bail};
-use serde_json::json;
+use serde_json::{Value, json};
 use specfold_core::graph::query;
 use std::collections::{BTreeSet, VecDeque};
 
@@ -87,7 +87,31 @@ pub fn run(g: &Global, a: &GraphArgs) -> Result<Output> {
                 Err(e) => return Err(e),
             };
             let arrow = glyphs(a.ascii).arrow;
-            for r in reach(&s, idx, a.depth) {
+            let reached = reach(&s, idx, a.depth);
+            // Agent assets that name the document or anything reaching it read it too, so a
+            // change can break them; they are not graph nodes, so they come after the documents.
+            let mut touched: Vec<usize> = vec![idx];
+            touched.extend(reached.iter().map(|r| r.idx));
+            let assets: Vec<Value> = specfold_core::assets::load(&c.cfg)
+                .iter()
+                .filter_map(|x| {
+                    let named = x.docs(&s.graph);
+                    let hit: Vec<String> = touched.iter().filter(|i| named.contains(i)).map(|i| id(*i)).collect();
+                    (!hit.is_empty())
+                        .then(|| json!({"kind": x.kind.as_str(), "name": x.name(), "path": x.path, "names": hit}))
+                })
+                .collect();
+            for x in &assets {
+                let names: Vec<&str> = x["names"].as_array().unwrap().iter().filter_map(|v| v.as_str()).collect();
+                o = o.foot(format!(
+                    "asset {} {}  names {}",
+                    x["kind"].as_str().unwrap_or(""),
+                    x["path"].as_str().unwrap_or(""),
+                    names.join(", ")
+                ));
+            }
+            o = o.field("assets", Value::Array(assets));
+            for r in reached {
                 o = o.item(
                     json!({"id": id(r.idx), "depth": r.depth, "kind": r.kind, "via": id(r.via), "status": c.docs[r.idx].status()}),
                     format!("{}{}  {} {arrow} {}  ({})", "  ".repeat(r.depth), id(r.idx), r.kind, id(r.via), r.depth),
