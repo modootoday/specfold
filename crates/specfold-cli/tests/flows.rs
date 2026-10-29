@@ -1298,3 +1298,37 @@ fn new_without_ascii_words_suggests_the_full_command() {
     let next = v["next"].as_str().unwrap();
     assert!(next.starts_with("spec new sot --title") && next.ends_with("--slug my-slug"), "{v}");
 }
+
+#[test]
+fn lsp_offers_replacement_fixes_as_quick_fixes() {
+    use serde_json::json;
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    let path = r.json(&["show", &id]).1["path"].as_str().unwrap().to_string();
+    let abs = r.path().canonicalize().unwrap();
+    let uri = format!("file://{}/{path}", abs.display());
+    let text = r.read(&path).replacen(&format!("id: {id}"), &format!("id: {id}x"), 1);
+    let line = text.lines().position(|l| l.starts_with("id: ")).unwrap();
+    let input = lsp_frames(&[
+        json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"rootUri": format!("file://{}", abs.display())}}),
+        json!({"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument": {"uri": uri, "text": text}}}),
+    ]);
+    let out = r.spec().arg("lsp").write_stdin(input).output().unwrap();
+    let replies = lsp_replies(&out.stdout);
+    assert_eq!(replies[0]["result"]["capabilities"]["codeActionProvider"]["codeActionKinds"][0], "quickfix");
+    let diags = replies[1]["params"]["diagnostics"].as_array().unwrap().clone();
+    let d = diags.iter().find(|d| d.get("data").is_some()).expect("a diagnostic with a fix").clone();
+    let input = lsp_frames(&[
+        json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"rootUri": format!("file://{}", abs.display())}}),
+        json!({"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument": {"uri": uri, "text": text}}}),
+        json!({"jsonrpc": "2.0", "id": 2, "method": "textDocument/codeAction", "params": {"textDocument": {"uri": uri}, "range": d["range"], "context": {"diagnostics": [d]}}}),
+    ]);
+    let out = r.spec().arg("lsp").write_stdin(input).output().unwrap();
+    let replies = lsp_replies(&out.stdout);
+    let action = &replies.iter().find(|m| m["id"] == 2).unwrap()["result"][0];
+    assert_eq!(action["kind"], "quickfix");
+    let edit = &action["edit"]["changes"][&uri][0];
+    assert_eq!(edit["newText"], format!("id: {id}"));
+    assert_eq!(edit["range"]["start"], json!({"line": line, "character": 0}));
+    assert_eq!(edit["range"]["end"]["character"], format!("id: {id}x").len());
+}

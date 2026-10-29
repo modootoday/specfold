@@ -5,7 +5,7 @@ use crate::cli::args::global::Global;
 use crate::commands::verify::check;
 use crate::output::ci;
 use serde_json::{Value, json};
-use specfold_core::check::Severity;
+use specfold_core::check::{Fix, Severity};
 use specfold_core::corpus::overlay;
 use std::io::{BufRead, Write};
 use std::path::{Path, PathBuf};
@@ -66,6 +66,38 @@ pub fn uri_path(uri: &str) -> Option<PathBuf> {
     Some(PathBuf::from(s))
 }
 
+/// UTF-16 code units in `s` up to byte `b`: LSP positions count UTF-16 by default.
+fn utf16(s: &str, b: usize) -> usize {
+    s[..b].encode_utf16().count()
+}
+
+/// One quickfix per diagnostic that carries a replacement, edited against the buffer text.
+pub fn code_actions(uri: &str, path: Option<&Path>, params: &Value) -> Vec<Value> {
+    let Some(path) = path else { return vec![] };
+    let Ok(text) = overlay::read(&check::absolute(path)) else { return vec![] };
+    let diags = params.pointer("/context/diagnostics").and_then(Value::as_array).cloned().unwrap_or_default();
+    diags
+        .iter()
+        .filter_map(|d| {
+            let data = d.get("data")?;
+            let line = data.get("line")?.as_u64()? as usize;
+            let (from, to) = (data.get("from")?.as_str()?, data.get("to")?.as_str()?);
+            let l = text.lines().nth(line.checked_sub(1)?)?;
+            let b = l.find(from)?;
+            let (start, end) = (utf16(l, b), utf16(l, b + from.len()));
+            let range =
+                json!({"start": {"line": line - 1, "character": start}, "end": {"line": line - 1, "character": end}});
+            Some(json!({
+                "title": format!("spec: replace `{from}` with `{to}`"),
+                "kind": "quickfix",
+                "diagnostics": [d],
+                "isPreferred": true,
+                "edit": {"changes": {uri: [{"range": range, "newText": to}]}},
+            }))
+        })
+        .collect()
+}
+
 pub struct Server {
     global: Global,
     root: Option<PathBuf>,
@@ -93,13 +125,17 @@ impl Server {
         list.iter()
             .map(|f| {
                 let line = f.line.max(1) - 1;
-                json!({
+                let mut d = json!({
                     "range": {"start": {"line": line, "character": 0}, "end": {"line": line + 1, "character": 0}},
                     "severity": if f.severity == Severity::Error { 1 } else { 2 },
                     "code": f.rule,
                     "source": "spec",
                     "message": ci::message(f),
-                })
+                });
+                if let Some(Fix::Replace { line, from, to, .. }) = &f.fix {
+                    d["data"] = json!({"line": line, "from": from, "to": to});
+                }
+                d
             })
             .collect()
     }
@@ -128,13 +164,19 @@ impl Server {
                     }
                     (
                         vec![reply(json!({
-                            "capabilities": {"textDocumentSync": {"openClose": true, "change": 1, "save": {"includeText": true}}},
+                            "capabilities": {
+                                "textDocumentSync": {"openClose": true, "change": 1, "save": {"includeText": true}},
+                                "codeActionProvider": {"codeActionKinds": ["quickfix"]}
+                            },
                             "serverInfo": {"name": "specfold", "version": env!("CARGO_PKG_VERSION")}
                         }))],
                         false,
                     )
                 }
                 "shutdown" => (vec![reply(Value::Null)], false),
+                "textDocument/codeAction" => {
+                    (vec![reply(Value::Array(code_actions(&uri, path.as_deref(), &params)))], false)
+                }
                 other => (
                     vec![json!({"jsonrpc": "2.0", "id": id,
                                 "error": {"code": -32601, "message": format!("method not found: {other}")}})],
