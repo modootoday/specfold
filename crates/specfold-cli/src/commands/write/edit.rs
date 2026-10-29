@@ -35,7 +35,7 @@ pub fn run(g: &Global, a: &EditArgs) -> Result<Output> {
         }
     };
     let mode = if a.append { Mode::Append } else { Mode::Replace };
-    let e = Edit { section: a.section.clone(), mode, text };
+    let e = Edit { section: a.section.clone(), new_section: a.new_section.clone(), after: a.after.clone(), mode, text };
     let out = edit::plan(&s.corpus, idx, &e)?;
     let id = s.corpus.docs[idx].id.to_string();
     let verb = if a.append { "append to" } else { "replace" };
@@ -59,6 +59,12 @@ pub fn run(g: &Global, a: &EditArgs) -> Result<Output> {
     let mut rerun = format!("spec edit {}", sh(&a.doc));
     if let Some(sec) = &a.section {
         rerun.push_str(&format!(" --section {}", sh(sec)));
+    }
+    if let Some(n) = &a.new_section {
+        rerun.push_str(&format!(" --new-section {}", sh(n)));
+    }
+    if let Some(n) = &a.after {
+        rerun.push_str(&format!(" --after {}", sh(n)));
     }
     if a.append {
         rerun.push_str(" --append");

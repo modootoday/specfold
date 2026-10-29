@@ -152,7 +152,7 @@ pub struct ImportArgs {
 
 #[derive(Debug, Clone, Args)]
 #[command(
-    after_help = "Examples:\n  spec edit adr:shop/20260101000000 --section Decision --text \"Use Postgres.\"\n  spec edit adr:shop/20260101000000 --append --file addendum.md --write\n  cat body.md | spec edit research:shop/20260101000000 --write\n  spec edit adr:shop/20260101000000 --section Decision --replace --write < decision.md\n\nWithout --text or --file, text piped or redirected into standard input is read; at a terminal one of them is required."
+    after_help = "Examples:\n  spec edit adr:shop/20260101000000 --section Decision --text \"Use Postgres.\"\n  spec edit adr:shop/20260101000000 --append --file addendum.md --write\n  cat body.md | spec edit research:shop/20260101000000 --write\n  spec edit adr:shop/20260101000000 --section Decision --replace --write < decision.md\n  spec edit plan:shop/20260101000000 --new-section Risks --after Goal --text \"- none yet\" --write\n\nWithout --text or --file, text piped or redirected into standard input is read; at a terminal one of them is required."
 )]
 pub struct EditArgs {
     /// An id, alias, path, or unique slug.
@@ -160,6 +160,12 @@ pub struct EditArgs {
     /// Change only this section (heading text or anchor); without it the whole body.
     #[arg(long)]
     pub section: Option<String>,
+    /// Add a new section with this heading (refused if one exists).
+    #[arg(long, conflicts_with_all = ["section", "append", "replace"])]
+    pub new_section: Option<String>,
+    /// With --new-section: place it after this section, at the same heading level.
+    #[arg(long, requires = "new_section")]
+    pub after: Option<String>,
     /// Add after the existing content instead of replacing it.
     #[arg(long)]
     pub append: bool,

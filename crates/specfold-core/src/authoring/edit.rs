@@ -19,6 +19,10 @@ pub enum Mode {
 #[derive(Debug, Clone)]
 pub struct Edit {
     pub section: Option<String>,
+    /// Add a new section with this heading instead of changing one; placed after `after`
+    /// (and its subsections) at the same level, or at the end of the body at level 2.
+    pub new_section: Option<String>,
+    pub after: Option<String>,
     pub mode: Mode,
     pub text: String,
 }
@@ -50,6 +54,47 @@ pub fn plan(c: &Corpus, idx: usize, e: &Edit) -> Result<Outcome> {
     let head = &text[..text.len() - split.body.len()];
     let lines: Vec<&str> = split.body.lines().collect();
     let new_text = e.text.trim_end_matches('\n');
+    if let Some(title) = &e.new_section {
+        let title = title.trim();
+        if sections::span(split.body, title).is_some() {
+            bail!("a section '{title}' already exists; edit it with --section");
+        }
+        let (at, level) = match &e.after {
+            Some(name) => {
+                let Some((start, end)) = sections::span(split.body, name) else {
+                    let have: Vec<String> = sections::outline(split.body).into_iter().map(|(_, t)| t).collect();
+                    bail!("no section '{name}' (sections: {})", have.join(" | "));
+                };
+                (end, lines[start].trim_start().chars().take_while(|c| *c == '#').count())
+            }
+            None => (lines.len(), 2),
+        };
+        let mut prefix: Vec<String> = lines[..at].iter().map(|s| s.to_string()).collect();
+        while prefix.last().is_some_and(|l| l.trim().is_empty()) {
+            prefix.pop();
+        }
+        let mut out = prefix;
+        out.push(String::new());
+        out.push(format!("{} {title}", "#".repeat(level)));
+        out.push(String::new());
+        out.extend(new_text.lines().map(str::to_string));
+        if at < lines.len() {
+            out.push(String::new());
+            out.extend(lines[at..].iter().map(|s| s.to_string()));
+        }
+        let body = format!("\n{}\n", out.join("\n").trim_start_matches('\n'));
+        let rewritten = edit::rewrite(&format!("{head}{body}"), |m| {
+            m.insert("updated".into(), Value::String(stamp::now_value()));
+        })?;
+        let mut plan = Plan::default();
+        plan.write(&d.path, rewritten, false);
+        return Ok(Outcome {
+            plan,
+            target: format!("new section '{title}'"),
+            before: String::new(),
+            after: new_text.to_string(),
+        });
+    }
     let (target, before, body) = match &e.section {
         Some(name) => {
             let Some((start, end)) = sections::span(split.body, name) else {

@@ -268,3 +268,17 @@ fn fix_i2_keeps_a_shared_alias_on_the_picked_document() {
     let (_, v) = r.json(&["resolve", "README"]);
     assert_eq!(v["id"], a.as_str(), "{v}");
 }
+
+#[test]
+fn edit_adds_a_new_section_after_a_named_one() {
+    let r = common::repo();
+    let id = r.new_doc("plan", "services/shop", "Checkout v2");
+    assert_eq!(r.json(&["edit", &id, "--text=## Goal\n\nShip it.\n\n## Record\n\n- start\n", "--write"]).0, 0);
+    let (code, v) = r.json(&["edit", &id, "--new-section", "Risks", "--after", "Goal", "--text=- none yet", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    let path = r.json(&["resolve", &id]).1["path"].as_str().unwrap().to_string();
+    let text = r.read(&path);
+    assert!(text.contains("Ship it.\n\n## Risks\n\n- none yet\n\n## Record"), "{text}");
+    let (code, _) = r.json(&["edit", &id, "--new-section", "Risks", "--text", "x"]);
+    assert_ne!(code, 0, "a second Risks section is refused");
+}
