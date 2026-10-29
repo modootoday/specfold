@@ -1,0 +1,15 @@
+<a href="#main" class="skip">Skip to content</a>
+<header class="sticky top-0 z-20 border-b border-line bg-bg/85 backdrop-blur">
+ <nav aria-label="Primary" class="mx-auto flex h-16 max-w-6xl items-center gap-6 px-5">
+  <a href="{{ '/' | relative_url }}" class="font-mono text-lg font-semibold text-fg">specfold<span class="text-brand" aria-hidden="true">_</span></a>
+  <ul class="ml-auto hidden items-center gap-6 text-sm md:flex">
+   <li><a class="navlink" href="{{ '/#how' | relative_url }}">Product</a></li>
+   <li><a class="navlink" href="{{ '/#features' | relative_url }}">Features</a></li>
+   <li><a class="navlink" href="{{ '/#agents' | relative_url }}">For agents</a></li>
+   <li><a class="navlink" href="{{ '/concepts/' | relative_url }}" {% if page.layout == 'doc' %}aria-current="page"{% endif %}>Docs</a></li>
+   <li><a class="navlink" href="https://github.com/modootoday/specfold">GitHub</a></li>
+  </ul>
+  <button type="button" class="btn-ghost ml-auto md:ml-0" id="theme" aria-label="Toggle light mode" aria-pressed="false">◐</button>
+  <a class="btn-ghost border border-line !px-4 font-medium text-fg" href="{{ '/getting-started/' | relative_url }}">Get started</a>
+ </nav>
+</header>

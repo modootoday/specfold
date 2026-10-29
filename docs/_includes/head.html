@@ -1,0 +1,15 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#fafbfc" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a0d12" media="(prefers-color-scheme: dark)">
+{% seo %}
+<link rel="icon" href="{{ '/assets/img/favicon.svg' | relative_url }}" type="image/svg+xml">
+<link rel="manifest" href="{{ '/assets/site.webmanifest' | relative_url }}">
+{% include twin-url.html page=page %}{% if twin %}<link rel="alternate" type="text/markdown" title="Markdown" href="{{ twin.url | relative_url }}">
+{% endif %}<link rel="describedby" type="text/markdown" href="{{ '/llms.txt' | relative_url }}">
+<link rel="alternate" hreflang="en" href="{{ page.url | absolute_url }}">
+<link rel="alternate" hreflang="x-default" href="{{ page.url | absolute_url }}">
+<link rel="stylesheet" href="{{ '/assets/css/site.css' | relative_url }}">
+{% include head-theme.html %}
+{% include jsonld.html %}

@@ -1,0 +1,24 @@
+# GitHub Pages builds this directory with Jekyll; no build step. Only plugins on
+# https://pages.github.com/versions/ are used.
+title: specfold
+description: "specfold keeps design, plan, and maintenance docs next to your code, linked as a graph and guarded by checks."
+url: "https://specfold.build"
+baseurl: ""
+lang: en
+permalink: pretty
+logo: /assets/img/logo.svg
+repository: modootoday/specfold
+markdown: kramdown
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
+plugins: [jekyll-seo-tag, jekyll-sitemap, jekyll-relative-links]
+relative_links: { enabled: true }
+twitter: { card: summary_large_image }
+defaults:
+  - scope: { path: "" }
+    values: { layout: doc, image: /assets/og/default.png }
+  - scope: { path: "index.md" }
+    values: { layout: home }
+# Setting exclude replaces Jekyll's defaults, so they are listed again.
+exclude: [Gemfile, Gemfile.lock, node_modules, vendor/bundle, vendor/cache, vendor/gems, vendor/ruby, CNAME.txt]

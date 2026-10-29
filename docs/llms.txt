@@ -1,0 +1,17 @@
+---
+layout: null
+permalink: /llms.txt
+---
+# {{ site.title }}
+
+> {{ site.description }}
+
+specfold is a Rust command-line tool, `spec`. Every page below has its Markdown source at `<page>/index.md`. All of them in one file: [llms-full.txt]({{ '/llms-full.txt' | absolute_url }}).
+
+## Docs
+{% include docs-list.html %}{% for p in docs %}{% include twin-url.html page=p %}
+- [{{ p.title }}]({{ twin.url | default: p.url | absolute_url }}): {{ p.description }}{% endfor %}
+
+## Optional
+
+- [Source code](https://github.com/{{ site.repository }})

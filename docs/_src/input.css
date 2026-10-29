@@ -1,0 +1,39 @@
+@tailwind base; @tailwind components; @tailwind utilities;
+:root{--bg:250 251 252;--fg:13 17 23;--muted:82 94 110;--line:222 227 233;--card:255 255 255;--brand:15 118 110;--brand-fg:255 255 255;--ok:21 128 61;--accent:109 40 217}
+.dark{--bg:10 13 18;--fg:230 237 243;--muted:139 152 168;--line:33 41 54;--card:17 22 30;--brand:45 212 191;--brand-fg:4 47 46;--ok:74 222 128;--accent:167 139 250}
+@layer components{
+.label{@apply font-mono text-xs uppercase tracking-wider text-muted}
+.display{@apply text-4xl sm:text-5xl lg:text-6xl font-semibold tracking-tight leading-[1.05]}
+.h2x{@apply text-3xl sm:text-4xl font-semibold tracking-tight leading-tight}
+.sect{@apply border-t border-line}
+.chip{@apply font-mono text-xs text-brand}
+.tab{@apply flex w-full min-h-[44px] items-center justify-between border-b border-line py-3 text-left text-muted hover:text-fg} .tab[aria-selected=true]{@apply text-brand}
+.term{@apply rounded-xl border border-line bg-card font-mono text-sm overflow-hidden}
+#hero-stage{@apply relative aspect-[4/3] w-full} #hero-stage .hero-label{@apply pointer-events-none absolute z-10 rounded bg-card/80 px-1 -translate-x-1/2 -translate-y-full font-mono text-[11px] text-fg} #hero-stage canvas{@apply absolute inset-0 h-full w-full}
+.skip{@apply absolute left-2 -top-12 z-50 rounded bg-brand px-4 py-2 text-brand-fg focus:top-2}
+:focus-visible{outline:3px solid rgb(var(--brand));outline-offset:2px}
+.btn{@apply inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-brand px-5 font-medium text-brand-fg hover:opacity-90}
+.btn-ghost{@apply inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg px-3 text-sm hover:bg-card}
+.navlink{@apply text-muted hover:text-fg} .navlink[aria-current]{@apply text-fg font-semibold}
+.side{@apply block rounded px-2 py-2 text-muted hover:bg-card hover:text-fg} .side[aria-current]{@apply bg-card text-brand font-semibold}
+.link{@apply text-brand underline underline-offset-2}
+.card{@apply rounded-2xl border border-line bg-card p-6}
+.prose{@apply leading-7} .prose h1{@apply text-3xl font-bold mb-4} .prose h2{@apply text-2xl font-semibold mt-10 mb-3 scroll-mt-20} .prose h3{@apply text-lg font-semibold mt-6 mb-2}
+.prose p,.prose ul,.prose ol,.prose table{@apply my-4} .prose ul{@apply list-disc pl-6} .prose ol{@apply list-decimal pl-6} .prose a{@apply text-brand underline}
+.prose table{@apply w-full text-sm} .prose th,.prose td{@apply border-b border-line px-3 py-2 text-left}
+.prose code{@apply rounded bg-card px-1 font-mono text-[0.9em]} .lead{@apply text-lg text-muted}
+pre{@apply relative overflow-x-auto rounded-xl border border-line bg-card p-4 text-sm} pre code{@apply bg-transparent p-0}
+.copy{@apply absolute right-2 top-2 min-h-[36px] rounded-md border border-line bg-bg px-3 text-xs}
+.diagram{@apply my-6 rounded-xl border border-line bg-card p-4 overflow-x-auto} .diagram figcaption{@apply mt-2 text-sm text-muted}
+.diagram-error{@apply text-sm text-accent mb-2}
+.facts{@apply card text-sm} .facts dt{@apply font-semibold} .facts dd{@apply mb-2 text-muted}
+.graph .edge{stroke:rgb(var(--muted));stroke-dasharray:6 6;animation:flow 1.6s linear infinite}
+.graph .gov{stroke:rgb(var(--brand))} .graph .fill-muted{fill:rgb(var(--muted))}
+.graph .n-doc{fill:rgb(var(--bg));stroke:rgb(var(--brand));stroke-width:2} .graph .n-own{fill:rgb(var(--bg));stroke:rgb(var(--accent));stroke-width:2}
+.graph .n-code{fill:rgb(var(--card));stroke:rgb(var(--muted))} .graph .n-ok{fill:rgb(var(--bg));stroke:rgb(var(--ok));stroke-width:2}
+.graph .t{fill:rgb(var(--fg));font-weight:600} .graph .ts{fill:rgb(var(--muted));font-size:12px} .graph .t-ok{fill:rgb(var(--ok));font-weight:600}
+}
+@keyframes flow{to{stroke-dashoffset:-24}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+@media print{header,footer,.copy,aside,#theme,.skip{display:none!important}pre{white-space:pre-wrap}.diagram{break-inside:avoid}a[href^="http"]::after{content:" (" attr(href) ")";font-size:.8em}}
+.prose .crumbs ol{list-style:none;padding:0;margin:0}.prose .crumbs li{margin:0;padding:0}

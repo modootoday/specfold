@@ -1,0 +1,52 @@
+# Home page sections. The layout `home` renders them; index.md holds only prose.
+hero:
+  title: ["Your code moves.", "Your docs keep up."]
+  lead: "is a command-line tool that keeps design, plan, and maintenance docs next to source code, links them to the paths they govern, and checks them on every change."
+  install: cargo install specfold
+  cta: { text: "Get started →", url: /getting-started/ }
+  graph_label: One repo, one checked graph
+  graph_desc: "Two docs belong to one owner, which governs three source paths. spec check reports zero errors. The 3D view is decorative; this text describes it."
+steps:
+  title: ["Write it once.", "Keep it true."]
+  lead: Start a document where its owner lives, edit it like code, and let checks catch drift before review.
+  items:
+    - { name: Create, text: "Pick a type and a title. spec stores it with the owner of the code it governs.", cmd: spec new sot --governs }
+    - { name: Edit, text: "Replace one section, row, or cell; nothing is written until --write.", cmd: spec edit --section }
+    - { name: Check, text: "Rules with stable ids, JSON output, and exit codes made for CI.", cmd: spec check --summary }
+terminal:
+  title: ["Docs in the terminal.", "Not in a wiki."]
+  lead: Every step is a plain command, so people and agents follow the same path.
+  label: "~/shop · shell"
+  lines:
+    - { cmd: 'spec new sot --governs services/shop/src/cart --title "Cart totals"' }
+    - { cmd: 'spec context services/shop/src/cart/total.rs' }
+    - { cmd: 'spec edit sot:shop/cart-totals --append --text "Totals round half up." --write' }
+    - { cmd: 'spec check --summary' }
+features:
+  title: ["Small tool.", "Clear rules."]
+  lead: One binary, no server, no network. Use only the parts your repository needs.
+  items:
+    - { tab: Documents, tag: core, head: Markdown with front matter., text: "Types such as sot, plan, research and runbook, each with an owner, a status and timestamps.", url: /concepts/ }
+    - { tab: Graph, tag: core, head: Know which document rules a file., text: "spec context lists the documents that govern a path; spec graph shows impact and chains.", url: /concepts/ }
+    - { tab: Checks, tag: core, head: Catch drift early., text: "Broken references, unknown keys and stale documents are reported by rule id, with a fix.", url: /checks/ }
+    - { tab: Attachments, tag: optional, head: Files that belong to a document., text: "Keep them in the repository or an external store, verified by hash.", url: /attachments/ }
+    - { tab: Agents, tag: optional, head: JSON everywhere., text: "Every command takes --json and prints a next command; spec mcp serves them as MCP tools.", url: /agents/ }
+agents:
+  title: Ready for agents.
+  text: "Every page has its Markdown source at <page>/index.md, listed in llms.txt. Agents read it, run spec check, and commit."
+  code: |-
+    curl -s https://specfold.build/concepts/index.md
+    spec context src/cart/total.rs --json
+    spec check --staged -q
+faq:
+  - q: What is specfold?
+    a: "specfold is a command-line tool, spec, that keeps design, plan, and maintenance documents in your repository and checks their links and metadata."
+  - q: Does specfold need a server or network access?
+    a: "No. spec is a single offline binary. Stores and plugins are external commands you configure."
+  - q: How do AI coding agents use specfold?
+    a: "Agents run spec commands with JSON output to find the documents that govern a file, edit sections, and run spec check before committing."
+facts:
+  - { k: License, v: MIT or Apache-2.0 }
+  - { k: Language, v: "Rust, single binary" }
+  - { k: Network, v: None required }
+  - { k: Output, v: "Text and JSON, stable exit codes" }

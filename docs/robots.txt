@@ -1,0 +1,9 @@
+---
+layout: null
+permalink: /robots.txt
+---
+User-agent: *
+Allow: /
+
+Sitemap: {{ "/sitemap.xml" | absolute_url }}
+# Markdown for agents: {{ "/llms.txt" | absolute_url }}, {{ "/llms-full.txt" | absolute_url }}, and <page>/index.md

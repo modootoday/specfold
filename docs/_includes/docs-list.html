@@ -1,0 +1,2 @@
+{%- comment -%}Sets `docs`: every Markdown page with a nav_order, in order. Adding a page needs no list edit.{%- endcomment -%}
+{%- assign docs = site.pages | where_exp: "p", "p.nav_order" | sort: "nav_order" -%}

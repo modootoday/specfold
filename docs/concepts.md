@@ -44,6 +44,17 @@ GMT, KST and JST; ambiguous names such as CST are refused). Times are compared b
 
 Statuses are `draft`, `active`, `superseded`, `archived` and `rejected`, and only move forward.
 
+```mermaid
+stateDiagram-v2
+    [*] --> draft
+    draft --> active
+    draft --> rejected
+    active --> superseded
+    active --> archived
+```
+
+A type can set its own `transitions` in `spec.toml`.
+
 Relations are written once, on the document that makes them: `rel.governs` (code paths),
 `rel.supersedes`, `rel.implements`, `rel.evidence`, `rel.depends_on`. Body references are
 `[[<id>]]` or `[[<id>#<anchor>]]`. The graph is derived from these on every run.
