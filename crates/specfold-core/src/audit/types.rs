@@ -13,6 +13,8 @@ pub enum Kind {
     Gap,
     /// An active plan with no recent update, or an old draft.
     Stalled,
+    /// A plan whose tasks and status disagree: all done but active, or archived with open tasks.
+    Finished,
     /// Markers of unfinished work inside a document.
     OpenItem,
     /// Leftover compatibility: alias citations, skipped rules.

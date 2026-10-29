@@ -114,7 +114,8 @@ wrangler …). specfold contains no network code and never handles credentials.
   JSON over stdin and stdout to add rules, importers, exporters, audits and event handlers. Only
   programs named in `spec.toml` run.
 - **Audits** (`spec audit`) find what passes the rules yet needs attention: stale documents,
-  orphans, owners without a source of truth, stalled plans, open items. `--pack` groups documents
+  orphans, owners without a source of truth, stalled plans, finished plans
+  (every task ticked but still active, or archived with tasks open), open items. `--pack` groups documents
   for a reviewer, and `spec audit record` stores a review as a sealed audit document.
 
 ## Importing an existing layout

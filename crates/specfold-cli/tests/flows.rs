@@ -268,3 +268,20 @@ fn fix_i2_keeps_a_shared_alias_on_the_picked_document() {
     let (_, v) = r.json(&["resolve", "README"]);
     assert_eq!(v["id"], a.as_str(), "{v}");
 }
+
+#[test]
+fn audit_reports_a_plan_whose_tasks_and_status_disagree() {
+    let r = common::repo();
+    let id = r.new_doc("plan", "services/shop", "Checkout v2");
+    assert_eq!(r.json(&["set", &id, "status=active"]).0, 0, "plan can go active");
+    let (code, _) = r.json(&["edit", &id, "--text=## Steps\n\n- [x] build\n- [x] ship\n", "--write"]);
+    assert_eq!(code, 0);
+    let (_, v) = r.json(&["audit", "--kind", "finished"]);
+    assert!(v.to_string().contains("all 2 tasks are done but the plan is still active"), "{v}");
+    assert_eq!(r.json(&["edit", &id, "--text=## Steps\n\n- [x] build\n- [ ] ship\n", "--write"]).0, 0);
+    let (_, v) = r.json(&["audit", "--kind", "finished"]);
+    assert!(!v.to_string().contains("tasks are done"), "{v}");
+    assert_eq!(r.json(&["set", &id, "status=archived"]).0, 0);
+    let (_, v) = r.json(&["audit", "--kind", "finished"]);
+    assert!(v.to_string().contains("archived with 1 of 2 tasks still open"), "{v}");
+}
