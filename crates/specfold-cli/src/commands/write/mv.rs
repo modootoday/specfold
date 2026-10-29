@@ -6,11 +6,20 @@ use crate::output::Output;
 use crate::session;
 use anyhow::Result;
 use specfold_core::authoring::mv::{self, Move};
+use specfold_core::model::Tier;
 
 pub fn run(g: &Global, a: &MvArgs) -> Result<Output> {
     let s = session::open(g)?;
     let idx = session::resolve(&s, &a.doc)?;
-    let (moved, plan) = mv::plan(&s.corpus, idx, &Move { owner: a.owner.clone(), slug: a.slug.clone() })?;
+    let (moved, plan) = mv::plan(
+        &s.corpus,
+        idx,
+        &Move {
+            owner: a.owner.clone(),
+            slug: a.slug.clone(),
+            tier: a.tier.as_deref().map(|t| if t == "local" { Tier::Local } else { Tier::Committed }),
+        },
+    )?;
     let o = Output::new("mv")
         .unpaged()
         .field("from", moved.from.clone())

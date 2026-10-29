@@ -26,7 +26,7 @@ pub fn local(cfg: &Config, owners: &Owners, strays: &mut Vec<Stray>) -> Vec<Spec
         let name = entry.file_name().to_string_lossy().into_owned();
         let rel = format!("{base}/{name}");
         if !entry.path().is_dir() {
-            strays.push(Stray { path: rel, reason: "local files go in a directory named after their owner".into() });
+            strays.push(Stray { path: rel, reason: "local files go in a directory named after their owner (.spec.local/<owner>/<type>/); create local documents with spec new <type> --local, and keep plain notes outside .spec.local".into() });
             continue;
         }
         if owners.by_id(&name).is_none() {

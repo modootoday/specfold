@@ -23,6 +23,9 @@ pub struct HelpArgs {
     /// Print the command table as Markdown, as embedded in the README.
     #[arg(long)]
     pub markdown: bool,
+    /// Print llms.txt: the description and every command, linked to the reference.
+    #[arg(long, conflicts_with = "markdown")]
+    pub llms: bool,
 }
 
 #[derive(Debug, Clone, Args)]

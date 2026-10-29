@@ -12,9 +12,9 @@ fn read(rel: &str) -> String {
     std::fs::read_to_string(root().join(rel)).unwrap_or_else(|e| panic!("{rel}: {e}"))
 }
 
-/// The text between `<!-- spec:<name> -->` and `<!-- /spec:<name> -->`.
+/// The text between `<!-- spec:<name>:begin -->` and `<!-- spec:<name>:end -->`.
 fn block(text: &str, name: &str) -> String {
-    let (open, close) = (format!("<!-- spec:{name} -->"), format!("<!-- /spec:{name} -->"));
+    let (open, close) = (format!("<!-- spec:{name}:begin -->"), format!("<!-- spec:{name}:end -->"));
     let start = text.find(&open).unwrap_or_else(|| panic!("no {open}")) + open.len();
     let end = text[start..].find(&close).unwrap_or_else(|| panic!("no {close}")) + start;
     text[start..end].trim().to_string()
@@ -54,8 +54,8 @@ fn command_tables_match_help_markdown() {
             "{file} is stale: replace its spec:commands block with `spec help --markdown`"
         );
         assert!(
-            read(file).contains("<!-- spec:commands -->\n\n|"),
-            "{file}: keep a blank line between <!-- spec:commands --> and the table"
+            read(file).contains("<!-- spec:commands:begin -->\n\n|"),
+            "{file}: keep a blank line between <!-- spec:commands:begin --> and the table"
         );
     }
     assert!(table.starts_with("\n|"), "help --markdown must open with a blank line: {table:?}");
@@ -68,13 +68,27 @@ fn quick_start_runs() {
     r.git(&["init", "-q", "-b", "main"]);
     r.write("services/shop/src/cart/total.rs", "fn total() {}\n");
     let readme = read("README.md");
-    let lines: Vec<_> = block(&readme, "quickstart").lines().filter_map(|l| l.strip_prefix("$ ")).map(words).collect();
-    assert!(lines.len() >= 3, "quick start has too few commands");
-    for w in lines {
+    // A console block: `$ spec ...` lines, each followed by lines its output must contain
+    // (trimmed output is fine; every shown line must appear, with spacing collapsed).
+    let mut steps: Vec<(Vec<String>, Vec<String>)> = vec![];
+    for l in block(&readme, "quickstart").lines() {
+        if let Some(cmd) = l.strip_prefix("$ ") {
+            steps.push((words(cmd), vec![]));
+        } else if !l.starts_with("```") && !l.trim().is_empty() {
+            steps.last_mut().expect("output before the first command").1.push(l.to_string());
+        }
+    }
+    assert!(steps.len() >= 3, "quick start has too few commands");
+    let squash = |s: &str| s.split_whitespace().collect::<Vec<_>>().join(" ");
+    for (w, expect) in steps {
         assert_eq!(w[0], "spec");
         let out = r.spec().args(&w[1..]).output().unwrap();
         let code = out.status.code().unwrap_or(-1);
         assert!(code <= 1, "quick start `{}` exited {code}: {}", w.join(" "), String::from_utf8_lossy(&out.stderr));
+        let got = squash(&String::from_utf8_lossy(&out.stdout));
+        for e in expect {
+            assert!(got.contains(&squash(&e)), "quick start `{}` printed no `{e}`:\n{got}", w.join(" "));
+        }
     }
 }
 
@@ -119,4 +133,41 @@ fn help_markdown_for_one_command_is_a_reference_page() {
     let (code, v) = r.json(&["help", "mvv", "--markdown"]);
     assert_ne!(code, 0);
     assert!(v["error"].as_str().unwrap().contains("did you mean 'mv'"), "{v}");
+}
+
+#[test]
+fn every_argument_has_help() {
+    let r = common::repo();
+    let (_, v) = r.json(&["help"]);
+    for g in v["global"].as_array().unwrap() {
+        assert!(!g["help"].as_str().unwrap_or("").trim().is_empty(), "global {} has no help", g["name"]);
+    }
+    for c in v["items"].as_array().unwrap() {
+        assert!(!c["about"].as_str().unwrap().trim().is_empty(), "{} has no summary", c["name"]);
+        for a in c["args"].as_array().unwrap() {
+            assert!(
+                !a["help"].as_str().unwrap_or("").trim().is_empty(),
+                "spec {} {} has no help",
+                c["name"],
+                a["name"]
+            );
+        }
+    }
+}
+
+#[test]
+fn llms_txt_matches_help_llms() {
+    let r = common::repo();
+    let (code, text) = r.text(&["help", "--llms"]);
+    assert_eq!(code, 0);
+    assert_eq!(read("llms.txt"), text, "llms.txt is stale: spec help --llms > llms.txt");
+    let cargo = read("crates/specfold-cli/Cargo.toml");
+    let desc = cargo.lines().find_map(|l| l.strip_prefix("description = ")).unwrap().trim_matches('"');
+    assert!(text.contains(&format!("> {desc}")), "{text}");
+}
+
+#[test]
+fn readme_stays_short() {
+    let n = read("README.md").lines().count();
+    assert!(n <= 150, "README.md has {n} lines; move detail to docs/");
 }
