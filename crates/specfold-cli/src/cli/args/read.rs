@@ -89,6 +89,16 @@ pub struct OwnersArgs {
 }
 
 #[derive(Debug, Clone, Args)]
+#[command(
+    after_help = "Assets come from spec.toml, for example:\n  [[assets]]\n  kind = \"skill\"\n  path = \".agents/skills\"\nKinds: skill (SKILL.md in a directory), rule (.md or .mdc), agent (.md), instructions (AGENTS.md, CLAUDE.md).\n\nExamples:\n  spec assets\n  spec assets --kind skill --json"
+)]
+pub struct AssetsArgs {
+    /// Only this kind: skill, rule, agent or instructions.
+    #[arg(long, value_parser = ["skill", "rule", "agent", "instructions"])]
+    pub kind: Option<String>,
+}
+
+#[derive(Debug, Clone, Args)]
 #[command(after_help = "Examples:\n  spec log sot:shop/cart\n  spec log --since 2026-01-01 --type adr")]
 pub struct LogArgs {
     /// One document; without it, every document changed since --since.

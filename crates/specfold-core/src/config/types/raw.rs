@@ -1,8 +1,8 @@
 //! spec.toml as written, one field per section.
 
 use super::{
-    AliasSection, AuditSection, CheckSection, CitesSection, ExternalRoot, FilesSection, ForbidSection, GuardDef,
-    LocalSection, OwnersSection, PluginDef, PublicSection, SpecSection, VerifySection,
+    AliasSection, AssetRoot, AuditSection, CheckSection, CitesSection, ExternalRoot, FilesSection, ForbidSection,
+    GuardDef, LocalSection, OwnersSection, PluginDef, PublicSection, SpecSection, VerifySection,
 };
 use crate::model::registry::TypeOverride;
 use serde::{Deserialize, Serialize};
@@ -41,4 +41,7 @@ pub struct RawConfig {
     pub check: CheckSection,
     #[serde(default)]
     pub cites: CitesSection,
+    /// Agent assets read beside the documents.
+    #[serde(default)]
+    pub assets: Vec<AssetRoot>,
 }
