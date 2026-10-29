@@ -1,0 +1,5 @@
+---
+layout: twin
+twin_of: guides/import.md
+permalink: /guides/import/index.md
+---

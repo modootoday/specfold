@@ -6,7 +6,7 @@ import { createRequire } from 'module';
 const require = createRequire(process.env.NODE_PATH + '/');
 const puppeteer = require('puppeteer-core');
 const [base = 'http://127.0.0.1:18433', out = '/tmp/audit', tag = 'run'] = process.argv.slice(2);
-const pages = ['', 'getting-started', 'concepts', 'editing', 'checks', 'attachments', 'agents', 'import', 'commands'];
+const pages = ['', 'start', 'start/install', 'concepts', 'concepts/document-types', 'concepts/lifecycle', 'concepts/graph', 'concepts/checks', 'guides/agents', 'guides/ci', 'reference/commands', 'reference/rules', 'faq'];
 const widths = (process.env.WIDTHS || '1440,1280,1024,768,390').split(',').map(Number);
 const themes = ['dark', 'light'];
 const fs = require('fs'); fs.mkdirSync(out, { recursive: true });
@@ -49,10 +49,18 @@ for (const p of pages) for (const w of widths) for (const t of themes) {
     for (const t of document.querySelectorAll('.prose p, .prose li')) { if (/(^|\s)(#{1,6} |```|\$\$)/.test(t.textContent)) r.push('raw markdown ' + t.textContent.slice(0, 30)); }
     if (document.querySelector('.katex-error')) r.push('katex error');
     if (document.querySelector('[data-hero]') && !document.querySelector('[data-hero] canvas, [data-hero] svg')) r.push('hero missing');
+    // Touch targets: interactive elements laid out as boxes must be at least 44x44 below 1024px.
+    if (innerWidth < 1024) for (const el of document.querySelectorAll('a,button,[role=tab],summary')) {
+      const cs = getComputedStyle(el), b = el.getBoundingClientRect();
+      if (!b.width || cs.visibility === 'hidden' || el.closest('.sr-only,[hidden],[aria-hidden=true]')) continue;
+      if (cs.display === 'inline' && el.closest('p,li,td,dd,figcaption') && !el.closest('nav,footer')) continue; // links inside running text
+      if (el.matches('.skip')) continue;
+      if (b.height < 43.5 || b.width < 24) r.push(`touch ${Math.round(b.width)}x${Math.round(b.height)} ` + name(el));
+    }
     return [...new Set(r)];
   });
   issues.push(...found);
-  const file = `${out}/${tag}-${p || 'index'}-${w}-${t}.png`;
+  const file = `${out}/${tag}-${(p || 'index').replaceAll('/', '_')}-${w}-${t}.png`;
   await page.screenshot({ path: file, fullPage: w !== 1280 });
   if (issues.length) { total += issues.length; console.log(`## ${p || 'index'} ${w} ${t}\n  ` + issues.join('\n  ')); }
   await page.close();

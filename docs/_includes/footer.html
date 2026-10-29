@@ -1,7 +1,8 @@
 <footer class="sect mt-0"><div class="mx-auto grid max-w-6xl gap-8 px-5 py-14 text-sm text-muted md:grid-cols-4">
  <div class="md:col-span-2"><p class="font-mono text-base text-fg">specfold<span class="text-brand">_</span></p><p class="mt-2 max-w-sm">Design, plan, and maintenance docs that live next to code and stay checked.</p></div>
- <div><p class="label mb-3">Docs</p><ul class="space-y-2">{% include docs-list.html %}{% for n in docs %}<li><a class="navlink" href="{{ n.url | relative_url }}">{{ n.title }}</a></li>{% endfor %}</ul></div>
+ <div><p class="label mb-3">Docs</p><ul class="space-y-2">{% for g in site.data.nav %}{% assign p0 = g.pages | first %}{% assign n = site.pages | where: "path", p0 | first %}<li><a class="navlink" href="{{ n.url | relative_url }}">{{ g.title }}</a></li>{% endfor %}</ul></div>
  <div><p class="label mb-3">For agents</p><ul class="space-y-2"><li><a class="navlink" href="{{ '/llms.txt' | relative_url }}">llms.txt</a></li><li><a class="navlink" href="{{ '/llms-full.txt' | relative_url }}">llms-full.txt</a></li><li><a class="navlink" href="{{ '/sitemap.xml' | relative_url }}">Sitemap</a></li></ul></div>
  <p class="md:col-span-4 border-t border-line pt-6">MIT or Apache-2.0 · specfold.build</p>
 </div></footer>
 <script src="{{ '/assets/js/site.js' | relative_url }}" defer></script>
+<script src="{{ '/assets/js/md-tabs.js' | relative_url }}" defer></script>

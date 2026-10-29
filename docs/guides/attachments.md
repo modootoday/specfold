@@ -1,0 +1,32 @@
+---
+title: Attachments
+description: Files that belong to a document, in the repository or an external store.
+redirect_from: [/attachments/]
+---
+
+# Attachments
+
+> [!TIP]
+> `spec attach` registers files with a document and records their SHA-256. Small files stay in
+> the repository; larger ones go to a store you configure.
+
+## Commands
+
+```console
+$ spec attach <id> results.csv --write
+$ spec files <id>
+$ spec fetch <id>
+```
+
+## Stores
+
+A store is a directory, or a command you already trust (rclone, aws, gsutil, wrangler). specfold
+contains no network code and never handles credentials. `[files] inline_max_bytes` sets the
+limit for the repository.
+
+## Rules
+
+- **P2**: every attachment is registered.
+- **P3**: repository attachments stay small.
+- **E1**: recorded attachments carry a matching hash.
+- **E2**: stored attachments exist in the store.

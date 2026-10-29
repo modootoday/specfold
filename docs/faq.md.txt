@@ -1,0 +1,5 @@
+---
+layout: twin
+twin_of: faq.md
+permalink: /faq/index.md
+---

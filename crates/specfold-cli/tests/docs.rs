@@ -47,7 +47,7 @@ fn command_tables_match_help_markdown() {
     let r = common::repo();
     let (code, table) = r.text(&["help", "--markdown"]);
     assert_eq!(code, 0);
-    for file in ["README.md", "docs/commands.md"] {
+    for file in ["README.md", "docs/reference/commands.md"] {
         assert_eq!(
             block(&read(file), "commands"),
             table.trim(),

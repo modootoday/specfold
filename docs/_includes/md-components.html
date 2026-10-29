@@ -1,0 +1,24 @@
+{%- comment -%}
+md-components v1 (draft). Usage: {% include md-components.html content=content lang=page.lang %}
+Converts GitHub alerts (> [!NOTE] ...) in kramdown GFM output into callouts.
+Only top-level alerts are converted; nested/list/table alerts stay as residue and fail bin/check.
+Titles come from site.data.i18n[lang].callout.<type>, falling back to English.
+{%- endcomment -%}
+{%- assign _c = include.content -%}
+{%- assign _lang = include.lang | default: site.lang | default: "en" -%}
+{%- assign _t = site.data.i18n[_lang].callout -%}
+{%- assign _types = "note:Note,tip:Tip,important:Important,warning:Warning,caution:Caution" | split: "," -%}
+{%- for _pair in _types -%}
+  {%- assign _kv = _pair | split: ":" -%}
+  {%- assign _key = _kv[0] -%}
+  {%- assign _title = _t[_key] | default: _kv[1] -%}
+  {%- assign _mark = _key | upcase | prepend: "[!" | append: "]" -%}
+  {%- capture _from %}<blockquote>
+  <p>{{ _mark }}
+{% endcapture -%}
+  {%- capture _to %}<blockquote class="md-callout md-callout-{{ _key }}" role="note">
+  <p class="md-callout-title">{{ _title }}</p><p>
+{% endcapture -%}
+  {%- assign _c = _c | replace: _from, _to -%}
+{%- endfor -%}
+{{ _c }}

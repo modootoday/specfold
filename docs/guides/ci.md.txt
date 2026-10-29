@@ -1,0 +1,5 @@
+---
+layout: twin
+twin_of: guides/ci.md
+permalink: /guides/ci/index.md
+---

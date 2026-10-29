@@ -1,0 +1,5 @@
+---
+layout: twin
+twin_of: reference/commands.md
+permalink: /reference/commands/index.md
+---

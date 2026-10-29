@@ -4,7 +4,8 @@
 A page's Markdown source for agents, read from the page file itself at build time,
 so it cannot drift. The twin's own file sets only `twin_of` and `permalink`.
 {%- endcomment -%}
-{%- capture raw -%}{% include_relative {{ page.twin_of }} %}{%- endcapture -%}
+{%- assign twin_file = page.twin_of | split: "/" | last -%}
+{%- capture raw -%}{% include_relative {{ twin_file }} %}{%- endcapture -%}
 {%- assign src = site.pages | where: "path", page.twin_of | first -%}
 {%- assign fm = raw | split: "---" -%}
 {%- assign body = raw | remove_first: fm[1] | remove_first: "------" | strip -%}

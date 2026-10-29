@@ -1,2 +1,3 @@
-{%- comment -%}Sets `docs`: every Markdown page with a nav_order, in order. Adding a page needs no list edit.{%- endcomment -%}
-{%- assign docs = site.pages | where_exp: "p", "p.nav_order" | sort: "nav_order" -%}
+{%- comment -%}Sets `docs`: the pages listed in _data/nav.yml, in order. The sidebar, prev/next, footer and llms.txt all read it.{%- endcomment -%}
+{%- assign docs = "" | split: "" -%}
+{%- for g in site.data.nav -%}{%- for p in g.pages -%}{%- assign d = site.pages | where: "path", p | first -%}{%- if d -%}{%- assign docs = docs | push: d -%}{%- endif -%}{%- endfor -%}{%- endfor -%}
