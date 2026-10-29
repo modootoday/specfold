@@ -223,3 +223,13 @@ fn stale_path_cites_get_a_fix_and_mv_rewrites_them() {
     let after = r.read(&adr_path);
     assert!(after.contains(&format!("See [[{new_id}]] and")), "{after}");
 }
+
+#[test]
+fn check_new_lists_documents_not_in_the_last_commit() {
+    let r = common::repo();
+    let id = r.new_doc("adr", "services/shop", "Fresh idea");
+    let (code, v) = r.json(&["check", "--new"]);
+    assert_eq!(code, 0, "{v}");
+    let ids: Vec<&str> = v["new_docs"].as_array().unwrap().iter().map(|d| d["id"].as_str().unwrap()).collect();
+    assert!(ids.contains(&id.as_str()), "{v}");
+}
