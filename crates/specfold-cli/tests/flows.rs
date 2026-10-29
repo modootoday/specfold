@@ -323,3 +323,26 @@ fn assets_lists_declared_skills_rules_and_instructions() {
     assert_eq!(v["total"], 1, "{v}");
     assert_eq!(v["items"][0]["name"], "style");
 }
+
+#[test]
+fn audit_names_skill_copies_that_drift_from_agents_and_claude_without_agents() {
+    let r = common::repo();
+    let toml = r.read("spec.toml")
+        + "[[assets]]\nkind = \"skill\"\npath = \".agents/skills\"\n[[assets]]\nkind = \"skill\"\npath = \".claude/skills\"\n";
+    r.write("spec.toml", &toml);
+    let skill = "---\nname: pdf-tools\ndescription: Read PDFs.\n---\n# PDF\n";
+    r.write(".agents/skills/pdf-tools/SKILL.md", skill);
+    r.write(".claude/skills/pdf-tools/SKILL.md", skill);
+    r.write("AGENTS.md", "# Agents\n");
+    r.write("CLAUDE.md", "@AGENTS.md\n");
+    let (_, v) = r.json(&["audit", "--kind", "drift"]);
+    assert_eq!(v["items"].as_array().map_or(0, |a| a.len()), 0, "an identical copy and an include are quiet: {v}");
+    r.write(".claude/skills/pdf-tools/SKILL.md", &skill.replace("# PDF", "# PDF, edited"));
+    r.write(".claude/skills/orphan/SKILL.md", "---\nname: orphan\ndescription: O.\n---\n");
+    r.write("CLAUDE.md", "# Claude\n");
+    let (_, v) = r.json(&["audit", "--kind", "drift"]);
+    let text = v.to_string();
+    assert!(text.contains("differs from .agents/skills/pdf-tools, the canonical copy"), "{v}");
+    assert!(text.contains("skill 'orphan' has no source under .agents/skills"), "{v}");
+    assert!(text.contains("does not include AGENTS.md"), "{v}");
+}

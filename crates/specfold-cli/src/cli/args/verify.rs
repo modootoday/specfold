@@ -92,7 +92,7 @@ pub struct AuditArgs {
     /// Only these owners (repeatable).
     #[arg(long = "owner", id = "owner")]
     pub owners: Vec<String>,
-    /// stale, orphan, gap, stalled, finished, open-item, debt, plugin (repeatable).
+    /// stale, orphan, gap, stalled, finished, open-item, debt, drift, plugin (repeatable).
     #[arg(long = "kind", id = "kind")]
     pub kinds: Vec<String>,
     /// Build review packs for contradictions and stale statements.

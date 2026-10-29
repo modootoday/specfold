@@ -16,8 +16,11 @@ pub fn kind(s: &str) -> Result<Kind> {
         "finished" => Kind::Finished,
         "open-item" => Kind::OpenItem,
         "debt" => Kind::Debt,
+        "drift" => Kind::Drift,
         "plugin" => Kind::Plugin,
-        other => bail!("unknown audit kind '{other}' (stale, orphan, gap, stalled, finished, open-item, debt, plugin)"),
+        other => bail!(
+            "unknown audit kind '{other}' (stale, orphan, gap, stalled, finished, open-item, debt, drift, plugin)"
+        ),
     })
 }
 

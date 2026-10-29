@@ -115,7 +115,8 @@ wrangler …). specfold contains no network code and never handles credentials.
   programs named in `spec.toml` run.
 - **Audits** (`spec audit`) find what passes the rules yet needs attention: stale documents,
   orphans, owners without a source of truth, stalled plans, finished plans
-  (every task ticked but still active, or archived with tasks open), open items. `--pack` groups documents
+  (every task ticked but still active, or archived with tasks open), open items, and agent
+  assets that drifted (a skill copy that differs from `.agents/`, a CLAUDE.md without `@AGENTS.md`). `--pack` groups documents
   for a reviewer, and `spec audit record` stores a review as a sealed audit document.
 
 ## Agent assets
@@ -129,7 +130,10 @@ kind = "skill"            # skill, rule, agent or instructions
 path = ".agents/skills"   # a directory or a glob
 ```
 
-`spec assets` lists what was found.
+`spec assets` lists what was found. `spec check` reports asset frontmatter (A1: a missing
+name or description is an error, the rest warnings), duplicate names (A2) and paths or `spec`
+commands in asset text that do not exist (A3). `.agents/` is the source; `spec audit --kind drift`
+names copies that differ from it.
 
 ## Importing an existing layout
 
