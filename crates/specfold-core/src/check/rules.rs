@@ -17,7 +17,7 @@ mod placement;
 mod schema;
 mod sections;
 pub use schema::unknown_key;
-mod support;
+pub(crate) mod support;
 mod visibility;
 
 use super::rule::Rule;

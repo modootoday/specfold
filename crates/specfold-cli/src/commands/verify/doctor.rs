@@ -23,6 +23,7 @@ pub fn run(g: &Global) -> Result<Output> {
             format!("{check:<9} {path}  {msg}\n          fix: {fix}"),
         )
     };
+    session::hold_config_warnings();
     let cfg = match session::config(g) {
         Ok(c) => c,
         Err(e) => {
@@ -34,6 +35,9 @@ pub fn run(g: &Global) -> Result<Output> {
     let no_config = !root.join("spec.toml").exists();
     if no_config {
         o = add(o, "config", "spec.toml", "no spec.toml here; spec runs on defaults".into(), "spec init --write");
+    }
+    for w in specfold_core::model::registry::suspect_overrides(&cfg.raw.types) {
+        o = add(o, "config", "spec.toml", w, "rename the table, or give the new type an `about`");
     }
     let mut files = vec![];
     walk(&root, &mut files);

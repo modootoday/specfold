@@ -38,7 +38,7 @@ impl Rule for RequiredSections {
         &RuleInfo {
             id: "S7",
             title: "a document has the sections its type requires",
-            explain: "A type can require headings in every document through `[types.<type>] sections = [\"Context\", \"Decision\"]` in spec.toml. A heading of any level counts; case and a trailing {#anchor} are ignored. No type requires sections unless configured. `spec edit <id> --section <name>` adds one.",
+            explain: "A type can require headings in every document through `[types.<type>] sections = [\"Context\", \"Decision\"]` in spec.toml. A heading of any level counts; case and a trailing {#anchor} are ignored. No type requires sections unless configured. `spec edit <id> --new-section <name> --text \"...\" --write` adds one (`--after <heading>` places it).",
             on_commit: true,
         }
     }
@@ -61,10 +61,20 @@ impl Rule for RequiredSections {
             for s in &ty.sections {
                 if !have.contains(&s.trim().to_lowercase()) {
                     let msg = format!("missing section '{s}' (required for {})", ty.name);
-                    out.push(Finding::warn("S7", &d.path, 1, msg));
+                    let add = format!("spec edit {} --new-section {} --text \"…\" --write", d.id, quote(s.trim()));
+                    out.push(Finding::warn("S7", &d.path, 1, msg).fix_cmd(add));
                 }
             }
         }
+    }
+}
+
+/// A section name as one shell word.
+fn quote(s: &str) -> String {
+    if s.chars().all(|c| c.is_ascii_alphanumeric() || "-_.".contains(c)) {
+        s.to_string()
+    } else {
+        format!("'{}'", s.replace('\'', "'\\''"))
     }
 }
 

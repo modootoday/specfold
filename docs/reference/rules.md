@@ -19,7 +19,7 @@ description: Every rule spec check runs, grouped by family.
 | **S4** | status is one the type allows |
 | **S5** | dates are ISO and updated is not before created |
 | **S6** | a status has the fields it requires |
-| **S7** | a document has the sections its type requires |
+| **S7** | a document has the sections its type requires (`spec new` writes them; the finding names the `spec edit --new-section` command) |
 
 ## Identity
 

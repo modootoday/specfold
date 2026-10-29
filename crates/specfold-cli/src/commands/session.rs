@@ -11,7 +11,26 @@ pub struct Session {
     pub graph: Graph,
 }
 
+/// The configuration, with a warning on standard error for `[types.<name>]` tables that look
+/// like typos (doctor lists them as findings instead).
 pub fn config(g: &Global) -> Result<Config> {
+    let cfg = config_quiet(g)?;
+    if !WARNED.swap(true, std::sync::atomic::Ordering::Relaxed) {
+        for w in specfold_core::model::registry::suspect_overrides(&cfg.raw.types) {
+            eprintln!("warning: spec.toml: {w}");
+        }
+    }
+    Ok(cfg)
+}
+
+/// Set once the config warnings were shown, or by a command that reports them itself.
+static WARNED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+pub fn hold_config_warnings() {
+    WARNED.store(true, std::sync::atomic::Ordering::Relaxed);
+}
+
+pub fn config_quiet(g: &Global) -> Result<Config> {
     let dir = match &g.dir {
         Some(d) => d.clone(),
         None => std::env::current_dir()?,
@@ -77,12 +96,22 @@ pub fn resolve(s: &Session, text: &str) -> Result<usize> {
                 })
                 .collect();
             match near.len() {
-                0 => bail!("'{text}' names no document"),
+                0 if text.contains('/') && !text.contains(':') => bail!("'{text}' names no document"),
+                0 => {
+                    // Words of a title or slug find it where an id prefix does not.
+                    let words = if text.chars().all(|c| c.is_ascii_alphanumeric() || "-_:/.".contains(c)) {
+                        text.to_string()
+                    } else {
+                        format!("'{}'", text.replace('\'', "'\\''"))
+                    };
+                    bail!("'{text}' names no document; next: spec find {words}")
+                }
                 1 => bail!("'{text}' names no document; 1 id starts with it: {0}; next: spec show {0}", near[0]),
                 n => bail!(
-                    "'{text}' names no document; {n} id(s) start with it: {}{}",
+                    "'{text}' names no document; {n} id(s) start with it: {}{}; next: spec show {}",
                     near.iter().take(5).cloned().collect::<Vec<_>>().join(", "),
-                    if n > 5 { ", ..." } else { "" }
+                    if n > 5 { ", ..." } else { "" },
+                    near[0]
                 ),
             }
         }

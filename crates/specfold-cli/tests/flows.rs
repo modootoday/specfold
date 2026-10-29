@@ -1637,3 +1637,45 @@ fn machine_paths_in_undeclared_agent_files_are_reported_once() {
     paths.sort();
     assert_eq!(paths, vec![".cursor/rules/x.mdc", "CLAUDE.md"], "{v}");
 }
+
+#[test]
+fn a_type_table_that_looks_like_a_typo_is_warned_about() {
+    let r = common::repo();
+    r.write("spec.toml", "[types.adrs]\nsections = [\"Decision\"]\n");
+    let out = r.spec().args(["list"]).output().unwrap();
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(err.matches("did you mean [types.adr]").count(), 1, "{err}");
+    let out = r.spec().args(["doctor"]).output().unwrap();
+    assert!(String::from_utf8_lossy(&out.stderr).is_empty());
+    assert!(String::from_utf8_lossy(&out.stdout).contains("did you mean [types.adr]"));
+}
+
+#[test]
+fn required_sections_are_in_new_documents_and_a_missing_one_names_the_command() {
+    let r = common::repo();
+    let toml = std::fs::read_to_string(r.path().join("spec.toml")).unwrap_or_default();
+    r.write("spec.toml", &format!("{toml}\n[types.adr]\nsections = [\"Decision\", \"Risks\"]\n"));
+    assert_eq!(r.text(&["new", "adr", "Pick a queue"]).0, 0);
+    let (_, l) = r.json(&["list", "--type", "adr"]);
+    let id = l["items"][0]["id"].as_str().unwrap().to_string();
+    let (_, d) = r.json(&["show", &id]);
+    assert!(d["outline"].to_string().contains("Risks"), "{d}");
+    let (_, c) = r.json(&["check"]);
+    assert!(c["by_rule"]["S7"].is_null(), "{c}");
+
+    r.write("spec.toml", &format!("{toml}\n[types.adr]\nsections = [\"Decision\", \"Rollout plan\"]\n"));
+    let (_, out) = r.text(&["check"]);
+    assert!(out.contains(&format!("next: spec edit {id} --new-section 'Rollout plan' --text \"…\" --write")), "{out}");
+    let (code, out) = r.text(&["edit", &id, "--section", "Rollout plan", "--text", "x"]);
+    assert_ne!(code, 0);
+    assert!(out.contains("--new-section \"Rollout plan\""), "{out}");
+}
+
+#[test]
+fn an_unknown_id_points_at_a_search_not_at_help() {
+    let r = common::repo();
+    let (code, out) = r.text(&["show", "nope"]);
+    assert_ne!(code, 0);
+    assert!(out.contains("next: spec find nope"), "{out}");
+    assert!(!out.contains("spec help show"), "{out}");
+}

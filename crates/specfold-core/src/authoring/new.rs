@@ -152,7 +152,43 @@ pub fn plan(c: &Corpus, g: &Graph, req: &NewDoc) -> Result<(Created, Plan)> {
     if !rel.is_empty() {
         fm.insert("rel".into(), Value::Object(rel));
     }
-    let body = format!("\n# {}\n\n{}", req.title.trim(), req.body.as_deref().unwrap_or(&ty.template));
+    let template = with_required_sections(&ty.template, &ty.sections);
+    let body = format!("\n# {}\n\n{}", req.title.trim(), req.body.as_deref().unwrap_or(&template));
     plan.write(&path, format!("{}{body}", render(&edit::ordered(fm))), true);
     Ok((Created { id: id.to_string(), path, owner_reason: reason, slug_note }, plan))
+}
+
+/// The type's template plus a heading for each required section it lacks, so a new document
+/// passes S7 from the start.
+fn with_required_sections(template: &str, required: &[String]) -> String {
+    let have: Vec<String> = template
+        .lines()
+        .filter(|l| l.starts_with('#'))
+        .map(|l| l.trim_start_matches('#').trim().to_lowercase())
+        .collect();
+    let mut out = template.to_string();
+    for s in required {
+        let s = s.trim();
+        if s.is_empty() || have.contains(&s.to_lowercase()) {
+            continue;
+        }
+        if !out.is_empty() && !out.ends_with("\n\n") {
+            out.push_str(if out.ends_with('\n') { "\n" } else { "\n\n" });
+        }
+        out.push_str(&format!("## {s}\n"));
+    }
+    out
+}
+
+#[cfg(test)]
+mod required_sections_tests {
+    #[test]
+    fn missing_required_sections_are_appended_once() {
+        let req = vec!["Decision".to_string(), "Risks".to_string()];
+        assert_eq!(
+            super::with_required_sections("## Context\n\n## Decision\n", &req),
+            "## Context\n\n## Decision\n\n## Risks\n"
+        );
+        assert_eq!(super::with_required_sections("", &req), "## Decision\n\n## Risks\n");
+    }
 }
