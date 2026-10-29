@@ -65,9 +65,17 @@ pub fn absolute(p: &std::path::Path) -> std::path::PathBuf {
 }
 
 /// The files named on the command line, repository-relative; each must be a document file.
-fn documents_named(s: &session::Session, files: &[String]) -> Result<Vec<String>> {
+fn documents_named(s: &session::Session, files: &[String], stdin: Option<&str>) -> Result<Vec<String>> {
     let mut out = vec![];
     for f in files {
+        if f == "-" {
+            match stdin {
+                Some(_) => continue,
+                None => bail!(
+                    "-: spec check reads standard input only for a named path; next: spec check --stdin-path <FILE>  # text on stdin checked as <FILE>"
+                ),
+            }
+        }
         let abs = absolute(std::path::Path::new(f));
         let rel = match abs.strip_prefix(&s.corpus.cfg.root) {
             Ok(r) => r.to_string_lossy().replace('\\', "/"),
@@ -79,9 +87,25 @@ fn documents_named(s: &session::Session, files: &[String]) -> Result<Vec<String>
                 out.push(d.path.clone());
                 continue;
             }
-            bail!(
-                "{f}: no such file or document id (spec check takes document files or ids; `spec resolve {f}` finds a document's path; an unsaved buffer given with --stdin-path must lie in a spec directory)"
-            );
+            if stdin == Some(f.as_str()) {
+                let parent = std::path::Path::new(&rel).parent().map(|p| p.to_string_lossy().replace('\\', "/"));
+                let sibling = s.corpus.docs.iter().find(|d| {
+                    std::path::Path::new(&d.path).parent().map(|p| p.to_string_lossy().replace('\\', "/")) == parent
+                });
+                match sibling {
+                    Some(d) => {
+                        let kind = d.id.to_string().split(':').next().unwrap_or("").to_string();
+                        bail!(
+                            "{f}: the name does not follow this directory's document naming (like {}), so it is not a document; next: spec new {kind} --title <TITLE> --dry-run  # prints a path to use",
+                            d.path
+                        )
+                    }
+                    None => bail!(
+                        "{f}: not in a spec directory, so the buffer is not a document; next: spec doctor  # lists the spec directories"
+                    ),
+                }
+            }
+            bail!("{f}: no such file or document id (spec check takes document files or ids); next: spec resolve {f}");
         }
         if !known {
             bail!(
@@ -104,7 +128,7 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
     }
     let s = session::open(g)?;
     let files: Vec<String> = a.files.iter().chain(&a.stdin_path).cloned().collect();
-    let only = documents_named(&s, &files)?;
+    let only = documents_named(&s, &files, a.stdin_path.as_deref())?;
     let range = match (&a.changed, a.staged) {
         (Some(base), _) => Range::Changed(base.clone()),
         (None, true) => Range::Staged,
