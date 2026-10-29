@@ -3,3 +3,4 @@
 pub mod body;
 pub mod frontmatter;
 pub mod sections;
+pub mod tasks;

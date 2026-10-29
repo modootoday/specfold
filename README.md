@@ -71,7 +71,8 @@ document has chapters or attachments. Projects can disable, change or add types 
 Statuses are `draft`, `active`, `superseded`, `archived` and `rejected`, and only move forward.
 Relations are written once, on the document that makes them: `rel.governs` (code paths),
 `rel.supersedes`, `rel.implements`, `rel.evidence`, `rel.depends_on`. Body references are
-`[[<id>]]` or `[[<id>#<anchor>]]`.
+`[[<id>]]` or `[[<id>#<anchor>]]`. Task items (`- [ ]`, `- [x]`) are counted: `spec show` reports
+a document's progress and `spec show <id> --tasks` lists each item with its file and line.
 
 ## Commands
 

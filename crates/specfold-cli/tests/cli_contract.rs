@@ -11,6 +11,7 @@ fn invocations(sot: &str, adr: &str) -> Vec<Vec<String>> {
         v(&["context", "services/shop/src/cart/total.rs"]),
         v(&["find", "cart"]),
         v(&["show", sot]),
+        v(&["show", adr, "--tasks"]),
         v(&["resolve", sot]),
         v(&["graph", "impact", sot]),
         v(&["owners"]),
