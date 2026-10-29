@@ -32,6 +32,9 @@ pub struct NewArgs {
     /// Create a bundle directory even for a single-file type.
     #[arg(long)]
     pub bundle: bool,
+    /// For skill, rule and agent: the description (defaults to the title).
+    #[arg(long)]
+    pub description: Option<String>,
     /// Show what would be created without writing.
     #[arg(long)]
     pub dry_run: bool,

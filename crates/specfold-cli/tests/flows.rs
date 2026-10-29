@@ -346,3 +346,28 @@ fn audit_names_skill_copies_that_drift_from_agents_and_claude_without_agents() {
     assert!(text.contains("skill 'orphan' has no source under .agents/skills"), "{v}");
     assert!(text.contains("does not include AGENTS.md"), "{v}");
 }
+
+#[test]
+fn new_skill_rule_and_agent_write_templates_without_ids() {
+    let r = common::repo();
+    let toml = r.read("spec.toml") + "[[assets]]\nkind = \"skill\"\npath = \".agents/skills\"\n";
+    r.write("spec.toml", &toml);
+    let (code, v) =
+        r.json(&["new", "skill", "--title", "PDF tools", "--description", "Read and fill PDFs.", "--dry-run"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["path"], ".agents/skills/pdf-tools/SKILL.md", "{v}");
+    assert!(!r.path().join(".agents/skills/pdf-tools/SKILL.md").exists(), "a dry run writes nothing");
+    assert_eq!(r.json(&["new", "skill", "--title", "PDF tools", "--description", "Read and fill PDFs."]).0, 0);
+    let text = r.read(".agents/skills/pdf-tools/SKILL.md");
+    assert!(text.starts_with("---\nname: pdf-tools\ndescription: Read and fill PDFs.\n---\n"), "{text}");
+    assert!(!text.contains("id:"), "{text}");
+    let (code, _) = r.json(&["new", "skill", "--title", "PDF tools"]);
+    assert_ne!(code, 0, "an existing skill is not overwritten");
+    let (code, v) = r.json(&["new", "rule", "--title", "Code style"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["path"], ".cursor/rules/code-style.mdc", "{v}");
+    assert_eq!(v["declared"], false, "{v}");
+    assert_eq!(r.json(&["new", "agent", "--title", "Reviewer"]).1["path"], ".claude/agents/reviewer.md");
+    let (_, v) = r.json(&["check", "--rule", "A1"]);
+    assert_eq!(v["errors"], 0, "templates pass the asset rule: {v}");
+}

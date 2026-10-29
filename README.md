@@ -134,6 +134,8 @@ path = ".agents/skills"   # a directory or a glob
 name or description is an error, the rest warnings), duplicate names (A2) and paths or `spec`
 commands in asset text that do not exist (A3). `.agents/` is the source; `spec audit --kind drift`
 names copies that differ from it.
+`spec new skill|rule|agent --title <t> [--description <d>]` writes a template (no id) and
+never overwrites an existing file.
 
 ## Importing an existing layout
 
