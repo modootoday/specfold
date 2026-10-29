@@ -27,7 +27,8 @@ fn found(line: &str) -> Vec<String> {
             }
             let rest = &line[at + home.len()..];
             let user: String = rest.chars().take_while(|c| c.is_alphanumeric() || "._-".contains(*c)).collect();
-            if user.is_empty() {
+            // The hosted CI runner's home is the same on every run, not one person's machine.
+            if user.is_empty() || (*home == "/home/" && user == "runner") {
                 continue;
             }
             out.push(line[start..at + home.len() + user.len()].to_string());
@@ -41,7 +42,7 @@ impl Rule for NoMachinePaths {
         &RuleInfo {
             id: "A4",
             title: "agent assets use repository paths, not machine paths",
-            explain: "A skill, rule or instruction file (declared in spec.toml, or at a usual place such as AGENTS.md, CLAUDE.md or .agents/skills/*/SKILL.md) is read on every contributor's machine and in CI. A path under one person's home directory (/Users/<name>, /home/<name>, C:\\Users\\<name>) exists only there, so the agent following it fails or reads the wrong file elsewhere. Write the path relative to the repository root instead. Reported as warnings; there is no automatic fix because only the author knows where the file lives in the repository.",
+            explain: "A skill, rule or instruction file (declared in spec.toml, or at a usual place such as AGENTS.md, CLAUDE.md or .agents/skills/*/SKILL.md) is read on every contributor's machine and in CI. A path under one person's home directory (/Users/<name>, /home/<name>, C:\\Users\\<name>) exists only there; the hosted CI runner's /home/runner/ is the same everywhere and is not reported, so the agent following it fails or reads the wrong file elsewhere. Write the path relative to the repository root instead. Reported as warnings; there is no automatic fix because only the author knows where the file lives in the repository.",
             on_commit: true,
         }
     }
@@ -69,6 +70,8 @@ mod tests {
         assert_eq!(found(r"open C:\Users\Kim\x"), vec![r"C:\Users\Kim"]);
         assert!(found("https://example.com/home/page").is_empty());
         assert!(found("the /home/ directory").is_empty());
+        assert!(found("cache in /home/runner/.cargo").is_empty());
+        assert_eq!(found("see /home/runner2/x"), vec!["/home/runner2"]);
         assert!(found("~/projects and ./home/x").is_empty());
     }
 }

@@ -38,6 +38,10 @@ fn path_token(raw: &str, linked: bool) -> Option<&str> {
     if !linked && !t.contains('/') {
         return None;
     }
+    // A git ref such as `origin/main` or `refs/heads/x` names a branch, not a file.
+    if !linked && ["origin/", "upstream/", "refs/"].iter().any(|p| t.starts_with(p)) {
+        return None;
+    }
     Some(t)
 }
 
@@ -61,7 +65,7 @@ impl Rule for AssetRefsExist {
         &RuleInfo {
             id: "A3",
             title: "paths and spec commands in agent assets exist",
-            explain: "Agents act on what their instruction files and skills name. In every asset declared under [[assets]], a backticked path with a slash or a relative Markdown link must name a file or directory, looked up beside the asset and then from the repository root, and a `spec <command>` (inline or on a line of a code block) must be a command this version has. URLs, ids, globs and placeholders such as <id> are not read as paths. Fix the asset, or restore what it names. Reported as warnings.",
+            explain: "Agents act on what their instruction files and skills name. In every asset declared under [[assets]], a backticked path with a slash or a relative Markdown link must name a file or directory, looked up beside the asset and then from the repository root, and a `spec <command>` (inline or on a line of a code block) must be a command this version has. URLs, ids, globs, git refs such as origin/main and placeholders such as <id> are not read as paths. Fix the asset, or restore what it names. Reported as warnings.",
             on_commit: false,
         }
     }
@@ -131,6 +135,10 @@ mod tests {
         assert_eq!(path_token("sot:shop/cart", false), None);
         assert_eq!(path_token("src/**/*.rs", false), None);
         assert_eq!(path_token("spec show <id>", false), None);
+        assert_eq!(path_token("origin/main", false), None);
+        assert_eq!(path_token("origin/feat/x", false), None);
+        assert_eq!(path_token("refs/heads/main", false), None);
+        assert_eq!(path_token("origin/notes.md", true), Some("origin/notes.md"));
         assert_eq!(spec_subcommand("spec check --staged"), Some("check"));
         assert_eq!(spec_subcommand("$ spec show x"), Some("show"));
         assert_eq!(spec_subcommand("spec --json"), None);
