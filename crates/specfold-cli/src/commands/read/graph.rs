@@ -1,5 +1,6 @@
 //! `spec graph`: the whole graph as a tree, Mermaid or DOT; impact, chain and governs.
 
+use super::graph_box;
 use crate::cli::args::{global::Global, read::GraphArgs};
 use crate::output::Output;
 use crate::session::{self, Session};
@@ -38,6 +39,32 @@ pub fn run(g: &Global, a: &GraphArgs) -> Result<Output> {
             let lines = match a.format.as_str() {
                 "mermaid" => mermaid(&s),
                 "dot" => dot(&s),
+                "box" => {
+                    let labels: Vec<String> =
+                        c.docs.iter().map(|d| format!("{}\n{}", d.id, d.status().unwrap_or_default())).collect();
+                    let edges: Vec<_> = s.graph.edges.iter().map(|e| (e.from, e.to, e.kind.clone())).collect();
+                    let columns = std::env::var("COLUMNS").ok().and_then(|v| v.parse().ok()).unwrap_or(100);
+                    let why = match graph_box::draw(&labels, &edges, a.depth, columns, use_ascii(a.ascii)) {
+                        Ok(d) => {
+                            o = o.field("diagram", d.lines.join("\n"));
+                            return Ok(d
+                                .lines
+                                .into_iter()
+                                .fold(o, |o, x| o.head(x))
+                                .next("spec graph  # the tree, with governs paths"));
+                        }
+                        Err(graph_box::Skip::TooMany(k)) => format!(
+                            "{k} documents is more than a box drawing holds ({}); add --depth N",
+                            graph_box::MAX_NODES
+                        ),
+                        Err(graph_box::Skip::TooWide { need, have }) => {
+                            format!("boxes need {need} columns, COLUMNS is {have}; add --depth N or widen the terminal")
+                        }
+                    };
+                    let mut l = vec![format!("{why}; showing the tree")];
+                    l.extend(tree(&s, a.depth, glyphs(a.ascii)));
+                    return Ok(l.into_iter().fold(o, |o, x| o.head(x)).next("spec graph --format mermaid"));
+                }
                 _ => {
                     let mut l = vec![format!("{} documents, {} edges", c.docs.len(), s.graph.edges.len())];
                     l.extend(tree(&s, a.depth, glyphs(a.ascii)));
@@ -139,13 +166,17 @@ struct Glyphs {
 }
 
 /// Box drawing, or ASCII when asked or when the locale is not UTF-8.
-fn glyphs(ascii: bool) -> Glyphs {
+fn use_ascii(ascii: bool) -> bool {
     let locale = ["LC_ALL", "LC_CTYPE", "LANG"].iter().find_map(|k| std::env::var(k).ok().filter(|v| !v.is_empty()));
     let utf8 = locale.is_none_or(|l| {
         let l = l.to_ascii_lowercase();
         l.contains("utf-8") || l.contains("utf8")
     });
-    if ascii || !utf8 {
+    ascii || !utf8
+}
+
+fn glyphs(ascii: bool) -> Glyphs {
+    if use_ascii(ascii) {
         Glyphs { tee: "|-- ", last: "`-- ", bar: "|   ", arrow: "->" }
     } else {
         Glyphs { tee: "├─ ", last: "└─ ", bar: "│  ", arrow: "→" }
