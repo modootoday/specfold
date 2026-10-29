@@ -29,7 +29,7 @@ pub enum Cmd {
     /// The documents that govern code paths: read this before changing code.
     Context(read::ContextArgs),
     /// Find documents by words, type, owner, status or tag.
-    #[command(alias = "list", alias = "ls")]
+    #[command(visible_alias = "list", visible_alias = "ls")]
     Find(read::FindArgs),
     /// Frontmatter, outline, one section, or relations of a document.
     Show(read::ShowArgs),

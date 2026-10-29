@@ -171,3 +171,18 @@ fn readme_stays_short() {
     let n = read("README.md").lines().count();
     assert!(n <= 150, "README.md has {n} lines; move detail to docs/");
 }
+
+#[test]
+fn find_aliases_are_listed_in_help() {
+    let r = common::repo();
+    let (_, table) = r.text(&["help", "--markdown"]);
+    assert!(
+        table.contains(
+            "| `spec find` | Find documents by words, type, owner, status or tag (also `spec list`, `spec ls`) |"
+        ),
+        "{table}"
+    );
+    let (_, v) = r.json(&["help"]);
+    let find = v["items"].as_array().unwrap().iter().find(|c| c["name"] == "find").unwrap().clone();
+    assert_eq!(find["aliases"], serde_json::json!(["list", "ls"]));
+}

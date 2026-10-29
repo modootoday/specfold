@@ -80,7 +80,7 @@ times and task items: [docs/concepts/index.md](docs/concepts/index.md).
 | command | what it does |
 | ------- | ------------ |
 | `spec context` | The documents that govern code paths: read this before changing code |
-| `spec find` | Find documents by words, type, owner, status or tag |
+| `spec find` | Find documents by words, type, owner, status or tag (also `spec list`, `spec ls`) |
 | `spec show` | Frontmatter, outline, one section, or relations of a document |
 | `spec resolve` | Resolve an id, alias, path or slug to one document |
 | `spec graph` | Graph queries: impact, chain, governs; or the whole graph |
