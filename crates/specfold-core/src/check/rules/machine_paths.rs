@@ -1,7 +1,6 @@
 //! A4: agent assets name paths inside the repository, not on one person's machine. A home
 //! directory path works for whoever wrote it and for nobody else.
 
-use crate::assets;
 use crate::check::context::Ctx;
 use crate::check::finding::Finding;
 use crate::check::rule::{Rule, RuleInfo};
@@ -42,20 +41,17 @@ impl Rule for NoMachinePaths {
         &RuleInfo {
             id: "A4",
             title: "agent assets use repository paths, not machine paths",
-            explain: "A skill, rule or instruction file is read on every contributor's machine and in CI. A path under one person's home directory (/Users/<name>, /home/<name>, C:\\Users\\<name>) exists only there, so the agent following it fails or reads the wrong file elsewhere. Write the path relative to the repository root instead. Reported as warnings; there is no automatic fix because only the author knows where the file lives in the repository.",
+            explain: "A skill, rule or instruction file (declared in spec.toml, or at a usual place such as AGENTS.md, CLAUDE.md or .agents/skills/*/SKILL.md) is read on every contributor's machine and in CI. A path under one person's home directory (/Users/<name>, /home/<name>, C:\\Users\\<name>) exists only there, so the agent following it fails or reads the wrong file elsewhere. Write the path relative to the repository root instead. Reported as warnings; there is no automatic fix because only the author knows where the file lives in the repository.",
             on_commit: true,
         }
     }
 
     fn run(&self, ctx: &Ctx, out: &mut Vec<Finding>) {
-        for a in assets::load(&ctx.corpus.cfg) {
-            if !ctx.scope.covers_path(&a.path) {
-                continue;
-            }
-            for (i, line) in a.text.lines().enumerate() {
+        for (path, text) in super::hidden::agent_files(ctx) {
+            for (i, line) in text.lines().enumerate() {
                 for p in found(line) {
                     let msg = format!("machine-specific path {p}: write it relative to the repository root");
-                    out.push(Finding::warn("A4", &a.path, i + 1, msg));
+                    out.push(Finding::warn("A4", &path, i + 1, msg));
                 }
             }
         }

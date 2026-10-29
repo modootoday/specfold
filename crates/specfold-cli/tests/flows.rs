@@ -1626,3 +1626,14 @@ fn hidden_characters_in_undeclared_agent_files_print_escaped_and_point_at_one_ch
     let got = replies.iter().find(|m| m["id"] == 2).unwrap();
     assert_eq!(got["result"][0]["title"], "spec: remove `\\u{200B}`", "{got}");
 }
+
+#[test]
+fn machine_paths_in_undeclared_agent_files_are_reported_once() {
+    let r = common::repo();
+    r.write("CLAUDE.md", "# Notes\nrun /Users/ana/bin/tool\n");
+    r.write(".cursor/rules/x.mdc", "see /home/dev/repo\n");
+    let (_, v) = r.json(&["check", "--rule", "A4"]);
+    let mut paths: Vec<&str> = v["items"].as_array().unwrap().iter().map(|f| f["path"].as_str().unwrap()).collect();
+    paths.sort();
+    assert_eq!(paths, vec![".cursor/rules/x.mdc", "CLAUDE.md"], "{v}");
+}
