@@ -1553,3 +1553,16 @@ fn names_resolve_in_check_and_typos_get_candidates() {
     let (_, v) = r.json(&["fix"]);
     assert!(v["next"].as_str().unwrap().starts_with("spec explain "), "{v}");
 }
+
+#[test]
+fn machine_paths_in_agent_assets_are_reported() {
+    let r = common::repo();
+    let toml = r.read("spec.toml") + "[[assets]]\nkind = \"instructions\"\npath = \"AGENTS.md\"\n";
+    r.write("spec.toml", &toml);
+    r.write("AGENTS.md", "# Agents\nRun /Users/ana/tools/build.sh, not https://example.com/home/x.\n");
+    let (_, v) = r.json(&["check", "--rule", "A4"]);
+    let items = v["items"].as_array().unwrap();
+    assert_eq!(items.len(), 1, "{v}");
+    assert_eq!(items[0]["line"], 2, "{v}");
+    assert!(items[0]["message"].as_str().unwrap().contains("/Users/ana"), "{v}");
+}

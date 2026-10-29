@@ -98,6 +98,7 @@ description: Every rule spec check runs, grouped by family.
 | **A1** | agent assets have the frontmatter their tools read |
 | **A2** | asset names are unique within a tool |
 | **A3** | paths and spec commands in agent assets exist |
+| **A4** | agent assets use repository paths, not machine paths |
 
 ## Numbers
 

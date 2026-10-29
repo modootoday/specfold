@@ -12,6 +12,7 @@ mod hidden;
 mod ids;
 mod lifecycle;
 mod links;
+mod machine_paths;
 mod placement;
 mod schema;
 pub use schema::unknown_key;
@@ -57,6 +58,7 @@ pub fn catalog() -> Vec<Box<dyn Rule>> {
         Box::new(assets::AssetFrontmatter),
         Box::new(assets::AssetNamesUnique),
         Box::new(asset_refs::AssetRefsExist),
+        Box::new(machine_paths::NoMachinePaths),
         Box::new(counts::CountsMatch),
         Box::new(hidden::HiddenChars),
     ]
