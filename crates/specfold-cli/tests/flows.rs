@@ -861,3 +861,18 @@ fn find_open_tasks_lists_unfinished_documents() {
     assert_eq!(v["items"][0]["open_tasks"], 2, "{v}");
     assert_eq!(v["next"], format!("spec show {open} --tasks"), "{v}");
 }
+
+#[test]
+fn graph_impact_lists_assets_that_name_the_document() {
+    let r = common::repo();
+    let toml = r.read("spec.toml") + "[[assets]]\nkind = \"instructions\"\npath = \"AGENTS.md\"\n";
+    r.write("spec.toml", &toml);
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    r.write("AGENTS.md", &format!("# Agents\n\nRead {id} before changing the cart.\n"));
+    let (code, v) = r.json(&["graph", "impact", &id]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["assets"][0]["path"], "AGENTS.md", "{v}");
+    assert_eq!(v["assets"][0]["names"][0], id.as_str(), "{v}");
+    let (_, text) = r.text(&["graph", "impact", &id]);
+    assert!(text.contains("asset instructions AGENTS.md  names "), "{text}");
+}
