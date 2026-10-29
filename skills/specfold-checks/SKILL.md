@@ -1,6 +1,6 @@
 ---
 name: specfold-checks
-description: Run and act on specfold's checks - spec check (document rules), spec verify (the verify commands sources of truth declare), spec guard (denied terms, patterns and files) and spec audit - read each finding with spec explain, apply mechanical fixes with spec fix, and manage the [check] baseline and guard baselines so only new findings fail. Use when spec check, spec verify or spec guard fails in a hook or by hand, when adopting specfold on a repository that already has broken references, or when asked to audit documents. Not for creating documents (specfold-documents).
+description: Run and act on specfold's checks - spec check (document rules), spec verify (the verify commands sources of truth declare), spec guard (denied terms, patterns and files) and spec audit - diagnose setup failures with spec doctor, read each finding with spec explain, apply mechanical fixes with spec fix, and manage the [check] baseline and guard baselines so only new findings fail. Use when spec check, spec verify or spec guard fails in a hook or by hand, when adopting specfold on a repository that already has broken references, or when asked to audit documents. Not for creating documents (specfold-documents).
 metadata:
   tier: open
   level: L2
@@ -13,7 +13,9 @@ metadata:
 # Acting on specfold checks
 
 Exit codes: 0 nothing to report, 1 findings, 2 usage error, 3 environment (a missing tool, an
-unreadable file). Each finding names its rule, its file and line, and a fix.
+unreadable file). Each finding names its rule, its file and line, and a fix. When a command
+fails before any rule runs (spec.toml does not load, exit 3), run `spec doctor` first: it lists
+setup problems with their fixes and writes nothing.
 
 ## Scope the run
 
@@ -39,9 +41,24 @@ spec fix --rule L2 --write
 the candidates; choose one with `--pick <id>` on that `path:line`. Everything else is fixed by
 hand, or by changing the document's status or relations with `spec set`.
 
+Some findings carry a command to finish by hand instead of a replacement: a missing required
+section (S7) names `spec edit <id> --new-section <name> --text "…" --write`; fill in the text.
+
+Rules for agent files: H1 (hidden characters; `spec fix --rule H1 --write` removes them), A1
+(skill and agent format), A2 (two assets with one name), A3 (paths and `spec` commands that do
+not exist) and A4 (a path under one person's home directory; write it relative to the
+repository). H1 and A4 also cover AGENTS.md, CLAUDE.md and the usual skill directories when
+spec.toml declares no assets.
+
 A `spec verify` failure means code no longer keeps a rule a source of truth states. Decide
 which is right: fix the code, or update the source of truth in the same change. Never edit the
 verify command just to make it pass.
+
+## In editors and CI
+
+`spec check --format editor` prints `path:line:col: severity RULE: message` for problem
+matchers; `spec lsp` shows the same findings live, with quick fixes. CI annotations come from
+`--format github`, `sarif`, `gitlab` or `rdjson`.
 
 ## Baselines
 
