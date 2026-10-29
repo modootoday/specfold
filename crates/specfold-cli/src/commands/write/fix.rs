@@ -45,5 +45,13 @@ pub fn run(g: &Global, a: &FixArgs) -> Result<Output> {
         rerun.push_str(&format!(" --rule {r}"));
     }
     let o = preview::finish(o, &plan, &s.corpus.cfg.root, a.write, &rerun)?;
-    Ok(if a.write { o.next("spec check") } else { o })
+    // With nothing to apply, `--write` would do nothing: point at the first finding left to
+    // decide, or at a clean re-check.
+    let undecided = (applied == 0).then(|| findings.first()).flatten();
+    Ok(match undecided {
+        _ if a.write => o.next("spec check"),
+        Some(f) => o.next(format!("spec explain {}  # first decision: {}:{}", f.rule, f.path, f.line)),
+        None if applied == 0 => o.next("spec check"),
+        None => o,
+    })
 }

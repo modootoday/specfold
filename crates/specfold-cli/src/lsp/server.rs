@@ -163,8 +163,13 @@ fn choices(f: &Finding) -> Vec<(String, String)> {
             None => vec![],
         },
         "L2" => match f.message.strip_prefix("cites the path ") {
-            Some(p) => each(p, &|c| format!("[[{c}]]")),
+            Some(p) => each(p.split(", which is not a document").next().unwrap_or(p), &|c| format!("[[{c}]]")),
             None => vec![],
+        },
+        "S4" => match f.message.strip_prefix("status '").and_then(|r| r.split_once("' is not allowed")) {
+            // The value itself, unless it also occurs inside the key on that line.
+            Some((status, _)) if !"status".contains(status) => each(status, &|c| c.to_string()),
+            _ => vec![],
         },
         _ => vec![],
     }
@@ -432,4 +437,24 @@ pub fn serve(global: Global) -> std::io::Result<()> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use specfold_core::check::Severity;
+
+    fn finding(rule: &str, message: &str, candidates: &[&str]) -> Finding {
+        Finding::new(rule, Severity::Error, "a.md", 1, message)
+            .with_candidates(candidates.iter().map(|s| s.to_string()).collect())
+    }
+
+    #[test]
+    fn typos_get_one_replacement_per_candidate() {
+        let f = finding("S4", "status 'actve' is not allowed for adr (allowed: draft, active)", &["active", "draft"]);
+        assert_eq!(choices(&f)[0], ("actve".to_string(), "active".to_string()));
+        let f = finding("L2", "cites the path a/b.md, which is not a document (no such file)", &["adr:x/1"]);
+        assert_eq!(choices(&f), vec![("a/b.md".to_string(), "[[adr:x/1]]".to_string())]);
+        assert!(choices(&finding("S4", "status 'tat' is not allowed for adr", &["draft"])).is_empty());
+    }
 }

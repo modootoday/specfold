@@ -1,6 +1,6 @@
 //! S rules: every document is where its type says, and its frontmatter has the right shape.
 
-use super::support::{COMMON_KEYS, REQUIRED_KEYS, key_line, quote};
+use super::support::{COMMON_KEYS, REQUIRED_KEYS, key_line, nearest, quote};
 use crate::check::context::Ctx;
 use crate::check::finding::Finding;
 use crate::check::rule::{Rule, RuleInfo};
@@ -235,7 +235,7 @@ impl Rule for StatusAllowed {
                             status_hint(&status, &ty.statuses)
                         ),
                     )
-                    .with_candidates(ty.statuses.clone()),
+                    .with_candidates(by_closeness(&status, &ty.statuses)),
                 );
             }
         }
@@ -303,9 +303,31 @@ fn status_hint(status: &str, allowed: &[String]) -> String {
         "deprecated" | "replaced" => "superseded",
         "declined" => "rejected",
         "closed" | "obsolete" | "retired" => "archived",
-        _ => return String::new(),
+        _ => {
+            return match nearest(status, allowed.iter().map(String::as_str)) {
+                Some(n) => format!("; did you mean '{n}'?"),
+                None => String::new(),
+            };
+        }
     };
     if allowed.iter().any(|s| s == meant) { format!("; for '{status}' use '{meant}'") } else { String::new() }
+}
+
+/// The allowed statuses with a near miss of `status` (a typo) or the word it stands for first,
+/// so a picker offers the likely one on top.
+fn by_closeness(status: &str, allowed: &[String]) -> Vec<String> {
+    let hint = status_hint(status, allowed);
+    let first = nearest(status, allowed.iter().map(String::as_str))
+        .map(str::to_string)
+        .or_else(|| hint.rsplit('\'').nth(1).map(str::to_string));
+    let mut out = allowed.to_vec();
+    if let Some(f) = first
+        && let Some(i) = out.iter().position(|s| *s == f)
+    {
+        let v = out.remove(i);
+        out.insert(0, v);
+    }
+    out
 }
 
 #[cfg(test)]

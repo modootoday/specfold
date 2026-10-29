@@ -83,8 +83,11 @@ fn documents_named(s: &session::Session, files: &[String], stdin: Option<&str>) 
         };
         let known = s.corpus.docs.iter().any(|d| d.path == rel || d.chapters.iter().any(|c| c == &rel));
         if !known && !std::path::Path::new(f).exists() {
-            if let Some(d) = s.corpus.docs.iter().find(|d| d.id.to_string() == *f) {
-                out.push(d.path.clone());
+            // Anything that is not a Markdown path is read the way `spec resolve` reads it: an id,
+            // alias, slug or id prefix, with the candidates when it is ambiguous.
+            if !f.ends_with(".md") {
+                let idx = session::resolve(s, f)?;
+                out.push(s.corpus.docs[idx].path.clone());
                 continue;
             }
             if stdin == Some(f.as_str()) {
@@ -105,7 +108,9 @@ fn documents_named(s: &session::Session, files: &[String], stdin: Option<&str>) 
                     ),
                 }
             }
-            bail!("{f}: no such file or document id (spec check takes document files or ids); next: spec resolve {f}");
+            let stem = std::path::Path::new(f).file_stem().map(|x| x.to_string_lossy().to_string()).unwrap_or_default();
+            let stem = stem.split('.').next().unwrap_or(&stem).to_string();
+            bail!("{f}: no such file; next: spec find {}", session::shell_word(&stem));
         }
         if !known {
             bail!(

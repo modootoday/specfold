@@ -38,6 +38,15 @@ pub fn repo_path(s: &Session, p: &str) -> String {
     }
 }
 
+/// A word quoted for a shell when it needs to be.
+pub fn shell_word(s: &str) -> String {
+    if !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric() || "-_./:#@".contains(c)) {
+        s.to_string()
+    } else {
+        format!("'{}'", s.replace('\'', "'\\''"))
+    }
+}
+
 /// Resolves a reference to one document: id, alias, path, or a unique slug.
 pub fn resolve(s: &Session, text: &str) -> Result<usize> {
     let rel = repo_path(s, text);
@@ -61,10 +70,15 @@ pub fn resolve(s: &Session, text: &str) -> Result<usize> {
                 .docs
                 .iter()
                 .map(|d| d.id.to_string())
-                .filter(|id| text.len() >= 3 && id.starts_with(text))
+                .filter(|id| {
+                    // A bare timestamp or slug part matches after the owner as well.
+                    let local = id.rsplit('/').next().unwrap_or(id);
+                    text.len() >= 3 && (id.starts_with(text) || local.starts_with(text))
+                })
                 .collect();
             match near.len() {
                 0 => bail!("'{text}' names no document"),
+                1 => bail!("'{text}' names no document; 1 id starts with it: {0}; next: spec show {0}", near[0]),
                 n => bail!(
                     "'{text}' names no document; {n} id(s) start with it: {}{}",
                     near.iter().take(5).cloned().collect::<Vec<_>>().join(", "),
