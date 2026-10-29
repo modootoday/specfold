@@ -121,8 +121,29 @@ pub fn run(g: &Global, a: &GraphArgs) -> Result<Output> {
             }
             Ok(o.next(format!("spec context {rel}")))
         }
-        (Some(q), None) => bail!("'{q}' needs a target: spec graph {q} <id or path>"),
-        (Some(q), _) => bail!("unknown query '{q}' (impact, chain, governs)"),
+        (Some(q), _) if !["impact", "chain", "governs"].contains(&q) => {
+            let whole = match q {
+                "tree" => "spec graph".to_string(),
+                "ascii" => "spec graph --ascii".to_string(),
+                "mermaid" | "dot" | "box" => format!("spec graph --format {q}"),
+                _ => "spec graph impact <id>".to_string(),
+            };
+            bail!("unknown query '{q}' (impact, chain, governs; the whole graph takes no query); next: {whole}")
+        }
+        (Some(q), None) => {
+            let example = if q == "governs" {
+                c.docs.iter().flat_map(|d| governs(&s, d)).next()
+            } else {
+                session::example_doc(&s, (q == "chain").then_some("adr"))
+            };
+            match example {
+                Some(t) => bail!("'{q}' needs a target: spec graph {q} <id or path>; next: spec graph {q} {t}"),
+                None => bail!(
+                    "'{q}' needs a target, and there are no documents yet; next: spec new adr --title 'First decision'"
+                ),
+            }
+        }
+        (Some(_), Some(_)) => unreachable!("every query is matched above"),
     }
 }
 

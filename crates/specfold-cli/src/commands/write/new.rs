@@ -18,7 +18,7 @@ pub fn run(g: &Global, a: &NewArgs) -> Result<Output> {
     let governs: Vec<String> = a.governs.iter().map(|p| session::repo_path(&s, p)).collect();
     let req = NewDoc {
         ty: a.ty.clone(),
-        title: a.title.clone(),
+        title: a.title().to_string(),
         governs,
         owner: a.owner.clone(),
         slug: a.slug.clone(),
@@ -48,7 +48,14 @@ pub fn run(g: &Global, a: &NewArgs) -> Result<Output> {
     {
         o = o.field("ignored", note.clone()).foot(note);
     }
-    Ok(if a.dry_run { o } else { o.next(format!("spec show {}", created.id)) })
+    // A slug taken from a few ASCII letters of a mostly non-ASCII title rarely names the
+    // document: the next step is to name it.
+    Ok(match (&created.slug_note, a.dry_run) {
+        (Some(_), false) => o.next(format!("spec mv {} --slug <kebab-case-name> --write", created.id)),
+        (Some(_), true) => o.next("rerun with --slug <kebab-case-name>"),
+        (None, true) => o,
+        (None, false) => o.next(format!("spec show {}", created.id)),
+    })
 }
 
 /// The local directory is meant to stay out of git; the first local document makes sure it does,
@@ -90,10 +97,10 @@ fn asset_kind(s: &session::Session, ty: &str) -> Option<AssetKind> {
 }
 
 fn asset(s: &session::Session, a: &NewArgs, kind: AssetKind) -> Result<Output> {
-    let name = a.slug.clone().unwrap_or_else(|| slugify(&a.title));
-    let description = a.description.clone().unwrap_or_else(|| a.title.clone());
+    let name = a.slug.clone().unwrap_or_else(|| slugify(a.title()));
+    let description = a.description.clone().unwrap_or_else(|| a.title().to_string());
     let cfg = &s.corpus.cfg;
-    let Some((path, text, covered)) = assets::template(cfg, kind, &name, &description, &a.title) else {
+    let Some((path, text, covered)) = assets::template(cfg, kind, &name, &description, a.title()) else {
         bail!("no template for {}", kind.as_str());
     };
     let full = cfg.root.join(&path);

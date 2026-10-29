@@ -786,3 +786,58 @@ fn the_first_local_document_keeps_the_local_directory_out_of_git() {
     let (_, v) = r.json(&["new", "plan", "--title", "Again", "--local"]);
     assert!(v.get("ignored").is_none(), "only once: {v}");
 }
+
+#[test]
+fn new_takes_the_title_as_a_positional_argument() {
+    let r = common::repo();
+    let (code, v) = r.json(&["new", "adr", "Use files", "--governs", "services/shop"]);
+    assert_eq!(code, 0, "{v}");
+    assert!(v["path"].as_str().unwrap().ends_with("-use-files.adr.md"), "{v}");
+    let (code, v) = r.json(&["new", "adr"]);
+    assert_ne!(code, 0);
+    assert!(v["next"].as_str().unwrap().starts_with("spec new adr --title '"), "{v}");
+}
+
+#[test]
+fn a_mostly_non_ascii_title_points_at_slug() {
+    let r = common::repo();
+    let (code, v) = r.json(&["new", "adr", "--title", "결제는 PG 하나만 쓴다", "--governs", "services/shop"]);
+    assert_eq!(code, 0, "{v}");
+    assert!(v["slug_note"].as_str().is_some(), "{v}");
+    assert!(v["next"].as_str().unwrap().contains("--slug"), "{v}");
+}
+
+#[test]
+fn fail_on_none_reports_and_names_what_it_left_out() {
+    let r = common::repo();
+    let id = r.new_doc("adr", "services/shop", "Use files");
+    let (code, v) = r.json(&["show", &id]);
+    assert_eq!(code, 0);
+    let path = r.path().join(v["path"].as_str().unwrap());
+    let doc: String = std::fs::read_to_string(&path)
+        .unwrap()
+        .lines()
+        .map(|l| if l.starts_with("status:") { "status: bogus\n".to_string() } else { format!("{l}\n") })
+        .collect();
+    std::fs::write(&path, doc).unwrap();
+    let (code, v) = r.json(&["check", "--fail-on", "none"]);
+    assert_eq!(code, 0, "{v}");
+    assert!(v["not_failing"]["S4"].as_u64().unwrap() >= 1, "{v}");
+    let (code, text) = r.text(&["check", "--fail-on", "L1"]);
+    assert_eq!(code, 0, "{text}");
+    assert!(text.contains("S4: ") && text.contains("left out of the exit code"), "{text}");
+}
+
+#[test]
+fn a_missing_target_suggests_a_real_id() {
+    let r = common::repo();
+    let id = r.new_doc("adr", "services/shop", "Use files");
+    for args in [&["graph", "impact"][..], &["graph", "chain"][..], &["show", "--tasks"][..]] {
+        let (code, v) = r.json(args);
+        assert_ne!(code, 0, "{args:?}");
+        let next = v["next"].as_str().unwrap_or_default();
+        assert!(next.contains(&id), "{args:?}: {v}");
+    }
+    let (_, v) = r.json(&["graph", "tree"]);
+    assert_eq!(v["next"], "spec graph", "{v}");
+}

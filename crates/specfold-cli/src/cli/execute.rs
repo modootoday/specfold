@@ -59,7 +59,8 @@ pub fn execute(argv: Vec<String>) -> Executed {
             // A mistyped subcommand: the nearest real one is the next command.
             let name = name.or_else(|| nearest_command(&argv));
             let code = if display_only { Code::Ok } else { Code::Usage };
-            let out = Output::error(name.as_deref().unwrap_or("spec"), code, &first, Some(help_hint(&name)));
+            let next = usage_example(&argv, kind, &rendered, name.as_deref()).unwrap_or_else(|| help_hint(&name));
+            let out = Output::error(name.as_deref().unwrap_or("spec"), code, &first, Some(next));
             return Executed {
                 output: out,
                 format: if wants_json { Format::Json } else { Format::Text },
@@ -151,4 +152,33 @@ fn split_next(msg: &str, argv: &[String]) -> (String, Option<String>) {
         return (m.to_string(), Some(cmd.join(" ")));
     }
     (msg.to_string(), None)
+}
+
+/// A runnable command for a usage error the command line can be repaired from: a missing
+/// document filled with a real id, `spec new` with its title.
+fn usage_example(argv: &[String], kind: clap::error::ErrorKind, rendered: &str, name: Option<&str>) -> Option<String> {
+    use clap::error::ErrorKind;
+    let name = name?;
+    let pos = argv.iter().position(|a| a == name)?;
+    let rest: Vec<String> = argv[pos + 1..].iter().map(|a| quote(a)).collect();
+    match (name, kind) {
+        ("new", ErrorKind::UnknownArgument | ErrorKind::MissingRequiredArgument) => {
+            let words: Vec<&String> = argv[pos + 1..].iter().filter(|a| !a.starts_with('-')).collect();
+            let ty = words.first().map(|t| t.as_str()).unwrap_or("adr");
+            let title = if words.len() > 1 {
+                words[1..].iter().map(|w| w.as_str()).collect::<Vec<_>>().join(" ")
+            } else {
+                "Use one payment provider".to_string()
+            };
+            Some(format!("spec new {} --title {}", quote(ty), quote(&title)))
+        }
+        (_, ErrorKind::MissingRequiredArgument) if rendered.contains("<DOC>") && !rendered.contains("<DOC> <") => {
+            let tasks = argv.iter().any(|a| a == "--tasks");
+            let id = crate::commands::session::example_doc_for(argv, tasks.then_some("plan"))?;
+            let mut cmd = vec!["spec".to_string(), name.to_string(), quote(&id)];
+            cmd.extend(rest);
+            Some(cmd.join(" "))
+        }
+        _ => None,
+    }
 }

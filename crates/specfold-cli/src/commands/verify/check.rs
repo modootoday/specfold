@@ -12,7 +12,7 @@ use std::time::Instant;
 fn check_fail_on(names: &[String]) -> Result<()> {
     let known: Vec<&str> = check::rules::catalog().iter().map(|r| r.info().id).collect();
     for n in names {
-        if n != "any" && !n.starts_with("x.") && !known.contains(&n.as_str()) {
+        if n != "any" && n != "none" && !n.starts_with("x.") && !known.contains(&n.as_str()) {
             bail!("--fail-on {n}: no such rule (spec explain lists them)");
         }
     }
@@ -20,6 +20,9 @@ fn check_fail_on(names: &[String]) -> Result<()> {
 }
 
 fn failing(list: &[Finding], fail_on: &[String]) -> usize {
+    if fail_on.iter().any(|r| r == "none") {
+        return 0;
+    }
     let counts = |f: &&Finding| fail_on.is_empty() || fail_on.iter().any(|r| r == "any" || r == &f.rule);
     list.iter().filter(|f| f.severity == Severity::Error).filter(counts).count()
 }
@@ -60,6 +63,15 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
     let (errors, warnings) = findings::counts(&list);
     let fails = failing(&list, &a.fail_on);
     let ms = started.elapsed().as_millis();
+    let mut excluded: std::collections::BTreeMap<String, usize> = Default::default();
+    if !a.fail_on.is_empty() && !a.fail_on.iter().any(|r| r == "any") {
+        let none = a.fail_on.iter().any(|r| r == "none");
+        for f in list.iter().filter(|f| f.severity == Severity::Error) {
+            if none || !a.fail_on.contains(&f.rule) {
+                *excluded.entry(f.rule.clone()).or_default() += 1;
+            }
+        }
+    }
     let mut o = Output::new("check")
         .field("errors", errors)
         .field("warnings", warnings)
@@ -67,6 +79,12 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
         .field("docs_total", s.corpus.docs.len())
         .field("rules", report.rules_run.clone())
         .field("elapsed_ms", ms as u64);
+    if !excluded.is_empty() {
+        o = o.field(
+            "not_failing",
+            excluded.iter().map(|(r, n)| (r.clone(), serde_json::json!(n))).collect::<serde_json::Map<_, _>>(),
+        );
+    }
     if base.is_some() {
         o = o.field("baselined", known).field("lowerable", lowerable);
     }
@@ -109,7 +127,9 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
         s.corpus.docs.len(),
         ms as f64 / 1000.0
     ));
-    let mut o = o;
+    let mut o = excluded
+        .iter()
+        .fold(o, |o, (r, n)| o.foot(format!("{r}: {n} error(s) left out of the exit code by --fail-on")));
     if a.new {
         let committed: std::collections::HashSet<String> =
             vcs::committed(&s.corpus.cfg.root).unwrap_or_default().into_iter().collect();

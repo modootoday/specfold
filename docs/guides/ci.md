@@ -57,11 +57,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: modootoday/specfold@<tag>
         with:
-          version: <tag>
           format: sarif
       - uses: github/codeql-action/upload-sarif@v3
         if: always()
         with: { sarif_file: spec-check.sarif.json }
 ```
 
-On a pull request the action checks only what it changes, from the merge base with the base branch (`changed: auto`, deepening a shallow checkout as needed); `changed: off` checks everything. `fail-on` limits which rules fail the step, and `fail-on: none` only reports. With `format: github` (the default) the findings show up on the pull request without the upload step. For pre-commit, the repository ships `.pre-commit-hooks.yaml` (`spec-check`, `spec-check-push`); they need pre-commit 4.4.0 or later and `spec` on PATH.
+On a pull request the action checks only what it changes, from the merge base with the base branch (`changed: auto`, deepening a shallow checkout as needed); `changed: off` checks everything. The release installed is the tag the action is pinned to; pinned to a branch, a commit SHA or used as `./`, the action has no release to match and needs `version: <tag>` (GitHub fills in a composite action's own ref only for release-style pins). `fail-on` limits which rules fail the step, and `fail-on: none` only reports. With `format: github` (the default) the findings show up on the pull request without the upload step. For pre-commit, the repository ships `.pre-commit-hooks.yaml` (`spec-check`, `spec-check-push`); they need pre-commit 4.4.0 or later and `spec` on PATH.

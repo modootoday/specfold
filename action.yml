@@ -7,8 +7,8 @@ branding:
 
 inputs:
   version:
-    description: Release tag to install, for example the latest tag on the releases page (a bare 1.2.3 is read as v1.2.3). Required; there is no moving default.
-    required: true
+    description: Release tag to install (a bare 1.2.3 is read as v1.2.3). Empty means the tag the action itself is pinned to (uses ...@v1.2.3); a branch, commit SHA or local ./ use needs this input. There is no moving default.
+    default: ""
   format:
     description: github (annotations and a step summary), sarif, rdjson or gitlab.
     default: github
@@ -43,6 +43,8 @@ runs:
       shell: bash
       env:
         SPECFOLD_TAG: ${{ inputs.version }}
+        # github.action_ref is only filled in through env in a composite action (actions/runner#2473).
+        SPECFOLD_ACTION_REF: ${{ github.action_ref }}
       run: bash "$GITHUB_ACTION_PATH/.github/action/install.sh" "$SPECFOLD_TAG" "$RUNNER_TEMP/specfold"
     - name: spec check
       id: check

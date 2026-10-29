@@ -11,9 +11,12 @@ pub struct NewArgs {
     /// The document type (spec schema lists them).
     #[arg(id = "type", value_name = "TYPE")]
     pub ty: String,
-    /// One-line title; also the source of the slug.
-    #[arg(long)]
-    pub title: String,
+    /// One-line title; also the source of the slug. Also accepted as the second argument.
+    #[arg(long, required_unless_present = "title_text")]
+    pub title: Option<String>,
+    /// The title, as `spec new adr "Use files"`.
+    #[arg(id = "title_text", value_name = "TITLE", conflicts_with = "title")]
+    pub title_text: Option<String>,
     /// Code this document rules; decides where it is stored.
     #[arg(long)]
     pub governs: Vec<String>,
@@ -207,4 +210,11 @@ pub struct SyncArgs {
     /// Apply the copies (otherwise a preview).
     #[arg(long)]
     pub write: bool,
+}
+
+impl NewArgs {
+    /// The title from --title or the positional argument; clap requires one of them.
+    pub fn title(&self) -> &str {
+        self.title.as_deref().or(self.title_text.as_deref()).unwrap_or_default()
+    }
 }

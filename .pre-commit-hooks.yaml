@@ -1,5 +1,5 @@
 # Hooks for pre-commit (https://pre-commit.com). They run the `spec` binary already on PATH
-# (npm install -g specfold, or cargo install specfold): the repository is a Cargo workspace,
+# (npm install -g @modootoday/specfold, or cargo install specfold): the repository is a Cargo workspace,
 # which pre-commit's rust language cannot install from.
 - id: spec-check
   name: spec check
