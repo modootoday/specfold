@@ -12,6 +12,9 @@ pub fn list() -> Value {
     json!({ "tools": tools })
 }
 
+/// Default byte budget for list items in MCP tool results (about 10k tokens).
+pub const MCP_MAX_BYTES: usize = 40_000;
+
 fn tool(c: &CommandInfo) -> Value {
     let mut props = Map::new();
     let mut required = vec![];
@@ -28,6 +31,10 @@ fn tool(c: &CommandInfo) -> Value {
     }
     props.insert("limit".into(), json!({"type": "integer", "description": "items per page (default 30)"}));
     props.insert("offset".into(), json!({"type": "integer", "description": "items to skip"}));
+    props.insert(
+        "max_bytes".into(),
+        json!({"type": "integer", "description": format!("byte budget for the listed items (default {MCP_MAX_BYTES}); whole items only, `more` and `cut_by` tell what was left")}),
+    );
     let mut description = c.about.clone();
     if !c.examples.is_empty() {
         description.push_str(&format!("\nExamples: {}", c.examples.join(" ; ")));
@@ -79,8 +86,13 @@ pub fn argv(name: &str, args: &Map<String, Value>) -> Result<Vec<String>, String
             out.push(scalar(v));
         }
     }
-    let unknown: Vec<&String> =
-        args.keys().filter(|k| !info.args.iter().any(|a| &a.name == *k) && *k != "limit" && *k != "offset").collect();
+    // A tool result lands in the model's context, so lists stay within a byte budget by default.
+    out.push("--max-bytes".into());
+    out.push(args.get("max_bytes").map(scalar).unwrap_or_else(|| MCP_MAX_BYTES.to_string()));
+    let unknown: Vec<&String> = args
+        .keys()
+        .filter(|k| !info.args.iter().any(|a| &a.name == *k) && !["limit", "offset", "max_bytes"].contains(&k.as_str()))
+        .collect();
     if !unknown.is_empty() {
         return Err(format!(
             "unknown argument(s) for {name}: {}",

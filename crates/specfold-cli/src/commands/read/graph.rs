@@ -36,9 +36,46 @@ pub fn run(g: &Global, a: &GraphArgs) -> Result<Output> {
                 .flat_map(|d| governs(&s, d).into_iter().map(move |p| json!({"from": d.id.to_string(), "path": p})))
                 .collect();
             o = o.field("governs", json!(gov)).unpaged();
+            let named = if a.assets { asset_nodes(&s) } else { vec![] };
+            if a.assets {
+                o = o.field(
+                    "assets",
+                    json!(named.iter().map(|(k, n, p, d)| json!({"kind": k, "name": n, "path": p, "names": d.iter().map(|i| id(*i)).collect::<Vec<_>>()})).collect::<Vec<_>>()),
+                );
+                if matches!(a.format.as_str(), "tree" | "box") {
+                    for (k, _, p, d) in &named {
+                        o = o.foot(format!(
+                            "asset {k} {p}  names {}",
+                            d.iter().map(|i| id(*i)).collect::<Vec<_>>().join(", ")
+                        ));
+                    }
+                }
+            }
             let lines = match a.format.as_str() {
-                "mermaid" => mermaid(&s),
-                "dot" => dot(&s),
+                "mermaid" => {
+                    let mut l = mermaid(&s);
+                    for (n, (k, _, p, d)) in named.iter().enumerate() {
+                        l.push(format!("  a{n}{{{{\"{} {}\"}}}}", k, esc_mermaid(p)));
+                        l.extend(d.iter().map(|i| format!("  a{n} -.->|names| d{i}")));
+                    }
+                    l
+                }
+                "dot" => {
+                    let mut l = dot(&s);
+                    let close = l.pop();
+                    for (k, _, p, d) in &named {
+                        l.push(format!("  \"{}\" [shape=note, label=\"{} {}\"];", esc_dot(p), k, esc_dot(p)));
+                        for i in d {
+                            l.push(format!(
+                                "  \"{}\" -> \"{}\" [label=\"names\", style=dotted];",
+                                esc_dot(p),
+                                esc_dot(&id(*i))
+                            ));
+                        }
+                    }
+                    l.extend(close);
+                    l
+                }
                 "box" => {
                     let labels: Vec<String> =
                         c.docs.iter().map(|d| format!("{}\n{}", d.id, d.status().unwrap_or_default())).collect();
@@ -308,6 +345,18 @@ fn children(
 
 fn esc_mermaid(t: &str) -> String {
     t.replace('"', "#quot;")
+}
+
+/// Agent assets that name at least one document: (kind, name, path, documents named).
+fn asset_nodes(s: &Session) -> Vec<(String, String, String, Vec<usize>)> {
+    specfold_core::assets::load(&s.corpus.cfg)
+        .iter()
+        .filter_map(|x| {
+            let mut d: Vec<usize> = x.docs(&s.graph).into_iter().collect();
+            d.sort();
+            (!d.is_empty()).then(|| (x.kind.as_str().to_string(), x.name().to_string(), x.path.to_string(), d))
+        })
+        .collect()
 }
 
 fn mermaid(s: &Session) -> Vec<String> {

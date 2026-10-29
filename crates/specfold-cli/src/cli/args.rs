@@ -80,6 +80,9 @@ pub enum Cmd {
     /// Counts of documents, references and attachments.
     #[command(after_help = "Examples:\n  spec census\n  spec census --legacy")]
     Census(verify::CensusArgs),
+    /// Read-only setup diagnosis: configuration, conflict markers, ignored local documents.
+    #[command(after_help = "Examples:\n  spec doctor\n  spec doctor --json")]
+    Doctor,
     /// Why a rule exists and how to fix it; or the configuration keys.
     Explain(setup::ExplainArgs),
     /// Document types and their frontmatter; or output schema names.

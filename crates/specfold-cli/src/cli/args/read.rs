@@ -90,6 +90,10 @@ pub struct GraphArgs {
     /// ASCII lines instead of box drawing; automatic when the locale is not UTF-8.
     #[arg(long)]
     pub ascii: bool,
+    /// Whole graph only: add the agent assets (skills, agents, commands) that name a document,
+    /// as nodes with a `names` edge. Off by default.
+    #[arg(long)]
+    pub assets: bool,
 }
 
 #[derive(Debug, Clone, Args)]
