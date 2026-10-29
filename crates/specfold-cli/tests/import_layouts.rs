@@ -11,7 +11,9 @@ fn copy_fixture(r: &common::Repo, name: &str) {
             if p.is_dir() {
                 stack.push(p);
             } else {
-                let rel = p.strip_prefix(&base).unwrap().to_string_lossy().replace('\\', "/");
+                // A directory the project forbids in this repository (`**/decisions`) is stored
+                // with a `.fixture` suffix and gets its real name in the test repository.
+                let rel = p.strip_prefix(&base).unwrap().to_string_lossy().replace('\\', "/").replace(".fixture/", "/");
                 r.write(&rel, &std::fs::read_to_string(&p).unwrap());
             }
         }

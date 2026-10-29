@@ -10,3 +10,6 @@ Import fixtures in the shapes the tools write:
   `index.md` and `template.md`, and a package's records under packages/<name>/docs/adr.
 
 The decision text is placeholder; only the layout matters.
+
+A directory this repository forbids (`**/decisions` in spec.toml) is stored with a `.fixture`
+suffix; the tests copy it under its real name.
