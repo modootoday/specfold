@@ -43,7 +43,14 @@ fn escape_property(s: &str) -> String {
 fn fix_text(f: &Finding) -> Option<String> {
     match &f.fix {
         Some(Fix::Cmd(c)) => Some(format!("fix: {c}")),
-        Some(Fix::Replace { from, to, .. }) => Some(format!("fix: replace `{from}` with `{to}` (spec fix --write)")),
+        Some(Fix::Replace { from, to, .. }) if to.is_empty() => {
+            Some(format!("fix: remove `{}` (spec fix --write)", specfold_core::check::finding::visible(from)))
+        }
+        Some(Fix::Replace { from, to, .. }) => Some(format!(
+            "fix: replace `{}` with `{}` (spec fix --write)",
+            specfold_core::check::finding::visible(from),
+            specfold_core::check::finding::visible(to)
+        )),
         None => None,
     }
 }

@@ -5,6 +5,7 @@ use crate::cli::args::global::Global;
 use crate::commands::verify::check;
 use crate::output::ci;
 use serde_json::{Value, json};
+use specfold_core::check::finding::visible;
 use specfold_core::check::{Finding, Fix, Severity};
 use specfold_core::corpus::overlay;
 use std::io::{BufRead, Write};
@@ -110,7 +111,11 @@ pub fn code_actions(uri: &str, path: Option<&Path>, params: &Value) -> Vec<Value
             && let Some(changes) = edit(from, to)
         {
             out.push(json!({
-                "title": format!("spec: replace `{from}` with `{to}`"),
+                "title": if to.is_empty() {
+                    format!("spec: remove `{}`", visible(from))
+                } else {
+                    format!("spec: replace `{}` with `{}`", visible(from), visible(to))
+                },
                 "kind": "quickfix",
                 "diagnostics": [d],
                 "isPreferred": true,
@@ -124,7 +129,7 @@ pub fn code_actions(uri: &str, path: Option<&Path>, params: &Value) -> Vec<Value
             };
             if let Some(changes) = edit(from, to) {
                 out.push(json!({
-                    "title": format!("spec: use `{to}`"),
+                    "title": format!("spec: use `{}`", visible(to)),
                     "kind": "quickfix",
                     "diagnostics": [d],
                     "edit": {"changes": changes},
@@ -141,6 +146,21 @@ pub fn code_actions(uri: &str, path: Option<&Path>, params: &Value) -> Vec<Value
         }
     }
     out
+}
+
+/// The range of the one character a finding names by column (H1), in UTF-16 units.
+fn char_range(f: &Finding, line_text: Option<&str>) -> Option<Value> {
+    if f.rule != "H1" {
+        return None;
+    }
+    let col: usize = f.message.rsplit("at column ").next()?.trim().parse().ok()?;
+    let l = line_text?;
+    let (b, c) = l.char_indices().nth(col.checked_sub(1)?)?;
+    let line = f.line.max(1) - 1;
+    Some(json!({
+        "start": {"line": line, "character": utf16(l, b)},
+        "end": {"line": line, "character": utf16(l, b + c.len_utf8())},
+    }))
 }
 
 /// The one command the server executes: a finding's own `--write` fix command.
@@ -278,16 +298,20 @@ impl Server {
             self.cache = Some((key, all));
         }
         let all = self.cache.as_ref().map(|(_, l)| l.as_slice()).unwrap_or_default();
+        let text = overlay::read(&root.join(&rel)).unwrap_or_default();
         all.iter()
             .filter(|f| f.path == rel)
             .map(|f| {
                 let line = f.line.max(1) - 1;
+                let range = char_range(f, text.lines().nth(line)).unwrap_or_else(
+                    || json!({"start": {"line": line, "character": 0}, "end": {"line": line + 1, "character": 0}}),
+                );
                 let mut d = json!({
-                    "range": {"start": {"line": line, "character": 0}, "end": {"line": line + 1, "character": 0}},
+                    "range": range,
                     "severity": if f.severity == Severity::Error { 1 } else { 2 },
                     "code": f.rule,
                     "source": "spec",
-                    "message": ci::message(f),
+                    "message": visible(&ci::message(f)),
                 });
                 let mut data = json!({"line": f.line});
                 if let Some(Fix::Replace { line, from, to, .. }) = &f.fix {

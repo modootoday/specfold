@@ -72,3 +72,20 @@ impl Finding {
         self
     }
 }
+
+/// Text made safe to print: invisible characters and controls (zero-width, bidirectional, BOM,
+/// C0/C1) are written as `\u{XXXX}`, so a terminal or an editor title shows them instead of
+/// hiding them or reordering the text around them.
+pub fn visible(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        let hide = matches!(c, '\u{200B}' | '\u{200E}' | '\u{200F}' | '\u{2028}'..='\u{202E}' | '\u{2060}'..='\u{2069}' | '\u{FEFF}')
+            || (c.is_control() && c != '\t');
+        if hide {
+            out.push_str(&format!("\\u{{{:04X}}}", c as u32));
+        } else {
+            out.push(c);
+        }
+    }
+    out
+}
