@@ -207,6 +207,17 @@ pub fn builtin() -> Vec<TypeDef> {
             fields: &["last_run"],
             template: "## When to use\n\n## Steps\n\n## Rollback\n",
         },
+        Spec {
+            name: "change",
+            about: "One user-facing change for the next release notes; active until released, then archived with release set.",
+            key: Stamp,
+            form: Either,
+            statuses: RECORD,
+            initial: "active",
+            sealed: false,
+            fields: &["kind", "release"],
+            template: "## Change\n\n## Migration\n",
+        },
     ];
     specs.into_iter().map(TypeDef::from).collect()
 }

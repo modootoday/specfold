@@ -20,6 +20,7 @@ nav_order: 1
 | design   | timestamp | a bundle of design boards                                      |
 | guide    | slug      | how to develop, operate or use something                       |
 | runbook  | slug      | a step-by-step operational procedure                           |
+| change   | timestamp | one user-facing change for the release notes                   |
 
 Projects can disable, change or add types in `spec.toml`. `spec schema <type>` prints a type's
 frontmatter.

@@ -82,6 +82,7 @@ it in with `spec hook print --for pre-commit`.
 | design   | a bundle of design boards                    |
 | guide    | how to develop, operate or use something     |
 | runbook  | a step-by-step operational procedure         |
+| change   | one user-facing change for the release notes |
 
 Ids are `<type>:<owner>/<key>` and come from where a document lives. Statuses move forward only
 (`draft`, `active`, `superseded`, `archived`, `rejected`), and relations such as `rel.governs`

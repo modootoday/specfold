@@ -562,3 +562,20 @@ fn sync_assets_refuses_paths_that_leave_the_repository_or_overlap_the_source() {
         std::fs::remove_dir_all(&outside).unwrap();
     }
 }
+
+#[test]
+fn change_notes_collect_until_a_release_archives_them() {
+    let r = common::repo();
+    let (code, v) = r.json(&["new", "change", "--governs", "services/shop/src", "--title", "Cart keeps coupons"]);
+    assert_eq!(code, 0, "{v}");
+    let id = v["id"].as_str().unwrap().to_string();
+    assert!(id.starts_with("change:"), "{v}");
+    assert_eq!(r.json(&["set", &id, "kind=fixed"]).0, 0);
+    let (_, v) = r.json(&["find", "--type", "change", "--status", "active"]);
+    assert!(v.to_string().contains(&id), "pending notes are the active ones: {v}");
+    assert_eq!(r.json(&["set", &id, "status=archived", "release=0.3.0"]).0, 0);
+    let (_, v) = r.json(&["find", "--type", "change", "--status", "active"]);
+    assert!(!v.to_string().contains(&id), "{v}");
+    let (code, v) = r.json(&["check"]);
+    assert_eq!(code, 0, "kind and release are known keys: {v}");
+}

@@ -5,7 +5,7 @@ use crate::output::Output;
 use anyhow::{Result, bail};
 
 const LINES: &[&str] = &[
-    "Design, planning and maintenance documents (sot, adr, plan, research, evidence, audit, page, design, guide, runbook and their files) are managed only with the spec CLI.",
+    "Design, planning and maintenance documents (sot, adr, plan, research, evidence, audit, page, design, guide, runbook, change and their files) are managed only with the spec CLI.",
     "Before changing code, run `spec context <path>`; it names the governing documents and their verify commands.",
     "Create documents with `spec new <type> --governs <path> --title ...` and change status or relations with `spec set`; never write a spec file name by hand.",
     "Change a body with `spec edit <id>`: `--section <h>`, `--new-section <h> [--after <h>]`, or one table row with `--row <key> --cell Status=done`; preview, then add `--write`.",
