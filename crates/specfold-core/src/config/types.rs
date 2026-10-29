@@ -1,6 +1,7 @@
 //! The shape of spec.toml, one module per section. Everything project-specific lives here; the
 //! code only knows the kinds of rules.
 
+mod assets;
 mod audit;
 mod files;
 mod guards;
@@ -12,6 +13,7 @@ mod raw;
 mod rules;
 mod verify;
 
+pub use assets::{AssetKind, AssetRoot};
 pub use audit::AuditSection;
 pub use files::{FilesSection, StoreDef};
 pub use guards::{GuardDef, GuardFixtures, RegexRule, RegexSpec};

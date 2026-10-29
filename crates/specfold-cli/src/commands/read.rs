@@ -1,5 +1,6 @@
 //! Commands that only read.
 
+pub mod assets;
 pub mod context;
 pub mod find;
 pub mod graph;

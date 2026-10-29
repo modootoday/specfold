@@ -89,7 +89,7 @@ examples and output schemas. `spec explain` documents every rule.
 | read                                | write                       | check                       |
 | ----------------------------------- | --------------------------- | --------------------------- |
 | context, find, show, resolve, graph | new, set, edit, mv, fix     | check, verify, guard        |
-| owners, log, files                  | attach, fetch, import, init | audit, census               |
+| owners, log, files, assets          | attach, fetch, import, init | audit, census               |
 
 Writes are previews until `--write` (or plain for `new` and `set`, which accept `--dry-run`).
 `spec edit` changes bodies: it replaces or appends to one section (`--section`) or the whole
@@ -117,6 +117,19 @@ wrangler …). specfold contains no network code and never handles credentials.
   orphans, owners without a source of truth, stalled plans, finished plans
   (every task ticked but still active, or archived with tasks open), open items. `--pack` groups documents
   for a reviewer, and `spec audit record` stores a review as a sealed audit document.
+
+## Agent assets
+
+Skills, rules, subagents and instruction files (AGENTS.md, CLAUDE.md) are declared in
+`spec.toml` and read beside the documents. They carry no ids and specfold never writes them:
+
+```toml
+[[assets]]
+kind = "skill"            # skill, rule, agent or instructions
+path = ".agents/skills"   # a directory or a glob
+```
+
+`spec assets` lists what was found.
 
 ## Importing an existing layout
 

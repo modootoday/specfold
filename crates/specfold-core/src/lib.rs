@@ -1,6 +1,7 @@
 //! specfold-core: typed Markdown documents, their owners, the graph between them and the checks
 //! over it. The CLI crate is a thin layer over this library.
 
+pub mod assets;
 pub mod audit;
 pub mod authoring;
 pub mod check;

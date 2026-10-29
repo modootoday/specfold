@@ -38,6 +38,8 @@ pub enum Cmd {
     Graph(read::GraphArgs),
     /// Owners, their documents and where public owners store theirs.
     Owners(read::OwnersArgs),
+    /// Agent skills, rules, subagents and instruction files declared under [[assets]]; read-only.
+    Assets(read::AssetsArgs),
     /// The history of a document's status and relations, from git.
     Log(read::LogArgs),
     /// Create a document at the place its owner and type decide.

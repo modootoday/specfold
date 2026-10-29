@@ -14,6 +14,7 @@ pub fn dispatch(cli: &Cli) -> Result<Output> {
         Cmd::Resolve(a) => read::resolve::run(g, a),
         Cmd::Graph(a) => read::graph::run(g, a),
         Cmd::Owners(a) => read::owners::run(g, a),
+        Cmd::Assets(a) => read::assets::run(g, a),
         Cmd::Log(a) => read::log::run(g, a),
         Cmd::New(a) => write::new::run(g, a),
         Cmd::Set(a) => write::set::run(g, a),

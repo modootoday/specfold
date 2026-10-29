@@ -299,3 +299,27 @@ fn edit_adds_a_new_section_after_a_named_one() {
     let (code, _) = r.json(&["edit", &id, "--new-section", "Risks", "--text", "x"]);
     assert_ne!(code, 0, "a second Risks section is refused");
 }
+
+#[test]
+fn assets_lists_declared_skills_rules_and_instructions() {
+    let r = common::repo();
+    let (_, v) = r.json(&["assets"]);
+    assert_eq!(v["total"], 0, "nothing declared, nothing read: {v}");
+    let toml = r.read("spec.toml")
+        + "[[assets]]\nkind = \"skill\"\npath = \".agents/skills\"\n[[assets]]\nkind = \"rule\"\npath = \".cursor/rules/*.mdc\"\n[[assets]]\nkind = \"instructions\"\npath = \"AGENTS.md\"\n";
+    r.write("spec.toml", &toml);
+    r.write(".agents/skills/pdf-tools/SKILL.md", "---\nname: pdf-tools\ndescription: Read PDFs.\n---\n# PDF\n");
+    r.write(".agents/skills/pdf-tools/notes.md", "not a skill file\n");
+    r.write(".cursor/rules/style.mdc", "---\ndescription: Style\nalwaysApply: true\n---\nUse tabs.\n");
+    r.write(".cursor/rules/readme.txt", "ignored\n");
+    r.write("AGENTS.md", "# Agents\n");
+    let (code, v) = r.json(&["assets"]);
+    assert_eq!(code, 0, "{v}");
+    let paths: Vec<&str> = v["items"].as_array().unwrap().iter().map(|i| i["path"].as_str().unwrap()).collect();
+    assert_eq!(paths, [".agents/skills/pdf-tools/SKILL.md", ".cursor/rules/style.mdc", "AGENTS.md"], "{v}");
+    assert_eq!(v["items"][0]["name"], "pdf-tools");
+    assert_eq!(v["items"][0]["description"], "Read PDFs.");
+    let (_, v) = r.json(&["assets", "--kind", "rule"]);
+    assert_eq!(v["total"], 1, "{v}");
+    assert_eq!(v["items"][0]["name"], "style");
+}

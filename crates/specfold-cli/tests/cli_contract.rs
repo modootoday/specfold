@@ -15,6 +15,7 @@ fn invocations(sot: &str, adr: &str) -> Vec<Vec<String>> {
         v(&["resolve", sot]),
         v(&["graph", "impact", sot]),
         v(&["owners"]),
+        v(&["assets"]),
         v(&["log", adr]),
         v(&["new", "plan", "--governs", "services/blog", "--title", "Blog launch", "--dry-run"]),
         v(&["set", adr, "tags+=money", "--dry-run"]),
