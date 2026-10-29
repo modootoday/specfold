@@ -80,3 +80,18 @@ fn malformed_markers_are_errors_without_a_fix() {
     let (_, ex) = r.text(&["explain", "N1"]);
     assert!(ex.contains("spec:count"), "{ex}");
 }
+
+#[test]
+fn plain_markdown_is_checked_only_when_listed_in_count_paths() {
+    let r = common::repo();
+    r.new_doc("adr", "services/shop", "Use files");
+    r.write("README.md", "# Shop\n\n<!-- spec:count find type=adr -->5<!-- /spec:count --> decisions.\n");
+    r.write("docs/guide.md", "<!-- spec:count find type=adr -->1<!-- /spec:count -->\n");
+    assert!(n1(&r).is_empty(), "off by default");
+    r.write("spec.toml", &(r.read("spec.toml") + "[check]\ncount_paths = [\"README.md\", \"docs/**/*.md\"]\n"));
+    let items = n1(&r);
+    assert_eq!(items.len(), 1, "{items:?}");
+    assert_eq!(items[0]["path"], "README.md");
+    assert_eq!(r.json(&["fix", "--rule", "N1", "--write"]).0, 0);
+    assert!(r.read("README.md").contains("-->1<!-- /spec:count -->"));
+}

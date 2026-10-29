@@ -50,3 +50,23 @@ facts:
   - { k: Language, v: "Rust, single binary" }
   - { k: Network, v: None required }
   - { k: Output, v: "Text and JSON, stable exit codes" }
+install:
+  title: ["Install it", "your way."]
+  lead: "Every method gives you two commands, specfold and its short alias spec."
+  methods:
+    - name: npm
+      code: "npm install --save-dev @modootoday/specfold\nnpx spec --version"
+      note: "Downloads only your platform's build through optional dependencies. Do not use --omit=optional."
+    - name: cargo
+      code: "cargo install specfold"
+      note: "Builds from crates.io with a Rust toolchain."
+    - name: Binary
+      code: "sha256sum -c specfold-<target>.tar.gz.sha256\ntar -xzf specfold-<target>.tar.gz"
+      note: "Each archive holds specfold and spec. Check the .sha256 file next to it before unpacking."
+  targets:
+    - [Linux x64 (glibc 2.35+), x86_64-unknown-linux-gnu, .tar.gz]
+    - [Linux arm64 (glibc 2.35+), aarch64-unknown-linux-gnu, .tar.gz]
+    - [macOS Intel, x86_64-apple-darwin, .tar.gz]
+    - [macOS Apple silicon, aarch64-apple-darwin, .tar.gz]
+    - [Windows x64, x86_64-pc-windows-msvc, .zip]
+  releases: https://github.com/modootoday/specfold/releases/latest

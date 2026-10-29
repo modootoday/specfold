@@ -30,7 +30,8 @@ We keep <!-- spec:count find type=adr status=active -->12<!-- /spec:count --> ac
 
 `find` takes `type`, `owner`, `status` and `tag` (comma for several); `rows=<section>` counts the
 table body rows in that section of the same file. A marker opens and closes on one line, does
-not nest, and is ignored inside code.
+not nest, and is ignored inside code. Markers in files outside documents are checked only when
+listed, e.g. `[check] count_paths = ["README.md", "docs/**/*.md"]`.
 
 ## Guards
 

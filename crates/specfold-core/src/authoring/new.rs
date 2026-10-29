@@ -40,6 +40,16 @@ pub struct Created {
     pub owner_reason: String,
 }
 
+/// The [forbid] path a new file or any directory above it matches; refusing here keeps `spec new`
+/// from writing what Z1 would then reject.
+fn forbidden(c: &Corpus, path: &str) -> Option<String> {
+    let parts: Vec<&str> = path.split('/').collect();
+    c.cfg.raw.forbid.paths.iter().find_map(|pat| {
+        let m = crate::workspace::owners::matcher(pat)?;
+        (1..=parts.len()).any(|n| m.is_match(&parts[..n].join("/"))).then(|| pat.clone())
+    })
+}
+
 pub fn plan(c: &Corpus, g: &Graph, req: &NewDoc) -> Result<(Created, Plan)> {
     let ty = c
         .cfg
@@ -87,6 +97,10 @@ pub fn plan(c: &Corpus, g: &Graph, req: &NewDoc) -> Result<(Created, Plan)> {
     let tier = if req.local { Tier::Local } else { Tier::Committed };
     let dir = paths::type_dir(&c.cfg, &c.owners, owner, tier, ty);
     let path = paths::main_file(&dir, ty, &paths::stem(ty, &key, &slug), req.bundle);
+    if let Some(pat) = forbidden(c, &path) {
+        let hint = if req.local { "change [forbid] paths or the type's directory" } else { "rerun with --local" };
+        bail!("{path} matches the forbidden path {pat} in spec.toml [forbid]; {hint}");
+    }
     let today = stamp::now_value();
     let mut fm = Map::new();
     fm.insert("id".into(), Value::String(id.to_string()));

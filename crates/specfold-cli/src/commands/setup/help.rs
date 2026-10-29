@@ -41,9 +41,12 @@ pub fn run(_g: &Global, a: &HelpArgs) -> Result<Output> {
     Ok(o.next(if a.command.is_some() { "spec explain" } else { "spec help <command>" }))
 }
 
-/// The README command table: one row per command, from the same data as --json.
+/// The README command table: one row per command, from the same data as --json. It opens with
+/// a blank line: a table right under the `<!-- spec:commands -->` comment is read by kramdown as
+/// part of an HTML block and not rendered.
 fn markdown(cmds: &[describe::CommandInfo]) -> Output {
-    let mut o = Output::new("help").unpaged().head("| command | what it does |").head("| ------- | ------------ |");
+    let mut o =
+        Output::new("help").unpaged().head("").head("| command | what it does |").head("| ------- | ------------ |");
     for c in cmds {
         let about = c.about.trim_end_matches('.').replace('|', "\\|");
         o = o.item(to_value(c).unwrap_or_default(), format!("| `spec {}` | {about} |", c.name));

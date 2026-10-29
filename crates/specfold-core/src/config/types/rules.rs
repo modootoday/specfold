@@ -39,6 +39,10 @@ pub struct CheckSection {
     /// family such as `review_*`.
     #[serde(default)]
     pub extra_keys: Vec<String>,
+    /// Markdown files outside documents whose spec:count markers are checked (rule N1), as paths
+    /// or globs such as `README.md` and `docs/**/*.md`; off when empty.
+    #[serde(default)]
+    pub count_paths: Vec<String>,
 }
 
 impl CheckSection {

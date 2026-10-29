@@ -12,8 +12,8 @@
 #hero-stage{@apply relative aspect-[4/3] w-full} #hero-stage .hero-label{@apply pointer-events-none absolute z-10 rounded bg-card/80 px-1 -translate-x-1/2 -translate-y-full font-mono text-[11px] text-fg} #hero-stage canvas{@apply absolute inset-0 h-full w-full}
 .skip{@apply absolute left-2 -top-12 z-50 rounded bg-brand px-4 py-2 text-brand-fg focus:top-2}
 :focus-visible{outline:3px solid rgb(var(--brand));outline-offset:2px}
-.btn{@apply inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-brand px-5 font-medium text-brand-fg hover:opacity-90}
-.btn-ghost{@apply inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg px-3 text-sm hover:bg-card}
+.btn{@apply inline-flex shrink-0 whitespace-nowrap min-h-[44px] items-center gap-2 rounded-lg bg-brand px-5 font-medium text-brand-fg hover:opacity-90}
+.btn-ghost{@apply inline-flex shrink-0 whitespace-nowrap min-h-[44px] min-w-[44px] items-center justify-center rounded-lg px-3 text-sm hover:bg-card}
 .navlink{@apply text-muted hover:text-fg} .navlink[aria-current]{@apply text-fg font-semibold}
 .side{@apply block rounded px-2 py-2 text-muted hover:bg-card hover:text-fg} .side[aria-current]{@apply bg-card text-brand font-semibold}
 .link{@apply text-brand underline underline-offset-2}
@@ -37,3 +37,6 @@ pre{@apply relative overflow-x-auto rounded-xl border border-line bg-card p-4 te
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 @media print{header,footer,.copy,aside,#theme,.skip{display:none!important}pre{white-space:pre-wrap}.diagram{break-inside:avoid}a[href^="http"]::after{content:" (" attr(href) ")";font-size:.8em}}
 .prose .crumbs ol{list-style:none;padding:0;margin:0}.prose .crumbs li{margin:0;padding:0}
+.prose :not(pre)>code{overflow-wrap:anywhere}
+.prose table{display:block;max-width:100%;overflow-x:auto}
+.prose .btn-ghost{text-decoration:none}

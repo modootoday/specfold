@@ -53,7 +53,12 @@ fn command_tables_match_help_markdown() {
             table.trim(),
             "{file} is stale: replace its spec:commands block with `spec help --markdown`"
         );
+        assert!(
+            read(file).contains("<!-- spec:commands -->\n\n|"),
+            "{file}: keep a blank line between <!-- spec:commands --> and the table"
+        );
     }
+    assert!(table.starts_with("\n|"), "help --markdown must open with a blank line: {table:?}");
 }
 
 #[test]
