@@ -5,6 +5,7 @@ pub mod assemble;
 mod cache;
 pub mod census;
 pub mod location;
+pub mod overlay;
 mod reader;
 mod roots;
 pub mod scan;

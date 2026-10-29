@@ -27,10 +27,39 @@ fn failing(list: &[Finding], fail_on: &[String]) -> usize {
     list.iter().filter(|f| f.severity == Severity::Error).filter(counts).count()
 }
 
+/// The files named on the command line, repository-relative; each must be a document file.
+fn documents_named(s: &session::Session, files: &[String]) -> Result<Vec<String>> {
+    let mut out = vec![];
+    for f in files {
+        if !std::path::Path::new(f).exists() {
+            bail!("{f}: no such file");
+        }
+        let rel = session::repo_path(s, f);
+        let known = s.corpus.docs.iter().any(|d| d.path == rel || d.chapters.iter().any(|c| c == &rel));
+        if !known {
+            bail!(
+                "{f}: not a document (spec check <FILE> takes a document file; `spec doctor` lists files it skipped)"
+            );
+        }
+        out.push(rel);
+    }
+    Ok(out)
+}
+
 pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
     let started = Instant::now();
     check_fail_on(&a.fail_on)?;
+    if let Some(p) = &a.stdin_path {
+        let abs = std::path::Path::new(p)
+            .canonicalize()
+            .map_err(|_| anyhow::anyhow!("--stdin-path {p}: no such file; save it once so it is a document"))?;
+        let mut text = String::new();
+        std::io::Read::read_to_string(&mut std::io::stdin(), &mut text)?;
+        specfold_core::corpus::overlay::set(abs, text);
+    }
     let s = session::open(g)?;
+    let files: Vec<String> = a.files.iter().chain(&a.stdin_path).cloned().collect();
+    let only = documents_named(&s, &files)?;
     let range = match (&a.changed, a.staged) {
         (Some(base), _) => Range::Changed(base.clone()),
         (None, true) => Range::Staged,
@@ -60,12 +89,7 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
         }
         None => (report.findings, 0, 0),
     };
-    let list = if a.files.is_empty() {
-        list
-    } else {
-        let only: Vec<String> = a.files.iter().map(|f| session::repo_path(&s, f)).collect();
-        list.into_iter().filter(|f| only.contains(&f.path)).collect()
-    };
+    let list = if only.is_empty() { list } else { list.into_iter().filter(|f| only.contains(&f.path)).collect() };
     let (errors, warnings) = findings::counts(&list);
     let fails = failing(&list, &a.fail_on);
     let ms = started.elapsed().as_millis();
