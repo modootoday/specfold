@@ -15,6 +15,9 @@ pub struct Options {
     pub online: bool,
     /// Run guards over the whole tree in a full run; staged and ranged runs always run them.
     pub guards: bool,
+    /// The spec commands this version has, for checking commands named in agent assets; empty
+    /// skips that check.
+    pub commands: Vec<String>,
 }
 
 pub struct Ctx<'a> {

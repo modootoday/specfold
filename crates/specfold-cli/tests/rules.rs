@@ -285,3 +285,26 @@ fn an_unknown_key_shows_how_to_declare_it_and_declaring_it_quiets_s1() {
     assert_eq!(code, 0, "{v}");
     assert!(rules_hit(&v).is_empty(), "{v}");
 }
+
+#[test]
+fn agent_assets_name_paths_and_spec_commands_that_exist() {
+    let r = common::repo();
+    let toml = r.read("spec.toml")
+        + "[[assets]]\nkind = \"instructions\"\npath = \"AGENTS.md\"\n[[assets]]\nkind = \"skill\"\npath = \".agents/skills\"\n";
+    r.write("spec.toml", &toml);
+    r.write(".agents/skills/cart/SKILL.md", "---\nname: cart\ndescription: Cart.\n---\nSee [the guide](guide.md) and `services/shop/src/cart/total.rs`.\n");
+    r.write(".agents/skills/cart/guide.md", "guide\n");
+    r.write(
+        "AGENTS.md",
+        "# Agents\n\nRun `spec check --staged`, read `services/shop/src/cart/old.rs` and [setup](docs/setup.md).\nIds like `sot:shop/cart` and globs like `src/**/*.rs` are not paths. See https://example.com/a/b.\n\n```sh\nspec show <id>\nspec frobnicate\n```\n",
+    );
+    let (code, v) = r.json(&["check", "--rule", "A3"]);
+    assert_eq!(code, 1, "{v}");
+    let msgs: Vec<String> =
+        v["items"].as_array().unwrap().iter().map(|i| i["message"].as_str().unwrap().to_string()).collect();
+    assert_eq!(msgs.len(), 3, "{msgs:?}");
+    assert!(msgs.iter().any(|m| m.contains("names services/shop/src/cart/old.rs")), "{msgs:?}");
+    assert!(msgs.iter().any(|m| m.contains("links to docs/setup.md")), "{msgs:?}");
+    assert!(msgs.iter().any(|m| m.contains("`spec frobnicate`")), "{msgs:?}");
+    assert_eq!(v["errors"], 0, "warnings only: {v}");
+}
