@@ -1121,3 +1121,42 @@ fn init_upgrade_raises_an_old_schema() {
     assert!(r.read("spec.toml").contains("schema = 1"));
     assert_eq!(r.json(&["check"]).0, 0);
 }
+
+#[test]
+fn mv_cited_paths_reads_staged_files() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    let (_, v) = r.json(&["show", &id]);
+    let old = v["path"].as_str().unwrap().to_string();
+    r.git(&["add", "-A"]);
+    r.git(&["commit", "-qm", "x"]);
+    r.write("NOTES.md", &format!("see {old}\n"));
+    r.git(&["add", "NOTES.md"]);
+    let (_, v) = r.json(&["mv", &id, "--slug", "basket", "--cited-paths"]);
+    assert_eq!(v["cited_paths"], 1, "staged, not committed: {v}");
+}
+
+#[test]
+fn check_reports_only_the_named_file() {
+    let r = common::repo();
+    let a = r.new_doc("sot", "services/shop", "Cart");
+    let b = r.new_doc("sot", "services/shop", "Till");
+    let path = |id: &str| r.json(&["show", id]).1["path"].as_str().unwrap().to_string();
+    let (pa, pb) = (path(&a), path(&b));
+    for p in [&pa, &pb] {
+        let t = r.read(p);
+        r.write(p, &format!("{t}\nsee [[sot:services/nowhere]]\n"));
+    }
+    let (_, all) = r.json(&["check"]);
+    let (code, v) = r.json(&["check", &pa]);
+    assert_ne!(code, 0, "{v}");
+    let items = v["items"].as_array().unwrap();
+    assert!(!items.is_empty(), "{v}");
+    assert!(items.iter().all(|i| i["path"] == pa.as_str()), "{v}");
+    assert!(items.len() < all["items"].as_array().unwrap().len(), "{all}");
+    let (_, text) = r.text(&["check", &pb, "--format", "editor"]);
+    let line = text.lines().next().unwrap();
+    assert!(line.starts_with(&format!("{pb}:")), "{text}");
+    assert!(line.contains(": error ") || line.contains(": warning "), "{text}");
+    assert!(text.lines().all(|l| l.starts_with(&format!("{pb}:"))), "{text}");
+}

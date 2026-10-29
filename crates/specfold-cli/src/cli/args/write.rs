@@ -75,7 +75,7 @@ pub struct MvArgs {
     /// local document, `local` takes one out of the commit.
     #[arg(long, value_parser = ["committed", "local"])]
     pub tier: Option<String>,
-    /// Also list committed Markdown files outside the documents that cite the old path
+    /// Also list tracked Markdown files (staged ones included) outside the documents that cite the old path
     /// (`file:line`); they are reported, not rewritten. Off by default: it reads every such file.
     #[arg(long)]
     pub cited_paths: bool,
