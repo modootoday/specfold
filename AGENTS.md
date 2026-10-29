@@ -13,6 +13,10 @@
 - **Dependencies are few and well known.** No network or TLS crates: stores and plugins are
   external commands. Add a dependency only with a reason in the pull request.
 - **Before a commit:** `cargo fmt`, `cargo clippy --all-targets -- -D warnings`, `cargo test`.
+- **Generated files follow the commands.** After changing a command, flag, help text or example,
+  regenerate what the CLI writes and commit it with the change: `spec help --llms > llms.txt`,
+  and the `<!-- spec:commands:begin/end -->` blocks in `README.md` and
+  `docs/reference/commands.md` from `spec help --markdown`. `tests/docs.rs` fails on drift.
 - **Comments say why**, in English, at most three lines. Rule explanations live in each rule's
   `explain` text, which is the documentation `spec explain` prints.
 - **No design records here.** This repository publishes code; it holds no `.spec`, ADR or
