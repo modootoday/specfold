@@ -155,7 +155,7 @@ pub struct ImportArgs {
 
 #[derive(Debug, Clone, Args)]
 #[command(
-    after_help = "Examples:\n  spec edit adr:shop/20260101000000 --section Decision --text \"Use Postgres.\"\n  spec edit adr:shop/20260101000000 --append --file addendum.md --write\n  cat body.md | spec edit research:shop/20260101000000 --write\n  spec edit adr:shop/20260101000000 --section Decision --replace --write < decision.md\n  spec edit plan:shop/20260101000000 --new-section Risks --after Goal --text \"- none yet\" --write\n\nWithout --text or --file, text piped or redirected into standard input is read; at a terminal one of them is required."
+    after_help = "Examples:\n  spec edit adr:shop/20260101000000 --section Decision --text \"Use Postgres.\"\n  spec edit adr:shop/20260101000000 --append --file addendum.md --write\n  cat body.md | spec edit research:shop/20260101000000 --write\n  spec edit adr:shop/20260101000000 --section Decision --replace --write < decision.md\n  spec edit plan:shop/20260101000000 --new-section Risks --after Goal --text \"- none yet\" --write\n  spec edit plan:shop/20260101000000 --section Tasks --row A1 --cell Status=done --write\n  spec edit plan:shop/20260101000000 --row A9 --append --text \"A9 | next | new idea\" --write\n\nWithout --text or --file, text piped or redirected into standard input is read; at a terminal one of them is required."
 )]
 pub struct EditArgs {
     /// An id, alias, path, or unique slug.
@@ -169,7 +169,14 @@ pub struct EditArgs {
     /// With --new-section: place it after this section, at the same heading level.
     #[arg(long, requires = "new_section")]
     pub after: Option<String>,
-    /// Add after the existing content instead of replacing it.
+    /// Change one table row: the row whose first cell is this text (with --section to pick the table).
+    #[arg(long, conflicts_with = "new_section")]
+    pub row: Option<String>,
+    /// With --row: set this column (by header) to a value, `Status=done`; repeatable. Without it the
+    /// text is the whole new row, `A1 | done | note`.
+    #[arg(long, requires = "row", value_name = "COLUMN=VALUE")]
+    pub cell: Vec<String>,
+    /// Add after the existing content instead of replacing it (with --row: add the row when missing).
     #[arg(long)]
     pub append: bool,
     /// Replace the content (the default; spelled out for scripts).

@@ -3,4 +3,5 @@
 pub mod body;
 pub mod frontmatter;
 pub mod sections;
+pub mod tables;
 pub mod tasks;

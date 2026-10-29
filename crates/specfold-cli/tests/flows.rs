@@ -371,3 +371,22 @@ fn new_skill_rule_and_agent_write_templates_without_ids() {
     let (_, v) = r.json(&["check", "--rule", "A1"]);
     assert_eq!(v["errors"], 0, "templates pass the asset rule: {v}");
 }
+
+#[test]
+fn edit_changes_one_table_row_by_its_key() {
+    let r = common::repo();
+    let id = r.new_doc("plan", "services/shop", "Checkout v2");
+    let table = "## Tasks\n\n| Id | Status | Note |\n|----|--------|------|\n| A1 | next | first |\n| A2 | waiting | |\n\n## Record\n\n- start\n";
+    assert_eq!(r.json(&["edit", &id, &format!("--text={table}"), "--write"]).0, 0);
+    let (code, v) = r.json(&["edit", &id, "--section", "Tasks", "--row", "A1", "--cell", "Status=done", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    let (code, v) = r.json(&["edit", &id, "--row", "A3", "--append", "--text=A3 | next | added", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    let path = r.json(&["resolve", &id]).1["path"].as_str().unwrap().to_string();
+    let text = r.read(&path);
+    assert!(text.contains("| A1 | done | first |\n| A2 | waiting | |\n| A3 | next | added |\n\n## Record"), "{text}");
+    let (code, v) = r.json(&["edit", &id, "--row", "A9", "--cell", "Status=done"]);
+    assert_ne!(code, 0, "a missing row without --append is refused: {v}");
+    let (code, _) = r.json(&["edit", &id, "--row", "A1", "--cell", "Owner=me"]);
+    assert_ne!(code, 0, "an unknown column is refused");
+}
