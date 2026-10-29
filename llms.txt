@@ -7,7 +7,7 @@ specfold is a command-line tool, `spec`. Every command takes `--help` and `--jso
 ## Commands
 
 - [spec context](docs/reference/commands.md): The documents that govern code paths: read this before changing code
-- [spec find](docs/reference/commands.md): Find documents by words, type, owner, status or tag
+- [spec find](docs/reference/commands.md): Find documents by words, type, owner, status or tag (also `spec list`, `spec ls`)
 - [spec show](docs/reference/commands.md): Frontmatter, outline, one section, or relations of a document
 - [spec resolve](docs/reference/commands.md): Resolve an id, alias, path or slug to one document
 - [spec graph](docs/reference/commands.md): Graph queries: impact, chain, governs; or the whole graph

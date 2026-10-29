@@ -49,6 +49,15 @@ pub fn run(_g: &Global, a: &HelpArgs) -> Result<Output> {
     Ok(o.next(if a.command.is_some() { "spec explain" } else { "spec help <command>" }))
 }
 
+/// " (also `spec list`, `spec ls`)" for a command with visible aliases.
+fn also(c: &describe::CommandInfo) -> String {
+    if c.aliases.is_empty() {
+        return String::new();
+    }
+    let names: Vec<String> = c.aliases.iter().map(|a| format!("`spec {a}`")).collect();
+    format!(" (also {})", names.join(", "))
+}
+
 /// The README command table: one row per command, from the same data as --json. It opens with
 /// a blank line: a table right under the `<!-- spec:commands -->` comment is read by kramdown as
 /// part of an HTML block and not rendered.
@@ -57,7 +66,7 @@ fn markdown(cmds: &[describe::CommandInfo]) -> Output {
         Output::new("help").unpaged().head("").head("| command | what it does |").head("| ------- | ------------ |");
     for c in cmds {
         let about = c.about.trim_end_matches('.').replace('|', "\\|");
-        o = o.item(to_value(c).unwrap_or_default(), format!("| `spec {}` | {about} |", c.name));
+        o = o.item(to_value(c).unwrap_or_default(), format!("| `spec {}` | {about}{} |", c.name, also(c)));
     }
     o
 }
@@ -78,7 +87,7 @@ fn llms(cmds: &[describe::CommandInfo]) -> Output {
     for c in cmds {
         o = o.item(
             to_value(c).unwrap_or_default(),
-            format!("- [spec {}](docs/reference/commands.md): {}", c.name, cell(&c.about)),
+            format!("- [spec {}](docs/reference/commands.md): {}{}", c.name, cell(&c.about), also(c)),
         );
     }
     o.foot("")

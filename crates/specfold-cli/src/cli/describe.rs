@@ -22,6 +22,9 @@ pub struct ArgInfo {
 pub struct CommandInfo {
     pub name: String,
     pub about: String,
+    /// Other names that run it.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub aliases: Vec<String>,
     pub args: Vec<ArgInfo>,
     pub examples: Vec<String>,
     /// The schema name of its --json output.
@@ -48,6 +51,7 @@ fn info(c: &clap::Command) -> CommandInfo {
     CommandInfo {
         name: c.get_name().to_string(),
         about: c.get_about().map(|s| s.to_string()).unwrap_or_default(),
+        aliases: c.get_visible_aliases().map(str::to_string).collect(),
         args: c.get_arguments().filter(|a| !GLOBAL.contains(&a.get_id().as_str())).map(arg_info).collect(),
         examples,
         output: format!("spec.{}.v1", c.get_name()),
