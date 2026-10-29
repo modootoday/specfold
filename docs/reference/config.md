@@ -23,7 +23,7 @@ description: The spec.toml tables and what each one controls.
 
 | table | controls |
 | --- | --- |
-| `[types.<name>]` | override, disable or add a type: key, statuses, fields, transitions |
+| `[types.<name>]` | override, disable or add a type: key, statuses, fields, transitions, required sections |
 | `[forbid]` | retired layouts and identifiers (rule Z1) |
 | `[aliases]` | the frozen alias table written by `spec import` |
 | `[files]` | the attachment size limit and the store for larger files |

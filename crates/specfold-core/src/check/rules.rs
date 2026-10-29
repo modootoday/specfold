@@ -15,6 +15,7 @@ mod links;
 mod machine_paths;
 mod placement;
 mod schema;
+mod sections;
 pub use schema::unknown_key;
 mod support;
 mod visibility;
@@ -29,6 +30,7 @@ pub fn catalog() -> Vec<Box<dyn Rule>> {
         Box::new(schema::StatusAllowed),
         Box::new(schema::Dates),
         Box::new(schema::RequiredByStatus),
+        Box::new(sections::RequiredSections),
         Box::new(ids::UniqueIds),
         Box::new(ids::AliasesClean),
         Box::new(ids::AliasTableFrozen),

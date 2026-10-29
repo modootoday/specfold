@@ -46,6 +46,9 @@ pub struct TypeDef {
     /// Frontmatter keys a status requires, e.g. a review date for an accepted risk.
     #[serde(default)]
     pub require_when: BTreeMap<String, Vec<String>>,
+    /// Headings every document of this type must have (rule S7); empty means none.
+    #[serde(default)]
+    pub sections: Vec<String>,
 }
 
 impl TypeDef {
@@ -86,6 +89,7 @@ impl From<Spec<'_>> for TypeDef {
             template: s.template.into(),
             transitions: BTreeMap::new(),
             require_when: BTreeMap::new(),
+            sections: vec![],
         }
     }
 }
