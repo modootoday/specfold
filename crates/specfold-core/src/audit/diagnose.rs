@@ -21,8 +21,8 @@ pub struct Filter {
 
 pub(crate) fn days_between(from: &str, to: &str) -> Option<i64> {
     let f = time::macros::format_description!("[year]-[month]-[day]");
-    let a = time::Date::parse(from, f).ok()?;
-    let b = time::Date::parse(to, f).ok()?;
+    let a = time::Date::parse(&crate::model::stamp::utc_day(from)?, f).ok()?;
+    let b = time::Date::parse(&crate::model::stamp::utc_day(to)?, f).ok()?;
     Some((b - a).whole_days())
 }
 

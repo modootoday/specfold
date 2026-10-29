@@ -219,9 +219,19 @@ impl Rule for Dates {
             let updated = d.str_field("updated");
             for (key, val) in [("created", &created), ("updated", &updated)] {
                 let Some(v) = val else { continue };
-                if !stamp::is_date(v) {
+                if !stamp::is_date_value(v) {
                     let line = key_line(ctx, &d.path, key);
-                    let f = Finding::error("S5", &d.path, line, format!("{key} '{v}' is not YYYY-MM-DD"));
+                    let f = Finding::error(
+                        "S5",
+                        &d.path,
+                        line,
+                        match stamp::zone_problem(v) {
+                            Some(why) => format!("{key} '{v}': {why}"),
+                            None => {
+                                format!("{key} '{v}' is not YYYY-MM-DD, RFC 3339 or 'YYYY-MM-DD HH:MM UTC|GMT|KST|JST'")
+                            }
+                        },
+                    );
                     out.push(match stamp::normalize_date(v) {
                         Some(n) => f.fix_replace(format!("{key}: {v}"), format!("{key}: {n}")),
                         None => f,
@@ -229,9 +239,8 @@ impl Rule for Dates {
                 }
             }
             if let (Some(c), Some(u)) = (&created, &updated)
-                && stamp::is_date(c)
-                && stamp::is_date(u)
-                && u < c
+                && let (Some(cd), Some(ud)) = (stamp::utc_day(c), stamp::utc_day(u))
+                && ud < cd
             {
                 out.push(Finding::error(
                     "S5",

@@ -82,7 +82,7 @@ pub fn plan(c: &Corpus, idx: usize, req: &Move) -> Result<(Moved, Plan)> {
                     rel_changed = refs::rewrite_rel(m, &old_s, &new_s);
                     if j == idx {
                         m.insert("id".into(), Value::String(new_s.clone()));
-                        m.insert("updated".into(), Value::String(stamp::today()));
+                        m.insert("updated".into(), Value::String(stamp::now_value()));
                     }
                 })?;
                 references += usize::from(rel_changed);

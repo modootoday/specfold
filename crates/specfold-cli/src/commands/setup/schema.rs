@@ -16,8 +16,8 @@ fn frontmatter_schema(t: &TypeDef) -> Value {
     );
     props.insert("title".into(), json!({"type": "string", "minLength": 1}));
     props.insert("status".into(), json!({"enum": t.statuses}));
-    props.insert("created".into(), json!({"type": "string", "format": "date"}));
-    props.insert("updated".into(), json!({"type": "string", "format": "date"}));
+    props.insert("created".into(), json!({"type": "string", "anyOf": [{"format": "date"}, {"format": "date-time"}]}));
+    props.insert("updated".into(), json!({"type": "string", "anyOf": [{"format": "date"}, {"format": "date-time"}]}));
     for k in ["owners", "tags", "aliases", "check_skip"] {
         props.insert(k.into(), json!({"type": "array", "items": {"type": "string"}}));
     }

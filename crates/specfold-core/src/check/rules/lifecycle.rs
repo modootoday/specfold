@@ -44,7 +44,9 @@ impl Rule for UpdatedMoves {
             if body_hash(&before) == body_hash(&now) || old_date != new_date {
                 continue;
             }
-            let Some(date) = new_date.filter(|u| *u != today) else { continue };
+            let Some(date) = new_date.filter(|u| stamp::utc_day(u).as_deref() != Some(today.as_str())) else {
+                continue;
+            };
             out.push(
                 Finding::warn(
                     "T4",
@@ -52,7 +54,7 @@ impl Rule for UpdatedMoves {
                     key_line(ctx, &d.path, "updated"),
                     format!("the body changed but updated is still {date}"),
                 )
-                .fix_replace(format!("updated: {date}"), format!("updated: {today}")),
+                .fix_replace(format!("updated: {date}"), format!("updated: {}", stamp::now_value())),
             );
         }
     }

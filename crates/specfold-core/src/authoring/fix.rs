@@ -42,7 +42,7 @@ fn fill_frontmatter(c: &Corpus, idx: usize, text: &str) -> Result<String> {
         m.entry("title").or_insert_with(|| Value::String(title));
         m.entry("status").or_insert_with(|| Value::String(initial));
         m.entry("created").or_insert_with(|| Value::String(created));
-        m.entry("updated").or_insert_with(|| Value::String(stamp::today()));
+        m.entry("updated").or_insert_with(|| Value::String(stamp::now_value()));
         let ordered = edit::ordered(std::mem::take(m));
         *m = ordered;
     })
