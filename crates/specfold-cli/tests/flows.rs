@@ -1332,3 +1332,53 @@ fn lsp_offers_replacement_fixes_as_quick_fixes() {
     assert_eq!(edit["range"]["start"], json!({"line": line, "character": 0}));
     assert_eq!(edit["range"]["end"]["character"], format!("id: {id}x").len());
 }
+
+#[test]
+fn lsp_cached_results_match_fresh_checks() {
+    use serde_json::json;
+    let r = common::repo();
+    let a = r.new_doc("sot", "services/shop", "Cart");
+    let b = r.new_doc("sot", "services/shop", "Checkout");
+    let abs = r.path().canonicalize().unwrap();
+    let uri = |id: &str| format!("file://{}/{}", abs.display(), r.json(&["show", id]).1["path"].as_str().unwrap());
+    let (ua, ub) = (uri(&a), uri(&b));
+    let pa = r.json(&["show", &a]).1["path"].as_str().unwrap().to_string();
+    let ta = r.read(&pa);
+    let broken = format!("{ta}\nsee [[{b}]] and [[sot:services/nowhere]]\n");
+    let open = |u: &str, t: &str| json!({"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument": {"uri": u, "text": t}}});
+    let change = |u: &str, t: &str| json!({"jsonrpc": "2.0", "method": "textDocument/didChange", "params": {"textDocument": {"uri": u}, "contentChanges": [{"text": t}]}});
+    let close =
+        |u: &str| json!({"jsonrpc": "2.0", "method": "textDocument/didClose", "params": {"textDocument": {"uri": u}}});
+    let pb = r.json(&["show", &b]).1["path"].as_str().unwrap().to_string();
+    let tb = r.read(&pb);
+    let input = lsp_frames(&[
+        json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"rootUri": format!("file://{}", abs.display())}}),
+        open(&ua, &ta),
+        open(&ub, &tb),
+        open(&ub, &tb),
+        change(&ua, &broken),
+        open(&ub, &tb),
+        change(&ub, &tb.replacen(&format!("id: {b}"), &format!("id: {b}x"), 1)),
+        open(&ua, &broken),
+        close(&ub),
+        open(&ua, &broken),
+        change(&ua, &ta),
+        json!({"jsonrpc": "2.0", "id": 9, "method": "shutdown"}),
+    ]);
+    let run = |fresh: bool| {
+        let mut c = r.spec();
+        c.arg("lsp").env("SPEC_LSP_TRACE", "1");
+        if fresh {
+            c.env("SPEC_LSP_NO_CACHE", "1");
+        }
+        c.write_stdin(input.clone()).output().unwrap()
+    };
+    let (cached, fresh) = (run(false), run(true));
+    let (rc, rf) = (lsp_replies(&cached.stdout), lsp_replies(&fresh.stdout));
+    assert_eq!(rc.len(), 12, "{rc:?}");
+    assert_eq!(rc, rf, "cached and fresh diagnostics differ");
+    assert!(rc.iter().any(|m| m["params"]["diagnostics"].as_array().is_some_and(|d| !d.is_empty())));
+    let count = |o: &std::process::Output| String::from_utf8_lossy(&o.stderr).matches("full check").count();
+    assert_eq!(count(&fresh), 9);
+    assert_eq!(count(&cached), 6, "one full check per change of buffers or disk");
+}
