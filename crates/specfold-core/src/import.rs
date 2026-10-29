@@ -6,6 +6,7 @@ pub mod key;
 pub mod map;
 pub mod owner;
 pub mod plan;
+pub mod presets;
 pub mod sources;
 
 pub use map::ImportMap;

@@ -136,6 +136,9 @@ fn doc_row(c: &Corpus, map: &ImportMap, u: &Unit, taken: &mut BTreeSet<String>, 
     let mut body_links = vec![];
     if !generated {
         let found = super::body_meta::scan(split.body, &map.body);
+        // A gap only matters where the frontmatter has no value either.
+        let has_status = old.contains_key("status");
+        let has_date = old.contains_key("date") || old.contains_key("created");
         if let Some(st) = found.status
             && !old.contains_key("status")
         {
@@ -148,14 +151,17 @@ fn doc_row(c: &Corpus, map: &ImportMap, u: &Unit, taken: &mut BTreeSet<String>, 
             old.insert("date".into(), Value::String(d));
         }
         body_links = found.links;
-        unresolved.extend(found.missed);
+        unresolved.extend(found.missed.into_iter().filter(|m| {
+            !(has_status && m.starts_with("no status in the body") || has_date && m.starts_with("no date in the body"))
+        }));
     }
     let scanned = body::scan(split.body, split.body_line, &body::path_cite_re(c.cfg.spec_dir()));
     let name = name_of(&u.source).trim_end_matches(".md");
     let name_re = rule.name.as_deref().map(Regex::new).transpose().map_err(|e| anyhow!("bad name regex: {e}"))?;
     let caps = name_re.as_ref().and_then(|r| r.captures(name_of(&u.source)));
     let named = caps.as_ref().and_then(|c| c.name("slug")).map(|m| m.as_str()).unwrap_or(name);
-    let fallback_title = scanned.first_heading.clone().unwrap_or_else(|| named.replace(['-', '_'], " "));
+    let heading = scanned.first_heading.clone().map(|h| if map.strip_title_number { strip_number(&h) } else { h });
+    let fallback_title = heading.unwrap_or_else(|| named.replace(['-', '_'], " "));
     let mut conv = convert::frontmatter(map, rule, &old, &ty.statuses, &fallback_title);
     unresolved.append(&mut conv.unresolved);
     if !body_links.is_empty() {
@@ -276,6 +282,15 @@ fn doc_row(c: &Corpus, map: &ImportMap, u: &Unit, taken: &mut BTreeSet<String>, 
     })
 }
 
+/// `2. Use X` → `Use X`; a title that is only a number stays.
+fn strip_number(title: &str) -> String {
+    let digits = title.chars().take_while(char::is_ascii_digit).count();
+    match title[digits..].strip_prefix('.') {
+        Some(rest) if digits > 0 && !rest.trim().is_empty() => rest.trim().to_string(),
+        _ => title.to_string(),
+    }
+}
+
 fn fm_status(plan: &Plan, _id: &str) -> String {
     plan.changes
         .iter()
@@ -305,4 +320,14 @@ pub fn alias_table(existing: &str, rows: &[(String, String)]) -> String {
         }
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn record_numbers_come_off_titles() {
+        assert_eq!(super::strip_number("2. Use X"), "Use X");
+        assert_eq!(super::strip_number("12. "), "12. ");
+        assert_eq!(super::strip_number("2026 plan"), "2026 plan");
+    }
 }

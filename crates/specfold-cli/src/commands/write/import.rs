@@ -9,8 +9,15 @@ use specfold_core::files::store;
 use specfold_core::import::{self, ImportMap};
 
 pub fn run(g: &Global, a: &ImportArgs) -> Result<Output> {
+    if let Some(name) = &a.preset {
+        let text = import::presets::get(name).ok_or_else(|| anyhow::anyhow!("no preset '{name}'"))?;
+        return Ok(Output::new("import")
+            .unpaged()
+            .item(serde_json::json!({"preset": name, "map": text}), text.trim_end().to_string()));
+    }
+    let map_path = a.map.clone().expect("clap requires --map without --preset");
     let s = session::open(g)?;
-    let map = ImportMap::load(&a.map)?;
+    let map = ImportMap::load(&map_path)?;
     let p = import::build(&s.corpus, &map)?;
     let unresolved = p.rows.iter().filter(|r| !r.unresolved.is_empty()).count();
     let mut o = Output::new("import")
@@ -48,12 +55,12 @@ pub fn run(g: &Global, a: &ImportArgs) -> Result<Output> {
     if !a.apply {
         return Ok(o
             .code(if unresolved > 0 { Code::Findings } else { Code::Ok })
-            .next(format!("spec import --map {} --apply --write", a.map.display())));
+            .next(format!("spec import --map {} --apply --write", map_path.display())));
     }
     if !a.write {
         return Ok(o
             .foot("preview only; nothing was written")
-            .next(format!("spec import --map {} --apply --write", a.map.display())));
+            .next(format!("spec import --map {} --apply --write", map_path.display())));
     }
     let Some(alias_file) = s.corpus.cfg.raw.aliases.file.clone() else {
         bail!("set [aliases] file = \".spec/_aliases.tsv\" in spec.toml before applying an import")
