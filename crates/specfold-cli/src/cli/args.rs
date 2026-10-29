@@ -33,6 +33,9 @@ pub enum Cmd {
     /// Frontmatter, outline, one section, or relations of a document.
     Show(read::ShowArgs),
     /// Resolve an id, alias, path or slug to one document.
+    #[command(
+        after_help = "Examples:\n  spec resolve sot:services/shop/cart-totals\n  spec resolve services/shop/.spec/sot/cart-totals.sot.md"
+    )]
     Resolve(read::RefArgs),
     /// Graph queries: impact, chain, governs; or the whole graph.
     Graph(read::GraphArgs),
@@ -55,8 +58,10 @@ pub enum Cmd {
     /// Register files with a document, in the repository or the store.
     Attach(write::AttachArgs),
     /// Download a document's stored attachments, verified by hash.
+    #[command(after_help = "Examples:\n  spec fetch evidence:services/shop/20261030021100")]
     Fetch(read::RefArgs),
     /// A document's attachments and where each is kept.
+    #[command(after_help = "Examples:\n  spec files evidence:services/shop/20261030021100")]
     Files(read::RefArgs),
     /// Write a starter spec.toml.
     Init(write::InitArgs),
@@ -71,21 +76,27 @@ pub enum Cmd {
     /// Diagnose what passes the rules yet needs attention; build review packs; record audits.
     Audit(verify::AuditArgs),
     /// Counts of documents, references and attachments.
+    #[command(after_help = "Examples:\n  spec census\n  spec census --legacy")]
     Census(verify::CensusArgs),
     /// Why a rule exists and how to fix it; or the configuration keys.
     Explain(setup::ExplainArgs),
     /// Document types and their frontmatter; or output schema names.
+    #[command(after_help = "Examples:\n  spec schema adr\n  spec schema output")]
     Schema(setup::SchemaArgs),
     /// Commands and arguments; with --json, the whole command tree.
+    #[command(after_help = "Examples:\n  spec help edit\n  spec help --json\n  spec help --markdown")]
     Help(setup::HelpArgs),
     /// The lines to put in an agent's instruction file.
     Agents(setup::AgentsArgs),
     /// Hook snippets for git, pre-commit, lefthook or husky.
     Hook(setup::HookArgs),
     /// Configured plugins and what they provide.
+    #[command(after_help = "Examples:\n  spec plugins\n  spec plugins describe <name>")]
     Plugins(setup::PluginsArgs),
     /// Export through an exporter plugin.
+    #[command(after_help = "Examples:\n  spec export <plugin> --out site")]
     Export(setup::ExportArgs),
     /// Serve these commands as MCP tools over stdio.
+    #[command(after_help = "Examples:\n  spec mcp")]
     Mcp,
 }

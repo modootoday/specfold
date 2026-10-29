@@ -1,7 +1,7 @@
 {
   "name": "@modootoday/specfold",
   "version": "0.2.6",
-  "description": "Typed documents, their relations and the rules they keep, checked from one CLI.",
+  "description": "One CLI for a repository's design, planning and maintenance documents, built for people and AI agents.",
   "license": "MIT OR Apache-2.0",
   "author": "modootoday",
   "repository": {
