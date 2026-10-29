@@ -3,6 +3,7 @@
 
 use super::plan::Plan;
 use crate::corpus::Corpus;
+use crate::markdown::tables::{self, RowChange};
 use crate::markdown::{frontmatter, frontmatter::edit, sections};
 use crate::model::stamp;
 use anyhow::{Result, anyhow, bail};
@@ -25,6 +26,8 @@ pub struct Edit {
     pub after: Option<String>,
     pub mode: Mode,
     pub text: String,
+    /// Change one table row (by its first cell) instead of the section text.
+    pub row: Option<RowChange>,
 }
 
 /// What an edit changed, for previews.
@@ -54,6 +57,28 @@ pub fn plan(c: &Corpus, idx: usize, e: &Edit) -> Result<Outcome> {
     let head = &text[..text.len() - split.body.len()];
     let lines: Vec<&str> = split.body.lines().collect();
     let new_text = e.text.trim_end_matches('\n');
+    if let Some(ch) = &e.row {
+        let (lo, hi, target) = match &e.section {
+            Some(name) => {
+                let Some((start, end)) = sections::span(split.body, name) else {
+                    let have: Vec<String> = sections::outline(split.body).into_iter().map(|(_, t)| t).collect();
+                    bail!("no section '{name}' (sections: {})", have.join(" | "));
+                };
+                (start + 1, end, format!("row '{}' in {}", ch.key, lines[start].trim()))
+            }
+            None => (0, lines.len(), format!("row '{}'", ch.key)),
+        };
+        let (out, before, after) = tables::edit_row(&lines, lo, hi, ch)?;
+        let body = out.join("\n") + "\n";
+        let rewritten = edit::rewrite(&format!("{head}{body}"), |m| {
+            m.insert("updated".into(), Value::String(stamp::now_value()));
+        })?;
+        let mut plan = Plan::default();
+        if before != after {
+            plan.write(&d.path, rewritten, false);
+        }
+        return Ok(Outcome { plan, target, before, after });
+    }
     if let Some(title) = &e.new_section {
         let title = title.trim();
         if sections::span(split.body, title).is_some() {

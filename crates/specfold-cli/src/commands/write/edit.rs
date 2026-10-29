@@ -6,6 +6,7 @@ use crate::output::Output;
 use crate::session;
 use anyhow::{Context, Result};
 use specfold_core::authoring::edit::{self, Edit, Mode};
+use specfold_core::markdown::tables::RowChange;
 use std::io::Read;
 
 const SHOWN: usize = 40;
@@ -13,7 +14,9 @@ const SHOWN: usize = 40;
 pub fn run(g: &Global, a: &EditArgs) -> Result<Output> {
     let s = session::open(g)?;
     let idx = session::resolve(&s, &a.doc)?;
+    let cells_only = a.row.is_some() && !a.cell.is_empty() && a.text.is_none() && a.file.is_none();
     let text = match (&a.text, &a.file) {
+        _ if cells_only => String::new(),
         (Some(t), _) => t.clone(),
         (None, Some(p)) if p.as_os_str() == "-" => {
             let mut t = String::new();
@@ -35,7 +38,26 @@ pub fn run(g: &Global, a: &EditArgs) -> Result<Output> {
         }
     };
     let mode = if a.append { Mode::Append } else { Mode::Replace };
-    let e = Edit { section: a.section.clone(), new_section: a.new_section.clone(), after: a.after.clone(), mode, text };
+    let row = match &a.row {
+        None => None,
+        Some(key) => {
+            let mut set = vec![];
+            for c in &a.cell {
+                let Some((k, v)) = c.split_once('=') else { anyhow::bail!("--cell wants COLUMN=VALUE, got '{c}'") };
+                set.push((k.trim().to_string(), v.trim().to_string()));
+            }
+            let row = if set.is_empty() { Some(text.trim().to_string()) } else { None };
+            Some(RowChange { key: key.clone(), set, row, add: a.append })
+        }
+    };
+    let e = Edit {
+        section: a.section.clone(),
+        new_section: a.new_section.clone(),
+        after: a.after.clone(),
+        mode,
+        text: text.clone(),
+        row,
+    };
     let out = edit::plan(&s.corpus, idx, &e)?;
     let id = s.corpus.docs[idx].id.to_string();
     let verb = if a.append { "append to" } else { "replace" };
@@ -66,10 +88,17 @@ pub fn run(g: &Global, a: &EditArgs) -> Result<Output> {
     if let Some(n) = &a.after {
         rerun.push_str(&format!(" --after {}", sh(n)));
     }
+    if let Some(r) = &a.row {
+        rerun.push_str(&format!(" --row {}", sh(r)));
+    }
+    for c in &a.cell {
+        rerun.push_str(&format!(" --cell {}", sh(c)));
+    }
     if a.append {
         rerun.push_str(" --append");
     }
     match (&a.text, &a.file) {
+        _ if cells_only => {}
         (Some(t), _) => rerun.push_str(&format!(" --text={}", sh(t))),
         (None, Some(p)) if p.as_os_str() == "-" => rerun.push_str(" --file <saved-input>"),
         (None, None) => rerun.push_str(" --file <saved-input>"),
