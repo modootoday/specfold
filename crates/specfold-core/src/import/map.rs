@@ -54,6 +54,10 @@ pub struct BodyMap {
     /// skip it (the other side of a link the other document already records).
     #[serde(default)]
     pub links: BTreeMap<String, String>,
+    /// Remove the `section:` status heading from the body once its value is in frontmatter.
+    /// Off by default: the plan only notes the duplicate.
+    #[serde(default)]
+    pub drop_status_section: bool,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

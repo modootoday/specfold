@@ -14,6 +14,7 @@ pub fn get(name: &str) -> Option<&'static str> {
 
 const ADR_TOOLS: &str = r##"# Starter import map for adr-tools (doc/adr/NNNN-title.md; see .adr-dir if moved).
 # Edit it, then: spec import --map import.toml
+# Applying needs `[aliases] file = ".spec/_aliases.tsv"` in spec.toml (old names resolve through it).
 stem_aliases = true             # links name old files: 0001-record-architecture-decisions.md
 strip_title_number = true       # "# 1. Record architecture decisions" -> "Record architecture decisions"
 
@@ -23,14 +24,19 @@ proposed = "draft"
 rejected = "rejected"
 deprecated = "superseded"
 "superceded by" = "superseded"  # adr-tools' spelling
+"superseded by" = "superseded"
 
 [body]
 status = "section:Status"
 date = "line:Date"
 
+drop_status_section = false     # true removes the Status section once it is in frontmatter
+
 [body.links]
-Supercedes = "supersedes"
+Supercedes = "supersedes"       # both spellings: adr-tools writes "Supercedes"
+Supersedes = "supersedes"
 "Superceded by" = "-"           # the newer record lists it
+"Superseded by" = "-"
 
 [[sources]]
 glob = "doc/adr/*.md"
@@ -42,6 +48,8 @@ name = '^(?P<alias>\d{4})-(?P<slug>.+)\.md$'
 
 const MADR: &str = r##"# Starter import map for MADR (2.x: docs/adr with "* Status:" bullets; 3.x and 4.x:
 # docs/decisions with frontmatter). Edit it, then: spec import --map import.toml
+# Applying needs `[aliases] file = ".spec/_aliases.tsv"` in spec.toml (old names resolve through it).
+# "superseded by [ADR-0005](0005-x.md)" adds rel.supersedes to 0005 when it is in the same import.
 stem_aliases = true
 strip_title_number = true
 
@@ -77,6 +85,7 @@ name = '^(?P<alias>\d{4})-(?P<slug>.+)\.md$'
 
 const LOG4BRAINS: &str = r##"# Starter import map for Log4brains (docs/adr/YYYYMMDD-title.md, and
 # packages/<name>/docs/adr for package records). Edit it, then: spec import --map import.toml
+# Applying needs `[aliases] file = ".spec/_aliases.tsv"` in spec.toml (old names resolve through it).
 stem_aliases = true
 
 [status]

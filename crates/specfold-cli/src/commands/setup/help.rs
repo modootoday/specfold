@@ -46,7 +46,12 @@ pub fn run(_g: &Global, a: &HelpArgs) -> Result<Output> {
         }
         o = o.item(to_value(c)?, text);
     }
-    Ok(o.next(if a.command.is_some() { "spec explain" } else { "spec help <command>" }))
+    // One command: its first example is the concrete next step.
+    let next = match (&a.command, picked.as_slice()) {
+        (Some(_), [one]) => one.examples.first().cloned().unwrap_or_else(|| format!("spec {} --help", one.name)),
+        _ => "spec help <command>".to_string(),
+    };
+    Ok(o.next(next))
 }
 
 /// " (also `spec list`, `spec ls`)" for a command with visible aliases.

@@ -12,6 +12,8 @@ pub struct Converted {
     pub unresolved: Vec<String>,
     /// For review, not a decision: what a status pattern read.
     pub notes: Vec<String>,
+    /// The replacing record a status pattern's `by` group named, as written.
+    pub replaced_by: Option<String>,
 }
 
 /// A document named in an old relation, without the notes people wrote around it:
@@ -61,10 +63,22 @@ pub fn frontmatter(
     let mut fm = Map::new();
     let mut rel = Map::new();
     let mut unresolved = vec![];
-    let mut notes = vec![];
+    let notes = vec![];
+    let mut replaced_by = None;
     let mut aliases: Vec<String> = rule.alias_fields.iter().flat_map(|f| list_of(old.get(f))).collect();
     let mut fallbacks = vec![];
+    // An unmapped `date` becomes `created` (below), so it is not kept as a key of its own.
+    let date_is_created = !map.keys.contains_key("date")
+        && !old.contains_key("created")
+        && old
+            .get("date")
+            .and_then(|v| v.as_str().map(str::to_string).or_else(|| v.as_i64().map(|n| n.to_string())))
+            .and_then(|s| stamp::normalize_date(&s))
+            .is_some();
     for (k, v) in old {
+        if k == "date" && date_is_created {
+            continue;
+        }
         let target = map.keys.get(k).map(String::as_str).unwrap_or(k.as_str());
         if let Some(t) = target.strip_suffix('?') {
             fallbacks.push((t, v));
@@ -100,9 +114,7 @@ pub fn frontmatter(
     } else {
         status(map, rule, &status_from, allowed).or_else(|| {
             let (st, by) = by_pattern(map, &status_from, allowed)?;
-            if let Some(by) = by {
-                notes.push(format!("replaced by {by}: check that the newer record lists rel.supersedes"));
-            }
+            replaced_by = by.filter(|b| !b.is_empty());
             Some(st)
         })
     };
@@ -134,7 +146,7 @@ pub fn frontmatter(
     }
     aliases.sort();
     aliases.dedup();
-    Converted { fm: out, status_from, aliases, unresolved, notes }
+    Converted { fm: out, status_from, aliases, unresolved, notes, replaced_by }
 }
 
 #[cfg(test)]
@@ -157,6 +169,20 @@ mod tests {
         assert_eq!((both["verify"].as_str(), both["verify_note"].as_str()), (Some("cargo test"), Some("prose")));
         let manual = convert("check: manual\nstatus: active\n");
         assert_eq!(manual["verify"], "manual");
+    }
+
+    #[test]
+    fn an_unmapped_date_becomes_created_only() {
+        let map: ImportMap = toml::from_str("").unwrap();
+        let rule: SourceRule = toml::from_str("glob = \"x\"\ntype = \"adr\"").unwrap();
+        let crate::markdown::frontmatter::Parsed::Map(old) =
+            crate::markdown::frontmatter::parse(Some("status: active\ndate: 2024-06-04\n"))
+        else {
+            panic!("fixture does not parse")
+        };
+        let fm = frontmatter(&map, &rule, &old, &["active".to_string()], "t").fm;
+        assert_eq!(fm["created"], "2024-06-04");
+        assert!(!fm.contains_key("date"), "{fm:?}");
     }
 
     #[test]

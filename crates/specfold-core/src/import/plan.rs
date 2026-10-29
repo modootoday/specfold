@@ -32,6 +32,12 @@ pub struct Row {
     pub unresolved: Vec<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub notes: Vec<String>,
+    /// What a status pattern named as the replacing record, resolved after every row is built.
+    #[serde(skip)]
+    pub replaced_by: Option<String>,
+    /// The old Markdown file, whose relative links are rewritten to the new paths.
+    #[serde(skip)]
+    pub old_main: String,
 }
 
 #[derive(Debug, Default, Serialize)]
@@ -109,10 +115,192 @@ pub fn build(c: &Corpus, map: &ImportMap) -> Result<ImportPlan> {
             status_to: String::new(),
             aliases: vec![],
             unresolved,
-            notes: vec![],
+            ..Row::default()
         });
     }
+    link_replacements(&mut out);
+    rewrite_links(&mut out, &by_source);
     Ok(out)
+}
+
+/// Candidate names for a `by` text: link targets (`[ADR-0002](0002-use-y.md)` → `0002-use-y.md`,
+/// `0002-use-y`), the text itself, and its trailing number (`ADR-0002` → `0002`).
+fn by_candidates(by: &str) -> Vec<String> {
+    static LINK: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"\[([^\]]*)\]\(([^)\s]+)\)").unwrap());
+    let mut out = vec![];
+    let mut texts = vec![];
+    for c in LINK.captures_iter(by) {
+        let t = c[2].trim_start_matches("./").to_string();
+        out.push(stem_of(&t).to_string());
+        out.push(t);
+        texts.push(c[1].to_string());
+    }
+    let plain = LINK.replace_all(by, "").trim().to_string();
+    texts.push(plain);
+    for t in texts {
+        let t = t.trim().trim_end_matches(['.', ',']).to_string();
+        if t.is_empty() {
+            continue;
+        }
+        let digits: String =
+            t.chars().rev().take_while(char::is_ascii_digit).collect::<Vec<_>>().into_iter().rev().collect();
+        out.push(t);
+        if !digits.is_empty() {
+            out.push(digits);
+        }
+    }
+    out
+}
+
+/// "superseded by X": the newer record, when this import names it, gets rel.supersedes to the
+/// older one; otherwise the row needs a decision, since check would report T1 after the import.
+fn link_replacements(out: &mut ImportPlan) {
+    let names: BTreeMap<String, String> = out.alias_rows.iter().map(|(o, n)| (o.clone(), n.clone())).collect();
+    // A bare record number (`ADR-0002` → `0002`) also names the file that starts with it.
+    let by_name = |c: &str| {
+        let numbered = format!("{c}-");
+        names.get(c).cloned().or_else(|| {
+            names
+                .iter()
+                .find(|(o, _)| {
+                    stem_of(o) == c || (c.chars().all(|ch| ch.is_ascii_digit()) && stem_of(o).starts_with(&numbered))
+                })
+                .map(|x| x.1.clone())
+        })
+    };
+    let paths: BTreeMap<String, String> =
+        out.rows.iter().filter(|r| r.kind == "doc").map(|r| (r.id.clone(), r.path.clone())).collect();
+    for i in 0..out.rows.len() {
+        let Some(by) = out.rows[i].replaced_by.clone() else { continue };
+        let old = out.rows[i].id.clone();
+        let newer = by_candidates(&by).iter().find_map(|c| by_name(c)).filter(|n| *n != old && paths.contains_key(n));
+        match newer {
+            Some(n) => {
+                edit_frontmatter(&mut out.plan, &paths[&n], |fm| {
+                    let rel = fm.entry("rel").or_insert_with(|| Value::Object(Map::new()));
+                    if let Value::Object(rel) = rel
+                        && let Value::Array(items) = rel.entry("supersedes").or_insert_with(|| Value::Array(vec![]))
+                        && !items.iter().any(|v| v.as_str() == Some(&old))
+                    {
+                        items.push(Value::String(old.clone()));
+                    }
+                });
+                out.rows[i].notes.push(format!("replaced by {n}: rel.supersedes added there"));
+            }
+            None => out.rows[i].unresolved.push(format!(
+                "replaced by {by}, which this import does not include: add rel.supersedes: [{old}] to the newer record"
+            )),
+        }
+    }
+}
+
+/// Changes the frontmatter of a document this plan writes.
+fn edit_frontmatter(plan: &mut Plan, path: &str, f: impl FnOnce(&mut Map<String, Value>)) {
+    for c in plan.changes.iter_mut() {
+        if let crate::authoring::Change::Write { path: p, content, .. } = c
+            && p == path
+        {
+            let split = frontmatter::split(content);
+            let frontmatter::Parsed::Map(mut fm) = frontmatter::parse(split.raw) else { return };
+            f(&mut fm);
+            let body = split.body.to_string();
+            *content = format!("{}{}", frontmatter::render(&crate::markdown::frontmatter::edit::ordered(fm)), body);
+            return;
+        }
+    }
+}
+
+/// `a/b/c.md` relative to directory `a/x` → `../b/c.md`.
+fn relative(from_dir: &str, to: &str) -> String {
+    let f: Vec<&str> = from_dir.split('/').filter(|s| !s.is_empty()).collect();
+    let t: Vec<&str> = to.split('/').filter(|s| !s.is_empty()).collect();
+    let common = f.iter().zip(&t).take_while(|(a, b)| a == b).count();
+    let mut parts: Vec<&str> = std::iter::repeat_n("..", f.len() - common).collect();
+    parts.extend(&t[common..]);
+    parts.join("/")
+}
+
+/// `docs/adr` + `../x/./y.md` → `docs/x/y.md`; None when it climbs above the root.
+fn join(dir: &str, link: &str) -> Option<String> {
+    let mut parts: Vec<&str> = dir.split('/').filter(|s| !s.is_empty()).collect();
+    for seg in link.split('/') {
+        match seg {
+            "" | "." => {}
+            ".." => {
+                parts.pop()?;
+            }
+            s => parts.push(s),
+        }
+    }
+    Some(parts.join("/"))
+}
+
+fn dir_of(p: &str) -> &str {
+    p.rsplit_once('/').map(|x| x.0).unwrap_or("")
+}
+
+/// Relative links in imported bodies that named old files now point at the new paths; links to
+/// files outside the import stay for L1/L2 to report.
+fn rewrite_links(out: &mut ImportPlan, by_source: &BTreeMap<String, String>) {
+    static LINK: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"\]\(([^)\s#]+)(#[^)\s]*)?\)").unwrap());
+    let paths: BTreeMap<String, String> =
+        out.rows.iter().filter(|r| r.kind == "doc").map(|r| (r.id.clone(), r.path.clone())).collect();
+    for row in out.rows.iter_mut().filter(|r| r.kind == "doc" && !r.old_main.is_empty()) {
+        let old_dir = dir_of(&row.old_main).to_string();
+        let new_dir = dir_of(&row.path).to_string();
+        let mut count = 0;
+        for c in out.plan.changes.iter_mut() {
+            let crate::authoring::Change::Write { path, content, .. } = c else { continue };
+            if *path != row.path {
+                continue;
+            }
+            let mut fenced = false;
+            let mut lines = vec![];
+            for l in content.split_inclusive('\n') {
+                let t = l.trim_start();
+                if t.starts_with("```") || t.starts_with("~~~") {
+                    fenced = !fenced;
+                }
+                if fenced {
+                    lines.push(l.to_string());
+                    continue;
+                }
+                lines.push(
+                    LINK.replace_all(l, |c: &regex::Captures| {
+                        let target = &c[1];
+                        let new = (!target.contains("://") && !target.starts_with('/'))
+                            .then(|| join(&old_dir, target))
+                            .flatten()
+                            .and_then(|old| by_source.get(&old))
+                            .and_then(|id| paths.get(id));
+                        match new {
+                            Some(p) => {
+                                count += 1;
+                                format!("]({}{})", relative(&new_dir, p), c.get(2).map_or("", |m| m.as_str()))
+                            }
+                            None => c[0].to_string(),
+                        }
+                    })
+                    .into_owned(),
+                );
+            }
+            *content = lines.concat();
+        }
+        if count > 0 {
+            row.notes.push(format!("{count} link(s) to old file names now point at the new paths"));
+        }
+    }
+}
+
+/// The body without the `## <name>` section (its heading up to the next heading).
+fn without_section(body: &str, name: &str) -> Option<String> {
+    let is_it = |l: &str| l.starts_with('#') && l.trim_start_matches('#').trim().eq_ignore_ascii_case(name);
+    let lines: Vec<&str> = body.split_inclusive('\n').collect();
+    let at = lines.iter().position(|l| is_it(l.trim()))?;
+    let end = lines[at + 1..].iter().position(|l| l.starts_with('#')).map_or(lines.len(), |e| at + 1 + e);
+    Some([&lines[..at], &lines[end..]].concat().concat())
 }
 
 fn doc_row(c: &Corpus, map: &ImportMap, u: &Unit, taken: &mut BTreeSet<String>, out: &mut ImportPlan) -> Result<Row> {
@@ -254,7 +442,27 @@ fn doc_row(c: &Corpus, map: &ImportMap, u: &Unit, taken: &mut BTreeSet<String>, 
     if !files.is_empty() {
         fm.insert("files".into(), Value::Array(files));
     }
-    let body = if generated { format!("\n# {title}\n") } else { split.body.to_string() };
+    let mut notes = conv.notes;
+    let mut body = if generated { format!("\n# {title}\n") } else { split.body.to_string() };
+    if let Some(name) = map.body.status.as_deref().and_then(|h| h.strip_prefix("section:"))
+        && let Some(rest) = without_section(&body, name)
+    {
+        if map.body.drop_status_section {
+            body = rest;
+        } else {
+            notes.push(format!(
+                "the body keeps '## {name}' next to frontmatter status; [body] drop_status_section = true removes it"
+            ));
+        }
+    }
+    // As with `spec new`: a mostly non-ASCII name loses its words from the slug.
+    let alnum = named.chars().filter(|c| c.is_alphanumeric() && !c.is_ascii_digit()).count();
+    let ascii = named.chars().filter(|c| c.is_ascii_alphabetic()).count();
+    if alnum > 0 && ascii * 2 < alnum {
+        notes.push(format!(
+            "the name is mostly non-ASCII, so the slug is '{slug}' (the title stays); to rename: spec mv {id} --slug <slug> --write"
+        ));
+    }
     let content = format!("{}{}", frontmatter::render(&crate::markdown::frontmatter::edit::ordered(fm)), body);
     crate::authoring::forbid::refuse(c, &main, crate::authoring::forbid::NO_LOCAL_HINT)?;
     out.plan.write(main.clone(), content, true);
@@ -278,7 +486,9 @@ fn doc_row(c: &Corpus, map: &ImportMap, u: &Unit, taken: &mut BTreeSet<String>, 
         status_to: fm_status(&out.plan, &id.to_string()),
         aliases,
         unresolved,
-        notes: conv.notes,
+        notes,
+        replaced_by: conv.replaced_by,
+        old_main: if generated { String::new() } else { u.main.clone() },
     })
 }
 
@@ -329,5 +539,19 @@ mod tests {
         assert_eq!(super::strip_number("2. Use X"), "Use X");
         assert_eq!(super::strip_number("12. "), "12. ");
         assert_eq!(super::strip_number("2026 plan"), "2026 plan");
+    }
+
+    #[test]
+    fn sections_come_out_and_links_are_made_relative() {
+        let body = "\n# T\n\n## Status\n\nAccepted\n\n## Context\n\nx\n";
+        assert_eq!(super::without_section(body, "status").unwrap(), "\n# T\n\n## Context\n\nx\n");
+        assert_eq!(super::relative(".spec/adr", ".spec/adr/a.adr.md"), "a.adr.md");
+        assert_eq!(super::relative("svc/.spec/adr", ".spec/adr/a.md"), "../../../.spec/adr/a.md");
+        assert_eq!(super::join("doc/adr", "../x/./y.md").as_deref(), Some("doc/x/y.md"));
+        assert_eq!(super::join("", "../y.md"), None);
+        assert_eq!(
+            super::by_candidates("[ADR-0002](0002-use-y.md)"),
+            ["0002-use-y", "0002-use-y.md", "ADR-0002", "0002"]
+        );
     }
 }
