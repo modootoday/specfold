@@ -115,6 +115,6 @@ description: Every rule spec check runs, grouped by family.
 
 Well-known agent files are checked even when they are not declared: `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `.github/copilot-instructions.md`, `.agents/skills/*/SKILL.md`, `.claude/skills/*/SKILL.md`, `.claude/agents/*.md`, `.claude/commands/*.md`, and `.cursor/rules/*.mdc`. Joiners used inside emoji (U+200C, U+200D) are allowed. Output never prints the characters themselves: messages, fixes, previews, and editor quick fixes show them as `\u{XXXX}`, and in an editor the warning covers just the one character. `spec fix` shows each changed line before and after.
 
-A4 (machine-local paths) checks declared agent assets only.
+A4 (machine-local paths) checks the same files as H1: declared agent assets and the well-known agent files, each once.
 
 Plugin rules are named `x.<plugin>.<id>` and are explained the same way.

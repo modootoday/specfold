@@ -56,24 +56,32 @@ impl Rule for HiddenChars {
                 }
             }
         }
-        let mut seen = std::collections::HashSet::new();
-        for a in assets::load(&ctx.corpus.cfg) {
-            seen.insert(a.path.clone());
-            if ctx.scope.covers_path(&a.path) {
-                scan(&a.path, &a.text, out);
-            }
-        }
-        // Agent files are read whether or not spec.toml declares them, so the usual ones are
-        // scanned too.
-        for p in well_known(&ctx.corpus.cfg.root) {
-            if seen.insert(p.clone())
-                && ctx.scope.covers_path(&p)
-                && let Some(t) = ctx.current(&p)
-            {
-                scan(&p, &t, out);
-            }
+        for (p, t) in agent_files(ctx) {
+            scan(&p, &t, out);
         }
     }
+}
+
+/// Declared agent assets and the well-known agent files, each once, within scope. Agent files
+/// are read whether or not spec.toml declares them, so the usual ones are included too.
+pub(super) fn agent_files(ctx: &Ctx) -> Vec<(String, String)> {
+    let mut seen = std::collections::HashSet::new();
+    let mut out = vec![];
+    for a in assets::load(&ctx.corpus.cfg) {
+        seen.insert(a.path.clone());
+        if ctx.scope.covers_path(&a.path) {
+            out.push((a.path, a.text));
+        }
+    }
+    for p in well_known(&ctx.corpus.cfg.root) {
+        if seen.insert(p.clone())
+            && ctx.scope.covers_path(&p)
+            && let Some(t) = ctx.current(&p)
+        {
+            out.push((p, t.to_string()));
+        }
+    }
+    out
 }
 
 /// Agent instruction and skill files at their usual places, relative to the root.
