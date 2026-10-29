@@ -17,7 +17,7 @@ pub struct ContextArgs {
 
 #[derive(Debug, Clone, Args)]
 #[command(
-    after_help = "Examples:\n  spec find checkout\n  spec find --type adr --owner shop\n  spec find retry budget --text"
+    after_help = "Examples:\n  spec find checkout\n  spec find --type adr --owner shop\n  spec find retry budget --text\n  spec find --open-tasks --type plan"
 )]
 pub struct FindArgs {
     /// Words that must all match the id, title, slug, aliases or tags.
@@ -40,6 +40,9 @@ pub struct FindArgs {
     /// Also search body text.
     #[arg(long)]
     pub text: bool,
+    /// Only documents with unchecked task items (`- [ ]`), counting their chapters, with the count.
+    #[arg(long)]
+    pub open_tasks: bool,
 }
 
 #[derive(Debug, Clone, Args)]

@@ -841,3 +841,23 @@ fn a_missing_target_suggests_a_real_id() {
     let (_, v) = r.json(&["graph", "tree"]);
     assert_eq!(v["next"], "spec graph", "{v}");
 }
+
+#[test]
+fn find_open_tasks_lists_unfinished_documents() {
+    let r = common::repo();
+    let done = r.new_doc("plan", "services/shop", "Done plan");
+    let open = r.new_doc("plan", "services/shop", "Open plan");
+    for (id, body) in [(&done, "- [x] ship\n"), (&open, "- [ ] ship\n- [ ] test\n- [x] plan\n")] {
+        let (_, v) = r.json(&["show", id]);
+        let path = r.path().join(v["path"].as_str().unwrap());
+        let mut text = std::fs::read_to_string(&path).unwrap();
+        text.push_str(&format!("\n{body}"));
+        std::fs::write(&path, text).unwrap();
+    }
+    let (code, v) = r.json(&["find", "--open-tasks"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["total"], 1, "{v}");
+    assert_eq!(v["items"][0]["id"], open.as_str(), "{v}");
+    assert_eq!(v["items"][0]["open_tasks"], 2, "{v}");
+    assert_eq!(v["next"], format!("spec show {open} --tasks"), "{v}");
+}
