@@ -38,8 +38,8 @@ const CONFIG_HELP: &[(&str, &str)] = &[
         "Named checks over files and commit messages (rule U1, spec guard): paths, public (every published path), exclude, range, deny_terms(_file, _env), deny_regex and deny_path_regex (a pattern, lookaround allowed, or a table: re, label, not_in_url, not_in_regex_literal, code_exempt, exempt, must_hit, must_pass), deny_files, max_file_bytes, secrets, commit_messages, level, allow, fixtures, decompress, read_binary, fail_if_empty, baseline.",
     ),
     (
-        "[[assets]] kind, path, exclude",
-        "Agent assets read beside the documents, never written: kind skill, rule, agent or instructions; a directory or glob (rules A1, A2; spec assets).",
+        "[[assets]] kind, path, exclude, copy_of",
+        "Agent assets read beside the documents: kind skill, rule, agent or instructions; a directory or glob (rules A1, A2; spec assets). copy_of names a source directory this root copies; only spec sync assets writes such a root, previewing until --write and deleting only with --prune.",
     ),
     ("[[plugins]]", "External programs speaking specfold.plugin.v1: rules, importers, exporters, audits, events."),
     ("[audit]", "Thresholds for stale, stalled and draft documents, and open-item markers."),

@@ -16,7 +16,7 @@ nav_order: 5
 ## Agent assets
 
 Skills, rules, subagents and instruction files (AGENTS.md, CLAUDE.md) are declared in
-`spec.toml` and read beside the documents. They carry no ids and specfold never writes them:
+`spec.toml` and read beside the documents. They carry no ids, and specfold writes them only through `spec sync assets`:
 
 ```toml
 [[assets]]
@@ -29,3 +29,17 @@ description is an error, the rest warnings), duplicate names (A2) and paths or `
 asset text that do not exist (A3). `.agents/` is the source; `spec audit --kind drift` names
 copies that differ from it. `spec new skill|rule|agent --title <t> [--description <d>]` writes a
 template and never overwrites an existing file.
+
+A tool copy can declare its source so it never drifts:
+
+```toml
+[[assets]]
+kind = "skill"
+path = ".claude/skills"
+copy_of = ".agents/skills"
+```
+
+`spec sync assets` previews the copies; `--write` applies them. Only roots with `copy_of` are
+written, and only inside that root: the source is never changed, paths with `..`, absolute paths,
+globs, overlapping roots and symbolic links are refused. Files the source lacks stay unless
+`--prune`. `spec fix` never touches assets.

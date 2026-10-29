@@ -1,4 +1,4 @@
-//! `spec assets`: the agent assets declared under `[[assets]]`, read-only.
+//! `spec assets`: the agent assets declared under `[[assets]]`; this command only reads.
 
 use crate::cli::args::{global::Global, read::AssetsArgs};
 use crate::output::Output;
