@@ -69,8 +69,11 @@ spec hook print --for pre-commit             # a hook for your hook manager
 Ids are `<type>:<owner>/<key>`, computed from where a document lives. Files are
 `<owner>/.spec/<type>/<key>-<slug>.<type>.md`, or a directory with `index.<type>.md` when the
 document has chapters or attachments. Projects can disable, change or add types in `spec.toml`.
-Timestamp keys (`YYYYMMDDHHMMSS`) and the `created` and `updated` dates are in UTC, so a
-document written early in the morning east of UTC carries the previous day's date.
+Timestamp keys (`YYYYMMDDHHMMSS`) are UTC. specfold writes `created` and `updated` as RFC 3339
+times in UTC (`2026-10-30T02:21:00Z`). It reads plain `YYYY-MM-DD` dates and any RFC 3339
+offset (`2026-10-30T11:21:00+09:00`), and, as a reading aid only, `2026-10-30 11:21 KST`
+(only UTC, GMT, KST and JST; ambiguous names such as CST are refused).
+They are compared by their UTC day.
 
 Statuses are `draft`, `active`, `superseded`, `archived` and `rejected`, and only move forward.
 Relations are written once, on the document that makes them: `rel.governs` (code paths),

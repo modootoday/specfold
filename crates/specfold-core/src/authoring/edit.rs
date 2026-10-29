@@ -90,7 +90,7 @@ pub fn plan(c: &Corpus, idx: usize, e: &Edit) -> Result<Outcome> {
         None => body.trim().to_string(),
     };
     let rewritten = edit::rewrite(&format!("{head}{body}"), |m| {
-        m.insert("updated".into(), Value::String(stamp::today()));
+        m.insert("updated".into(), Value::String(stamp::now_value()));
     })?;
     let mut plan = Plan::default();
     if rewritten != text {

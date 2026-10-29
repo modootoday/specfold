@@ -87,7 +87,7 @@ pub fn plan(c: &Corpus, g: &Graph, req: &NewDoc) -> Result<(Created, Plan)> {
     let tier = if req.local { Tier::Local } else { Tier::Committed };
     let dir = paths::type_dir(&c.cfg, &c.owners, owner, tier, ty);
     let path = paths::main_file(&dir, ty, &paths::stem(ty, &key, &slug), req.bundle);
-    let today = stamp::today();
+    let today = stamp::now_value();
     let mut fm = Map::new();
     fm.insert("id".into(), Value::String(id.to_string()));
     fm.insert("title".into(), Value::String(req.title.trim().to_string()));

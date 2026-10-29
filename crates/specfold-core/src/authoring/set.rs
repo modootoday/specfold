@@ -55,7 +55,7 @@ fn target<'a>(map: &'a mut Map<String, Value>, key: &str) -> (&'a mut Map<String
 
 fn apply_one(map: &mut Map<String, Value>, a: &Assign) {
     let is_list = a.key.starts_with("rel.") || LIST_KEYS.contains(&a.key.as_str());
-    let value = if a.key == "updated" && a.value == "today" { stamp::today() } else { a.value.clone() };
+    let value = if a.key == "updated" && a.value == "today" { stamp::now_value() } else { a.value.clone() };
     let (m, k) = target(map, &a.key);
     match (&a.op, is_list) {
         (Op::Set, true) => {
@@ -120,7 +120,7 @@ pub fn plan(c: &Corpus, idx: usize, assigns: &[Assign]) -> Result<Plan> {
             apply_one(m, a);
         }
         if !assigns.iter().any(|a| a.key == "updated") {
-            m.insert("updated".into(), Value::String(stamp::today()));
+            m.insert("updated".into(), Value::String(stamp::now_value()));
         }
         let ordered = edit::ordered(std::mem::take(m));
         *m = ordered;
