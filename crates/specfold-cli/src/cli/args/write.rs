@@ -192,3 +192,19 @@ pub struct EditArgs {
     #[arg(long)]
     pub write: bool,
 }
+
+#[derive(Debug, Clone, Args)]
+#[command(
+    after_help = "Copies each [[assets]] root's copy_of source over that root, for example:\n  [[assets]]\n  kind = \"skill\"\n  path = \".claude/skills\"\n  copy_of = \".agents/skills\"\nOnly roots with copy_of are written, only inside that root; the source is never changed and symbolic links are refused. Files missing from the source stay unless --prune. spec fix never touches assets.\n\nExamples:\n  spec sync assets              # preview\n  spec sync assets --write\n  spec sync assets --prune --write"
+)]
+pub struct SyncArgs {
+    /// What to sync: assets.
+    #[arg(value_parser = ["assets"])]
+    pub what: String,
+    /// Also remove files in a copy that its source does not have.
+    #[arg(long)]
+    pub prune: bool,
+    /// Apply the copies (otherwise a preview).
+    #[arg(long)]
+    pub write: bool,
+}

@@ -41,7 +41,7 @@ pub enum Cmd {
     Graph(read::GraphArgs),
     /// Owners, their documents and where public owners store theirs.
     Owners(read::OwnersArgs),
-    /// Agent skills, rules, subagents and instruction files declared under [[assets]]; read-only.
+    /// Agent skills, rules, subagents and instruction files declared under [[assets]].
     Assets(read::AssetsArgs),
     /// The history of a document's status and relations, from git.
     Log(read::LogArgs),
@@ -55,6 +55,8 @@ pub enum Cmd {
     Mv(write::MvArgs),
     /// Apply fixes that need no judgement.
     Fix(write::FixArgs),
+    /// Copy asset sources over the [[assets]] roots that declare copy_of; previews until --write.
+    Sync(write::SyncArgs),
     /// Register files with a document, in the repository or the store.
     Attach(write::AttachArgs),
     /// Download a document's stored attachments, verified by hash.

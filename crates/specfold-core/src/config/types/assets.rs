@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-/// What an asset root holds. Assets carry no ids and are only read, never written.
+/// What an asset root holds. Assets carry no ids; only `spec sync assets` writes them, into roots with `copy_of`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum AssetKind {
@@ -36,4 +36,7 @@ pub struct AssetRoot {
     pub path: String,
     #[serde(default)]
     pub exclude: Vec<String>,
+    /// A source directory this root copies (`.agents/skills`); `spec sync assets` writes it here.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub copy_of: Option<String>,
 }

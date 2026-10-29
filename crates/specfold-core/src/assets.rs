@@ -1,6 +1,8 @@
 //! The asset corpus: agent skills, rules, subagents and instruction files declared under
-//! `[[assets]]` in spec.toml. Assets have no ids and are only read; checks report on them but
-//! nothing in specfold writes them.
+//! `[[assets]]` in spec.toml. Assets have no ids and are only read; checks report on them, and
+//! only `spec sync assets` writes them, into roots that declare `copy_of`.
+
+pub mod sync;
 
 use crate::config::Config;
 use crate::config::types::{AssetKind, AssetRoot};
@@ -8,6 +10,7 @@ use crate::graph::{Graph, Resolution};
 use crate::markdown::frontmatter::{self, Parsed};
 use crate::workspace::owners::{PathMatch, matcher};
 use ignore::WalkBuilder;
+
 use serde_json::{Map, Value};
 use std::collections::BTreeSet;
 use std::path::Path;

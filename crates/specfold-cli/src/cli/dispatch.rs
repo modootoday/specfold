@@ -21,6 +21,7 @@ pub fn dispatch(cli: &Cli) -> Result<Output> {
         Cmd::Edit(a) => write::edit::run(g, a),
         Cmd::Mv(a) => write::mv::run(g, a),
         Cmd::Fix(a) => write::fix::run(g, a),
+        Cmd::Sync(a) => write::sync::run(g, a),
         Cmd::Init(a) => write::init::run(g, a),
         Cmd::Import(a) => write::import::run(g, a),
         Cmd::Attach(a) => files::attach::run(g, a),

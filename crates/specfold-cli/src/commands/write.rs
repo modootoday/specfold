@@ -8,3 +8,4 @@ pub mod mv;
 pub mod new;
 mod preview;
 pub mod set;
+pub mod sync;

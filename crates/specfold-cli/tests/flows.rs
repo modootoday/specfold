@@ -489,3 +489,76 @@ fn check_extra_keys_allow_project_keys_on_every_type() {
     assert!(!t.contains("unknown key 'team'") && !t.contains("unknown key 'review_by'"), "{v}");
     assert!(t.contains("unknown key 'squad'"), "only listed keys pass: {v}");
 }
+
+#[test]
+fn sync_assets_previews_then_copies_only_into_declared_copy_roots() {
+    let r = common::repo();
+    let base = r.read("spec.toml");
+    let copy = "[[assets]]\nkind = \"skill\"\npath = \".agents/skills\"\n[[assets]]\nkind = \"skill\"\npath = \".claude/skills\"\ncopy_of = \".agents/skills\"\n";
+    r.write("spec.toml", &(base.clone() + copy));
+    let skill = "---\nname: pdf-tools\ndescription: Read PDFs.\n---\n# PDF\n";
+    r.write(".agents/skills/pdf-tools/SKILL.md", skill);
+    r.write(".agents/skills/pdf-tools/scripts/run.sh", "echo pdf\n");
+    r.write(".claude/skills/pdf-tools/SKILL.md", "---\nname: pdf-tools\ndescription: Old.\n---\n");
+    r.write(".claude/skills/stale/SKILL.md", "---\nname: stale\ndescription: S.\n---\n");
+    let (_, v) = r.json(&["audit", "--kind", "drift"]);
+    assert!(v.to_string().contains("spec sync assets --write"), "drift points at sync for a copy root: {v}");
+
+    let (code, v) = r.json(&["sync", "assets"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["written"], false, "preview is the default: {v}");
+    assert_eq!(v["changes"], 2, "{v}");
+    assert!(r.read(".claude/skills/pdf-tools/SKILL.md").contains("Old."), "a preview writes nothing");
+
+    let (code, v) = r.json(&["sync", "assets", "--write"]);
+    assert_eq!((code, v["written"].clone()), (0, serde_json::json!(true)), "{v}");
+    assert_eq!(r.read(".claude/skills/pdf-tools/SKILL.md"), skill);
+    assert_eq!(r.read(".claude/skills/pdf-tools/scripts/run.sh"), "echo pdf\n");
+    assert!(r.path().join(".claude/skills/stale/SKILL.md").is_file(), "nothing is deleted without --prune");
+    assert_eq!(r.read(".agents/skills/pdf-tools/SKILL.md"), skill, "the source is never written");
+
+    let (code, v) = r.json(&["sync", "assets", "--prune", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    assert!(!r.path().join(".claude/skills/stale/SKILL.md").exists(), "--prune removes what the source lacks");
+    let (_, v) = r.json(&["sync", "assets"]);
+    assert_eq!(v["changes"], 0, "{v}");
+
+    let (_, v) = r.json(&["fix", "--write"]);
+    assert!(!v.to_string().contains(".claude/skills"), "spec fix never touches assets: {v}");
+}
+
+#[test]
+fn sync_assets_refuses_paths_that_leave_the_repository_or_overlap_the_source() {
+    let r = common::repo();
+    let base = r.read("spec.toml");
+    r.write(".agents/skills/pdf-tools/SKILL.md", "---\nname: pdf-tools\ndescription: D.\n---\n");
+    let outside =
+        r.path().parent().unwrap().join(format!("{}-outside", r.path().file_name().unwrap().to_string_lossy()));
+    for (path, src) in [
+        ("../escape", ".agents/skills"),
+        ("/tmp/escape", ".agents/skills"),
+        (".claude/skills", "../elsewhere"),
+        (".claude/*", ".agents/skills"),
+        (".agents/skills/inner", ".agents/skills"),
+        (".agents", ".agents/skills"),
+    ] {
+        r.write("spec.toml", &format!("{base}[[assets]]\nkind = \"skill\"\npath = \"{path}\"\ncopy_of = \"{src}\"\n"));
+        let (code, v) = r.json(&["sync", "assets", "--write"]);
+        assert_ne!(code, 0, "{path} <- {src} must be refused: {v}");
+    }
+    assert!(!r.path().join(".agents/skills/inner").exists() && !r.path().parent().unwrap().join("escape").exists());
+
+    #[cfg(unix)]
+    {
+        std::fs::create_dir_all(&outside).unwrap();
+        std::os::unix::fs::symlink(&outside, r.path().join(".claude")).unwrap();
+        r.write(
+            "spec.toml",
+            &format!("{base}[[assets]]\nkind = \"skill\"\npath = \".claude/skills\"\ncopy_of = \".agents/skills\"\n"),
+        );
+        let (code, v) = r.json(&["sync", "assets", "--write"]);
+        assert_ne!(code, 0, "a copy root behind a symbolic link is refused: {v}");
+        assert!(std::fs::read_dir(&outside).unwrap().next().is_none(), "nothing was written through the link");
+        std::fs::remove_dir_all(&outside).unwrap();
+    }
+}

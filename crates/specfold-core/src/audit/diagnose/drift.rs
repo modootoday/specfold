@@ -20,7 +20,10 @@ pub fn run(c: &Corpus, out: &mut Vec<Item>) {
     if canonical.is_empty() {
         return;
     }
+    let synced: Vec<&str> =
+        c.cfg.raw.assets.iter().filter(|r| r.copy_of.is_some()).map(|r| r.path.trim_end_matches('/')).collect();
     for a in skills.iter().filter(|a| !a.path.starts_with(CANONICAL)) {
+        let sync = synced.iter().any(|r| a.path.starts_with(&format!("{r}/")));
         let (detail, next) = match canonical.get(a.stem.as_str()) {
             None => (
                 format!("skill '{}' has no source under .agents/skills", a.stem),
@@ -28,7 +31,11 @@ pub fn run(c: &Corpus, out: &mut Vec<Item>) {
             ),
             Some(src) if digest(root, &a.path) != digest(root, &src.path) => (
                 format!("differs from {}, the canonical copy", parent(&src.path)),
-                format!("diff -r {} {}", parent(&src.path), parent(&a.path)),
+                if sync {
+                    "spec sync assets --write".to_string()
+                } else {
+                    format!("diff -r {} {}", parent(&src.path), parent(&a.path))
+                },
             ),
             Some(_) => continue,
         };
