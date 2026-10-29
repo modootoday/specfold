@@ -390,3 +390,24 @@ fn edit_changes_one_table_row_by_its_key() {
     let (code, _) = r.json(&["edit", &id, "--row", "A1", "--cell", "Owner=me"]);
     assert_ne!(code, 0, "an unknown column is refused");
 }
+
+#[test]
+fn agents_lines_name_edit_check_assets_and_audit() {
+    let r = common::repo();
+    let (code, v) = r.json(&["agents", "--for", "generic"]);
+    assert_eq!(code, 0, "{v}");
+    let text = v["lines"].to_string();
+    for want in [
+        "spec edit",
+        "--row",
+        "spec check --staged",
+        "--summary",
+        "spec assets",
+        "spec new skill",
+        "--kind drift",
+        "--kind finished",
+    ] {
+        assert!(text.contains(want), "missing {want}: {text}");
+    }
+    assert!(v["lines"].as_array().unwrap().len() <= 8, "keep it short: {text}");
+}

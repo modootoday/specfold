@@ -12,7 +12,7 @@ use clap::{Parser, Subcommand};
 #[derive(Debug, Parser)]
 #[command(
     name = "spec",
-    version,
+    version = concat!(env!("CARGO_PKG_VERSION"), " (", env!("SPECFOLD_COMMIT"), ")"),
     about = "One CLI for a repository's design, planning and maintenance documents.",
     long_about = "Typed Markdown documents stored with the code they govern, a graph derived from them, checks, guards and audits. Every command is non-interactive, prints text or --json, and ends with a suggested next command.",
     disable_help_subcommand = true

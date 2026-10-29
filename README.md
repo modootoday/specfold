@@ -47,7 +47,7 @@ spec context services/shop/src/cart/total.rs     # what governs this code
 spec check --staged                          # before committing
 spec check --new                             # list documents not in the last commit
 spec check --summary                         # findings per rule; -q lists errors only
-spec agents --for claude                     # lines for your agent's instructions
+spec agents --for claude                     # lines for your agent's instructions: context, new, edit, check, assets, audit
 spec hook print --for pre-commit             # a hook for your hook manager
 ```
 
