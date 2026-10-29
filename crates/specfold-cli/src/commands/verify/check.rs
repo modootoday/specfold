@@ -75,7 +75,13 @@ fn documents_named(s: &session::Session, files: &[String]) -> Result<Vec<String>
         };
         let known = s.corpus.docs.iter().any(|d| d.path == rel || d.chapters.iter().any(|c| c == &rel));
         if !known && !std::path::Path::new(f).exists() {
-            bail!("{f}: no such file (an unsaved buffer given with --stdin-path must lie in a spec directory)");
+            if let Some(d) = s.corpus.docs.iter().find(|d| d.id.to_string() == *f) {
+                out.push(d.path.clone());
+                continue;
+            }
+            bail!(
+                "{f}: no such file or document id (spec check takes document files or ids; `spec resolve {f}` finds a document's path; an unsaved buffer given with --stdin-path must lie in a spec directory)"
+            );
         }
         if !known {
             bail!(

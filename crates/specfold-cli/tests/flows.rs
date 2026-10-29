@@ -1382,3 +1382,20 @@ fn lsp_cached_results_match_fresh_checks() {
     assert_eq!(count(&fresh), 9);
     assert_eq!(count(&cached), 6, "one full check per change of buffers or disk");
 }
+
+#[test]
+fn check_takes_document_ids_as_well_as_files() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    let path = r.json(&["show", &id]).1["path"].as_str().unwrap().to_string();
+    let (_, by_id) = r.json(&["check", &id]);
+    let (_, by_path) = r.json(&["check", &path]);
+    assert_eq!(by_id["findings"], by_path["findings"]);
+    let out = r.spec().args(["check", "sot:services/nowhere"]).output().unwrap();
+    assert_eq!(out.status.code(), Some(2));
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        text.contains("no such file or document id") && text.contains("spec resolve sot:services/nowhere"),
+        "{text}"
+    );
+}
