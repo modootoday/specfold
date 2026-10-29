@@ -68,14 +68,24 @@ pub fn run(g: &Global, a: &GraphArgs) -> Result<Output> {
                 _ => {
                     let mut l = vec![format!("{} documents, {} edges", c.docs.len(), s.graph.edges.len())];
                     l.extend(tree(&s, a.depth, glyphs(a.ascii)));
-                    return Ok(l.into_iter().fold(o, |o, x| o.head(x)).next("spec graph impact <id>"));
+                    return Ok(l.into_iter().fold(o, |o, x| o.head(x)).next(match c.docs.first() {
+                        Some(d) => format!("spec graph impact {}", d.id),
+                        None => "spec graph".into(),
+                    }));
                 }
             };
             o = o.field("diagram", lines.join("\n"));
             Ok(lines.into_iter().fold(o, |o, x| o.head(x)))
         }
         (Some("impact"), Some(t)) => {
-            let idx = session::resolve(&s, t)?;
+            let idx = match session::resolve(&s, t) {
+                Ok(i) => i,
+                // A code path is not a document; governs answers which documents cover it.
+                Err(e) if !t.contains(':') && (t.contains('/') || c.cfg.root.join(t).exists()) => {
+                    bail!("{e}; next: spec graph governs {t}")
+                }
+                Err(e) => return Err(e),
+            };
             let arrow = glyphs(a.ascii).arrow;
             for r in reach(&s, idx, a.depth) {
                 o = o.item(

@@ -7,8 +7,9 @@ redirect_from: [/commands/]
 # Commands
 
 > [!TIP]
-> Commands are grouped below. `spec <command> --help` shows arguments and examples, and every
-> command takes `--json`.
+> Commands are grouped below. `spec <command> --help` shows arguments and examples,
+> `spec help <command> --markdown` prints one command's reference page, and every command takes
+> `--json`.
 
 ## Query
 

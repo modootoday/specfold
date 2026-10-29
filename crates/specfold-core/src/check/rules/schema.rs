@@ -113,6 +113,17 @@ impl Rule for Frontmatter {
     }
 }
 
+/// The S1 warning `spec set` would cause by writing `key` on a document of type `ty`, so set can
+/// say it at once.
+pub fn unknown_key(c: &crate::corpus::Corpus, ty: &str, key: &str) -> Option<String> {
+    let k = key.split('.').next().unwrap_or(key);
+    let t = c.cfg.registry.get(ty);
+    let known = COMMON_KEYS.contains(&k)
+        || c.cfg.raw.check.extra_key(k)
+        || t.is_some_and(|t| t.fields.iter().any(|f| f == k) || (t.sealed && k == "sealed"));
+    (!known).then(|| unknown_key_message(k, ty, t.map(|t| t.fields.as_slice()).unwrap_or_default()))
+}
+
 /// Names a close known key when the unknown one looks like a typo, and otherwise shows the
 /// spec.toml line that declares it. `fields` replaces the type's list, so the line keeps it.
 fn unknown_key_message(k: &str, ty: &str, fields: &[String]) -> String {

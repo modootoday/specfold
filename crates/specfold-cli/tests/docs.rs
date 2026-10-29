@@ -108,3 +108,15 @@ fn readme_links_resolve() {
         assert!(root().join(target).exists(), "README links to missing {target}");
     }
 }
+
+#[test]
+fn help_markdown_for_one_command_is_a_reference_page() {
+    let r = common::repo();
+    let (code, page) = r.text(&["help", "mv", "--markdown"]);
+    assert_eq!(code, 0, "{page}");
+    assert!(page.starts_with("\n## `spec mv`\n"), "{page}");
+    assert!(page.contains("| `--slug` |") && page.contains("```sh"), "{page}");
+    let (code, v) = r.json(&["help", "mvv", "--markdown"]);
+    assert_ne!(code, 0);
+    assert!(v["error"].as_str().unwrap().contains("did you mean 'mv'"), "{v}");
+}

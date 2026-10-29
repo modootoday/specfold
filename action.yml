@@ -1,0 +1,57 @@
+name: specfold check
+description: Install a specfold release (checksum-verified) and run spec check, as annotations, SARIF, GitLab Code Quality or rdjson.
+author: modootoday
+branding:
+  icon: check-square
+  color: blue
+
+inputs:
+  version:
+    description: Release tag to install, for example the latest tag on the releases page (a bare 1.2.3 is read as v1.2.3). Required; there is no moving default.
+    required: true
+  format:
+    description: github (annotations and a step summary), sarif, rdjson or gitlab.
+    default: github
+  args:
+    description: Extra arguments for spec check, for example `--changed origin/main` or `--rule L1`.
+    default: ""
+  fail-on:
+    description: Rules whose errors fail the step, separated by spaces or commas (`spec check --fail-on`). Empty means every error; `none` never fails on findings (the document is still written, and the exit-code output still tells).
+    default: ""
+  changed:
+    description: "`auto` checks only what a pull request changes, from its merge base with the base branch (other events check everything); `off` checks everything; any other value is the base revision for --changed. Ignored when args already has --changed or --staged."
+    default: auto
+  output:
+    description: File for the sarif, rdjson or gitlab document. Default spec-check.<format>.json in the working directory.
+    default: ""
+  working-directory:
+    description: Where to run spec check.
+    default: "."
+
+outputs:
+  report:
+    description: Path of the written document (empty for the github format).
+    value: ${{ steps.check.outputs.report }}
+  exit-code:
+    description: Exit code of spec check.
+    value: ${{ steps.check.outputs.exit-code }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install specfold
+      shell: bash
+      env:
+        SPECFOLD_TAG: ${{ inputs.version }}
+      run: bash "$GITHUB_ACTION_PATH/.github/action/install.sh" "$SPECFOLD_TAG" "$RUNNER_TEMP/specfold"
+    - name: spec check
+      id: check
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        SPECFOLD_FORMAT: ${{ inputs.format }}
+        SPECFOLD_ARGS: ${{ inputs.args }}
+        SPECFOLD_OUTPUT: ${{ inputs.output }}
+        SPECFOLD_FAIL_ON: ${{ inputs.fail-on }}
+        SPECFOLD_CHANGED: ${{ inputs.changed }}
+      run: bash "$GITHUB_ACTION_PATH/.github/action/run.sh"

@@ -1,0 +1,21 @@
+# Hooks for pre-commit (https://pre-commit.com). They run the `spec` binary already on PATH
+# (npm install -g specfold, or cargo install specfold): the repository is a Cargo workspace,
+# which pre-commit's rust language cannot install from.
+- id: spec-check
+  name: spec check
+  description: Check staged documents with specfold.
+  entry: spec check --staged
+  language: unsupported
+  pass_filenames: false
+  always_run: true
+  minimum_pre_commit_version: "4.4.0"
+  stages: [pre-commit, pre-merge-commit, manual]
+- id: spec-check-push
+  name: spec check (push)
+  description: Check what a push changes against its upstream with specfold.
+  entry: spec check --changed @{upstream}
+  language: unsupported
+  pass_filenames: false
+  always_run: true
+  minimum_pre_commit_version: "4.4.0"
+  stages: [pre-push]

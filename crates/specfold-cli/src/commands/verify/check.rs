@@ -1,7 +1,7 @@
 //! `spec check`.
 
 use crate::cli::args::{global::Global, verify::CheckArgs};
-use crate::output::{Code, Output, findings};
+use crate::output::{Code, Output, ci, findings};
 use crate::session;
 use anyhow::{Result, bail};
 use specfold_core::check::{self, Finding, Options, Range, Selection, Severity, baseline};
@@ -87,6 +87,9 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
     } else {
         String::new()
     };
+    if a.format != "text" {
+        return ci_output(g, a, o, &list, errors, warnings, fails, &s.corpus.cfg.root);
+    }
     let o = if a.summary {
         by_rule.iter().fold(o, |o, (r, (e, w))| {
             o.item(
@@ -128,6 +131,49 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
         (_, true) => {
             o.code(Code::Findings).next(if a.staged { "spec fix --staged --write" } else { "spec fix --write" })
         }
-        _ => o.code(Code::Findings).next("spec explain <rule>"),
+        _ => {
+            let rule = list.iter().find(|f| f.severity == Severity::Error).map(|f| f.rule.clone()).unwrap_or_default();
+            o.code(Code::Findings).next(format!("spec explain {rule}"))
+        }
     })
+}
+
+/// A CI format replaces the text: only the document goes to standard output, so it can be
+/// redirected to a file, and the exit code still follows --fail-on.
+#[allow(clippy::too_many_arguments)]
+fn ci_output(
+    g: &Global,
+    a: &CheckArgs,
+    o: Output,
+    list: &[Finding],
+    errors: usize,
+    warnings: usize,
+    fails: usize,
+    root: &std::path::Path,
+) -> Result<Output> {
+    if g.json || g.jsonl {
+        bail!("--format {} is its own output; drop --json/--jsonl", a.format);
+    }
+    let shown: Vec<Finding> =
+        list.iter().filter(|f| !a.errors_only || f.severity == Severity::Error).cloned().collect();
+    let doc = match a.format.as_str() {
+        "github" => {
+            if let Ok(path) = std::env::var("GITHUB_STEP_SUMMARY")
+                && !path.is_empty()
+            {
+                use std::io::Write;
+                if let Ok(mut f) = std::fs::OpenOptions::new().append(true).create(true).open(&path) {
+                    let _ = f.write_all(ci::github_summary(&shown, errors, warnings).as_bytes());
+                }
+            }
+            ci::github(&shown, errors, warnings)
+        }
+        "sarif" => ci::sarif(&shown),
+        "gitlab" => ci::gitlab(&shown),
+        _ => ci::rdjson(&shown, root),
+    };
+    let mut out = Output::new("check").unpaged();
+    out.summary = o.summary;
+    let out = doc.trim_end_matches('\n').lines().fold(out, |o, l| o.head(l));
+    Ok(if fails > 0 { out.code(Code::Findings) } else { out })
 }

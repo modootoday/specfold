@@ -27,3 +27,7 @@ jobs:
       - run: cargo fmt --check
       - run: cargo clippy --locked --all-targets -- -D warnings
       - run: cargo test --locked --no-fail-fast
+      - name: Action install script
+        if: runner.os != 'Windows'
+        shell: bash
+        run: bash .github/action/test.sh
