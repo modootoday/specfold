@@ -639,3 +639,27 @@ fn graph_draws_trees_diagrams_relations_and_chains_both_ways() {
     assert_eq!(ids, vec![old.clone(), new.clone()], "the chain from the new document shows what it replaced");
     assert_eq!(v["items"][1]["this"], true);
 }
+
+#[test]
+fn box_graph_fits_columns_and_falls_back_to_ascii_or_the_tree() {
+    let r = common::repo();
+    let sot = r.new_doc("sot", "services/shop/src", "Cart");
+    let plan = r.new_doc("plan", "services/shop", "Ship");
+    assert_eq!(r.json(&["set", &plan, &format!("rel.implements={sot}")]).0, 0);
+    let out = |cols: &str, locale: &str, extra: &[&str]| {
+        let mut c = r.spec();
+        c.args(["graph", "--format", "box"]).args(extra).env("COLUMNS", cols).env("LC_ALL", locale);
+        String::from_utf8_lossy(&c.output().unwrap().stdout).into_owned()
+    };
+    let text = out("120", "C.UTF-8", &[]);
+    assert!(text.contains("┌") && text.contains("i▶") && text.contains("i implements"), "{text}");
+    let widest = text.lines().filter(|l| !l.starts_with("next:")).map(|l| l.chars().count()).max().unwrap();
+    assert!(widest <= 120, "{text}");
+    let text = out("120", "C", &[]);
+    assert!(text.contains("i>") && text.lines().all(|l| l.is_ascii()), "a non-UTF-8 locale draws ASCII: {text}");
+    assert!(out("120", "C.UTF-8", &["--ascii"]).contains("+-"));
+    let text = out("30", "C.UTF-8", &[]);
+    assert!(text.contains("COLUMNS is 30") && text.contains("implements →"), "too narrow shows the tree: {text}");
+    let (_, v) = r.json(&["graph", "--format", "box"]);
+    assert!(v["diagram"].as_str().unwrap().contains(&sot), "{v}");
+}

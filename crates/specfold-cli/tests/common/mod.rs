@@ -40,6 +40,11 @@ impl Repo {
         let mut c = Command::cargo_bin("spec").unwrap();
         c.current_dir(self.path())
             .env("SPECFOLD_CACHE", self.path().join(".cache"))
+            // Box drawing depends on the locale: pin it so tests do not follow the host.
+            .env("LC_ALL", "C.UTF-8")
+            .env_remove("LC_CTYPE")
+            .env_remove("LANG")
+            .env_remove("COLUMNS")
             .timeout(std::time::Duration::from_secs(30));
         c
     }
