@@ -21,7 +21,12 @@ fn code_of(e: &anyhow::Error) -> Code {
 /// The subcommand named on the command line, if it is a real one.
 fn command_name(argv: &[String]) -> Option<String> {
     let first = argv.iter().skip(1).find(|a| !a.starts_with('-'))?;
-    crate::cli::describe::commands().iter().any(|c| &c.name == first).then(|| first.clone())
+    // Hidden aliases name the command they stand for.
+    let first = match first.as_str() {
+        "list" | "ls" => "find".to_string(),
+        _ => first.clone(),
+    };
+    crate::cli::describe::commands().iter().any(|c| c.name == first).then_some(first)
 }
 
 fn help_hint(name: &Option<String>) -> String {
@@ -56,11 +61,13 @@ pub fn execute(argv: Vec<String>) -> Executed {
                 };
             }
             let first = clap_message(&rendered);
-            // A mistyped subcommand: the nearest real one is the next command.
+            // A mistyped subcommand: the nearest real one is the next command, but the error
+            // keeps the generic schema rather than following the guess.
+            let schema_name = name.clone();
             let name = name.or_else(|| nearest_command(&argv));
             let code = if display_only { Code::Ok } else { Code::Usage };
             let next = usage_example(&argv, kind, &rendered, name.as_deref()).unwrap_or_else(|| help_hint(&name));
-            let out = Output::error(name.as_deref().unwrap_or("spec"), code, &first, Some(next));
+            let out = Output::error(schema_name.as_deref().unwrap_or("spec"), code, &first, Some(next));
             return Executed {
                 output: out,
                 format: if wants_json { Format::Json } else { Format::Text },
@@ -153,6 +160,8 @@ fn quote(a: &str) -> String {
 /// and `rerun with --flag` as the full command line with the flag added.
 fn split_next(msg: &str, argv: &[String]) -> (String, Option<String>) {
     if let Some((m, n)) = msg.split_once("; next: ") {
+        // A wrapped error may name a second way out; the innermost one is the most specific.
+        let n = n.split("; next: ").next().unwrap_or(n);
         return (m.to_string(), Some(n.to_string()));
     }
     if let Some((m, flag)) = msg.rsplit_once("; rerun with ")

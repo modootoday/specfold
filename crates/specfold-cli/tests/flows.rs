@@ -1394,10 +1394,7 @@ fn check_takes_document_ids_as_well_as_files() {
     let out = r.spec().args(["check", "sot:services/nowhere"]).output().unwrap();
     assert_eq!(out.status.code(), Some(2));
     let text = String::from_utf8_lossy(&out.stdout);
-    assert!(
-        text.contains("no such file or document id") && text.contains("spec resolve sot:services/nowhere"),
-        "{text}"
-    );
+    assert!(text.contains("'sot:services/nowhere' names no document"), "{text}");
 }
 
 #[test]
@@ -1516,4 +1513,43 @@ fn hidden_characters_are_reported_and_fixed() {
     let (_, v) = r.json(&["check", "--rule", "H1"]);
     assert_eq!(v["warnings"], 0, "{v}");
     assert!(r.read(&path).contains("\u{200D} emoji"), "joiners stay");
+}
+
+#[test]
+fn names_resolve_in_check_and_typos_get_candidates() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart rules");
+    let path = r.json(&["show", &id]).1["path"].as_str().unwrap().to_string();
+    // check reads names the way resolve does.
+    let (code, v) = r.json(&["check", "cart-rules"]);
+    assert_eq!(code, 0, "{v}");
+    let prefix = &id[..id.len() - 4];
+    let (code, v) = r.json(&["check", prefix]);
+    assert_eq!(code, 2, "{v}");
+    assert_eq!(v["next"], format!("spec show {id}"), "{v}");
+    let (_, v) = r.json(&["show", prefix]);
+    assert_eq!(v["next"], format!("spec show {id}"), "{v}");
+    let (_, v) = r.json(&["check", "nope.md"]);
+    assert!(!v["error"].as_str().unwrap().contains("stdin"), "{v}");
+    // list and ls are find; an unknown command keeps the generic schema.
+    assert_eq!(r.json(&["list"]).1["schema"], "spec.find.v1");
+    assert_eq!(r.json(&["ls"]).1["schema"], "spec.find.v1");
+    assert_eq!(r.json(&["chek"]).1["schema"], "spec.spec.v1");
+    // A status typo and a near-miss path list the likely value first.
+    let text = r.read(&path);
+    let status = text.lines().find(|l| l.starts_with("status:")).unwrap().to_string();
+    let bad = path.replace("cart-rules", "cart-rulez");
+    let text = format!("{}\nSee {bad}.\n", text.replace(&status, "status: actve"));
+    std::fs::write(r.path().join(&path), text).unwrap();
+    let (_, v) = r.json(&["check", "--rule", "S4", "--rule", "L2"]);
+    let items = v["items"].as_array().unwrap();
+    let s4 = items.iter().find(|f| f["rule"] == "S4").unwrap();
+    assert_eq!(s4["candidates"][0], "active", "{v}");
+    assert!(s4["message"].as_str().unwrap().contains("did you mean 'active'"), "{v}");
+    let l2 = items.iter().find(|f| f["rule"] == "L2").unwrap();
+    assert!(l2["message"].as_str().unwrap().contains("no such file"), "{v}");
+    assert_eq!(l2["candidates"][0], id.as_str(), "{v}");
+    // Nothing to apply: fix points at the first decision, not at --write.
+    let (_, v) = r.json(&["fix"]);
+    assert!(v["next"].as_str().unwrap().starts_with("spec explain "), "{v}");
 }

@@ -1,6 +1,6 @@
 //! L rules: every reference resolves to one document, written as an id.
 
-use super::support::{key_line, quote, skipped};
+use super::support::{distance, key_line, quote, skipped};
 use crate::check::context::Ctx;
 use crate::check::finding::Finding;
 use crate::check::rule::{Rule, RuleInfo};
@@ -126,16 +126,23 @@ impl Rule for NoPathCites {
                 continue;
             }
             for c in &d.path_cites {
-                let f = Finding::error("L2", &c.path, c.line, format!("cites the path {}", c.item));
+                let cites =
+                    |tail: &str| Finding::error("L2", &c.path, c.line, format!("cites the path {}{tail}", c.item));
                 out.push(match ctx.graph.resolve(&c.item) {
                     Resolution::Doc { idx, .. } => {
-                        f.fix_replace(c.item.clone(), format!("[[{}]]", ctx.corpus.docs[idx].id))
+                        cites("").fix_replace(c.item.clone(), format!("[[{}]]", ctx.corpus.docs[idx].id))
                     }
-                    _ => match by_file_name(ctx, &c.item).as_slice() {
-                        [idx] => f.fix_replace(c.item.clone(), format!("[[{}]]", ctx.corpus.docs[*idx].id)),
-                        [] => f,
-                        many => f.with_candidates(ids(ctx, many)),
-                    },
+                    _ => {
+                        let f = cites(", which is not a document (no such file)");
+                        match by_file_name(ctx, &c.item).as_slice() {
+                            [idx] => f.fix_replace(c.item.clone(), format!("[[{}]]", ctx.corpus.docs[*idx].id)),
+                            [] => match by_near_path(ctx, &c.item).as_slice() {
+                                [] => f,
+                                near => f.with_candidates(ids(ctx, near)),
+                            },
+                            many => f.with_candidates(ids(ctx, many)),
+                        }
+                    }
                 });
             }
         }
@@ -167,6 +174,19 @@ fn by_file_name(ctx: &Ctx, cited: &str) -> Vec<usize> {
         return vec![];
     }
     (0..docs.len()).filter(|&i| docs[i].slug == stem).collect()
+}
+
+/// Documents whose path is a near miss of a cited path (a typo): the closest within a few edits,
+/// all of them when tied.
+fn by_near_path(ctx: &Ctx, cited: &str) -> Vec<usize> {
+    let cited = cited.trim_start_matches("./");
+    let docs = &ctx.corpus.docs;
+    let scored: Vec<(usize, usize)> = (0..docs.len())
+        .map(|i| (distance(cited, &docs[i].path), i))
+        .filter(|(d, i)| *d <= 3.max(docs[*i].path.rsplit('/').next().unwrap_or("").len() / 6))
+        .collect();
+    let Some(best) = scored.iter().map(|(d, _)| *d).min() else { return vec![] };
+    scored.into_iter().filter(|(d, _)| *d == best).map(|(_, i)| i).collect()
 }
 
 /// The types a relation may point at; `None` means any type, `Some(&[])` means the same type.

@@ -105,4 +105,10 @@ description: Every rule spec check runs, grouped by family.
 | --- | --- |
 | **N1** | counts in spec:count markers are current |
 
+## Hidden characters
+
+| rule | checks that |
+| --- | --- |
+| **H1** | no invisible characters in documents or agent assets |
+
 Plugin rules are named `x.<plugin>.<id>` and are explained the same way.
