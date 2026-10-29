@@ -67,7 +67,7 @@ impl Rule for Frontmatter {
         &RuleInfo {
             id: "S1",
             title: "frontmatter parses and has the required keys",
-            explain: "Every document starts with a YAML frontmatter block holding id, title, status, created and updated. Keys outside the common set and the type's own fields are reported so typos do not pass silently; a key that is meant to stay is declared in spec.toml as `[types.<type>] fields = [...]`, a list that replaces the type's built-in fields, so it keeps them. `spec fix --rule S1` fills missing keys from the path and the first heading.",
+            explain: "Every document starts with a YAML frontmatter block holding id, title, status, created and updated. Keys outside the common set and the type's own fields are reported so typos do not pass silently; a key that is meant to stay is declared in spec.toml as `[types.<type>] fields = [...]`, a list that replaces the type's built-in fields, so it keeps them, or for every type as `[check] extra_keys = [\"team\", \"review_*\"]` (a trailing * allows a prefix). `spec fix --rule S1` fills missing keys from the path and the first heading.",
             on_commit: true,
         }
     }
@@ -98,6 +98,7 @@ impl Rule for Frontmatter {
             let ty = ctx.corpus.cfg.registry.get(&d.id.ty);
             for k in fm.keys() {
                 let known = COMMON_KEYS.contains(&k.as_str())
+                    || ctx.corpus.cfg.raw.check.extra_key(k)
                     || ty.is_some_and(|t| t.fields.iter().any(|f| f == k) || (t.sealed && k == "sealed"));
                 if !known {
                     out.push(Finding::warn(
@@ -121,7 +122,7 @@ fn unknown_key_message(k: &str, ty: &str, fields: &[String]) -> String {
     }
     let list: Vec<String> = fields.iter().map(String::as_str).chain([k]).map(|f| format!("\"{f}\"")).collect();
     format!(
-        "unknown key '{k}' for {ty}; to keep it, declare it in spec.toml: [types.{ty}] fields = [{}]",
+        "unknown key '{k}' for {ty}; to keep it, declare it in spec.toml: [types.{ty}] fields = [{}], or for every type: [check] extra_keys = [\"{k}\"]",
         list.join(", ")
     )
 }
@@ -290,7 +291,7 @@ mod unknown_key_tests {
         assert!(super::unknown_key_message("staus", "adr", &f).ends_with("did you mean 'status'?"));
         assert_eq!(
             super::unknown_key_message("domain", "adr", &f),
-            "unknown key 'domain' for adr; to keep it, declare it in spec.toml: [types.adr] fields = [\"verify\", \"domain\"]"
+            "unknown key 'domain' for adr; to keep it, declare it in spec.toml: [types.adr] fields = [\"verify\", \"domain\"], or for every type: [check] extra_keys = [\"domain\"]"
         );
     }
 }
