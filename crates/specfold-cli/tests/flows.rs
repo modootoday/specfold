@@ -1499,3 +1499,21 @@ fn lsp_offers_each_candidate_and_runs_only_offered_fix_commands() {
     assert_eq!(get(5)["result"]["exit"], 0, "{:?}", get(5));
     assert!(r.read(&pc).lines().any(|l| l.starts_with("updated:")), "S1 fix ran");
 }
+
+#[test]
+fn hidden_characters_are_reported_and_fixed() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    let path = r.json(&["show", &id]).1["path"].as_str().unwrap().to_string();
+    let text = format!("{}\nsee\u{200B} [[{id}]] \u{202E}x\u{202C} and \u{200D} emoji\n", r.read(&path));
+    std::fs::write(r.path().join(&path), &text).unwrap();
+    let (_, v) = r.json(&["check", "--rule", "H1"]);
+    let list = v["items"].as_array().unwrap();
+    assert_eq!(list.len(), 3, "{v}");
+    assert!(list.iter().any(|f| f["message"].as_str().unwrap().contains("U+200B")), "{v}");
+    let (code, v) = r.json(&["fix", "--rule", "H1", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    let (_, v) = r.json(&["check", "--rule", "H1"]);
+    assert_eq!(v["warnings"], 0, "{v}");
+    assert!(r.read(&path).contains("\u{200D} emoji"), "joiners stay");
+}
