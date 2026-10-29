@@ -112,7 +112,7 @@ pub enum Cmd {
     Mcp,
     /// Serve check findings as editor diagnostics (Language Server Protocol over stdio).
     #[command(
-        long_about = "Serve check findings as editor diagnostics (Language Server Protocol over stdio).\n\nStarted by an editor's LSP client. Open, changed and saved documents are checked with their unsaved text; each publishes the findings `spec check <FILE>` would list for that file. Diagnostics only: no code actions yet.",
+        long_about = "Serve check findings as editor diagnostics (Language Server Protocol over stdio).\n\nStarted by an editor's LSP client. Open, changed and saved documents are checked with their unsaved text; each publishes the findings `spec check <FILE>` would list for that file. Findings with a replacement fix offer it as a quick fix on the unsaved text.",
         after_help = "Examples:\n  spec lsp\n  spec lsp --dir /path/to/repo"
     )]
     Lsp,
