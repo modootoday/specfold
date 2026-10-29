@@ -4,7 +4,7 @@ use clap::Args;
 
 #[derive(Debug, Clone, Args)]
 #[command(
-    after_help = "Examples:\n  spec check --staged          # pre-commit\n  spec check --changed origin/main\n  spec check --rule L1 --rule L2 --json\n  spec check --new              # which documents were just recognised"
+    after_help = "Examples:\n  spec check --staged          # pre-commit\n  spec check --changed origin/main\n  spec check --rule L1 --rule L2 --json\n  spec check --new              # which documents were just recognised\n  spec check --summary          # findings per rule\n  spec check -q                 # errors only"
 )]
 pub struct CheckArgs {
     /// Only what the index changes (pre-commit).
@@ -43,6 +43,12 @@ pub struct CheckArgs {
     /// Also list the documents not in the last commit (new or not yet committed).
     #[arg(long)]
     pub new: bool,
+    /// Count findings per rule instead of listing them.
+    #[arg(long)]
+    pub summary: bool,
+    /// List errors only; warnings are still counted.
+    #[arg(long, short = 'q')]
+    pub errors_only: bool,
 }
 
 #[derive(Debug, Clone, Args)]
