@@ -20,8 +20,15 @@ pub fn run(g: &Global, a: &AssetsArgs) -> Result<Output> {
             continue;
         }
         let description = x.field("description").unwrap_or("");
-        let text = format!("{kind:<13} {:<32} {}", x.name(), x.path);
-        o = o.item(json!({"kind": kind, "name": x.name(), "path": x.path, "description": description}), text);
+        let docs: Vec<String> = x.docs(&s.graph).into_iter().map(|i| s.corpus.docs[i].id.to_string()).collect();
+        let mut text = format!("{kind:<13} {:<32} {}", x.name(), x.path);
+        if !docs.is_empty() {
+            text.push_str(&format!("  -> {}", docs.join(", ")));
+        }
+        o = o.item(
+            json!({"kind": kind, "name": x.name(), "path": x.path, "description": description, "docs": docs}),
+            text,
+        );
     }
     Ok(o.next("spec check"))
 }

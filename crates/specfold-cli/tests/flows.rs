@@ -411,3 +411,34 @@ fn agents_lines_name_edit_check_assets_and_audit() {
     }
     assert!(v["lines"].as_array().unwrap().len() <= 8, "keep it short: {text}");
 }
+
+#[test]
+fn assets_and_show_list_the_documents_an_asset_names() {
+    let r = common::repo();
+    let id = r.new_doc("adr", "services/shop", "Use a database");
+    let (_, v) = r.json(&["show", &id]);
+    let path = v["path"].as_str().unwrap().to_string();
+    assert_eq!(v["assets"], serde_json::json!([]), "{v}");
+    let toml = r.read("spec.toml") + "[[assets]]\nkind = \"skill\"\npath = \".agents/skills\"\n";
+    r.write("spec.toml", &toml);
+    let rel = format!("../../../{path}");
+    r.write(
+        ".agents/skills/db/SKILL.md",
+        &format!("---\nname: db\ndescription: Database work.\n---\nRead `{id}` and [the record]({rel}) first. See https://example.com/x.md too.\n"),
+    );
+    r.write(
+        ".agents/skills/other/SKILL.md",
+        "---\nname: other\ndescription: Nothing.\n---\nNo links here: ratio 3:4.\n",
+    );
+    let before = r.read(".agents/skills/db/SKILL.md");
+    let (code, v) = r.json(&["assets"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["items"][0]["docs"], serde_json::json!([id]), "id and relative path name one document: {v}");
+    assert_eq!(v["items"][1]["docs"], serde_json::json!([]), "{v}");
+    let (_, v) = r.json(&["show", &id]);
+    assert_eq!(v["assets"][0]["path"], ".agents/skills/db/SKILL.md", "{v}");
+    assert_eq!(v["assets"].as_array().unwrap().len(), 1, "{v}");
+    let (_, t) = r.text(&["show", &id]);
+    assert!(t.contains("assets:") && t.contains("<- skill .agents/skills/db/SKILL.md"), "{t}");
+    assert_eq!(r.read(".agents/skills/db/SKILL.md"), before, "assets are only read");
+}
