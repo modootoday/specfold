@@ -22,6 +22,23 @@ pub struct ImportMap {
     /// alias, for layouts whose documents referred to each other by name.
     #[serde(default)]
     pub stem_aliases: bool,
+    /// Status, date and links read from the body, for layouts that keep them there.
+    #[serde(default)]
+    pub body: BodyMap,
+}
+
+/// Where the body keeps metadata. `status` and `date` take `section:<heading>` (first line of
+/// that section), `bullet:<label>` (`* Label: value`) or `line:<label>` (`Label: value`).
+/// Frontmatter wins when both have a value.
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct BodyMap {
+    pub status: Option<String>,
+    pub date: Option<String>,
+    /// A line opening with the phrase (`Supercedes [title](file)`) → relation kind, or "-" to
+    /// skip it (the other side of a link the other document already records).
+    #[serde(default)]
+    pub links: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -78,6 +95,15 @@ fn first_commit() -> String {
 impl ImportMap {
     pub fn load(path: &Path) -> Result<Self> {
         let text = std::fs::read_to_string(path).with_context(|| format!("cannot read {}", path.display()))?;
-        toml::from_str(&text).with_context(|| format!("invalid import map {}", path.display()))
+        let map: Self = toml::from_str(&text).with_context(|| format!("invalid import map {}", path.display()))?;
+        for how in map.body.status.iter().chain(&map.body.date) {
+            if !super::body_meta::valid(how) {
+                anyhow::bail!(
+                    "invalid import map {}: body '{how}' must be section:<heading>, bullet:<label> or line:<label>",
+                    path.display()
+                );
+            }
+        }
+        Ok(map)
     }
 }

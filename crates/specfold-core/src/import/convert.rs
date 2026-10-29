@@ -27,7 +27,15 @@ fn document_target(raw: &str) -> String {
 }
 
 pub fn status(map: &ImportMap, rule: &SourceRule, old: &str, allowed: &[String]) -> Option<String> {
-    let mapped = rule.status.get(old).or_else(|| map.status.get(old)).cloned().unwrap_or_else(|| old.to_string());
+    let lower = old.to_lowercase();
+    let mapped = rule
+        .status
+        .get(old)
+        .or_else(|| map.status.get(old))
+        .or_else(|| rule.status.get(&lower))
+        .or_else(|| map.status.get(&lower))
+        .cloned()
+        .unwrap_or_else(|| if allowed.contains(&lower) { lower.clone() } else { old.to_string() });
     allowed.contains(&mapped).then_some(mapped)
 }
 

@@ -129,6 +129,24 @@ fn doc_row(c: &Corpus, map: &ImportMap, u: &Unit, taken: &mut BTreeSet<String>, 
             Map::new()
         }
     };
+    let mut old = old;
+    let mut body_links = vec![];
+    if !generated {
+        let found = super::body_meta::scan(split.body, &map.body);
+        if let Some(st) = found.status
+            && !old.contains_key("status")
+        {
+            old.insert("status".into(), Value::String(st));
+        }
+        if let Some(d) = found.date
+            && !old.contains_key("date")
+            && !old.contains_key("created")
+        {
+            old.insert("date".into(), Value::String(d));
+        }
+        body_links = found.links;
+        unresolved.extend(found.missed);
+    }
     let scanned = body::scan(split.body, split.body_line, &body::path_cite_re(c.cfg.spec_dir()));
     let name = name_of(&u.source).trim_end_matches(".md");
     let name_re = rule.name.as_deref().map(Regex::new).transpose().map_err(|e| anyhow!("bad name regex: {e}"))?;
@@ -137,6 +155,19 @@ fn doc_row(c: &Corpus, map: &ImportMap, u: &Unit, taken: &mut BTreeSet<String>, 
     let fallback_title = scanned.first_heading.clone().unwrap_or_else(|| named.replace(['-', '_'], " "));
     let mut conv = convert::frontmatter(map, rule, &old, &ty.statuses, &fallback_title);
     unresolved.append(&mut conv.unresolved);
+    if !body_links.is_empty() {
+        let rel = conv.fm.entry("rel").or_insert_with(|| Value::Object(Map::new()));
+        if let Value::Object(rel) = rel {
+            for (kind, target) in body_links {
+                let name = target.rsplit('/').next().unwrap_or(&target).trim_end_matches(".md").to_string();
+                if let Value::Array(items) = rel.entry(kind).or_insert_with(|| Value::Array(vec![]))
+                    && !items.iter().any(|v| v.as_str() == Some(&name))
+                {
+                    items.push(Value::String(name));
+                }
+            }
+        }
+    }
     let title = conv.fm.get("title").and_then(Value::as_str).unwrap_or(&fallback_title).to_string();
     let created = conv.fm.get("created").and_then(Value::as_str).map(str::to_string);
     let src =

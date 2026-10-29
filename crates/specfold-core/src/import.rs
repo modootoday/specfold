@@ -1,5 +1,6 @@
 //! Importing documents from another layout through a project's import map.
 
+pub mod body_meta;
 pub mod convert;
 pub mod key;
 pub mod map;
