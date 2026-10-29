@@ -114,6 +114,25 @@ pub fn plan(c: &Corpus, idx: usize, assigns: &[Assign]) -> Result<Plan> {
             }
         }
     }
+    // A pin names a commit; HEAD is resolved now, since HEAD moves.
+    let pinned: Vec<Assign>;
+    let assigns = if assigns.iter().any(|a| a.key == "verified_at" && a.value == "HEAD") {
+        let head = crate::workspace::vcs::head(&c.cfg.root)
+            .ok_or_else(|| anyhow!("verified_at=HEAD needs a git repository with a commit"))?;
+        pinned = assigns
+            .iter()
+            .map(|a| {
+                let mut a = a.clone();
+                if a.key == "verified_at" && a.value == "HEAD" {
+                    a.value = head.chars().take(12).collect();
+                }
+                a
+            })
+            .collect();
+        &pinned[..]
+    } else {
+        assigns
+    };
     let text = std::fs::read_to_string(c.cfg.root.join(&d.path))?;
     let new = edit::rewrite(&text, |m| {
         for a in assigns {
