@@ -60,6 +60,14 @@ Relations are written once, on the document that makes them: `rel.governs` (code
 `rel.supersedes`, `rel.implements`, `rel.evidence`, `rel.depends_on`. Body references are
 `[[<id>]]` or `[[<id>#<anchor>]]`. The graph is derived from these on every run.
 
+`spec graph` prints the graph as a tree from the documents nothing points at: each line is a
+relation and its target (`├─ implements → sot:shop/cart`), `governs` lines name code paths, and a
+document already shown ends in `(*)`. `--depth N` stops N relations away; `--ascii` uses plain
+lines, and is chosen automatically when the locale is not UTF-8. No color is printed, so
+`NO_COLOR` changes nothing. `--format mermaid` or `--format dot` prints the same graph for a
+Markdown renderer or Graphviz. `spec graph impact <id>` lists what reaches a document with the
+relation and distance, and `spec graph chain <id>` shows its supersede chain in both directions.
+
 ## Task items
 
 Task items (`- [ ]`, `- [x]`) are counted: `spec show` reports a document's progress and

@@ -594,3 +594,48 @@ fn superseding_a_draft_points_at_activating_it_not_at_the_same_command() {
     let (_, text) = r.text(&["check"]);
     assert!(text.contains("for 'accepted' use 'active'"), "{text}");
 }
+
+#[test]
+fn graph_draws_trees_diagrams_relations_and_chains_both_ways() {
+    let r = common::repo();
+    let old = r.new_doc("adr", "services/shop", "Use files");
+    assert_eq!(r.json(&["set", &old, "status=active"]).0, 0);
+    let (_, v) = r.json(&["new", "adr", "--from", &old, "--governs", "services/shop", "--title", "Use a database"]);
+    let new = v["id"].as_str().unwrap().to_string();
+    let sot = r.new_doc("sot", "services/shop/src", "Cart");
+    let plan = r.new_doc("plan", "services/shop", "Ship");
+    assert_eq!(r.json(&["set", &plan, &format!("rel.implements={sot}")]).0, 0);
+
+    let (code, text) = r.text(&["graph"]);
+    assert_eq!(code, 0, "{text}");
+    assert!(text.contains(&format!("├─ supersedes → {old}")), "{text}");
+    assert!(text.contains("governs → services/shop"), "{text}");
+    let (_, text) = r.text(&["graph", "--ascii"]);
+    assert!(text.contains(&format!("|-- supersedes -> {old}")) && !text.contains("├"), "{text}");
+    let (_, text) = r.text(&["graph", "--depth", "1"]);
+    assert!(!text.contains("    "), "depth 1 shows only direct relations: {text}");
+
+    let (_, text) = r.text(&["graph", "--format", "mermaid"]);
+    assert!(
+        text.starts_with("graph LR") && text.contains("-->|supersedes|") && text.contains("-.->|governs|"),
+        "{text}"
+    );
+    assert!(!text.contains("next:"), "a diagram is only the diagram: {text}");
+    let (_, text) = r.text(&["graph", "--format", "dot"]);
+    assert!(
+        text.starts_with("digraph specfold {")
+            && text.contains(&format!("\"{new}\" -> \"{old}\" [label=\"supersedes\"]")),
+        "{text}"
+    );
+    assert_ne!(r.text(&["graph", "impact", &sot, "--format", "dot"]).0, 0);
+
+    let (_, v) = r.json(&["graph", "impact", &sot]);
+    assert_eq!((v["items"][0]["kind"].as_str(), v["items"][0]["depth"].as_u64()), (Some("implements"), Some(1)), "{v}");
+    let (_, v) = r.json(&["graph"]);
+    assert!(v["governs"].to_string().contains("services/shop/src"), "governs is in --json: {v}");
+
+    let (_, v) = r.json(&["graph", "chain", &new]);
+    let ids: Vec<_> = v["items"].as_array().unwrap().iter().map(|i| i["id"].as_str().unwrap().to_string()).collect();
+    assert_eq!(ids, vec![old.clone(), new.clone()], "the chain from the new document shows what it replaced");
+    assert_eq!(v["items"][1]["this"], true);
+}
