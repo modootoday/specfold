@@ -25,5 +25,13 @@ pub fn run(g: &Global, a: &OwnersArgs) -> Result<Output> {
         }
         o = o.item(json!({"id": ow.id, "path": ow.path, "docs": n, "public": ow.public, "stores_in": stores_in.id, "retired": ow.retired}), text);
     }
-    Ok(o.next("spec find --owner <id>"))
+    let pick = o
+        .items
+        .iter()
+        .find(|i| i.json["docs"].as_u64() > Some(0))
+        .and_then(|i| i.json["id"].as_str().map(str::to_string));
+    Ok(match pick {
+        Some(id) => o.next(format!("spec find --owner {id}")),
+        None => o,
+    })
 }

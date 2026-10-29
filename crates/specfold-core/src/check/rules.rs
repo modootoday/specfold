@@ -13,6 +13,7 @@ mod lifecycle;
 mod links;
 mod placement;
 mod schema;
+pub use schema::unknown_key;
 mod support;
 mod visibility;
 
