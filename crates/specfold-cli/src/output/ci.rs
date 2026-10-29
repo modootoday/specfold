@@ -17,6 +17,21 @@ pub fn fingerprint(f: &Finding) -> String {
     format!("{h:016x}")
 }
 
+/// One fingerprint per finding, unique within the run: a repeat of the same rule, path and
+/// message gets `-2`, `-3`… in order, so GitLab and code scanning keep both instead of folding them.
+pub fn fingerprints(findings: &[Finding]) -> Vec<String> {
+    let mut seen: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    findings
+        .iter()
+        .map(|f| {
+            let base = fingerprint(f);
+            let n = seen.entry(base.clone()).or_insert(0);
+            *n += 1;
+            if *n == 1 { base } else { format!("{base}-{n}") }
+        })
+        .collect()
+}
+
 fn escape_data(s: &str) -> String {
     s.replace('%', "%25").replace('\r', "%0D").replace('\n', "%0A")
 }
@@ -94,9 +109,11 @@ pub fn sarif(findings: &[Finding]) -> String {
             rules.push(json!({"id": f.rule, "shortDescription": {"text": f.rule}}));
         }
     }
+    let prints = fingerprints(findings);
     let results: Vec<Value> = findings
         .iter()
-        .map(|f| {
+        .zip(&prints)
+        .map(|(f, print)| {
             let mut physical = json!({"artifactLocation": {"uri": f.path, "uriBaseId": "%SRCROOT%"}});
             if f.line > 0 {
                 physical["region"] = json!({"startLine": f.line});
@@ -107,7 +124,7 @@ pub fn sarif(findings: &[Finding]) -> String {
                 "level": if f.severity == Severity::Error { "error" } else { "warning" },
                 "message": {"text": message(f)},
                 "locations": [{"physicalLocation": physical}],
-                "partialFingerprints": {"specfold/v1": fingerprint(f)},
+                "partialFingerprints": {"specfold/v1": print},
             })
         })
         .collect();
@@ -124,13 +141,15 @@ pub fn sarif(findings: &[Finding]) -> String {
 }
 
 pub fn gitlab(findings: &[Finding]) -> String {
+    let prints = fingerprints(findings);
     let list: Vec<Value> = findings
         .iter()
-        .map(|f| {
+        .zip(&prints)
+        .map(|(f, print)| {
             json!({
                 "description": format!("{}: {}", f.rule, message(f)),
                 "check_name": f.rule,
-                "fingerprint": fingerprint(f),
+                "fingerprint": print,
                 "severity": if f.severity == Severity::Error { "major" } else { "minor" },
                 "location": {"path": f.path, "lines": {"begin": f.line.max(1)}},
             })
@@ -184,6 +203,18 @@ mod tests {
         let f = Finding::new("L1", Severity::Error, "a,b:c.md", 3, "50% done\nnext");
         let s = github(&[f], 1, 0);
         assert!(s.starts_with("::error file=a%2Cb%3Ac.md,line=3,title=spec L1::50%25 done%0Anext\n"), "{s}");
+    }
+
+    #[test]
+    fn repeated_findings_get_numbered_fingerprints() {
+        let a = Finding::new("L1", Severity::Error, "a.md", 3, "m");
+        let b = Finding::new("L1", Severity::Error, "a.md", 9, "m");
+        let c = Finding::new("L2", Severity::Error, "a.md", 9, "m");
+        let p = fingerprints(&[a.clone(), b, c, a.clone()]);
+        assert_eq!(p[0], fingerprint(&a));
+        assert_eq!(p[1], format!("{}-2", fingerprint(&a)));
+        assert_eq!(p[3], format!("{}-3", fingerprint(&a)));
+        assert!(!p[2].contains('-'));
     }
 
     #[test]
