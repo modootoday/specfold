@@ -271,3 +271,17 @@ fn verify_reports_timeouts_missing_programs_and_undeclared_checks() {
     assert_eq!(hits, [path_of(&r, &bare)], "{v}");
     assert_eq!(rules_hit(&v), ["X2"]);
 }
+
+#[test]
+fn an_unknown_key_shows_how_to_declare_it_and_declaring_it_quiets_s1() {
+    let r = common::repo();
+    let id = r.new_doc("adr", "services/shop", "Keep a domain");
+    edit(&r, &id, "\nstatus:", "\ndomain: billing\nstatus:");
+    let (_, v) = r.json(&["check", "--rule", "S1"]);
+    let msg = v["items"][0]["message"].as_str().unwrap_or_default().to_string();
+    assert!(msg.contains("[types.adr] fields = [") && msg.contains("\"domain\""), "{v}");
+    r.write("spec.toml", &(r.read("spec.toml") + "[types.adr]\nfields = [\"domain\"]\n"));
+    let (code, v) = r.json(&["check", "--rule", "S1"]);
+    assert_eq!(code, 0, "{v}");
+    assert!(rules_hit(&v).is_empty(), "{v}");
+}

@@ -67,7 +67,7 @@ impl Rule for Frontmatter {
         &RuleInfo {
             id: "S1",
             title: "frontmatter parses and has the required keys",
-            explain: "Every document starts with a YAML frontmatter block holding id, title, status, created and updated. Keys outside the common set and the type's own fields are reported so typos do not pass silently. `spec fix --rule S1` fills missing keys from the path and the first heading.",
+            explain: "Every document starts with a YAML frontmatter block holding id, title, status, created and updated. Keys outside the common set and the type's own fields are reported so typos do not pass silently; a key that is meant to stay is declared in spec.toml as `[types.<type>] fields = [...]`, a list that replaces the type's built-in fields, so it keeps them. `spec fix --rule S1` fills missing keys from the path and the first heading.",
             on_commit: true,
         }
     }
@@ -104,12 +104,41 @@ impl Rule for Frontmatter {
                         "S1",
                         &d.path,
                         key_line(ctx, &d.path, k),
-                        format!("unknown key '{k}' for {}", d.id.ty),
+                        unknown_key_message(k, &d.id.ty, ty.map(|t| t.fields.as_slice()).unwrap_or_default()),
                     ));
                 }
             }
         }
     }
+}
+
+/// Names a close known key when the unknown one looks like a typo, and otherwise shows the
+/// spec.toml line that declares it. `fields` replaces the type's list, so the line keeps it.
+fn unknown_key_message(k: &str, ty: &str, fields: &[String]) -> String {
+    let known = COMMON_KEYS.iter().map(|s| s.to_string()).chain(fields.iter().cloned());
+    if let Some(near) = known.filter(|c| c != k).find(|c| edits(c, k) <= 2.min(k.len() / 3)) {
+        return format!("unknown key '{k}' for {ty}; did you mean '{near}'?");
+    }
+    let list: Vec<String> = fields.iter().map(String::as_str).chain([k]).map(|f| format!("\"{f}\"")).collect();
+    format!(
+        "unknown key '{k}' for {ty}; to keep it, declare it in spec.toml: [types.{ty}] fields = [{}]",
+        list.join(", ")
+    )
+}
+
+fn edits(a: &str, b: &str) -> usize {
+    let b: Vec<char> = b.chars().collect();
+    let mut row: Vec<usize> = (0..=b.len()).collect();
+    for (i, ca) in a.chars().enumerate() {
+        let mut prev = row[0];
+        row[0] = i + 1;
+        for j in 0..b.len() {
+            let cur = row[j + 1];
+            row[j + 1] = (prev + usize::from(ca != b[j])).min(row[j] + 1).min(cur + 1);
+            prev = cur;
+        }
+    }
+    row[b.len()]
 }
 
 impl Rule for IdMatchesPath {
@@ -250,5 +279,18 @@ impl Rule for Dates {
                 ));
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod unknown_key_tests {
+    #[test]
+    fn suggests_a_near_key_or_the_declaration() {
+        let f = vec!["verify".to_string()];
+        assert!(super::unknown_key_message("staus", "adr", &f).ends_with("did you mean 'status'?"));
+        assert_eq!(
+            super::unknown_key_message("domain", "adr", &f),
+            "unknown key 'domain' for adr; to keep it, declare it in spec.toml: [types.adr] fields = [\"verify\", \"domain\"]"
+        );
     }
 }
