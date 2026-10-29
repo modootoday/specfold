@@ -20,6 +20,9 @@ pub fn run(_g: &Global, a: &HelpArgs) -> Result<Output> {
         }
         None => all,
     };
+    if a.llms {
+        return Ok(llms(&picked));
+    }
     if a.markdown {
         return Ok(match (&a.command, picked.as_slice()) {
             (Some(_), [one]) => reference(one),
@@ -57,6 +60,38 @@ fn markdown(cmds: &[describe::CommandInfo]) -> Output {
         o = o.item(to_value(c).unwrap_or_default(), format!("| `spec {}` | {about} |", c.name));
     }
     o
+}
+
+/// llms.txt (llmstxt.org): H1, the package description as the summary, then link lists. Built
+/// from the same data as the README table, so the two cannot disagree.
+fn llms(cmds: &[describe::CommandInfo]) -> Output {
+    let mut o = Output::new("help")
+        .unpaged()
+        .head("# specfold")
+        .head("")
+        .head(format!("> {}", env!("CARGO_PKG_DESCRIPTION")))
+        .head("")
+        .head("specfold is a command-line tool, `spec`. Every command takes `--help` and `--json`; `spec help --json` describes them all.")
+        .head("")
+        .head("## Commands")
+        .head("");
+    for c in cmds {
+        o = o.item(
+            to_value(c).unwrap_or_default(),
+            format!("- [spec {}](docs/reference/commands.md): {}", c.name, cell(&c.about)),
+        );
+    }
+    o.foot("")
+        .foot("## Docs")
+        .foot("")
+        .foot("- [README](README.md): install, quick start and concepts")
+        .foot("- [Concepts](docs/concepts/index.md): types, ids, statuses and relations")
+        .foot("- [Agent assets](docs/guides/agents.md): skills, rules, subagents and instruction files")
+        .foot("")
+        .foot("## Optional")
+        .foot("")
+        .foot("- [Source code](https://github.com/modootoday/specfold)")
+        .foot("- [Releases](https://github.com/modootoday/specfold/releases/latest)")
 }
 
 fn cell(s: &str) -> String {

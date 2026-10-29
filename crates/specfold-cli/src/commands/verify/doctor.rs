@@ -1,11 +1,14 @@
 //! `spec doctor`: problems that stop the other commands from working well, found without writing
-//! anything. Rules judge documents; doctor judges the setup around them.
+//! anything. Rules judge documents; doctor judges the setup around them: configuration,
+//! conflict markers, ignored local documents, duplicate ids and half-finished moves.
 
 use crate::cli::args::global::Global;
 use crate::output::{Code, Output};
 use crate::session;
 use anyhow::Result;
 use serde_json::json;
+use specfold_core::graph::Resolution;
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 const SKIP: [&str; 4] = [".git", "target", "node_modules", ".cargo-target"];
@@ -62,6 +65,45 @@ pub fn run(g: &Global) -> Result<Output> {
                 "local documents are not git-ignored".into(),
                 "add .spec.local/ to .gitignore",
             );
+        }
+    }
+    // Corpus-level checks need the documents loaded, local ones included.
+    let full = Global { no_local: false, ..g.clone() };
+    if let Ok(s) = session::open(&full) {
+        let c = &s.corpus;
+        // The same id from two files: usually a local draft copied into .spec, or the reverse.
+        let mut by_id: BTreeMap<String, Vec<&str>> = BTreeMap::new();
+        for d in &c.docs {
+            by_id.entry(d.id.to_string()).or_default().push(&d.path);
+        }
+        for (id, paths) in by_id.iter().filter(|(_, p)| p.len() > 1) {
+            let fix = if paths.iter().any(|p| p.contains(".spec.local/")) {
+                "keep one: delete the local copy, or spec mv the local one to a new slug"
+            } else {
+                "keep one, or spec mv one of them to a new slug"
+            };
+            o = add(o, "duplicate", paths[0], format!("{id} is also defined in {}", paths[1..].join(", ")), fix);
+        }
+        // A move that stopped halfway leaves references to the old id while a document of the
+        // same type and key lives under another owner.
+        for d in &c.docs {
+            for l in &d.links {
+                if !matches!(s.graph.resolve(&l.item), Resolution::Missing) {
+                    continue;
+                }
+                let Some((ty, rest)) = l.item.split_once(':') else { continue };
+                let key = rest.rsplit('/').next().unwrap_or(rest);
+                if let Some(to) = c.docs.iter().find(|x| x.id.ty == ty && x.id.key == key) {
+                    let to = to.id.to_string();
+                    o = add(
+                        o,
+                        "moved",
+                        &format!("{}:{}", l.path, l.line),
+                        format!("refers to {}, which looks moved to {to}", l.item),
+                        &format!("replace {} with {to}, then spec check", l.item),
+                    );
+                }
+            }
         }
     }
     o = o.head(format!("{} spec files read", files.len()));

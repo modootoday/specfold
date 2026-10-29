@@ -60,7 +60,7 @@ pub struct SetArgs {
 
 #[derive(Debug, Clone, Args)]
 #[command(
-    after_help = "Examples:\n  spec mv adr:root/20260101000000 --write      # to where its governs says\n  spec mv sot:shop/cart --slug checkout-cart --write"
+    after_help = "Examples:\n  spec mv adr:root/20260101000000 --write      # to where its governs says\n  spec mv sot:shop/cart --slug checkout-cart --write\n  spec mv sot:shop/cart --tier committed --write   # promote a local document"
 )]
 pub struct MvArgs {
     /// An id, alias, path, or unique slug.
@@ -71,6 +71,10 @@ pub struct MvArgs {
     /// New slug.
     #[arg(long)]
     pub slug: Option<String>,
+    /// Move between the committed tree and the git-ignored local one: `committed` promotes a
+    /// local document, `local` takes one out of the commit.
+    #[arg(long, value_parser = ["committed", "local"])]
+    pub tier: Option<String>,
     /// Apply the move (otherwise a preview).
     #[arg(long)]
     pub write: bool,

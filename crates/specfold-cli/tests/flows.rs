@@ -937,3 +937,64 @@ fn doctor_reports_conflict_markers_without_writing() {
     assert_eq!(v["items"][0]["path"], path.as_str());
     assert_eq!(r.read(&path), text);
 }
+
+#[test]
+fn show_body_splits_at_headings_under_max_bytes() {
+    let r = common::repo();
+    let id = r.new_doc("plan", "services/shop", "Checkout");
+    let (_, v) = r.json(&["show", &id]);
+    let path = v["path"].as_str().unwrap().to_string();
+    let long = "x".repeat(400);
+    r.write(
+        &path,
+        &(r.read(&path) + &format!("\n## Alpha\n\n{long}\n\n## Beta\n\n```\n# not a heading\n```\n{long}\n")),
+    );
+    let (_, full) = r.json(&["show", &id, "--body"]);
+    assert!(full.get("cut_by").is_none());
+    let (code, v) = r.json(&["show", &id, "--body", "--max-bytes", "600"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["cut_by"], "max_bytes", "{v}");
+    assert_eq!(v["rest_sections"], serde_json::json!(["Beta"]), "{v}");
+    assert!(v["next"].as_str().unwrap().contains("--section 'Beta'"), "{v}");
+    assert!(!v["body"].as_str().unwrap().contains("## Beta"));
+}
+
+#[test]
+fn mv_tier_promotes_a_local_document() {
+    let r = common::repo();
+    let (code, v) = r.json(&["new", "sot", "Notes", "--local"]);
+    assert_eq!(code, 0, "{v}");
+    let id = v["id"].as_str().unwrap().to_string();
+    assert!(v["path"].as_str().unwrap().starts_with(".spec.local/"), "{v}");
+    let (code, v) = r.json(&["mv", &id, "--tier", "committed", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    assert!(!v["path"].as_str().unwrap().contains(".spec.local"), "{v}");
+    let (_, v) = r.json(&["show", &id]);
+    assert!(!v["path"].as_str().unwrap().contains(".spec.local"), "{v}");
+    assert_eq!(r.json(&["check"]).0, 0);
+}
+
+#[test]
+fn plain_notes_in_spec_local_get_a_way_out() {
+    let r = common::repo();
+    r.write(".spec.local/AGENTS.md", "# note\n");
+    let (_, text) = r.text(&["check"]);
+    assert!(text.contains("keep plain notes outside .spec.local"), "{text}");
+}
+
+#[test]
+fn doctor_finds_local_duplicates() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    let (_, v) = r.json(&["show", &id]);
+    let path = v["path"].as_str().unwrap().to_string();
+    let (_, l) = r.json(&["new", "sot", "--governs", "services/shop", "--title", "Cart", "--local"]);
+    let lpath = l["path"].as_str().map(str::to_string);
+    if let Some(lp) = lpath {
+        // Same id twice: overwrite the local copy with the committed one's text.
+        r.write(&lp, &r.read(&path));
+        let (code, v) = r.json(&["doctor"]);
+        assert_eq!(code, 1, "{v}");
+        assert!(v["items"].as_array().unwrap().iter().any(|i| i["check"] == "duplicate"), "{v}");
+    }
+}

@@ -100,7 +100,8 @@ pub fn run(cfg: &Config, g: &GuardDef, c: &Compiled, range: &Resolved) -> Result
     let whole_tree = matches!(range.source, Source::WorkTree);
     let mut cache = whole_tree.then(|| GuardCache::open(&cfg.root, g, c.terms_source()));
     let mut misses = vec![];
-    for path in range.files.iter().filter(|p| c.in_scope(p)) {
+    // spec.toml holds the guard's own patterns, so scanning it would always hit itself.
+    for path in range.files.iter().filter(|p| p.as_str() != "spec.toml" && c.in_scope(p)) {
         files.push(path.clone());
         match cache.as_mut().and_then(|k| k.lookup(&cfg.root, path)) {
             Some(found) => out.extend(found),
@@ -128,7 +129,7 @@ pub fn run(cfg: &Config, g: &GuardDef, c: &Compiled, range: &Resolved) -> Result
     }
     if g.fail_if_empty && matches!(range.source, Source::WorkTree) {
         if files.is_empty() {
-            out.push(hit(g, "spec.toml", 1, "scanned no file in its paths; a gate over nothing proves nothing".into()));
+            out.push(hit(g, "spec.toml", 1, "scanned no file in its paths; a gate over nothing proves nothing (fix the paths, or set fail_if_empty = false until the first file exists)".into()));
         }
         // An empty checkout of a published path (a submodule never fetched) reads as clean.
         for p in c.published.iter().filter(|p| !files.iter().any(|f| f.starts_with(&format!("{p}/")))) {

@@ -17,6 +17,8 @@ pub struct Move {
     pub owner: Option<String>,
     /// New slug.
     pub slug: Option<String>,
+    /// Target tier: promote a local document into the committed tree, or the reverse.
+    pub tier: Option<Tier>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -41,7 +43,8 @@ pub fn plan(c: &Corpus, idx: usize, req: &Move) -> Result<(Moved, Plan)> {
     }
     let key = if ty.key == KeyKind::Slug { slug.clone() } else { d.id.key.clone() };
     let new_id = DocId::new(&ty.name, &owner.id, &key);
-    let dir = paths::type_dir(&c.cfg, &c.owners, owner, d.tier, ty);
+    let tier = req.tier.unwrap_or(d.tier);
+    let dir = paths::type_dir(&c.cfg, &c.owners, owner, tier, ty);
     let stem = paths::stem(ty, &key, &slug);
     let new_main = paths::main_file(&dir, ty, &stem, d.dir.is_some());
     if new_main == d.path {
@@ -50,13 +53,13 @@ pub fn plan(c: &Corpus, idx: usize, req: &Move) -> Result<(Moved, Plan)> {
             Plan::default(),
         ));
     }
-    let hint = if d.tier == Tier::Local {
+    let hint = if tier == Tier::Local {
         "change [forbid] paths or the type's directory"
     } else {
         "choose another --owner, or keep it local: spec new --local, then move the body"
     };
     super::forbid::refuse(c, &new_main, hint)?;
-    if c.docs.iter().any(|x| x.id == new_id) {
+    if c.docs.iter().enumerate().any(|(j, x)| j != idx && x.id == new_id) {
         bail!("{new_id} already exists");
     }
     let mut plan = Plan::default();
@@ -67,7 +70,7 @@ pub fn plan(c: &Corpus, idx: usize, req: &Move) -> Result<(Moved, Plan)> {
     let (old_s, new_s) = (d.id.to_string(), new_id.to_string());
     let mut references = 0;
     for (j, other) in c.docs.iter().enumerate() {
-        if other.tier == Tier::Committed && d.tier == Tier::Local && j != idx {
+        if other.tier == Tier::Committed && tier == Tier::Local && j != idx {
             continue;
         }
         for file in std::iter::once(&other.path).chain(&other.chapters) {

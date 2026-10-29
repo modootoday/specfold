@@ -1,12 +1,12 @@
 # specfold
 
-[![crates.io](https://img.shields.io/crates/v/specfold.svg)](https://crates.io/crates/specfold)
-[![npm](https://img.shields.io/npm/v/@modootoday/specfold.svg)](https://www.npmjs.com/package/@modootoday/specfold)
+[![release](https://img.shields.io/badge/release-latest-blue)](https://github.com/modootoday/specfold/releases/latest)
+[![source](https://img.shields.io/badge/source-GitHub-black)](https://github.com/modootoday/specfold)
 [![tests](https://github.com/modootoday/specfold/actions/workflows/cross-os-test.yml/badge.svg)](https://github.com/modootoday/specfold/actions/workflows/cross-os-test.yml)
 
-<!-- spec:description -->
+<!-- spec:description:begin -->
 One CLI for a repository's design, planning and maintenance documents, built for people and AI agents.
-<!-- /spec:description -->
+<!-- spec:description:end -->
 
 specfold types the documents a project writes about itself (rules, decisions, plans, research,
 evidence, audits, page specs, guides, runbooks), keeps each beside the code it governs, and checks
@@ -14,25 +14,16 @@ them from one command, `spec`.
 
 ## Contents
 
-- [Why](#why)
-- [Install](#install)
-- [Quick start](#quick-start)
-- [Concepts](#concepts)
-- [Commands](#commands)
-- [Using with AI agents](#using-with-ai-agents)
-- [Guides](#guides)
-- [Exit codes and JSON](#exit-codes-and-json)
-- [Contributing](#contributing)
-- [License](#license)
+[Why](#why) · [Install](#install) · [Quick start](#quick-start) · [Concepts](#concepts) ·
+[Commands](#commands) · [Using with AI agents](#using-with-ai-agents) · [Guides](#guides) ·
+[Exit codes and JSON](#exit-codes-and-json) · [Contributing](#contributing) · [License](#license)
 
 ## Why
 
 - **Documents live with the code they govern.** Each owner (the root, an app, a package) keeps
   its documents in its own `.spec/`; `spec new --governs <path>` finds the owner for you.
-- **Definitions live in one place.** Types, ids, statuses, relations and checks come from
-  specfold and one `spec.toml`, not from conventions spread across READMEs.
-- **The graph is derived, never stored.** References, supersede chains and governed code are
-  computed on every run.
+- **One definition, a derived graph.** Types, statuses and checks come from one `spec.toml`;
+  references, supersede chains and governed code are computed on every run, never stored.
 - **Built for AI agents first.** No prompts, stable `--json`, bounded output, a fix on every
   finding and a suggested next command. `spec mcp` serves the same commands as MCP tools.
 
@@ -45,44 +36,37 @@ cargo install specfold                        # with Rust
 npm install --save-dev @modootoday/specfold   # in a JavaScript project; run with npx spec
 ```
 
-Ready-built binaries for Linux, macOS and Windows are on the
-[releases page](https://github.com/modootoday/specfold/releases). To update, run the same
-command again.
+Binaries for Linux, macOS and Windows: [latest release](https://github.com/modootoday/specfold/releases/latest).
+To update, run the same command again.
 
 ## Quick start
 
 In a repository with apps under `services/`:
 
-<!-- spec:quickstart -->
+<!-- spec:quickstart:begin -->
 ```console
 $ spec init --owner 'services/*={1}' --write
+written
 $ spec new sot --governs services/shop/src/cart --title "Cart totals"
+created sot:shop/cart-totals  services/shop/.spec/sot/cart-totals.sot.md
 $ spec context services/shop/src/cart/total.rs
+  sot:shop/cart-totals               draft     Cart totals
 $ spec check
+0 error(s), 0 warning(s) in 1 of 1 documents
 $ spec agents --for claude
+# add to CLAUDE.md
 ```
-<!-- /spec:quickstart -->
+<!-- spec:quickstart:end -->
 
 `init` writes `spec.toml`, `new` creates a source of truth for the cart code, `context` shows
 what governs a file before you change it, `check` runs the rules, and `agents` prints the lines
-to put in your agent's instruction file. Run `spec check --staged` before each commit, or wire
+to put in your agent's instruction file (output trimmed; the tests check each line shown). Run `spec check --staged` before each commit, or wire
 it in with `spec hook print --for pre-commit`.
 
 ## Concepts
 
-| type     | what it is                                   |
-| -------- | -------------------------------------------- |
-| sot      | a source of truth: the rule that holds now   |
-| adr      | a decision and the reason for it             |
-| plan     | a plan of work and its running record        |
-| research | a study, benchmark or evaluation             |
-| evidence | the cover of a bundle of measurements        |
-| audit    | an audit snapshot, sealed once committed     |
-| page     | the specification of one screen or page      |
-| design   | a bundle of design boards                    |
-| guide    | how to develop, operate or use something     |
-| runbook  | a step-by-step operational procedure         |
-| change   | one user-facing change for the release notes |
+Each document has a type: `sot` (the rule that holds now), `adr` (a decision), `plan`, `research`,
+`evidence`, `audit`, `page`, `design`, `guide`, `runbook` and `change`. `spec schema` lists them.
 
 Ids are `<type>:<owner>/<key>` and come from where a document lives. Statuses move forward only
 (`draft`, `active`, `superseded`, `archived`, `rejected`), and relations such as `rel.governs`
@@ -91,10 +75,7 @@ times and task items: [docs/concepts/index.md](docs/concepts/index.md).
 
 ## Commands
 
-Every command has `--help`, examples and a `--json` form; `spec help --json` describes them all.
-This table is generated by `spec help --markdown` and tested against it.
-
-<!-- spec:commands -->
+<!-- spec:commands:begin -->
 
 | command | what it does |
 | ------- | ------------ |
@@ -131,19 +112,17 @@ This table is generated by `spec help --markdown` and tested against it.
 | `spec plugins` | Configured plugins and what they provide |
 | `spec export` | Export through an exporter plugin |
 | `spec mcp` | Serve these commands as MCP tools over stdio |
-<!-- /spec:commands -->
+<!-- spec:commands:end -->
 
-Writes are previews until `--write` (`new` and `set` write directly and accept `--dry-run`).
+Every command has `--help`, examples and `--json`. Writes are previews until `--write` (`new` and
+`set` write directly and accept `--dry-run`).
 
 ## Using with AI agents
 
-- `spec agents --for <claude|codex|gemini|cursor|copilot|generic>` prints instruction lines.
-- `spec mcp` serves every command as an MCP tool over stdio.
-- `[[assets]]` in `spec.toml` declares skills, rules and subagents; `spec check` and
-  `spec audit --kind drift` keep them consistent.
-
-[AGENTS.md](AGENTS.md) is for agents working *on* specfold; this README is for using it. See
-[docs/guides/agents.md](docs/guides/agents.md).
+`spec agents --for <claude|codex|gemini|cursor|copilot|generic>` prints instruction lines,
+`spec mcp` serves every command as an MCP tool over stdio, and `[[assets]]` in `spec.toml`
+declares skills, rules and subagents that `spec check` keeps consistent. See
+[docs/guides/agents.md](docs/guides/agents.md); [AGENTS.md](AGENTS.md) is for work *on* specfold.
 
 ## Guides
 
@@ -157,21 +136,14 @@ Writes are previews until `--write` (`new` and `set` write directly and accept `
 
 ## Exit codes and JSON
 
-| exit | meaning                         |
-| ---- | ------------------------------- |
-| 0    | nothing to report               |
-| 1    | findings, or an ambiguous answer |
-| 2    | usage error                     |
-| 3    | environment error               |
-
-With `--json` every command prints one object with `schema` (`spec.<command>.v1`), `ok`,
+Exit codes: `0` nothing to report, `1` findings or an ambiguous answer, `2` usage error,
+`3` environment error. With `--json` every command prints one object with `schema` (`spec.<command>.v1`), `ok`,
 `exit`, `items` and `next`. `spec schema output` lists the schema names.
 
 ## Contributing
 
-Issues and pull requests are welcome. Read [AGENTS.md](AGENTS.md) first: it lists the rules
-every change follows. Before a commit run `cargo fmt`, `cargo clippy --all-targets -- -D warnings`
-and `cargo test`; the tests also check this README against the CLI.
+Issues and pull requests are welcome; read [AGENTS.md](AGENTS.md) first. Before a commit run
+`cargo fmt`, `cargo clippy --all-targets -- -D warnings` and `cargo test` (it checks this README).
 
 ## License
 

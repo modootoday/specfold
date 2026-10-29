@@ -28,7 +28,7 @@ pub struct CommandInfo {
     pub output: String,
 }
 
-const GLOBAL: &[&str] = &["json", "jsonl", "limit", "offset", "dir", "no_local", "help", "version"];
+const GLOBAL: &[&str] = &["json", "jsonl", "limit", "offset", "max_bytes", "dir", "no_local", "help", "version"];
 
 pub fn commands() -> Vec<CommandInfo> {
     let cmd = Cli::command();
