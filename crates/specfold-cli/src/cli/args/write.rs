@@ -45,14 +45,17 @@ pub struct NewArgs {
 
 #[derive(Debug, Clone, Args)]
 #[command(
-    after_help = "Examples:\n  spec set adr:shop/20260101000000 status=active\n  spec set plan:shop/20260101000000 phase=P3 rel.implements+=sot:shop/cart\n  spec set sot:shop/cart tags-=draft\n  spec set sot:shop/cart verified_at=HEAD   # pin: audit flags any later commit to the governed code"
+    after_help = "Examples:\n  spec set adr:shop/20260101000000 status=active\n  spec set plan:shop/20260101000000 phase=P3 rel.implements+=sot:shop/cart\n  spec set sot:shop/cart tags-=draft\n  spec set sot:shop/cart verified_at=HEAD   # pin: audit flags any later commit to the governed code\n  spec set guide:docs/ko-setup --source-rev   # after re-translating: record the source it now matches"
 )]
 pub struct SetArgs {
     /// An id, alias, path, or unique slug.
     pub doc: String,
     /// key=value, key+=value (add to a list), key-=value (remove from a list).
-    #[arg(required = true)]
+    #[arg(required_unless_present = "source_rev")]
     pub assignments: Vec<String>,
+    /// Record the source's current body as this translation's source_rev (after re-translating).
+    #[arg(long)]
+    pub source_rev: bool,
     /// Show the change without writing.
     #[arg(long)]
     pub dry_run: bool,

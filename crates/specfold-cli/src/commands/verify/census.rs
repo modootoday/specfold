@@ -6,6 +6,7 @@ use crate::session;
 use anyhow::Result;
 use serde_json::to_value;
 use specfold_core::census;
+use specfold_core::translation::{self, State};
 
 pub fn run(g: &Global, a: &CensusArgs) -> Result<Output> {
     let s = session::open(g)?;
@@ -13,6 +14,9 @@ pub fn run(g: &Global, a: &CensusArgs) -> Result<Output> {
     let mut o = Output::new("census").unpaged();
     if let serde_json::Value::Object(m) = to_value(&c)? {
         o.summary.extend(m);
+    }
+    if a.translations {
+        return translations(&s, &a.lang);
     }
     if a.legacy {
         let gone = c.legacy_paths == 0 && c.strays == 0 && c.links_via_alias == 0 && c.path_cites == 0;
@@ -35,4 +39,44 @@ pub fn run(g: &Global, a: &CensusArgs) -> Result<Output> {
         o = o.foot(format!("  {t:<10} {n:>6}"));
     }
     Ok(o.next("spec audit"))
+}
+
+fn translations(s: &session::Session, langs: &[String]) -> Result<Output> {
+    let r = translation::report(&s.corpus, &s.graph, langs);
+    let mut o = Output::new("census").unpaged();
+    if let serde_json::Value::Object(m) = to_value(&r)? {
+        o.summary.extend(m);
+    }
+    let count = |st: State| r.translations.iter().filter(|t| t.state == st).count();
+    let missing: usize = r.missing.values().map(Vec::len).sum();
+    let (behind, unrecorded, gone) = (count(State::Behind), count(State::Unrecorded), count(State::NoSource));
+    o = o.head(format!(
+        "{} translations of {} sources · current {} · behind {behind} · no source_rev {unrecorded} · no source {gone} · missing {missing}",
+        r.translations.len(),
+        r.sources,
+        count(State::Current)
+    ));
+    for t in r.translations.iter().filter(|t| t.state != State::Current) {
+        let what = match t.state {
+            State::Behind => "behind",
+            State::Unrecorded => "no source_rev",
+            _ => "no source",
+        };
+        o = o.foot(format!("  {:<14} {} ({}) → {}", what, t.id, t.lang.as_deref().unwrap_or("-"), t.source));
+    }
+    for (lang, ids) in &r.missing {
+        for id in ids {
+            o = o.foot(format!("  {:<14} {id} has no {lang} translation", "missing"));
+        }
+    }
+    if behind + unrecorded + gone + missing == 0 {
+        return Ok(o.foot("every translation is current"));
+    }
+    let next = r
+        .translations
+        .iter()
+        .find(|t| matches!(t.state, State::Behind | State::Unrecorded))
+        .map(|t| format!("spec set {} --source-rev  # after updating the translation", t.id))
+        .unwrap_or_else(|| "spec check --rule R1 --rule L3".to_string());
+    Ok(o.code(Code::Findings).next(next))
 }

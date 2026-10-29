@@ -76,8 +76,18 @@ spec set sot:shop/cart tags-=draft
 
 Statuses move forward only: `draft`, `active`, then `superseded`, `archived` or `rejected`.
 Relations are written once, on the document that makes them: `rel.governs`, `rel.supersedes`,
-`rel.implements`, `rel.evidence`, `rel.depends_on`. In the body, refer to another document as
-`[[<id>]]` or `[[<id>#<anchor>]]`, never by path.
+`rel.implements`, `rel.evidence`, `rel.depends_on`, `rel.translation_of`. In the body, refer to
+another document as `[[<id>]]` or `[[<id>#<anchor>]]`, never by path.
+
+A translation is its own document that names its source and language, and records the source
+body it was made from:
+
+```sh
+spec set guide:shop/setup-ko lang=ko rel.translation_of+=guide:shop/setup
+spec set guide:shop/setup-ko --source-rev      # after the text matches the source
+```
+
+When the source changes, R1 warns; update the translation, then run `--source-rev` again.
 
 ## Move, attach, look up
 

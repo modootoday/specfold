@@ -17,6 +17,7 @@ pub mod placement;
 pub mod plugins;
 pub mod runner;
 pub mod search;
+pub mod translation;
 pub mod workspace;
 
 pub use config::Config;

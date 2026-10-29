@@ -18,6 +18,8 @@ pub const COMMON_KEYS: &[&str] = &[
     "generated_by",
     "check_skip",
     "verified_at",
+    "lang",
+    "source_rev",
 ];
 pub const REQUIRED_KEYS: &[&str] = &["id", "title", "status", "created", "updated"];
 
