@@ -4,6 +4,7 @@
 
 use crate::config::Config;
 use crate::config::types::{AssetKind, AssetRoot};
+use crate::graph::{Graph, Resolution};
 use crate::markdown::frontmatter::{self, Parsed};
 use crate::workspace::owners::{PathMatch, matcher};
 use ignore::WalkBuilder;
@@ -41,6 +42,45 @@ impl Asset {
     pub fn body(&self) -> &str {
         frontmatter::split(&self.text).body
     }
+
+    /// The documents this asset names, by index: a token that is a document id or path, written
+    /// from the repository root or relative to the asset. Aliases are left out so a common word
+    /// is never a link. Only read: nothing is added to the graph.
+    pub fn docs(&self, g: &Graph) -> Vec<usize> {
+        let dir = self.path.rsplit_once('/').map(|(d, _)| d).unwrap_or("");
+        let mut out = BTreeSet::new();
+        let ok = |c: char| c.is_ascii_alphanumeric() || ":/._#-".contains(c);
+        for raw in self.text.split(|c: char| !ok(c)) {
+            let t = raw.trim_end_matches(['.', ':', '#']);
+            if !(t.contains(':') || t.contains('/') || t.ends_with(".md")) || t.contains("://") {
+                continue;
+            }
+            for cand in [t.to_string(), join(dir, t)] {
+                if let Resolution::Doc { idx, via_alias: false, .. } = g.resolve(&cand) {
+                    out.insert(idx);
+                    break;
+                }
+            }
+        }
+        out.into_iter().collect()
+    }
+}
+
+/// `dir/rel` with `.` and `..` folded; a path climbing above the root stays as written.
+fn join(dir: &str, rel: &str) -> String {
+    let mut parts: Vec<&str> = if dir.is_empty() { vec![] } else { dir.split('/').collect() };
+    for c in rel.split('/') {
+        match c {
+            "" | "." => {}
+            ".." => {
+                if parts.pop().is_none() {
+                    return rel.to_string();
+                }
+            }
+            c => parts.push(c),
+        }
+    }
+    parts.join("/")
 }
 
 /// Whether a file found under a root has the shape of its kind.
@@ -171,5 +211,7 @@ mod tests {
         assert_eq!(base(".claude/agents/*.md"), ".claude/agents");
         assert_eq!(base("AGENTS.md"), "AGENTS.md");
         assert!(!shaped(AssetKind::Skill, ".agents/skills/x/notes.md"));
+        assert_eq!(join(".agents/skills/x", "../../../docs/a.md#h"), "docs/a.md#h");
+        assert_eq!(join("", "../a.md"), "../a.md");
     }
 }

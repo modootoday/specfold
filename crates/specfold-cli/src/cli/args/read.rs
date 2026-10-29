@@ -90,7 +90,7 @@ pub struct OwnersArgs {
 
 #[derive(Debug, Clone, Args)]
 #[command(
-    after_help = "Assets come from spec.toml, for example:\n  [[assets]]\n  kind = \"skill\"\n  path = \".agents/skills\"\nKinds: skill (SKILL.md in a directory), rule (.md or .mdc), agent (.md), instructions (AGENTS.md, CLAUDE.md).\n\nExamples:\n  spec assets\n  spec assets --kind skill --json"
+    after_help = "Assets come from spec.toml, for example:\n  [[assets]]\n  kind = \"skill\"\n  path = \".agents/skills\"\nKinds: skill (SKILL.md in a directory), rule (.md or .mdc), agent (.md), instructions (AGENTS.md, CLAUDE.md).\nEach asset lists the documents it names by id or path (docs); spec show <id> lists the assets that name it. Assets are only read.\n\nExamples:\n  spec assets\n  spec assets --kind skill --json"
 )]
 pub struct AssetsArgs {
     /// Only this kind: skill, rule, agent or instructions.

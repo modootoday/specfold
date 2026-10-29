@@ -130,7 +130,7 @@ kind = "skill"            # skill, rule, agent or instructions
 path = ".agents/skills"   # a directory or a glob
 ```
 
-`spec assets` lists what was found. `spec check` reports asset frontmatter (A1: a missing
+`spec assets` lists what was found, with the documents each asset names by id or path; `spec show <id>` lists the assets that name a document. `spec check` reports asset frontmatter (A1: a missing
 name or description is an error, the rest warnings), duplicate names (A2) and paths or `spec`
 commands in asset text that do not exist (A3). `.agents/` is the source; `spec audit --kind drift`
 names copies that differ from it.

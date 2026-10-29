@@ -96,6 +96,19 @@ pub fn run(g: &Global, a: &ShowArgs) -> Result<Output> {
         }
         o = o.field("outgoing", Value::Array(out_edges)).field("incoming", Value::Array(in_edges));
     }
+    // Assets that name this document; read on every show, since none are stored in the graph.
+    let named: Vec<Value> = specfold_core::assets::load(&s.corpus.cfg)
+        .iter()
+        .filter(|x| x.docs(&s.graph).contains(&idx))
+        .map(|x| json!({"kind": x.kind.as_str(), "name": x.name(), "path": x.path}))
+        .collect();
+    if !named.is_empty() {
+        o = o.foot("assets:");
+        for x in &named {
+            o = o.foot(format!("  <- {} {}", x["kind"].as_str().unwrap_or(""), x["path"].as_str().unwrap_or("")));
+        }
+    }
+    o = o.field("assets", Value::Array(named));
     let next = if a.tasks && done < total {
         format!("spec show {} --body   # finish the open items, then spec set {} updated=today", d.id, d.id)
     } else if a.section.is_some() || a.body {
