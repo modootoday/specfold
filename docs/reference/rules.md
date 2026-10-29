@@ -101,6 +101,16 @@ description: Every rule spec check runs, grouped by family.
 | **A3** | paths and spec commands in agent assets exist |
 | **A4** | agent assets use repository paths, not machine paths |
 
+A3 does not read URLs, ids, globs, placeholders such as `<id>`, or git refs such as `origin/main` and `refs/heads/main` as paths. A4 reports home directories (`/Users/<name>`, `/home/<name>`, `C:\Users\<name>`) but not the hosted CI runner's `/home/runner/`, which is the same on every run; `/home/runner2/` is still reported.
+
+## Translations
+
+| rule | checks that |
+| --- | --- |
+| **R1** | translations are current with their source |
+
+A translation names its source with `rel.translation_of` and records `source_rev`, a hash of the source body (`sha256:` and 12 hex digits) with frontmatter removed and whitespace collapsed, so it needs no git history and reformatting does not count. When the source body changes, R1 warns until the translation is updated and `spec set <id> --source-rev` records the source again. A source that no longer exists is an L3 finding. `spec census --translations` lists every translation's state and the sources each language lacks, and exits 1 when anything is behind or missing.
+
 ## Numbers
 
 | rule | checks that |

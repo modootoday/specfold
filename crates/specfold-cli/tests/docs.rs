@@ -186,3 +186,14 @@ fn find_aliases_are_listed_in_help() {
     let find = v["items"].as_array().unwrap().iter().find(|c| c["name"] == "find").unwrap().clone();
     assert_eq!(find["aliases"], serde_json::json!(["list", "ls"]));
 }
+
+#[test]
+fn every_rule_is_in_the_rules_reference() {
+    let r = common::repo();
+    let (_, v) = r.json(&["explain"]);
+    let page = read("docs/reference/rules.md");
+    for item in v["items"].as_array().unwrap() {
+        let id = item["id"].as_str().unwrap();
+        assert!(page.contains(&format!("| **{id}** |")), "docs/reference/rules.md has no row for {id}");
+    }
+}

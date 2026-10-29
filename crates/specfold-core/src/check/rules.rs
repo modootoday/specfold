@@ -16,6 +16,7 @@ mod machine_paths;
 mod placement;
 mod schema;
 mod sections;
+mod translations;
 pub use schema::unknown_key;
 pub(crate) mod support;
 mod visibility;
@@ -63,5 +64,6 @@ pub fn catalog() -> Vec<Box<dyn Rule>> {
         Box::new(machine_paths::NoMachinePaths),
         Box::new(counts::CountsMatch),
         Box::new(hidden::HiddenChars),
+        Box::new(translations::TranslationsCurrent),
     ]
 }

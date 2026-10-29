@@ -47,8 +47,14 @@ section (S7) names `spec edit <id> --new-section <name> --text "…" --write`; f
 Rules for agent files: H1 (hidden characters; `spec fix --rule H1 --write` removes them), A1
 (skill and agent format), A2 (two assets with one name), A3 (paths and `spec` commands that do
 not exist) and A4 (a path under one person's home directory; write it relative to the
-repository). H1 and A4 also cover AGENTS.md, CLAUDE.md and the usual skill directories when
-spec.toml declares no assets.
+repository; the CI runner's /home/runner/ is not reported). A3 does not read git refs such as
+`origin/main` as paths. H1 and A4 also cover AGENTS.md, CLAUDE.md and the usual skill
+directories when spec.toml declares no assets.
+
+R1 (translation behind its source, or no `source_rev`) is fixed by updating the translation's
+text to match the source, then `spec set <id> --source-rev`. Never run `--source-rev` without
+updating the text: it only records that the translation matches. `spec census --translations`
+lists every translation's state and exits 1 when one is behind or a language lacks a source.
 
 A `spec verify` failure means code no longer keeps a rule a source of truth states. Decide
 which is right: fix the code, or update the source of truth in the same change. Never edit the

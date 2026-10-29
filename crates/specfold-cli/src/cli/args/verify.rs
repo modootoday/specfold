@@ -134,4 +134,11 @@ pub struct CensusArgs {
     /// Only report whether retired layouts are gone (exit 1 if not).
     #[arg(long)]
     pub legacy: bool,
+    /// Report translations (rel.translation_of): which are behind their source, which record no
+    /// source_rev, and which sources each language lacks. Exit 1 if any.
+    #[arg(long)]
+    pub translations: bool,
+    /// With --translations: the languages to cover (repeatable); default every language used.
+    #[arg(long, requires = "translations")]
+    pub lang: Vec<String>,
 }

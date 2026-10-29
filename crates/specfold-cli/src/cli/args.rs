@@ -79,7 +79,9 @@ pub enum Cmd {
     /// Diagnose what passes the rules yet needs attention; build review packs; record audits.
     Audit(verify::AuditArgs),
     /// Counts of documents, references and attachments.
-    #[command(after_help = "Examples:\n  spec census\n  spec census --legacy")]
+    #[command(
+        after_help = "Examples:\n  spec census\n  spec census --legacy\n  spec census --translations --lang ko   # exit 1 if a translation is behind or missing"
+    )]
     Census(verify::CensusArgs),
     /// Read-only setup diagnosis: configuration, conflict markers, ignored local documents.
     #[command(
