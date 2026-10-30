@@ -39,11 +39,11 @@ pub fn run(g: &Global, a: &ShowArgs) -> Result<Output> {
         };
         o = o.field("section", sec.clone()).foot(String::new()).foot(sec);
     } else if a.body {
-        let (shown, rest) = match g.max_bytes {
+        let (body, rest) = match g.max_bytes {
             Some(b) if body.len() > b => split_at_headings(body, b),
             _ => (body.to_string(), vec![]),
         };
-        o = o.field("body", shown.clone()).foot(String::new()).foot(shown.trim_end().to_string());
+        o = o.field("body", body.clone()).foot(String::new()).foot(body.trim_end().to_string());
         if let Some(first) = rest.first() {
             o = o.field("cut_by", "max_bytes").field("rest_sections", json!(rest)).foot(format!(
                 "+{} more section(s) not shown: {}",
