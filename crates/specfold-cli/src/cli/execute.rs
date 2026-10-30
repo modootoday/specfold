@@ -326,15 +326,20 @@ fn usage_example(argv: &[String], kind: clap::error::ErrorKind, rendered: &str, 
             // C133: an option's value is not a positional word; --title and --governs carry over.
             let (words, opts) = split_new_args(&argv[pos + 1..]);
             let ty = words.first().map(|t| t.as_str()).unwrap_or("adr");
-            let given = opts.iter().find(|(k, _)| k == "--title").map(|(_, v)| v.clone());
+            let given = opts.iter().find(|(k, _)| k == "--title").and_then(|(_, v)| v.clone());
             let title = match given {
                 Some(t) => t,
                 None if words.len() > 1 => words[1..].join(" "),
                 None => "Use one payment provider".to_string(),
             };
             let mut cmd = format!("spec new {} --title {}", quote(ty), quote(&title));
-            for (_, v) in opts.iter().filter(|(k, _)| k == "--governs") {
-                cmd.push_str(&format!(" --governs {}", quote(v)));
+            // C165: everything else the user gave (--from, --governs, --write, ...) carries over.
+            for (k, v) in opts.iter().filter(|(k, _)| k != "--title" && k != "--json") {
+                cmd.push(' ');
+                cmd.push_str(k);
+                if let Some(v) = v {
+                    cmd.push_str(&format!(" {}", quote(v)));
+                }
             }
             Some(cmd)
         }
@@ -349,9 +354,9 @@ fn usage_example(argv: &[String], kind: clap::error::ErrorKind, rendered: &str, 
     }
 }
 
-/// The positional words and the (option, value) pairs of `spec new` arguments, using the
-/// command's own definition to tell value-taking options from switches.
-fn split_new_args(args: &[String]) -> (Vec<String>, Vec<(String, String)>) {
+/// The positional words and the options of `spec new` arguments in order (a switch has no
+/// value), using the command's own definition to tell value-taking options from switches.
+fn split_new_args(args: &[String]) -> (Vec<String>, Vec<(String, Option<String>)>) {
     use clap::CommandFactory;
     let cmd = Cli::command();
     let new = cmd.find_subcommand("new");
@@ -365,12 +370,12 @@ fn split_new_args(args: &[String]) -> (Vec<String>, Vec<(String, String)>) {
     let mut it = args.iter();
     while let Some(a) = it.next() {
         if let Some((k, v)) = a.split_once('=').filter(|_| a.starts_with("--")) {
-            opts.push((k.to_string(), v.to_string()));
+            opts.push((k.to_string(), Some(v.to_string())));
         } else if a.starts_with('-') && a.len() > 1 {
-            if takes(a)
-                && let Some(v) = it.next()
-            {
-                opts.push((a.clone(), v.clone()));
+            if !takes(a) {
+                opts.push((a.clone(), None));
+            } else if let Some(v) = it.next() {
+                opts.push((a.clone(), Some(v.clone())));
             }
         } else {
             words.push(a.clone());

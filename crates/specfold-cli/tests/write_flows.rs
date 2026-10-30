@@ -416,3 +416,17 @@ fn c117_a_set_that_changes_nothing_writes_nothing() {
     assert!(v.get("undo").is_none(), "{v}");
     assert_eq!(r.read(&path), before, "updated is not bumped");
 }
+
+#[test]
+fn c165_draft_refusal_and_missing_title_keep_from() {
+    let r = common::repo();
+    let id = r.new_doc("adr", "services/shop", "Use files");
+    let (code, v) = r.json(&["set", &id, "status=superseded"]);
+    assert_eq!(code, 2, "{v}");
+    let e = v.to_string();
+    assert!(e.contains(&format!("spec new adr --title '…' --from {id}")), "{e}");
+    let (code, v) = r.json(&["new", "adr", "--from", &id, "--write"]);
+    assert_eq!(code, 2, "{v}");
+    let next = v["next"].as_str().unwrap();
+    assert!(next.contains(&format!("--from {id}")) && next.contains("--write") && next.contains("--title"), "{v}");
+}
