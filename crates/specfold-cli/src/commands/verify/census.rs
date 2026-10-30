@@ -62,7 +62,9 @@ fn translations(s: &session::Session, langs: &[String], fail_on: &str) -> Result
             State::Unrecorded => "no source_rev",
             _ => "no source",
         };
-        o = o.foot(format!("  {:<14} {} ({}) → {}", what, t.id, t.lang.as_deref().unwrap_or("-"), t.source));
+        let changed =
+            if t.sections.is_empty() { String::new() } else { format!(" in {}", translation::describe(&t.sections)) };
+        o = o.foot(format!("  {:<14} {} ({}) → {}{changed}", what, t.id, t.lang.as_deref().unwrap_or("-"), t.source));
     }
     for (lang, ids) in &r.missing {
         for id in ids {

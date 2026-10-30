@@ -28,13 +28,22 @@ fn frontmatter_schema(t: &TypeDef) -> Value {
         "supersedes": {"type": "array", "items": {"type": "string"}},
         "implements": {"type": "array", "items": {"type": "string"}},
         "evidence": {"type": "array", "items": {"type": "string"}},
-        "depends_on": {"type": "array", "items": {"type": "string"}}
+        "depends_on": {"type": "array", "items": {"type": "string"}},
+        "translation_of": {"type": "array", "items": {"type": "string"}, "maxItems": 1, "description": "the original this document translates"}
     }, "additionalProperties": false}),
     );
     props.insert("files".into(), json!({"type": "array", "items": {"type": "object", "required": ["path", "sha256", "bytes", "store"], "properties": {
         "path": {"type": "string"}, "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "bytes": {"type": "integer"}, "store": {"enum": ["repo", "store"]}
     }}}));
     props.insert("generated_by".into(), json!({"type": "string"}));
+    props.insert(
+        "lang".into(),
+        json!({"type": "string", "pattern": "^[A-Za-z]{2,3}(-[A-Za-z0-9]{1,8})*$", "description": "language tag (BCP 47), e.g. ko"}),
+    );
+    props.insert(
+        "source_rev".into(),
+        json!({"type": "string", "pattern": "^sha256:[0-9a-f]{12}$", "description": "source revision a translation was made from"}),
+    );
     for f in &t.fields {
         props.entry(f.clone()).or_insert(json!({}));
     }
@@ -59,6 +68,14 @@ pub fn run(g: &Global, a: &SchemaArgs) -> Result<Output> {
                 .field("type", serde_json::to_value(t)?)
                 .field("frontmatter", frontmatter_schema(t))
                 .head(format!("{}: {}", t.name, t.about))
+                .foot(format!(
+                    "fields: {}",
+                    frontmatter_schema(t)["properties"]
+                        .as_object()
+                        .map(|m| m.keys().cloned().collect::<Vec<_>>().join(", "))
+                        .unwrap_or_default()
+                ))
+                .foot("translations: lang: ko, rel.translation_of: [<source id>], source_rev: sha256:<12 hex>")
                 .next(format!("spec new {} --title '…'", t.name)))
         }
         None => {

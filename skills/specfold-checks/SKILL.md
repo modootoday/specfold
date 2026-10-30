@@ -63,6 +63,10 @@ R2 (a translation out of place) means the `[translations]` layout and the frontm
 or a document named like a translation has no source. Rename the document into place with
 `spec mv`, correct `lang` or `rel.translation_of`, or add the source; do not loosen the layout.
 
+R1 errors when a translation names itself or another translation as its source: point
+`rel.translation_of` at the original the message names. Bad `lang` or `source_rev` values and two
+translations in one language are warnings.
+
 A `spec verify` failure means code no longer keeps a rule a source of truth states. Decide
 which is right: fix the code, or update the source of truth in the same change. Never edit the
 verify command just to make it pass.

@@ -176,6 +176,25 @@ pub fn describe(changes: &[SectionChange]) -> String {
         .join(", ")
 }
 
+/// Why `lang` is not a language tag (BCP 47 shape: a 2-3 letter language, then subtags of 1-8
+/// letters or digits, `ko`, `pt-BR`, `zh-Hant-TW`), or `None` when it is one.
+pub fn lang_problem(lang: &str) -> Option<String> {
+    let mut parts = lang.split('-');
+    let first = parts.next().unwrap_or("");
+    let ok = (2..=3).contains(&first.len())
+        && first.chars().all(|c| c.is_ascii_alphabetic())
+        && parts.all(|p| (1..=8).contains(&p.len()) && p.chars().all(|c| c.is_ascii_alphanumeric()));
+    (!ok).then(|| format!("lang '{lang}' is not a language tag (BCP 47) like ko, ja or pt-BR"))
+}
+
+/// Why a `source_rev` value is not `sha256:<12 hex>`, or `None` when it is.
+pub fn rev_problem(rev: &str) -> Option<String> {
+    let ok = rev
+        .strip_prefix("sha256:")
+        .is_some_and(|h| h.len() == 12 && h.chars().all(|c| c.is_ascii_digit() || ('a'..='f').contains(&c)));
+    (!ok).then(|| format!("source_rev '{rev}' is not sha256:<12 hex>"))
+}
+
 /// What a document's `rel.translation_of` names, raw.
 pub fn source_ref(c: &Corpus, idx: usize) -> Option<String> {
     c.docs[idx].rel().get(RELATION).and_then(|l| l.first().cloned())
@@ -322,7 +341,8 @@ pub fn report(c: &Corpus, g: &Graph, langs: &[String]) -> Report {
         }
         let lang = lang_of(c, i);
         let src = source_of(c, g, i);
-        if let (Some(l), Some(s)) = (&lang, src) {
+        // A translation of a translation (or of itself) is not a source; R1 reports it.
+        if let (Some(l), Some(s)) = (&lang, src.filter(|&s| s != i && !is_translation(c, s))) {
             have.entry(l.clone()).or_default().push(s);
             if !sources.contains(&s) {
                 sources.push(s);

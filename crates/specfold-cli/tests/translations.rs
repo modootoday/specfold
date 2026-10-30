@@ -231,3 +231,44 @@ fn the_dir_layout_pairs_the_same_slug_under_a_language_owner() {
     assert_eq!(v["translations"][0]["source"], src.as_str(), "{v}");
     assert_eq!(r.json(&["check", "--rule", "R2"]).1["warnings"], 0);
 }
+
+#[test]
+fn set_refuses_a_bad_language_tag_or_source_rev() {
+    let (r, _src, ko) = pair();
+    assert_ne!(r.json(&["set", &ko, "lang=korean language"]).0, 0);
+    assert_ne!(r.json(&["set", &ko, "source_rev=abc"]).0, 0);
+    assert_eq!(r.json(&["set", &ko, "lang=pt-BR"]).0, 0);
+    assert_eq!(r.json(&["set", &ko, "source_rev=sha256:0123456789ab"]).0, 0);
+}
+
+#[test]
+fn a_translation_of_a_translation_is_an_error_and_not_a_census_source() {
+    let (r, src, ko) = pair();
+    let ja = r.new_doc("guide", "services/shop", "Setup in Japanese");
+    let rel = format!("rel.translation_of+={ko}");
+    assert_eq!(r.json(&["set", &ja, "lang=ja", &rel]).0, 0);
+    let (code, v) = r.json(&["check", "--rule", "R1"]);
+    assert_eq!(code, 1, "{v}");
+    assert!(messages(&v).iter().any(|m| m.contains("is itself a translation") && m.contains(&src)), "{v}");
+    let (_, v) = r.json(&["census", "--translations"]);
+    assert_eq!(v["sources"], 1, "{v}");
+}
+
+#[test]
+fn two_translations_into_one_language_warn() {
+    let (r, src, _ko) = pair();
+    let ko2 = r.new_doc("guide", "services/shop", "Setup in Korean again");
+    let rel = format!("rel.translation_of+={src}");
+    assert_eq!(r.json(&["set", &ko2, "lang=ko", &rel]).0, 0);
+    let (_, v) = r.json(&["check", "--rule", "R1"]);
+    assert!(messages(&v).iter().any(|m| m.contains("another 'ko' translation")), "{v}");
+}
+
+#[test]
+fn schema_lists_the_translation_keys() {
+    let r = common::repo();
+    let (_, v) = r.json(&["schema", "guide"]);
+    let p = &v["frontmatter"]["properties"];
+    assert!(p["lang"].is_object() && p["source_rev"].is_object(), "{v}");
+    assert!(p["rel"]["properties"]["translation_of"].is_object(), "{v}");
+}

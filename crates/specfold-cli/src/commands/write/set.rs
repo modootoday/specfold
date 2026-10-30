@@ -27,6 +27,16 @@ pub fn run(g: &Global, a: &SetArgs) -> Result<Output> {
         shown.push(format!("{}={rev}", translation::KEY));
         assigns.push(Assign { key: translation::KEY.into(), op: Op::Set, value: rev });
     }
+    for x in assigns.iter().filter(|x| matches!(x.op, Op::Set)) {
+        let problem = match x.key.as_str() {
+            "lang" => translation::lang_problem(&x.value),
+            translation::KEY => translation::rev_problem(&x.value).map(|p| format!("{p}; record it with --source-rev")),
+            _ => None,
+        };
+        if let Some(p) = problem {
+            bail!("{p}");
+        }
+    }
     let plan = set::plan(&s.corpus, idx, &assigns)?;
     let id = s.corpus.docs[idx].id.to_string();
     let ty = s.corpus.docs[idx].id.ty.clone();
