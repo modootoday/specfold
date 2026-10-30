@@ -96,11 +96,31 @@ pub fn run(g: &Global, a: &SetArgs) -> Result<Output> {
         }
     }
     let plan = set::plan(&s.corpus, idx, &assigns)?;
+    // A plan is archived when its work is done: open tasks refuse the move unless --force.
+    let open = open_tasks(&s.corpus, idx, &assigns);
     let id = s.corpus.docs[idx].id.to_string();
     let ty = s.corpus.docs[idx].id.ty.clone();
     let unknown: Vec<String> =
         assigns.iter().filter_map(|x| specfold_core::check::rules::unknown_key(&s.corpus, &ty, &x.key)).collect();
     let o = Output::new("set").unpaged().field("id", id.clone()).head(format!("{id}: {}", shown.join(" ")));
+    if !open.is_empty() && !a.force {
+        let shown_open: Vec<String> = open.iter().take(5).map(|t| format!("open  {t}")).collect();
+        let more = open.len().saturating_sub(5);
+        let o = o
+            .field("open_tasks", open.clone())
+            .foot(format!(
+                "{} {} still open; a plan is archived when its tasks are done{}",
+                open.len(),
+                if open.len() == 1 { "task is" } else { "tasks are" },
+                if more > 0 { format!(" ({more} more not shown)") } else { String::new() }
+            ))
+            .next(format!(
+                "spec show {id} --tasks   # tick or drop them; or archive anyway: spec set {id} {} --write --force",
+                a.assignments.join(" ")
+            ));
+        let o = shown_open.into_iter().fold(o, |o, l| o.foot(l));
+        return Ok(if a.dry_run { o } else { o.code(crate::output::Code::Refused) });
+    }
     let o = preview::finish(o, &plan, &s.corpus.cfg.root, !a.dry_run, "rerun without --dry-run")?;
     let o = unknown.iter().fold(o.field("warnings", unknown.clone()), |o, w| o.foot(format!("warn  S1  {w}")));
     Ok(if a.dry_run {
@@ -161,4 +181,23 @@ fn pin_problem(s: &session::Session, target: &str) -> String {
         Remote::Ambiguous { name, ids } => format!("{target} is ambiguous in the remote {name}: {}", ids.join(", ")),
         Remote::Found { .. } => format!("{target} has no readable body to pin"),
     }
+}
+
+/// The open task lines of a plan that `assigns` archives; empty for anything else.
+fn open_tasks(c: &specfold_core::corpus::Corpus, idx: usize, assigns: &[Assign]) -> Vec<String> {
+    use specfold_core::markdown::{frontmatter, tasks};
+    let d = &c.docs[idx];
+    let archives = assigns.iter().any(|x| x.key == "status" && matches!(x.op, Op::Set) && x.value == "archived");
+    if d.id.ty != "plan" || !archives {
+        return vec![];
+    }
+    let mut open = vec![];
+    for file in std::iter::once(&d.path).chain(&d.chapters) {
+        let Ok(text) = std::fs::read_to_string(c.cfg.root.join(file)) else { continue };
+        let split = frontmatter::split(&text);
+        for t in tasks::list(split.body).into_iter().filter(|t| !t.done) {
+            open.push(format!("{file}:{}: {}", split.body_line + t.line - 1, t.text));
+        }
+    }
+    open
 }

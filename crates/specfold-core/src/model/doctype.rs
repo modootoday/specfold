@@ -151,7 +151,7 @@ pub fn builtin() -> Vec<TypeDef> {
             statuses: &["draft", "active", "superseded", "rejected"],
             initial: "draft",
             sealed: false,
-            fields: &["decided_because"],
+            fields: &["decided_because", "decision_makers", "consulted", "informed"],
             template: "## Context\n\n## Decision\n\n## Consequences\n",
         },
         Spec {

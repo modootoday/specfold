@@ -37,7 +37,8 @@ $ spec show plan:shop/20261029190949 --tasks
 
 `spec show` reports a document's progress; `--tasks` lists each item with its file and line.
 `spec audit` reports plans whose tasks are all ticked but that are still active, and archived
-plans with tasks still open.
+plans with tasks still open. `spec set <plan> status=archived --write` refuses (exit 4) while
+tasks are open and lists them; `--dry-run` shows the same list, and `--force` archives anyway.
 
 ## Related
 

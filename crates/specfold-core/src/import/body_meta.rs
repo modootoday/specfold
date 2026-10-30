@@ -121,12 +121,70 @@ pub fn scan(body: &str, map: &BodyMap) -> Found {
     f
 }
 
+/// Who decided, who was consulted and who was informed, under one spelling each.
+/// MADR 4 writes `decision-makers:` in frontmatter, MADR 3 `deciders:`, and MADR 2 and
+/// Log4brains `* Deciders: …` bullets in the body. A frontmatter value wins over the body.
+pub fn people(fm: &mut serde_json::Map<String, serde_json::Value>, body: &str) {
+    use serde_json::Value;
+    const FIELDS: [(&str, &[&str]); 3] = [
+        ("decision_makers", &["decision_makers", "decision-makers", "deciders"]),
+        ("consulted", &["consulted"]),
+        ("informed", &["informed"]),
+    ];
+    let ls = lines(body);
+    for (field, names) in FIELDS {
+        let mut got: Option<Vec<String>> = None;
+        for n in names {
+            if let Some(v) = fm.remove(*n)
+                && got.is_none()
+            {
+                got = Some(match v {
+                    Value::Array(items) => items.iter().filter_map(|x| x.as_str().map(str::to_string)).collect(),
+                    Value::String(s) => split_people(&s),
+                    _ => vec![],
+                });
+            }
+        }
+        if got.as_ref().is_none_or(Vec::is_empty) {
+            let label = if field == "decision_makers" { ["deciders", "decision-makers"].as_slice() } else { &[field] };
+            got = ls.iter().find_map(|l| label.iter().find_map(|n| bullet(l, n))).map(split_people);
+        }
+        let people: Vec<String> = got.unwrap_or_default().into_iter().filter(|p| !placeholder(p)).collect();
+        if !people.is_empty() {
+            fm.insert(field.into(), Value::Array(people.into_iter().map(Value::String).collect()));
+        }
+    }
+}
+
+fn split_people(v: &str) -> Vec<String> {
+    let v = v.split("<!--").next().unwrap_or(v);
+    v.split(',').map(|p| p.trim().trim_end_matches('.').trim().to_string()).filter(|p| !p.is_empty()).collect()
+}
+
+/// Template text left in place: `{list everyone involved}`, `[names]`.
+fn placeholder(p: &str) -> bool {
+    p.starts_with(['{', '[', '<'])
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     fn map(toml: &str) -> BodyMap {
         toml::from_str(toml).unwrap()
+    }
+
+    #[test]
+    fn people_from_frontmatter_or_body_bullets() {
+        let mut fm = serde_json::Map::new();
+        fm.insert("decision-makers".into(), "Ana, Bo".into());
+        people(&mut fm, "* Deciders: ignored\n* Consulted: Cy <!-- optional -->\n- Informed: {list everyone}\n");
+        assert_eq!(fm["decision_makers"], serde_json::json!(["Ana", "Bo"]));
+        assert_eq!(fm["consulted"], serde_json::json!(["Cy"]));
+        assert!(!fm.contains_key("decision-makers") && !fm.contains_key("informed"), "{fm:?}");
+        let mut fm = serde_json::Map::new();
+        people(&mut fm, "# T\n\n- Deciders: team\n```\n- Informed: x\n```\n");
+        assert_eq!(serde_json::Value::Object(fm), serde_json::json!({"decision_makers": ["team"]}));
     }
 
     #[test]

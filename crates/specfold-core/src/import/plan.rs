@@ -391,6 +391,10 @@ fn doc_row(c: &Corpus, map: &ImportMap, u: &Unit, taken: &mut BTreeSet<String>, 
             !(has_status && m.starts_with("no status in the body") || has_date && m.starts_with("no date in the body"))
         }));
     }
+    if ty.fields.iter().any(|f| f == "decision_makers") {
+        let body = if generated { "" } else { split.body };
+        super::body_meta::people(&mut old, body);
+    }
     let scanned = body::scan(split.body, split.body_line, &body::path_cite_re(c.cfg.spec_dir()));
     let name = name_of(&u.source).trim_end_matches(".md");
     let name_re = rule.name.as_deref().map(Regex::new).transpose().map_err(|e| anyhow!("bad name regex: {e}"))?;
