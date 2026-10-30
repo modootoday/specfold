@@ -80,6 +80,8 @@ Relations are written once, on the document that makes them: `rel.governs`, `rel
 another document as `[[<id>]]` or `[[<id>#<anchor>]]`, never by path. A document in another
 repository listed under `[remotes.<name>]` in spec.toml is `<name>:<id>` (`[[org:adr:root/…]]`);
 read it with `spec show <name>:<id>`, and change it in that repository, not from here.
+A translation may name such a source, and `[[<name>:<id>]]` in READMEs and code comments is
+checked too. `spec doctor` shows which remotes are on disk.
 
 A translation is its own document that names its source and language, and records the source
 body it was made from:

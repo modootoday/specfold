@@ -15,17 +15,24 @@ pub fn run(g: &Global, a: &SetArgs) -> Result<Output> {
     let mut shown = a.assignments.clone();
     if a.source_rev {
         let d = &s.corpus.docs[idx];
-        let Some(src) = translation::source_of(&s.corpus, &s.graph, idx) else {
+        let remote =
+            translation::source_ref(&s.corpus, idx).and_then(|r| specfold_core::remotes::rev(&s.corpus.cfg, &r));
+        let src = translation::source_of(&s.corpus, &s.graph, idx);
+        if let (None, Some((_, rev))) = (src, remote) {
+            shown.push(format!("{}={rev}", translation::KEY));
+            assigns.push(Assign { key: translation::KEY.into(), op: Op::Set, value: rev });
+        } else if let Some(src) = src {
+            let rev = translation::rev_of(&s.corpus, src)
+                .ok_or_else(|| anyhow!("cannot read {}", s.corpus.docs[src].path))?;
+            shown.push(format!("{}={rev}", translation::KEY));
+            assigns.push(Assign { key: translation::KEY.into(), op: Op::Set, value: rev });
+        } else {
             bail!(
                 "{} has no rel.translation_of that names a document; add it first: spec set {} rel.translation_of+=<source id>",
                 d.id,
                 d.id
             );
-        };
-        let rev =
-            translation::rev_of(&s.corpus, src).ok_or_else(|| anyhow!("cannot read {}", s.corpus.docs[src].path))?;
-        shown.push(format!("{}={rev}", translation::KEY));
-        assigns.push(Assign { key: translation::KEY.into(), op: Op::Set, value: rev });
+        }
     }
     for x in assigns.iter().filter(|x| matches!(x.op, Op::Set)) {
         let problem = match x.key.as_str() {

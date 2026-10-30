@@ -44,6 +44,10 @@ A reference or relation written `<name>:<id>` names a document in another reposi
 under `[remotes.<name>]`. L1 and L3 check it when that directory is on disk, with the same type
 rules as local targets, and skip it when the directory is absent, so a CI job without that
 checkout does not fail. `spec show <name>:<id>` reads it; nothing writes there.
+L6 checks `[[<name>:<id>]]` in files listed under `[cites]` the same way. A translation may name a
+remote source (`rel.translation_of: [org:guide:root/setup]`); R1 compares its `source_rev` with
+the remote body, and `spec set <id> --source-rev` records it. `spec doctor` lists every remote,
+its directory and whether it is present.
 
 ## Lifecycle
 

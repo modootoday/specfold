@@ -14,7 +14,7 @@ impl Rule for TranslationsCurrent {
         &RuleInfo {
             id: "R1",
             title: "translations are current with their source",
-            explain: "A translated document names its source with rel.translation_of and records the source it was made from as source_rev: sha256:<12 hex>, a hash of the source body (main file, then the bundle's chapters in path order) with frontmatter removed and whitespace collapsed (no git history needed, and reformatting does not count). When git still has a commit with the recorded revision, the warning names the sections that changed since, with the number of paragraphs changed, new and removed sections (chapters are prefixed with their file name). When the source body changes, the translation is reported as behind until it is re-translated and source_rev is recorded again with `spec set <id> --source-rev`. A translation without source_rev gets the same command. A source that does not resolve is reported by L3. R1 also checks the values: lang is a language tag (BCP 47: `ko`, `pt-BR`), source_rev is `sha256:` and 12 hex digits, one source has one translation per language, and a translation names an original, not itself or another translation (those two are errors). Example frontmatter: `lang: ko`, `rel: {translation_of: [guide:shop/setup]}`, `source_rev: sha256:3f2a9c0b1d4e`; `spec new --translation ko --from guide:shop/setup` writes all three. Reported as warnings; `spec census --translations` lists every translation and the sources each language lacks.",
+            explain: "A translated document names its source with rel.translation_of and records the source it was made from as source_rev: sha256:<12 hex>, a hash of the source body (main file, then the bundle's chapters in path order) with frontmatter removed and whitespace collapsed (no git history needed, and reformatting does not count). When git still has a commit with the recorded revision, the warning names the sections that changed since, with the number of paragraphs changed, new and removed sections (chapters are prefixed with their file name). When the source body changes, the translation is reported as behind until it is re-translated and source_rev is recorded again with `spec set <id> --source-rev`. A translation without source_rev gets the same command. A source in a remote (`rel.translation_of: [<remote>:<id>]`) is compared the same way when the remote directory is present, without section names. A source that does not resolve is reported by L3. R1 also checks the values: lang is a language tag (BCP 47: `ko`, `pt-BR`), source_rev is `sha256:` and 12 hex digits, one source has one translation per language, and a translation names an original, not itself or another translation (those two are errors). Example frontmatter: `lang: ko`, `rel: {translation_of: [guide:shop/setup]}`, `source_rev: sha256:3f2a9c0b1d4e`; `spec new --translation ko --from guide:shop/setup` writes all three. Reported as warnings; `spec census --translations` lists every translation and the sources each language lacks.",
             on_commit: false,
         }
     }
@@ -40,7 +40,37 @@ impl Rule for TranslationsCurrent {
                 continue;
             }
             let targets = d.rel().get(RELATION).cloned().unwrap_or_default();
-            let Some(src) = translation::source_of(c, ctx.graph, i) else { continue };
+            let Some(src) = translation::source_of(c, ctx.graph, i) else {
+                // A source in a remote repository: compare its body with source_rev.
+                if ctx.scope.covers(i)
+                    && let Some((rid, now)) =
+                        translation::source_ref(c, i).and_then(|r| crate::remotes::rev(&c.cfg, &r))
+                {
+                    let fix = format!("spec set {} --source-rev", d.id);
+                    let line = key_line(ctx, &d.path, KEY);
+                    match d.str_field(KEY) {
+                        None => out.push(
+                            Finding::warn("R1", &d.path, 1, format!("translation of {rid} records no source_rev"))
+                                .fix_cmd(fix),
+                        ),
+                        Some(r) if translation::rev_problem(&r).is_some() => out.push(
+                            Finding::warn("R1", &d.path, line, translation::rev_problem(&r).unwrap_or_default())
+                                .fix_cmd(fix),
+                        ),
+                        Some(r) if r != now => out.push(
+                            Finding::warn(
+                                "R1",
+                                &d.path,
+                                line,
+                                format!("{rid} changed since source_rev {r}: update the translation"),
+                            )
+                            .fix_cmd(fix),
+                        ),
+                        Some(_) => {}
+                    }
+                }
+                continue;
+            };
             if !(ctx.scope.covers(i) || ctx.scope.covers(src)) {
                 continue;
             }

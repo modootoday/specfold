@@ -114,6 +114,20 @@ pub fn run(g: &Global) -> Result<Output> {
             }
         }
     }
+    // Remotes are listed, not judged: an absent directory is normal in a CI job without that
+    // checkout, so it is shown here and stays silent in spec check.
+    let mut remotes = vec![];
+    for (name, r) in &cfg.raw.remotes {
+        let dir = specfold_core::remotes::dir(&cfg, name).unwrap_or_default();
+        let docs = specfold_core::remotes::load(&cfg, name).map(|l| l.corpus.docs.len());
+        let state = match docs {
+            Some(n) => format!("{n} documents"),
+            None => "absent: references to it are not checked".into(),
+        };
+        o = o.foot(format!("remote {name:<10} {}  {state}", dir.display()));
+        remotes.push(json!({"name": name, "path": r.path, "dir": dir, "present": docs.is_some(), "documents": docs}));
+    }
+    o = o.field("remotes", json!(remotes));
     o = o.head(format!("{} spec files read", files.len()));
     Ok(if found == 0 {
         o.foot("no setup problems found").next("spec check")
