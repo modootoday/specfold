@@ -46,6 +46,9 @@ pub struct NewArgs {
     /// Show what would be created without writing.
     #[arg(long)]
     pub dry_run: bool,
+    /// Accepted and ignored: new writes the document directly, like `--write` elsewhere; preview with --dry-run.
+    #[arg(long, conflicts_with = "dry_run")]
+    pub write: bool,
 }
 
 #[derive(Debug, Clone, Args)]
@@ -70,6 +73,9 @@ pub struct SetArgs {
     /// Show the change without writing.
     #[arg(long)]
     pub dry_run: bool,
+    /// Accepted and ignored: set writes directly, like `--write` elsewhere; preview with --dry-run.
+    #[arg(long, conflicts_with = "dry_run")]
+    pub write: bool,
 }
 
 #[derive(Debug, Clone, Args)]

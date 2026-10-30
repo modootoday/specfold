@@ -144,6 +144,19 @@ fn consumers_of_a_shared_document_are_listed_from_either_side() {
     assert_eq!(v["items"][0]["repo"], "apps", "{v}");
     assert_eq!(v["items"].as_array().unwrap().len(), 1, "{v}");
     assert_ne!(app.json(&["graph", "consumers", "ci:guide:a/b"]).0, 0);
+    let (_, t) = app.text(&["graph", "consumers", &format!("org:{doc}")]);
+    assert!(t.contains("repo") && t.contains("via") && t.contains("repo '.' is this repository"), "{t}");
+    assert!(t.contains("1 consumer of"), "{t}");
+}
+
+#[test]
+fn no_consumers_says_so_and_names_where_it_searched() {
+    let r = common::repo();
+    let doc = r.new_doc("guide", "services/shop", "Nobody uses this");
+    let (code, t) = r.text(&["graph", "consumers", &doc]);
+    assert_eq!(code, 0, "{t}");
+    assert!(t.contains("0 consumers of") && t.contains("no [remotes] in spec.toml"), "{t}");
+    assert!(r.json(&["graph", "consumers", &doc]).1["searched"].as_str().unwrap().contains("this repository"));
 }
 
 #[test]

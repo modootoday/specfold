@@ -198,13 +198,32 @@ pub fn run(g: &Global, a: &GraphArgs) -> Result<Output> {
                 }
                 Remote::Ambiguous { name, ids } => bail!("{t} is ambiguous in the remote {name}: {}", ids.join(", ")),
             };
-            for u in remotes::consumers(&c.cfg, c, &file) {
+            let found = remotes::consumers(&c.cfg, c, &file);
+            let names: Vec<&String> = c.cfg.raw.remotes.keys().collect();
+            let scope = if names.is_empty() {
+                "this repository only; no [remotes] in spec.toml".to_string()
+            } else {
+                format!(
+                    "this repository and the remotes on disk: {}",
+                    names.iter().map(|n| n.as_str()).collect::<Vec<_>>().join(", ")
+                )
+            };
+            if !found.is_empty() {
+                o = o.head(format!("{:<12} {:<36} {}", "repo", "id", "via"));
+            }
+            let count = found.len();
+            for u in found {
                 o = o.item(
                     json!({"repo": u.repo, "id": u.id, "path": u.path, "via": u.via}),
                     format!("{:<12} {:<36} {}", u.repo, u.id, u.via),
                 );
             }
-            Ok(o.field("target", shown.clone()).next(format!("spec show {shown}")))
+            let noun = if count == 1 { "consumer" } else { "consumers" };
+            o = o.foot(format!("{count} {noun} of {shown}; searched {scope}"));
+            if count > 0 {
+                o = o.foot("repo '.' is this repository");
+            }
+            Ok(o.field("target", shown.clone()).field("searched", scope).next(format!("spec show {shown}")))
         }
         (Some(q), _) if !["impact", "chain", "governs", "consumers"].contains(&q) => {
             let whole = match q {

@@ -290,3 +290,18 @@ fn new_translation_lowercases_the_slug_tag_and_refuses_a_translation_as_source()
     assert_ne!(code, 0, "{v}");
     assert!(v.to_string().contains(&format!("--from {src}")), "{v}");
 }
+
+#[test]
+fn new_and_set_accept_write_and_errors_keep_their_own_command_as_next() {
+    let r = common::repo();
+    let src = r.new_doc("guide", "services/shop", "Install");
+    let (code, v) = r.json(&["new", "--translation", "ja", "--from", &src, "--write"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(r.json(&["set", &src, "tags+=x", "--write"]).0, 0);
+    let ja = r.json(&["find", "install-ja"]).1["items"][0]["id"].as_str().unwrap().to_string();
+    let (code, v) = r.json(&["new", "--translation", "ko", "--from", &ja]);
+    assert_ne!(code, 0);
+    assert_eq!(v["next"], format!("spec new --translation ko --from {src}"), "{v}");
+    let (_, v) = r.json(&["new", "--translation", "ko", "--from", &src, "--bogus"]);
+    assert!(!v["next"].as_str().unwrap().contains("--title"), "{v}");
+}

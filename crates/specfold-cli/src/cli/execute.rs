@@ -174,7 +174,18 @@ fn split_next(msg: &str, argv: &[String]) -> (String, Option<String>) {
         cmd.extend(flag.split(' ').map(str::to_string));
         return (m.to_string(), Some(cmd.join(" ")));
     }
+    if let Some(cmd) = trailing_command(msg) {
+        return (msg.to_string(), Some(cmd));
+    }
     (msg.to_string(), None)
+}
+
+/// A message that ends in a complete command (`...: spec new --translation ja --from x`) names
+/// its own next step; a command with a `<placeholder>` in it is not runnable.
+fn trailing_command(msg: &str) -> Option<String> {
+    let (_, cmd) = msg.rsplit_once(": spec ")?;
+    let cmd = format!("spec {}", cmd.trim_end_matches('.'));
+    (!cmd.contains('<') && !cmd.contains("; ") && !cmd.contains(". ")).then_some(cmd)
 }
 
 /// A runnable command for a usage error the command line can be repaired from: a missing
@@ -185,7 +196,9 @@ fn usage_example(argv: &[String], kind: clap::error::ErrorKind, rendered: &str, 
     let pos = argv.iter().position(|a| a == name)?;
     let rest: Vec<String> = argv[pos + 1..].iter().map(|a| quote(a)).collect();
     match (name, kind) {
-        ("new", ErrorKind::UnknownArgument | ErrorKind::MissingRequiredArgument) => {
+        ("new", ErrorKind::UnknownArgument | ErrorKind::MissingRequiredArgument)
+            if !argv.iter().any(|a| a == "--translation" || a.starts_with("--translation=")) =>
+        {
             let words: Vec<&String> = argv[pos + 1..].iter().filter(|a| !a.starts_with('-')).collect();
             let ty = words.first().map(|t| t.as_str()).unwrap_or("adr");
             let title = if words.len() > 1 {
