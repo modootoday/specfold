@@ -513,3 +513,43 @@ fn a_secret_in_a_repository_attachment_is_found_after_attach() {
     let (code, v) = r.json(&["check", "--rule", "U2"]);
     assert_eq!(code, 0, "over scan_max_bytes the file is not read: {v}");
 }
+
+#[test]
+fn governed_code_changed_without_its_document_warns_in_a_staged_run() {
+    let r = common::repo();
+    let sot = r.new_doc("sot", "services/shop", "Cart rules");
+    assert_eq!(r.json(&["set", &sot, "status=active"]).0, 0);
+    r.commit("rules");
+    let d1 = |v: &serde_json::Value| -> Vec<String> {
+        v["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|f| f["rule"] == "D1")
+            .map(|f| f["message"].as_str().unwrap().to_string())
+            .collect()
+    };
+    r.write("services/shop/src/cart/total.rs", "fn total() { 1 }\n");
+    r.git(&["add", "-A"]);
+    let (code, v) = r.json(&["check", "--staged"]);
+    assert_eq!(code, 0, "D1 is a warning: {v}");
+    let hits = d1(&v);
+    assert_eq!(hits.len(), 1, "{v}");
+    assert!(hits[0].contains("services/shop/src/cart/total.rs") && hits[0].contains(&sot), "{hits:?}");
+    assert!(d1(&r.json(&["check"]).1).is_empty(), "a full run never reports D1");
+    // A change note that names the document answers it.
+    let (code, v) = r.json(&["new", "change", "--owner", "shop", "--title", "Totals round up"]);
+    assert_eq!(code, 0, "{v}");
+    let note = v["path"].as_str().unwrap().to_string();
+    r.write(&note, &(r.read(&note) + &format!("\nFollows [[{sot}]].\n")));
+    r.git(&["add", "-A"]);
+    let (_, v) = r.json(&["check", "--staged"]);
+    assert!(d1(&v).is_empty(), "{v}");
+    // So does editing the document itself.
+    r.git(&["rm", "-q", "--cached", &note]);
+    let sot_path = r.json(&["show", &sot]).1["path"].as_str().unwrap().to_string();
+    r.write(&sot_path, &(r.read(&sot_path) + "\nTotals round up.\n"));
+    r.git(&["add", &sot_path]);
+    let (_, v) = r.json(&["check", "--staged"]);
+    assert!(d1(&v).is_empty(), "{v}");
+}

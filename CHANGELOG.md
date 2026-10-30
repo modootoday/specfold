@@ -7,6 +7,8 @@ Release notes for each version are also on
 
 ### Added
 
+- Rule D1 (warning, `spec check --staged` and `--changed` only): code changed under an active
+  document's `rel.governs` while neither the document nor a `change` note naming it changed.
 - Rule U2 runs the built-in secrets check (the one `spec export` always applies) over every
   document file, so the commit hook (`spec check --staged`) refuses what export would refuse.
   `spec guard secrets` runs it over any range, and `spec guard` with no secrets guard configured
@@ -14,10 +16,12 @@ Release notes for each version are also on
   Hits in local (git-ignored) documents are warnings; in committed documents, errors.
   U2 also reads each document's text attachments kept in the repository (up to the new
   `[files] scan_max_bytes`, 1 MiB by default; binary files are skipped), so a secret attached
-  with a warning keeps being reported by `spec check` and `spec guard secrets`.
+  with a warning keeps being reported by `spec check` and `spec guard secrets`. `spec export`
+  reads the same attachments of the documents it exports and refuses on a hit.
   U2 also reads each document's text attachments kept in the repository (up to the new
   `[files] scan_max_bytes`, 1 MiB by default; binary files are skipped), so a secret attached
-  with a warning keeps being reported by `spec check` and `spec guard secrets`.
+  with a warning keeps being reported by `spec check` and `spec guard secrets`. `spec export`
+  reads the same attachments of the documents it exports and refuses on a hit.
 - `spec attach` runs the built-in secrets check on every file, with no `[[guards]]` needed: a hit
   refuses a store upload (`--allow-hit secrets` lets it through) and warns for a repository file.
 - A slug id (`plan:root/payment-rollout` for a timestamp-keyed plan) resolves in `[[…]]`

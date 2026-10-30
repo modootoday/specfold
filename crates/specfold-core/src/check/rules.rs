@@ -6,6 +6,7 @@ mod attachments;
 mod cites;
 mod commands;
 mod counts;
+mod drift;
 mod forbid;
 mod guarded;
 mod hidden;
@@ -62,6 +63,7 @@ pub fn catalog() -> Vec<Box<dyn Rule>> {
         Box::new(commands::GeneratedInSync),
         Box::new(guarded::GuardsPass),
         Box::new(secrets::NoSecrets),
+        Box::new(drift::GovernedCodeDrift),
         Box::new(assets::AssetFrontmatter),
         Box::new(assets::AssetNamesUnique),
         Box::new(asset_refs::AssetRefsExist),

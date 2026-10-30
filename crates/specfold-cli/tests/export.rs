@@ -417,3 +417,25 @@ fn a_markdown_link_to_a_slug_id_points_at_the_exported_page() {
     assert!(page.contains("[the tax decision](../adr/cart-totals.md)"), "{page}");
     assert!(!page.contains("adr:shop/cart-totals"), "{page}");
 }
+
+#[test]
+fn the_built_in_check_reads_repository_attachments_of_exported_documents() {
+    let r = corpus();
+    let (code, v) = r.json(&["new", "design", "--governs", "services/shop", "--title", "Board"]);
+    assert_eq!(code, 0, "{v}");
+    let id = v["id"].as_str().unwrap().to_string();
+    r.write("notes.txt", &format!("DSN: {}\n", leaky_url()));
+    let mut bin = b"\0\x01PNG ".to_vec();
+    bin.extend(leaky_url().bytes());
+    std::fs::write(r.path().join("board.bin"), &bin).unwrap();
+    let (code, v) = r.json(&["attach", &id, "notes.txt", "board.bin", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    let (code, v) = r.json(&["export", "markdown", "--target", "mkdocs", "--out", "site"]);
+    assert_eq!(code, 1, "the attachment holds a secret: {v}");
+    assert!(!r.path().join("site").exists(), "nothing is written");
+    let s = v.to_string();
+    assert!(s.contains("notes.txt") && !s.contains("board.bin") && !s.contains("Et-77x"), "{s}");
+    r.write("spec.toml", &(r.read("spec.toml") + "\n[files]\nscan_max_bytes = 8\n"));
+    let (code, v) = r.json(&["export", "markdown", "--target", "mkdocs", "--out", "site"]);
+    assert_eq!(code, 0, "over scan_max_bytes the file is not read: {v}");
+}
