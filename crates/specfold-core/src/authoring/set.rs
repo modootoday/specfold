@@ -47,7 +47,7 @@ fn target<'a>(map: &'a mut Map<String, Value>, key: &str) -> (&'a mut Map<String
             if !entry.is_object() {
                 *entry = Value::Object(Map::new());
             }
-            (entry.as_object_mut().unwrap(), child.to_string())
+            (entry.as_object_mut().expect("entry was just made an object"), child.to_string())
         }
         None => (map, key.to_string()),
     }

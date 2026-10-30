@@ -13,12 +13,12 @@ pub struct AssetRefsExist;
 
 fn code_re() -> &'static Regex {
     static R: OnceLock<Regex> = OnceLock::new();
-    R.get_or_init(|| Regex::new(r"`([^`\n]+)`").unwrap())
+    R.get_or_init(|| Regex::new(r"`([^`\n]+)`").expect("static regex is valid"))
 }
 
 fn link_re() -> &'static Regex {
     static R: OnceLock<Regex> = OnceLock::new();
-    R.get_or_init(|| Regex::new(r"\]\(([^)\s]+)\)").unwrap())
+    R.get_or_init(|| Regex::new(r"\]\(([^)\s]+)\)").expect("static regex is valid"))
 }
 
 /// A token that names a file in the repository, cleaned of anchors and punctuation; None for

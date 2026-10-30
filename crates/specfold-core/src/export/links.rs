@@ -43,7 +43,7 @@ pub struct Link {
 pub fn occurrences(body: &str) -> Vec<Occurrence> {
     let mut out = Vec::new();
     outside_code(body, wiki_re(), |start, m| {
-        let whole = m.get(0).unwrap();
+        let whole = m.get(0).expect("capture group 0 always exists");
         let inner = &whole.as_str()[2..whole.as_str().len() - 2];
         let label = inner.split_once('|').map(|(_, l)| l.trim().to_string()).filter(|l| !l.is_empty());
         out.push(Occurrence {
@@ -62,7 +62,8 @@ pub fn occurrences(body: &str) -> Vec<Occurrence> {
 fn md_id_re() -> &'static regex::Regex {
     static R: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
     R.get_or_init(|| {
-        regex::Regex::new(r"(^|[^!\]])\[([^\[\]\n]*)\]\(<?([a-z][a-z0-9_-]*:[^\s()<>/:]+/[^\s()<>]+)>?\)").unwrap()
+        regex::Regex::new(r"(^|[^!\]])\[([^\[\]\n]*)\]\(<?([a-z][a-z0-9_-]*:[^\s()<>/:]+/[^\s()<>]+)>?\)")
+            .expect("static regex is valid")
     })
 }
 
@@ -71,7 +72,7 @@ pub fn md_id_occurrences(body: &str) -> Vec<Occurrence> {
     let mut out = Vec::new();
     outside_code(body, md_id_re(), |start, m| {
         let lead = m.get(1).map_or(0, |g| g.len());
-        let whole = m.get(0).unwrap();
+        let whole = m.get(0).expect("capture group 0 always exists");
         let text = m[2].trim().to_string();
         out.push(Occurrence {
             span: (start + whole.start() + lead, start + whole.end()),
@@ -99,7 +100,7 @@ fn md_link_re() -> &'static regex::Regex {
         regex::Regex::new(
             r#"(!?)\[([^\[\]\n]*)\]\(\s*(?:<([^<>\n]*)>|([^\s()<>]*))(?:\s+(?:"[^"\n]*"|'[^'\n]*'))?\s*\)"#,
         )
-        .unwrap()
+        .expect("static regex is valid")
     })
 }
 
@@ -109,7 +110,7 @@ pub fn md_links(body: &str) -> Vec<MdLink> {
     outside_code(body, md_link_re(), |start, m| {
         let target = m.get(3).or(m.get(4)).map_or("", |g| g.as_str()).to_string();
         out.push(MdLink {
-            start: start + m.get(0).unwrap().start(),
+            start: start + m.get(0).expect("capture group 0 always exists").start(),
             image: !m[1].is_empty(),
             text: m[2].to_string(),
             target,
@@ -131,7 +132,7 @@ fn outside_code(body: &str, re: &regex::Regex, mut each: impl FnMut(usize, &rege
         }
         let code = code_spans(line);
         for m in re.captures_iter(line) {
-            let whole = m.get(0).unwrap();
+            let whole = m.get(0).expect("capture group 0 always exists");
             if code.iter().any(|&(a, b)| whole.start() < b && whole.end() > a) {
                 continue;
             }

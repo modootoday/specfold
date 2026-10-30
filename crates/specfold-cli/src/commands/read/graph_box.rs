@@ -89,7 +89,7 @@ pub fn draw(
             if ins.is_empty() { f64::MAX } else { ins.iter().sum::<f64>() / ins.len() as f64 }
         };
         members.sort_by(|a, b| {
-            key(*a, &row).partial_cmp(&key(*b, &row)).unwrap().then_with(|| {
+            key(*a, &row).partial_cmp(&key(*b, &row)).expect("barycenter keys are finite").then_with(|| {
                 let name = |s: usize| slots[s].1.map(|i| labels[i].clone()).unwrap_or_default();
                 name(*a).cmp(&name(*b))
             })
@@ -104,7 +104,7 @@ pub fn draw(
     let lanes: Vec<Vec<usize>> = (0..layers)
         .map(|l| {
             let mut src: Vec<usize> = hops.iter().filter(|h| slots[h.0].0 == l).map(|h| h.0).collect();
-            src.sort_by(|a, b| row[*a].partial_cmp(&row[*b]).unwrap());
+            src.sort_by(|a, b| row[*a].partial_cmp(&row[*b]).expect("row positions are finite"));
             src.dedup();
             src
         })
@@ -179,7 +179,7 @@ pub fn draw(
     let mut kinds: BTreeMap<char, String> = BTreeMap::new();
     for (a, b, kind) in &hops {
         let l = slots[*a].0;
-        let lane = x0[l] + w + 1 + lanes[l].iter().position(|s| s == a).unwrap();
+        let lane = x0[l] + w + 1 + lanes[l].iter().position(|s| s == a).expect("edge source sits in its lane");
         let (ya, yb, xb) = (mid(*a), mid(*b), x0[l + 1]);
         line(&mut mask, ya, x0[l] + w, lane);
         for y in ya.min(yb)..=ya.max(yb) {

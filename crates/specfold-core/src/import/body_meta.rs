@@ -16,7 +16,7 @@ pub struct Found {
     pub missed: Vec<String>,
 }
 
-static LINK: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\[[^\]]*\]\(([^)\s]+)\)").unwrap());
+static LINK: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\[[^\]]*\]\(([^)\s]+)\)").expect("static regex is valid"));
 
 /// Lines outside fenced code, trimmed.
 fn lines(body: &str) -> Vec<&str> {

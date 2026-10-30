@@ -2,6 +2,8 @@
 
 // Library code only: tests may panic (AGENTS.md).
 #![deny(clippy::panic)]
+// CLI-20: no unwrap outside tests (clippy.toml allow-unwrap-in-tests).
+#![deny(clippy::unwrap_used)]
 
 pub mod cli;
 pub mod commands;

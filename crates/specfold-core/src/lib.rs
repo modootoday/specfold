@@ -3,6 +3,8 @@
 
 // Library code only: tests may panic (AGENTS.md).
 #![deny(clippy::panic)]
+// CLI-20: no unwrap outside tests (clippy.toml allow-unwrap-in-tests).
+#![deny(clippy::unwrap_used)]
 // Output belongs to the CLI; core reports through return values (stderr tracing aside).
 #![deny(clippy::print_stdout)]
 

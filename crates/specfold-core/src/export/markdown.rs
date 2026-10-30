@@ -198,7 +198,7 @@ pub fn build(c: &Corpus, g: &Graph, o: &Options) -> Tree {
 }
 
 fn yaml_str(s: &str) -> String {
-    serde_json::to_string(s).unwrap()
+    serde_json::to_string(s).expect("serializing a str cannot fail")
 }
 
 fn yaml_list(v: &[String]) -> String {
@@ -226,7 +226,7 @@ fn front(c: &Corpus, p: &Page, t: Target, ix: &Index) -> String {
     let get = |k: &str| fm.and_then(|m| m.get(k));
     let mut lines = vec!["---".to_string()];
     if t == Target::Docusaurus {
-        let stem = p.file.rsplit('/').next().unwrap().trim_end_matches(".md");
+        let stem = p.file.rsplit('/').next().expect("rsplit yields at least one item").trim_end_matches(".md");
         lines.push(format!("id: {}", yaml_str(stem)));
         lines.push(format!("specfold_id: {}", yaml_str(&d.id.to_string())));
         lines.push(format!("sidebar_label: {}", yaml_str(&p.title)));
@@ -354,7 +354,7 @@ fn rewrite(
 
 /// Removes `{#anchor}` from headings outside code fences.
 fn strip_anchors(text: &str) -> String {
-    let re = regex::Regex::new(r"\s*\{#[A-Za-z0-9][A-Za-z0-9_.-]*\}\s*$").unwrap();
+    let re = regex::Regex::new(r"\s*\{#[A-Za-z0-9][A-Za-z0-9_.-]*\}\s*$").expect("static regex is valid");
     let mut fence = crate::markdown::Fence::default();
     let mut out = String::new();
     for line in text.split_inclusive('\n') {
@@ -457,7 +457,7 @@ pub fn write(out: &Path, tree: &Tree, target: Target, previous: &[String]) -> Re
     }
     for (rel, text) in &tree.files {
         let p = out.join(rel);
-        std::fs::create_dir_all(p.parent().unwrap())?;
+        std::fs::create_dir_all(p.parent().expect("an output path joined from a file name has a parent"))?;
         std::fs::write(&p, text)?;
     }
     let manifest = json!({
