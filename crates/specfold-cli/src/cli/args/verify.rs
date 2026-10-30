@@ -47,7 +47,7 @@ pub struct CheckArgs {
     #[arg(long, conflicts_with = "write_baseline")]
     pub no_baseline: bool,
     /// Record today's errors as the baseline ([check] baseline); a full run on a clean tree only.
-    #[arg(long, conflicts_with_all = ["staged", "changed"])]
+    #[arg(long, conflicts_with_all = ["staged", "changed", "rule", "skip"])]
     pub write_baseline: bool,
     /// Confirm an action that deletes, overwrites, sends files out, or writes more than [write] max_files files (with its write flag).
     #[arg(long)]

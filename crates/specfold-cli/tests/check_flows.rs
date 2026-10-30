@@ -657,3 +657,13 @@ fn c175_stale_diff_next_quotes_the_governed_paths() {
     let item = v["items"].as_array().unwrap().iter().find(|i| i["kind"] == "stale").cloned().unwrap();
     assert!(item["next"].as_str().unwrap().contains("-- 'services/my shop'"), "{v}");
 }
+
+#[test]
+fn c181_write_baseline_refuses_a_rule_subset() {
+    let r = common::repo();
+    for extra in [["--rule", "L8"], ["--skip", "L8"]] {
+        let out = r.spec().args(["check", "--write-baseline"]).args(extra).output().unwrap();
+        assert_eq!(out.status.code(), Some(2), "{}", String::from_utf8_lossy(&out.stderr));
+    }
+    assert!(!r.read("spec.toml").contains("baseline"), "nothing written");
+}
