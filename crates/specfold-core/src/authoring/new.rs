@@ -158,6 +158,84 @@ pub fn plan(c: &Corpus, g: &Graph, req: &NewDoc) -> Result<(Created, Plan)> {
     Ok((Created { id: id.to_string(), path, owner_reason: reason, slug_note }, plan))
 }
 
+/// `spec new --translation <lang> --from <source>`: a draft translation with its own key,
+/// placed where the `[translations]` layout pairs it (`<slug>-<lang>` beside the source, or the
+/// same slug under the `<lang>` owner for `layout = "dir"`), the source's body and chapters
+/// copied to translate, and lang, rel.translation_of and source_rev recorded.
+pub fn translation(c: &Corpus, g: &Graph, from: &str, lang: &str, title: Option<&str>) -> Result<(Created, Plan)> {
+    use crate::config::types::TranslationLayout as L;
+    let Resolution::Doc { idx, .. } = g.resolve(from) else { bail!("--from {from} names no single document") };
+    if !stamp::is_slug(lang) {
+        bail!("--translation '{lang}' is not a language tag like ko or pt-br");
+    }
+    let src = &c.docs[idx];
+    let ty = c.cfg.registry.get(&src.id.ty).ok_or_else(|| anyhow!("unknown type '{}'", src.id.ty))?;
+    let t = &c.cfg.raw.translations;
+    if !t.languages.is_empty() && !t.languages.iter().any(|l| l == lang) {
+        bail!("'{lang}' is not in [translations] languages ({}); add it there first", t.languages.join(", "));
+    }
+    let src_owner = c.owners.by_id(&src.id.owner).ok_or_else(|| anyhow!("no owner '{}'", src.id.owner))?;
+    let (owner, slug) = match t.layout {
+        L::Dir => {
+            let want = if src_owner.path.is_empty() { lang.to_string() } else { format!("{}/{lang}", src_owner.path) };
+            let o = c.owners.by_path(&want).ok_or_else(|| {
+                anyhow!(
+                    "layout = \"dir\" puts the '{lang}' translation in {want}/, which is not an owner: create the directory {want}/ and add [[owners.kinds]] pattern = \"{want}\" to spec.toml"
+                )
+            })?;
+            (o, src.slug.clone())
+        }
+        _ => (src_owner, format!("{}-{lang}", src.slug)),
+    };
+    let mut key = match ty.key {
+        KeyKind::Slug => slug.clone(),
+        KeyKind::Stamp => stamp::now_stamp(),
+    };
+    while g.by_id.contains_key(&DocId::new(&ty.name, &owner.id, &key).to_string()) {
+        match ty.key {
+            KeyKind::Slug => bail!("{}:{}/{key} already exists: the '{lang}' translation is there", ty.name, owner.id),
+            KeyKind::Stamp => key = stamp::next_stamp(&key).ok_or_else(|| anyhow!("bad stamp {key}"))?,
+        }
+    }
+    let id = DocId::new(&ty.name, &owner.id, &key);
+    let bundle = src.dir.is_some();
+    let dir = paths::type_dir(&c.cfg, &c.owners, owner, src.tier, ty);
+    let stem = paths::stem(ty, &key, &slug);
+    let path = paths::main_file(&dir, ty, &stem, bundle);
+    super::forbid::refuse(c, &path, "change [forbid] paths or translate in another place")?;
+    let read = |p: &str| std::fs::read_to_string(c.cfg.root.join(p)).map_err(|e| anyhow!("cannot read {p}: {e}"));
+    let rev = crate::translation::rev_of(c, idx).ok_or_else(|| anyhow!("cannot read {}", src.path))?;
+    let today = stamp::now_value();
+    let mut fm = Map::new();
+    fm.insert("id".into(), Value::String(id.to_string()));
+    let title = title.map(str::to_string).or_else(|| src.title.clone()).unwrap_or_else(|| src.slug.replace('-', " "));
+    fm.insert("title".into(), Value::String(title.trim().to_string()));
+    // A translation starts as a draft where the type has one, whatever the source's status.
+    let status = if ty.statuses.iter().any(|s| s == "draft") { "draft".to_string() } else { ty.initial.clone() };
+    fm.insert("status".into(), Value::String(status));
+    fm.insert("created".into(), Value::String(today.clone()));
+    fm.insert("updated".into(), Value::String(today));
+    fm.insert("lang".into(), Value::String(lang.to_string()));
+    fm.insert(crate::translation::KEY.into(), Value::String(rev));
+    fm.insert("rel".into(), json!({ crate::translation::RELATION: [src.id.to_string()] }));
+    let mut plan = Plan::default();
+    let body = crate::markdown::frontmatter::split(&read(&src.path)?).body.to_string();
+    plan.write(&path, format!("{}{body}", render(&edit::ordered(fm))), true);
+    if let Some(src_dir) = &src.dir {
+        let new_dir = path.rsplit_once('/').map(|x| x.0).unwrap_or("").to_string();
+        for ch in &src.chapters {
+            let rest = ch.strip_prefix(&format!("{src_dir}/")).unwrap_or(ch);
+            plan.write(format!("{new_dir}/{rest}"), read(ch)?, true);
+        }
+        for f in &src.bundle_files {
+            let rest = f.strip_prefix(&format!("{src_dir}/")).unwrap_or(f);
+            plan.copy(f.clone(), format!("{new_dir}/{rest}"));
+        }
+    }
+    let reason = format!("the '{lang}' translation of {}", src.id);
+    Ok((Created { id: id.to_string(), path, owner_reason: reason, slug_note: None }, plan))
+}
+
 /// The type's template plus a heading for each required section it lacks, so a new document
 /// passes S7 from the start.
 fn with_required_sections(template: &str, required: &[String]) -> String {

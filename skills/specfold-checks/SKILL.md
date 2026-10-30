@@ -59,6 +59,10 @@ records that the translation matches. `spec census --translations` lists every t
 state and exits 1 when one is behind or a language lacks a source; `--fail-on stale` ignores
 missing translations and `--fail-on none` only reports.
 
+R2 (a translation out of place) means the `[translations]` layout and the frontmatter disagree,
+or a document named like a translation has no source. Rename the document into place with
+`spec mv`, correct `lang` or `rel.translation_of`, or add the source; do not loosen the layout.
+
 A `spec verify` failure means code no longer keeps a rule a source of truth states. Decide
 which is right: fix the code, or update the source of truth in the same change. Never edit the
 verify command just to make it pass.

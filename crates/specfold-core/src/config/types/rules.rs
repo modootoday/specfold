@@ -74,3 +74,31 @@ impl Default for CitesSection {
         CitesSection { paths: vec![], exclude: vec![], history: defaults::history_patterns() }
     }
 }
+
+/// Translations paired by where they are rather than by `rel.translation_of` (rule R2).
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct TranslationsSection {
+    /// `none` (only `rel.translation_of` pairs), `suffix` (`<slug>-<lang>` beside the source) or
+    /// `dir` (the same slug under a `<lang>` directory of the source's owner).
+    #[serde(default)]
+    pub layout: TranslationLayout,
+    /// The languages translations are written in; the language markers the layout recognises.
+    #[serde(default)]
+    pub languages: Vec<String>,
+    /// The language of the sources, when they declare none.
+    #[serde(default)]
+    pub source_lang: Option<String>,
+    /// Report R2 as errors instead of warnings.
+    #[serde(default)]
+    pub strict: bool,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TranslationLayout {
+    #[default]
+    None,
+    Suffix,
+    Dir,
+}

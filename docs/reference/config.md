@@ -36,6 +36,7 @@ description: The spec.toml tables and what each one controls.
 | `[check]` | baseline, strict paths, rule severity, `extra_keys`, `count_paths` |
 | `[[guards]]` | named checks over files and commit messages (rule U1) |
 | `[[plugins]]` | external programs speaking `specfold.plugin.v1` |
+| `[translations]` | translations paired by place: `layout`, `languages`, `source_lang`, `strict` (rule R2) |
 | `[audit]` | thresholds for stale, stalled and draft documents |
 | `[verify]` | deadline, parallel jobs and shell for `spec verify` |
 | `[cites]` | files outside documents whose citations rule L6 checks |
@@ -54,4 +55,8 @@ manifest = false
 [check]
 extra_keys = ["team", "review_*"]
 count_paths = ["README.md", "docs/**/*.md"]
+
+[translations]
+layout = "suffix"   # guide:shop/setup-ko translates guide:shop/setup
+languages = ["ko", "ja"]
 ```

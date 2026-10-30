@@ -146,3 +146,33 @@ pub fn plan(c: &Corpus, findings: &[Finding], pick: Option<&Pick>) -> Result<(Pl
     }
     Ok((plan, applied))
 }
+
+/// Writes `rel.translation_of` and `lang` into every translation the `[translations]` layout
+/// pairs by name alone, so the pair survives a rename or a layout change.
+pub fn translation_pairs(c: &Corpus) -> Result<(Plan, usize)> {
+    let mut plan = Plan::default();
+    let mut n = 0;
+    for (i, d) in c.docs.iter().enumerate() {
+        if crate::translation::source_ref(c, i).is_some() {
+            continue;
+        }
+        let Some(inf) = crate::translation::inferred(c, i) else { continue };
+        let Some(src) = inf.source else { continue };
+        let Ok(t) = std::fs::read_to_string(c.cfg.root.join(&d.path)) else { continue };
+        let source = c.docs[src].id.to_string();
+        let new = edit::rewrite(&t, |m| {
+            m.entry("lang").or_insert_with(|| Value::String(inf.lang.clone()));
+            let rel = m.entry("rel").or_insert_with(|| Value::Object(Default::default()));
+            if let Value::Object(r) = rel {
+                r.insert(crate::translation::RELATION.into(), Value::Array(vec![Value::String(source.clone())]));
+            }
+            let ordered = edit::ordered(std::mem::take(m));
+            *m = ordered;
+        })?;
+        if new != t {
+            plan.write(d.path.clone(), new, false);
+            n += 1;
+        }
+    }
+    Ok((plan, n))
+}

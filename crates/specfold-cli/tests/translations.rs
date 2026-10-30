@@ -115,3 +115,119 @@ fn a_behind_translation_names_the_sections_that_changed_when_git_has_its_revisio
     let m = &messages(&v)[0];
     assert!(m.contains("changed since source_rev sha256:000000000000: update"), "{m}");
 }
+
+fn with_layout(r: &common::Repo, extra: &str) {
+    let cfg = r.read("spec.toml");
+    r.write("spec.toml", &format!("{cfg}{extra}"));
+}
+
+fn rules(v: &serde_json::Value, rule: &str) -> Vec<String> {
+    v["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|f| f["rule"] == rule)
+        .map(|f| format!("{} {}", f["severity"].as_str().unwrap_or(""), f["message"].as_str().unwrap_or("")))
+        .collect()
+}
+
+#[test]
+fn spec_new_translation_copies_the_source_and_records_the_pair_beside_it() {
+    let r = common::repo();
+    with_layout(&r, "[translations]\nlayout = \"suffix\"\nlanguages = [\"ko\"]\n");
+    let src = r.new_doc("adr", "services/shop", "Use carts");
+    append(&r, &src, "\nKeep carts small.\n");
+    let (code, v) = r.json(&["new", "--translation", "ko", "--from", &src, "--title", "카트 사용"]);
+    assert_eq!(code, 0, "{v}");
+    let id = v["id"].as_str().unwrap().to_string();
+    let path = v["path"].as_str().unwrap().to_string();
+    assert_ne!(id, src, "a translation has its own key");
+    assert!(path.ends_with("-use-carts-ko.adr.md"), "{path}");
+    let text = r.read(&path);
+    for want in
+        ["lang: ko", "source_rev: sha256:", &format!("translation_of: [{src}]"), "status: draft", "Keep carts small."]
+    {
+        assert!(text.contains(want), "{want} missing in {text}");
+    }
+    let (_, v) = r.json(&["check", "--rule", "R1", "--rule", "R2"]);
+    assert_eq!(v["warnings"], 0, "{v}");
+    // Not in the configured languages, and a type that is not the source's, are refused.
+    assert_ne!(r.json(&["new", "--translation", "ja", "--from", &src]).0, 0);
+    assert_ne!(r.json(&["new", "guide", "--translation", "ko", "--from", &src]).0, 0);
+}
+
+#[test]
+fn the_suffix_layout_pairs_by_name_and_fix_writes_the_pair_down() {
+    let r = common::repo();
+    with_layout(&r, "[translations]\nlayout = \"suffix\"\nlanguages = [\"ko\"]\n");
+    let src = r.new_doc("guide", "services/shop", "Setup");
+    let p = path_of(&r, &src).replace("setup.guide.md", "setup-ko.guide.md");
+    r.write(&p, "---\nid: guide:shop/setup-ko\ntitle: 설정\nstatus: active\ncreated: 2026-01-01\nupdated: 2026-01-01\n---\n# 설정\n");
+    let (_, v) = r.json(&["census", "--translations"]);
+    assert_eq!(v["translations"][0]["source"], src.as_str(), "{v}");
+    assert_eq!(v["translations"][0]["lang"], "ko", "{v}");
+    assert_eq!(v["translations"][0]["state"], "unrecorded", "{v}");
+    // The implicit pair is fine as it is; source_rev works on it.
+    assert_eq!(r.json(&["set", "guide:shop/setup-ko", "--source-rev"]).0, 0);
+    assert_eq!(r.json(&["check", "--rule", "R1", "--rule", "R2"]).1["warnings"], 0);
+    // Writing the pair down is a preview first.
+    let (_, v) = r.json(&["fix", "--translations"]);
+    assert_eq!(v["fixable"], 1, "{v}");
+    assert!(!r.read(&p).contains("translation_of"));
+    assert_eq!(r.json(&["fix", "--translations", "--write"]).0, 0);
+    let t = r.read(&p);
+    assert!(t.contains(&format!("translation_of: [{src}]")) && t.contains("lang: ko"), "{t}");
+    assert_eq!(r.json(&["fix", "--translations"]).1["fixable"], 0);
+}
+
+#[test]
+fn r2_reports_a_translation_without_source_and_a_conflicting_pair_and_strict_makes_them_errors() {
+    let r = common::repo();
+    with_layout(&r, "[translations]\nlayout = \"suffix\"\nlanguages = [\"ko\"]\n");
+    let a = r.new_doc("guide", "services/shop", "Setup");
+    let b = r.new_doc("guide", "services/shop", "Other");
+    let (code, v) = r.json(&["new", "guide", "--governs", "services/shop", "--title", "Lost", "--slug", "lost-ko"]);
+    assert_eq!(code, 0, "{v}");
+    let (code, v) = r.json(&["new", "--translation", "ko", "--from", &a]);
+    assert_eq!(code, 0, "{v}");
+    let ko = v["id"].as_str().unwrap().to_string();
+    assert_eq!(
+        r.json(&["set", &ko, "lang=ja", &format!("rel.translation_of-={a}"), &format!("rel.translation_of+={b}")]).0,
+        0
+    );
+    let (code, v) = r.json(&["check", "--rule", "R2"]);
+    assert_eq!(code, 0, "{v}");
+    let got = rules(&v, "R2");
+    assert_eq!(got.len(), 3, "{got:?}");
+    assert!(got.iter().any(|m| m.contains("no source is in the matching place")), "{got:?}");
+    assert!(got.iter().any(|m| m.contains("lang is 'ja'")), "{got:?}");
+    assert!(got.iter().any(|m| m.contains(&format!("names {b} but the layout pairs it with {a}"))), "{got:?}");
+    with_layout(&r, "strict = true\n");
+    let (code, v) = r.json(&["check", "--rule", "R2"]);
+    assert_eq!(code, 1, "{v}");
+    assert_eq!(v["errors"], 3, "{v}");
+}
+
+#[test]
+fn the_dir_layout_pairs_the_same_slug_under_a_language_owner() {
+    let r = common::repo();
+    r.write("services/shop/ko/README.md", "ko\n");
+    with_layout(
+        &r,
+        "[[owners.kinds]]\npattern = \"services/*/ko\"\nid = \"{1}-ko\"\n[translations]\nlayout = \"dir\"\nlanguages = [\"ko\"]\n",
+    );
+    let src = r.new_doc("guide", "services/shop", "Setup");
+    let (code, v) = r.json(&["new", "--translation", "ko", "--from", &src]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["id"], "guide:shop-ko/setup", "{v}");
+    assert!(v["path"].as_str().unwrap().starts_with("services/shop/ko/"), "{v}");
+    // Paired by place even without frontmatter.
+    let p = v["path"].as_str().unwrap().to_string();
+    let t = r.read(&p);
+    let stripped: String =
+        t.lines().filter(|l| !l.starts_with("rel:") && !l.contains("translation_of")).collect::<Vec<_>>().join("\n");
+    r.write(&p, &stripped);
+    let (_, v) = r.json(&["census", "--translations"]);
+    assert_eq!(v["translations"][0]["source"], src.as_str(), "{v}");
+    assert_eq!(r.json(&["check", "--rule", "R2"]).1["warnings"], 0);
+}

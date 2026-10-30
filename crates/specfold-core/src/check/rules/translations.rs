@@ -1,8 +1,9 @@
 //! R1: a translation records the source body it was made from, and says when the source moved on.
+//! R2: a translation is where the `[translations]` layout expects it.
 
 use super::support::key_line;
 use crate::check::context::Ctx;
-use crate::check::finding::Finding;
+use crate::check::finding::{Finding, Severity};
 use crate::check::rule::{Rule, RuleInfo};
 use crate::translation::{self, KEY, RELATION};
 
@@ -21,8 +22,10 @@ impl Rule for TranslationsCurrent {
     fn run(&self, ctx: &Ctx, out: &mut Vec<Finding>) {
         let c = ctx.corpus;
         for (i, d) in c.docs.iter().enumerate() {
-            let rel = d.rel();
-            let Some(targets) = rel.get(RELATION) else { continue };
+            if !translation::is_translation(c, i) {
+                continue;
+            }
+            let targets = d.rel().get(RELATION).cloned().unwrap_or_default();
             let Some(src) = translation::source_of(c, ctx.graph, i) else { continue };
             if !(ctx.scope.covers(i) || ctx.scope.covers(src)) {
                 continue;
@@ -64,6 +67,80 @@ impl Rule for TranslationsCurrent {
                     )
                 }
                 Some(_) => {}
+            }
+        }
+    }
+}
+
+pub struct TranslationsPlaced;
+
+impl Rule for TranslationsPlaced {
+    fn info(&self) -> &RuleInfo {
+        &RuleInfo {
+            id: "R2",
+            title: "translations are where the layout expects them",
+            explain: "With `[translations] layout = \"suffix\"` a translation is the document `<slug>-<lang>` beside its source (same type and spec directory); with `layout = \"dir\"` it has the source's slug in a spec directory under a `<lang>` directory (`docs/ko/.spec/guide/setup.guide.md` for `docs/.spec/guide/setup.guide.md`). `<lang>` is one of `languages`. Such a pair needs no frontmatter; rel.translation_of and lang, when written, win. R2 reports a document in a translation position whose source does not exist or is not unique, rel.translation_of that names another document than the layout pairs it with, and lang that differs from the language in its name. Warnings, errors with `strict = true`. `spec fix --translations --write` writes rel.translation_of and lang into every inferred pair.",
+            on_commit: true,
+        }
+    }
+
+    fn run(&self, ctx: &Ctx, out: &mut Vec<Finding>) {
+        let c = ctx.corpus;
+        let strict = c.cfg.raw.translations.strict;
+        let mut push = |f: Finding| {
+            out.push(if strict { Finding { severity: Severity::Error, ..f } } else { f });
+        };
+        for (i, d) in c.docs.iter().enumerate() {
+            if !ctx.scope.covers(i) {
+                continue;
+            }
+            let Some(inf) = translation::inferred(c, i) else { continue };
+            let explicit = translation::source_ref(c, i);
+            if let Some(l) = d.str_field("lang").filter(|l| l != &inf.lang) {
+                push(Finding::warn(
+                    "R2",
+                    &d.path,
+                    key_line(ctx, &d.path, "lang"),
+                    format!("lang is '{l}' but its place makes it the '{}' translation", inf.lang),
+                ));
+            }
+            match (inf.source, &explicit) {
+                (Some(s), Some(_)) => {
+                    let named = translation::source_of(c, ctx.graph, i);
+                    if named.is_some_and(|n| n != s) {
+                        push(Finding::warn(
+                            "R2",
+                            &d.path,
+                            key_line(ctx, &d.path, "rel"),
+                            format!(
+                                "rel.translation_of names {} but the layout pairs it with {}",
+                                c.docs[named.unwrap_or(s)].id,
+                                c.docs[s].id
+                            ),
+                        ));
+                    }
+                }
+                (None, None) if inf.candidates.is_empty() => push(Finding::warn(
+                    "R2",
+                    &d.path,
+                    1,
+                    format!(
+                        "placed as the '{}' translation but no source is in the matching place; add the source or set rel.translation_of",
+                        inf.lang
+                    ),
+                )),
+                (None, None) => push(Finding::warn(
+                    "R2",
+                    &d.path,
+                    1,
+                    format!(
+                        "placed as the '{}' translation of {} documents ({}); set rel.translation_of",
+                        inf.lang,
+                        inf.candidates.len(),
+                        inf.candidates.iter().map(|&j| c.docs[j].id.to_string()).collect::<Vec<_>>().join(", ")
+                    ),
+                )),
+                _ => {}
             }
         }
     }

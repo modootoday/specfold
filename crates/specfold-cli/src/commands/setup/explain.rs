@@ -55,6 +55,10 @@ const CONFIG_HELP: &[(&str, &str)] = &[
         "[cites] paths, exclude, history",
         "Files outside documents (code, READMEs, agent instructions) whose citations rule L6 checks, and regexes for history lines it leaves alone.",
     ),
+    (
+        "[translations] layout, languages, source_lang, strict",
+        "Translations paired by place (rule R2): layout suffix (`<slug>-<lang>` beside the source) or dir (the same slug under a `<lang>` owner), none by default; the languages the layout and spec census --translations use, the sources' language, and strict to make R2 errors. rel.translation_of and lang in frontmatter win over the layout.",
+    ),
 ];
 
 pub fn run(g: &Global, a: &ExplainArgs) -> Result<Output> {

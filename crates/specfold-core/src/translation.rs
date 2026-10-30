@@ -181,12 +181,89 @@ pub fn source_ref(c: &Corpus, idx: usize) -> Option<String> {
     c.docs[idx].rel().get(RELATION).and_then(|l| l.first().cloned())
 }
 
-/// The source document of a translation, when it resolves.
+/// The source document of a translation, when it resolves: `rel.translation_of` when set,
+/// otherwise the source the `[translations]` layout pairs it with.
 pub fn source_of(c: &Corpus, g: &Graph, idx: usize) -> Option<usize> {
-    match g.resolve(&source_ref(c, idx)?) {
-        Resolution::Doc { idx, .. } => Some(idx),
-        _ => None,
+    match source_ref(c, idx) {
+        Some(r) => match g.resolve(&r) {
+            Resolution::Doc { idx, .. } => Some(idx),
+            _ => None,
+        },
+        None => inferred(c, idx).and_then(|p| p.source),
     }
+}
+
+/// Whether a document is a translation: it names a source, or the layout places it as one.
+pub fn is_translation(c: &Corpus, idx: usize) -> bool {
+    source_ref(c, idx).is_some() || position(c, idx).is_some()
+}
+
+/// The language of a document: frontmatter `lang`, else the layout's language marker, else
+/// `[translations] source_lang` for a document that is not a translation.
+pub fn lang_of(c: &Corpus, idx: usize) -> Option<String> {
+    c.docs[idx]
+        .str_field("lang")
+        .or_else(|| position(c, idx).map(|p| p.0))
+        .or_else(|| (!is_translation(c, idx)).then(|| c.cfg.raw.translations.source_lang.clone()).flatten())
+}
+
+/// The directory that holds a document's type directories (`docs/.spec`), from its path.
+fn spec_root(c: &Corpus, idx: usize) -> String {
+    let d = &c.docs[idx];
+    let marker = format!("/{}/", d.id.ty);
+    let p = format!("/{}", d.dir.as_deref().unwrap_or(&d.path));
+    match p.rfind(&marker) {
+        Some(i) => p[1..i.max(1)].to_string(),
+        None => String::new(),
+    }
+}
+
+/// Where the layout places a document as a translation: its language and the (type, spec root,
+/// slug) its source has.
+fn position(c: &Corpus, idx: usize) -> Option<(String, (String, String, String))> {
+    use crate::config::types::TranslationLayout as L;
+    let t = &c.cfg.raw.translations;
+    let d = &c.docs[idx];
+    let root = spec_root(c, idx);
+    match t.layout {
+        L::None => None,
+        L::Suffix => t.languages.iter().find_map(|l| {
+            let base = d.slug.strip_suffix(&format!("-{l}"))?;
+            (!base.is_empty()).then(|| (l.clone(), (d.id.ty.clone(), root.clone(), base.to_string())))
+        }),
+        L::Dir => {
+            let segs: Vec<&str> = root.split('/').collect();
+            let at = segs.iter().rposition(|s| t.languages.iter().any(|l| l == s))?;
+            let lang = segs[at].to_string();
+            let rest: Vec<&str> = segs.iter().enumerate().filter(|(i, _)| *i != at).map(|(_, s)| *s).collect();
+            Some((lang, (d.id.ty.clone(), rest.join("/"), d.slug.clone())))
+        }
+    }
+}
+
+/// A pair the layout infers for a document in a translation position.
+#[derive(Debug, Clone)]
+pub struct Inferred {
+    pub lang: String,
+    /// The source, when exactly one document is in the source position.
+    pub source: Option<usize>,
+    /// Every document in the source position (more than one is ambiguous).
+    pub candidates: Vec<usize>,
+}
+
+/// The pair the `[translations]` layout infers for a document, when it is in a translation
+/// position.
+pub fn inferred(c: &Corpus, idx: usize) -> Option<Inferred> {
+    let (lang, want) = position(c, idx)?;
+    let candidates: Vec<usize> = (0..c.docs.len())
+        .filter(|&j| j != idx && position(c, j).is_none())
+        .filter(|&j| {
+            let d = &c.docs[j];
+            d.id.ty == want.0 && d.slug == want.2 && spec_root(c, j) == want.1
+        })
+        .collect();
+    let source = (candidates.len() == 1).then(|| candidates[0]);
+    Some(Inferred { lang, source, candidates })
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -240,10 +317,10 @@ pub fn report(c: &Corpus, g: &Graph, langs: &[String]) -> Report {
     let mut have: BTreeMap<String, Vec<usize>> = BTreeMap::new();
     let mut sources: Vec<usize> = vec![];
     for (i, d) in c.docs.iter().enumerate() {
-        if source_ref(c, i).is_none() {
+        if !is_translation(c, i) {
             continue;
         }
-        let lang = d.str_field("lang");
+        let lang = lang_of(c, i);
         let src = source_of(c, g, i);
         if let (Some(l), Some(s)) = (&lang, src) {
             have.entry(l.clone()).or_default().push(s);
@@ -265,12 +342,21 @@ pub fn report(c: &Corpus, g: &Graph, langs: &[String]) -> Report {
             id: d.id.to_string(),
             path: d.path.clone(),
             lang,
-            source: src.map(|s| c.docs[s].id.to_string()).unwrap_or_else(|| source_ref(c, i).unwrap_or_default()),
+            source: src
+                .map(|s| c.docs[s].id.to_string())
+                .unwrap_or_else(|| source_ref(c, i).unwrap_or_else(|| "(none)".into())),
             state: st,
             sections,
         });
     }
-    let wanted: Vec<String> = if langs.is_empty() { have.keys().cloned().collect() } else { langs.to_vec() };
+    let configured = &c.cfg.raw.translations.languages;
+    let wanted: Vec<String> = if !langs.is_empty() {
+        langs.to_vec()
+    } else if !configured.is_empty() {
+        configured.clone()
+    } else {
+        have.keys().cloned().collect()
+    };
     for l in wanted {
         let got = have.get(&l).cloned().unwrap_or_default();
         let miss: Vec<String> =
