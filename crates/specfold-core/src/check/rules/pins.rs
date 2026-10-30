@@ -35,8 +35,12 @@ impl Rule for PinsHold {
             for (target, rev) in pins {
                 let rev = rev.as_str().unwrap_or_default();
                 let fix = format!("spec set {} --pin {target}", d.id);
-                if let Some(p) = translation::rev_problem(rev) {
-                    out.push(Finding::warn("L7", &d.path, line, format!("pin of {target}: {p}")).fix_cmd(fix));
+                if translation::rev_problem(rev).is_some() {
+                    let msg = format!(
+                        "pin of {target}: pin value '{rev}' is not sha256:<12 hex>; pin it again or remove it (spec set {} --unpin {target})",
+                        d.id
+                    );
+                    out.push(Finding::warn("L7", &d.path, line, msg).fix_cmd(fix));
                     continue;
                 }
                 match remotes::resolve(cfg, target) {

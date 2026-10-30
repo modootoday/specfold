@@ -18,6 +18,7 @@ mod placement;
 mod schema;
 mod sections;
 mod translations;
+pub use lifecycle::{is_date, overdue_exceptions};
 pub use schema::unknown_key;
 pub(crate) mod support;
 mod visibility;

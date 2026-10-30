@@ -36,15 +36,47 @@ pub fn run(g: &Global, a: &SetArgs) -> Result<Output> {
     }
     for target in &a.pin {
         let Some((rid, rev)) = specfold_core::remotes::rev(&s.corpus.cfg, target) else {
-            bail!("{target} is not a document in a configured remote that is on disk (see spec doctor)");
+            bail!("{}", pin_problem(&s, target));
         };
         let key = format!("pins.{rid}");
         shown.push(format!("{key}={rev}"));
         assigns.push(Assign { key, op: Op::Set, value: rev });
     }
+    for target in &a.unpin {
+        let d = &s.corpus.docs[idx];
+        let pins: Vec<String> = d
+            .fm()
+            .and_then(|m| m.get("pins"))
+            .and_then(|p| p.as_object())
+            .map(|m| m.keys().cloned().collect())
+            .unwrap_or_default();
+        let key = specfold_core::remotes::rev(&s.corpus.cfg, target).map(|(rid, _)| rid);
+        let Some(key) = key.filter(|k| pins.contains(k)).or_else(|| pins.iter().find(|p| *p == target).cloned()) else {
+            bail!(
+                "{} has no pin {target} (pinned: {}); next: spec show {}",
+                d.id,
+                if pins.is_empty() { "none".to_string() } else { pins.join(", ") },
+                d.id
+            );
+        };
+        shown.push(format!("pins-={key}"));
+        assigns.push(Assign { key: "pins".into(), op: Op::Remove, value: key });
+    }
+    let me = s.corpus.docs[idx].id.to_string();
+    for x in &assigns {
+        if x.key == "rel.exception_of"
+            && !matches!(x.op, Op::Remove)
+            && x.value.split(',').any(|v| session::resolve(&s, v.trim()).is_ok_and(|j| j == idx))
+        {
+            bail!("{me} cannot be an exception to itself; name the rule or decision it departs from");
+        }
+    }
     for x in assigns.iter().filter(|x| matches!(x.op, Op::Set)) {
         let problem = match x.key.as_str() {
             "lang" => translation::lang_problem(&x.value),
+            "review_by" if !specfold_core::check::rules::is_date(&x.value) => {
+                Some(format!("review_by '{}' is not a date (YYYY-MM-DD), for example review_by=2027-03-31", x.value))
+            }
             translation::KEY => translation::rev_problem(&x.value).map(|p| format!("{p}; record it with --source-rev")),
             _ => None,
         };
@@ -63,6 +95,50 @@ pub fn run(g: &Global, a: &SetArgs) -> Result<Output> {
     Ok(if a.dry_run {
         o
     } else {
-        o.next(format!("spec check --rule S1 --rule T1 --rule S4 --rule L3  # then: spec show {id}"))
+        {
+            let mut rules = vec!["S1", "T1", "S4", "L3"];
+            if !a.pin.is_empty() || !a.unpin.is_empty() || assigns.iter().any(|x| x.key.starts_with("pins")) {
+                rules.push("L7");
+            }
+            if assigns.iter().any(|x| x.key == "review_by" || x.key == "rel.exception_of") {
+                rules.push("T5");
+            }
+            let rules: Vec<String> = rules.iter().map(|r| format!("--rule {r}")).collect();
+            o.next(format!("spec check {}  # then: spec show {id}", rules.join(" ")))
+        }
     })
+}
+
+/// Why `--pin <target>` names nothing to pin, with the next step for that case.
+fn pin_problem(s: &session::Session, target: &str) -> String {
+    use specfold_core::remotes::{self, Remote};
+    let cfg = &s.corpus.cfg;
+    let known: Vec<&str> = cfg.raw.remotes.keys().map(String::as_str).collect();
+    let known = if known.is_empty() { "none configured".to_string() } else { format!("known: {}", known.join(", ")) };
+    match remotes::resolve(cfg, target) {
+        Remote::Local => {
+            if session::resolve(s, target).is_ok() {
+                format!(
+                    "{target} is a document in this repository, not a remote one; pins are for <remote>:<id> ({known}); next: spec set <id> rel.<kind>+={target}"
+                )
+            } else if let Some((name, _)) = target.split_once(':').filter(|(n, _)| cfg.registry.get(n).is_none()) {
+                format!(
+                    "'{name}' is not a configured remote ({known}); next: add [remotes.{name}] path = \"<dir>\" to spec.toml"
+                )
+            } else {
+                format!("{target} is not a remote reference <remote>:<id> ({known}); next: spec doctor")
+            }
+        }
+        Remote::Absent { name, path } => {
+            format!(
+                "the remote {name} is not on disk ({}); check it out there first; next: spec doctor",
+                path.display()
+            )
+        }
+        Remote::Missing { name, id } | Remote::MissingAnchor { name, id, .. } => {
+            format!("the remote {name} has no document {id}; next: spec find <words> in that repository")
+        }
+        Remote::Ambiguous { name, ids } => format!("{target} is ambiguous in the remote {name}: {}", ids.join(", ")),
+        Remote::Found { .. } => format!("{target} has no readable body to pin"),
+    }
 }
