@@ -9,6 +9,11 @@ Release notes for each version are also on
 
 What an existing command does differs from 0.3.0; check scripts and CI that call these.
 
+- `spec import --apply --write` refuses (exit 4) while rows marked `!` still need a decision, lists them and suggests `--force`; the new `--force` imports anyway. Previews are unchanged (C155).
+- `spec attach --into` refuses (exit 2) an absolute folder or one with `..`; it used to write outside the bundle (C142).
+- `spec new skill|rule|agent` refuses (exit 2) a title with no ASCII words unless `--slug` is given, and a `--slug` that is not kebab-case (C147).
+- `spec init` refuses (exit 2) an `--owner-kind` with an empty pattern or template, a `{n}` beyond the pattern's `*`s, or a suffix other than `:manifest`, and a `--root` that is not an owner id (C140).
+- `spec set <id> title=` refuses (exit 2) emptying the required title (C128).
 - `spec export … --dry-run` previews and writes nothing (it exported before): it lists `files` and, over an earlier export, `replaces` with exit 0; a plugin exporter is not called. `spec check -q` now shows config warnings too (C114, C115, C116).
 - `spec set <plan> status=archived --write` refuses with exit 4 while the plan has open tasks and lists them; `--force` archives anyway, and `--dry-run` reports them with exit 0.
 - Exit code `4` (CLI-17): a write flag was given but a safeguard refused it, so nothing was
@@ -117,6 +122,11 @@ What an existing command does differs from 0.3.0; check scripts and CI that call
 
 ### Fixed
 
+- `spec attach` previews and refusals keep `--into` in their next (C143).
+- Code fences close only with the same character and at least the same length, so a ```` fence holding ``` lines or a `~~~` fence is read alike by every command (C135).
+- `spec import` counts the alias table toward `[write] max_files` (C138).
+- `spec fetch` downloads to a temporary file and replaces the target only after the checksum matches; on a mismatch it removes the temporary file, leaves the target alone and exits 3 (C127).
+- `spec sync assets`: a path that is a folder on one side and a file on the other is named in the preview and the write alike (write refused, exit 4); `--prune` moves the copy's entry to the trash first. Folder errors name the path (C124).
 - `spec import --apply --write`'s undo brings back source documents that were never committed: they are copied to `.specfold/trash/<stamp>/` before the write and copied back by the undo, alongside the `git stash` for committed sources (C123).
 - `spec import --apply --dry-run` previews (rc 0, nothing written) instead of failing with a clash against `--plan`; `--dry-run` is listed in `spec help import`, and still refuses `--yes` (C120).
 - `spec import --apply --write` lists the files it created, moved and updated (alias table included) and prints `undo:`; JSON gains `written`, `undo` and `changes`. With no source documents it writes nothing, not even the alias table (C121).

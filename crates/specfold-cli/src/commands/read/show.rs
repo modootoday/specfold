@@ -145,12 +145,11 @@ fn task_json(file: &str, body_line: usize, t: tasks::Task) -> Value {
 /// with the headings of the sections left out. Headings inside code fences do not count.
 fn split_at_headings(body: &str, budget: usize) -> (String, Vec<String>) {
     let mut starts = vec![];
-    let (mut pos, mut fence) = (0, false);
+    let (mut pos, mut fence) = (0, specfold_core::markdown::Fence::default());
     for line in body.split_inclusive('\n') {
         let t = line.trim_start();
-        if t.starts_with("```") || t.starts_with("~~~") {
-            fence = !fence;
-        } else if !fence && t.starts_with('#') && pos > 0 {
+        if fence.step(t) {
+        } else if !fence.inside() && t.starts_with('#') && pos > 0 {
             starts.push((pos, t.trim_start_matches('#').trim().to_string()));
         }
         pos += line.len();

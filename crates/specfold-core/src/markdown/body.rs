@@ -54,23 +54,12 @@ pub fn path_cite_re(spec_dir: &str) -> Regex {
 /// `first_line` is the 1-based line number of the body's first line in the file.
 pub fn scan(body: &str, first_line: usize, path_re: &Regex) -> Body {
     let mut out = Body::default();
-    let mut fence: Option<String> = None;
+    let mut fence = crate::markdown::Fence::default();
     for (i, raw_line) in body.lines().enumerate() {
         let line_no = first_line + i;
         out.lines += 1;
         let trimmed = raw_line.trim_start();
-        if let Some(f) = &fence {
-            if trimmed.starts_with(f.as_str())
-                && trimmed.trim_start_matches(f.chars().next().unwrap()).trim().is_empty()
-            {
-                fence = None;
-            }
-            continue;
-        }
-        if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
-            let ch = trimmed.chars().next().unwrap();
-            let n = trimmed.chars().take_while(|c| *c == ch).count();
-            fence = Some(std::iter::repeat_n(ch, n).collect());
+        if fence.step(trimmed) || fence.inside() {
             continue;
         }
         let line = inline_code_re().replace_all(raw_line, "");

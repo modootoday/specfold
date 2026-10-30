@@ -15,7 +15,41 @@ fn parse_kind(s: &str) -> Result<StarterKind> {
     let Some((pattern, id)) = body.split_once('=') else {
         bail!("--owner-kind '{s}' is not pattern=id-template, e.g. 'services/*={{1}}'")
     };
-    Ok(StarterKind { pattern: pattern.trim().into(), id: id.trim().into(), manifest })
+    let (pattern, id) = (pattern.trim(), id.trim());
+    // C140: what is written here becomes every owner id, so check it before it lands.
+    if pattern.is_empty() || id.is_empty() {
+        bail!("--owner-kind '{s}' needs a folder pattern and an id template, e.g. 'services/*={{1}}'");
+    }
+    if body.contains(':') {
+        bail!("--owner-kind '{s}': the only suffix is ':manifest', e.g. 'libs/*=lib.{{1}}:manifest'");
+    }
+    let stars = pattern.matches('*').count();
+    let mut sample = String::new();
+    let mut rest = id;
+    while let Some(i) = rest.find('{') {
+        sample.push_str(&rest[..i]);
+        let Some(j) = rest[i..].find('}') else { bail!("--owner-kind '{s}': unclosed '{{' in the id template") };
+        let n: usize = rest[i + 1..i + j].parse().unwrap_or(0);
+        if n == 0 || n > stars {
+            bail!(
+                "--owner-kind '{s}': {} names no '*' in the pattern (it has {stars}); use {{1}}..{{{stars}}}",
+                &rest[i..=i + j]
+            );
+        }
+        sample.push('x');
+        rest = &rest[i + j + 1..];
+    }
+    sample.push_str(rest);
+    if !owner_like(&sample) {
+        bail!("--owner-kind '{s}': the id template makes ids like '{sample}'; use a-z, 0-9, '.', '-', '_'");
+    }
+    Ok(StarterKind { pattern: pattern.into(), id: id.into(), manifest })
+}
+
+fn owner_like(s: &str) -> bool {
+    !s.is_empty()
+        && s.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || matches!(b, b'.' | b'-' | b'_'))
+        && s.bytes().next().is_some_and(|b| b.is_ascii_alphanumeric())
 }
 
 /// `spec init --upgrade`: reads the file as text, since an old file may not parse.
@@ -60,6 +94,9 @@ pub fn run(g: &Global, a: &InitArgs) -> Result<Output> {
     let cfg = session::config(g)?;
     if !cfg.implicit {
         bail!("{} already has a spec.toml", cfg.root.display());
+    }
+    if !owner_like(&a.root) {
+        bail!("--root '{}' is not an owner id; use a-z, 0-9, '.', '-', '_' (e.g. --root ws)", a.root);
     }
     let kinds = a.owners.iter().map(|k| parse_kind(k)).collect::<Result<Vec<_>>>()?;
     let text = starter::render(&a.root, &kinds);

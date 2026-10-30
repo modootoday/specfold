@@ -56,15 +56,14 @@ struct Table {
 fn tables(lines: &[&str], lo: usize, hi: usize) -> Vec<Table> {
     let mut out = vec![];
     let mut i = lo;
-    let mut fence = false;
+    let mut fence = crate::markdown::Fence::default();
     while i < hi {
         let l = lines[i].trim_start();
-        if l.starts_with("```") || l.starts_with("~~~") {
-            fence = !fence;
+        if fence.step(l) {
             i += 1;
             continue;
         }
-        if !fence
+        if !fence.inside()
             && let Some(header) = cells(lines[i])
             && i + 1 < hi
             && cells(lines[i + 1]).is_some_and(|s| is_separator(&s))

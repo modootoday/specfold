@@ -168,6 +168,10 @@ fn plan_with(c: &Corpus, idx: usize, assigns: &[Assign], successor_pending: bool
                 a.key
             );
         }
+        // C128: title is required (S1), so it can be changed but not emptied.
+        if a.key == "title" && matches!(a.op, Op::Set) && a.value.trim().is_empty() {
+            bail!("title is required and cannot be emptied; give a new one: spec set {} title='…'", d.id);
+        }
         if a.key == "status" {
             if !ty.statuses.contains(&a.value) {
                 let from = d.status().unwrap_or_else(|| ty.initial.clone());

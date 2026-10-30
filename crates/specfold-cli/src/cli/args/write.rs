@@ -229,6 +229,9 @@ pub struct ImportArgs {
     /// Confirm an action that deletes, overwrites, sends files out, or writes more than [write] max_files files (with its write flag).
     #[arg(long)]
     pub yes: bool,
+    /// Apply although some rows (marked !) still need a decision (CLI-4).
+    #[arg(long, requires = "write")]
+    pub force: bool,
 }
 
 #[derive(Debug, Clone, Args)]

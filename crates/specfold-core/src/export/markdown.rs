@@ -341,14 +341,12 @@ fn rewrite(
 /// Removes `{#anchor}` from headings outside code fences.
 fn strip_anchors(text: &str) -> String {
     let re = regex::Regex::new(r"\s*\{#[A-Za-z0-9][A-Za-z0-9_.-]*\}\s*$").unwrap();
-    let mut fence = false;
+    let mut fence = crate::markdown::Fence::default();
     let mut out = String::new();
     for line in text.split_inclusive('\n') {
         let tr = line.trim_start();
-        if tr.starts_with("```") || tr.starts_with("~~~") {
-            fence = !fence;
-        }
-        if !fence && tr.starts_with('#') {
+        fence.step(tr);
+        if !fence.inside() && tr.starts_with('#') {
             let nl = if line.ends_with('\n') { "\n" } else { "" };
             out.push_str(&re.replace(line.trim_end_matches(['\n', '\r']), ""));
             out.push_str(nl);
