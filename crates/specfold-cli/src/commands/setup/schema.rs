@@ -29,13 +29,18 @@ fn frontmatter_schema(t: &TypeDef) -> Value {
         "implements": {"type": "array", "items": {"type": "string"}},
         "evidence": {"type": "array", "items": {"type": "string"}},
         "depends_on": {"type": "array", "items": {"type": "string"}},
-        "translation_of": {"type": "array", "items": {"type": "string"}, "maxItems": 1, "description": "the original this document translates"}
+        "translation_of": {"type": "array", "items": {"type": "string"}, "maxItems": 1, "description": "the original this document translates"},
+        "exception_of": {"type": "array", "items": {"type": "string"}, "description": "documents this one makes a local exception to (needs review_by)"}
     }, "additionalProperties": false}),
     );
     props.insert("files".into(), json!({"type": "array", "items": {"type": "object", "required": ["path", "sha256", "bytes", "store"], "properties": {
         "path": {"type": "string"}, "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "bytes": {"type": "integer"}, "store": {"enum": ["repo", "store"]}
     }}}));
     props.insert("generated_by".into(), json!({"type": "string"}));
+    props.insert(
+        "review_by".into(),
+        json!({"type": "string", "format": "date", "description": "date an exception (rel.exception_of) is reviewed by"}),
+    );
     props.insert(
         "lang".into(),
         json!({"type": "string", "pattern": "^[A-Za-z]{2,3}(-[A-Za-z0-9]{1,8})*$", "description": "language tag (BCP 47), e.g. ko"}),

@@ -1,5 +1,5 @@
 //! T rules: supersede claims pair up, statuses only move forward, sealed bodies stay sealed,
-//! and an edited body moves its `updated` date.
+//! an edited body moves its `updated` date, and exceptions are reviewed by their date.
 
 use super::support::key_line;
 use crate::check::context::Ctx;
@@ -185,6 +185,71 @@ impl Rule for Sealed {
             let (Some(before), Some(now)) = (ctx.previous(&d.path), ctx.current(&d.path)) else { continue };
             if body_hash(&before) != body_hash(&now) {
                 out.push(Finding::error("T3", &d.path, 1, format!("{} is sealed; its body changed", d.id)));
+            }
+        }
+    }
+}
+
+pub struct ExceptionsReviewed;
+
+/// Today's date (UTC) as `YYYY-MM-DD`.
+fn today() -> String {
+    stamp::now_value().chars().take(10).collect()
+}
+
+fn is_date(s: &str) -> bool {
+    let mut it = s.split('-');
+    let (Some(y), Some(m), Some(d), None) = (it.next(), it.next(), it.next(), it.next()) else { return false };
+    if y.len() != 4 || m.len() != 2 || d.len() != 2 {
+        return false;
+    }
+    match (y.parse::<i32>(), m.parse::<u8>().ok().and_then(|m| time::Month::try_from(m).ok()), d.parse::<u8>()) {
+        (Ok(y), Some(m), Ok(d)) => time::Date::from_calendar_date(y, m, d).is_ok(),
+        _ => false,
+    }
+}
+
+impl Rule for ExceptionsReviewed {
+    fn info(&self) -> &RuleInfo {
+        &RuleInfo {
+            id: "T5",
+            title: "exceptions are reviewed by their date",
+            explain: "A document that makes a local exception to another names it with rel.exception_of and sets review_by: YYYY-MM-DD, the date by which someone decides whether the exception still holds. T5 warns when review_by is missing or not a date, and when the date has passed (UTC). Renew it with `spec set <id> review_by=<date>`, or retire the exception (status archived) once the rule it departs from is kept again. The target must resolve like any relation (L3).",
+            on_commit: false,
+        }
+    }
+
+    fn run(&self, ctx: &Ctx, out: &mut Vec<Finding>) {
+        let today = today();
+        for (i, d) in ctx.corpus.docs.iter().enumerate() {
+            if !ctx.scope.covers(i) || d.rel().get("exception_of").is_none_or(|l| l.is_empty()) {
+                continue;
+            }
+            let status = d.status().unwrap_or_default();
+            if ["superseded", "archived", "rejected"].contains(&status.as_str()) {
+                continue;
+            }
+            let line = key_line(ctx, &d.path, "review_by");
+            let fix = format!("spec set {} review_by=<YYYY-MM-DD>", d.id);
+            match d.str_field("review_by") {
+                None => out.push(
+                    Finding::warn("T5", &d.path, 1, "an exception (rel.exception_of) needs review_by: YYYY-MM-DD")
+                        .fix_cmd(fix),
+                ),
+                Some(r) if !is_date(&r) => out.push(
+                    Finding::warn("T5", &d.path, line, format!("review_by '{r}' is not a date (YYYY-MM-DD)"))
+                        .fix_cmd(fix),
+                ),
+                Some(r) if r < today => out.push(
+                    Finding::warn(
+                        "T5",
+                        &d.path,
+                        line,
+                        format!("exception was due for review on {r}: renew review_by or retire the exception"),
+                    )
+                    .fix_cmd(fix),
+                ),
+                Some(_) => {}
             }
         }
     }

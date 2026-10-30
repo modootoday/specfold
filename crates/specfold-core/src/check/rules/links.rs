@@ -231,7 +231,7 @@ impl Rule for RelationsResolve {
         &RuleInfo {
             id: "L3",
             title: "relations resolve and point at the right types",
-            explain: "rel.supersedes names documents of the same type, rel.implements names rules or decisions (sot, adr, page, design), rel.evidence names evidence, research or audits, rel.depends_on and rel.translation_of name anything, and rel.governs names code paths. A target written <remote>:<id> is looked up in that repository from [remotes], with the same type rules, and skipped when its directory is absent. Other relation names are reported.",
+            explain: "rel.supersedes names documents of the same type, rel.implements names rules or decisions (sot, adr, page, design), rel.evidence names evidence, research or audits, rel.depends_on, rel.translation_of and rel.exception_of name anything, and rel.governs names code paths. A target written <remote>:<id> is looked up in that repository from [remotes], with the same type rules, and skipped when its directory is absent. Other relation names are reported.",
             on_commit: true,
         }
     }

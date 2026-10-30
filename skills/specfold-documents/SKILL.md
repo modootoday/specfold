@@ -76,12 +76,17 @@ spec set sot:shop/cart tags-=draft
 
 Statuses move forward only: `draft`, `active`, then `superseded`, `archived` or `rejected`.
 Relations are written once, on the document that makes them: `rel.governs`, `rel.supersedes`,
-`rel.implements`, `rel.evidence`, `rel.depends_on`, `rel.translation_of`. In the body, refer to
+`rel.implements`, `rel.evidence`, `rel.depends_on`, `rel.translation_of`, `rel.exception_of`. In the body, refer to
 another document as `[[<id>]]` or `[[<id>#<anchor>]]`, never by path. A document in another
 repository listed under `[remotes.<name>]` in spec.toml is `<name>:<id>` (`[[org:adr:root/…]]`);
 read it with `spec show <name>:<id>`, and change it in that repository, not from here.
 A translation may name such a source, and `[[<name>:<id>]]` in READMEs and code comments is
 checked too. `spec doctor` shows which remotes are on disk.
+
+An exception to a rule or decision is its own document: `rel.exception_of` names what it departs
+from, and `review_by: YYYY-MM-DD` says when to look again. Keep a personal or temporary one in
+`.spec.local`. When T5 says the date has passed, ask whether the exception still holds; renew the
+date only with a reason, otherwise archive it.
 
 A translation is its own document that names its source and language, and records the source
 body it was made from:
