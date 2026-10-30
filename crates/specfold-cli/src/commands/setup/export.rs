@@ -108,7 +108,7 @@ pub fn run(g: &Global, a: &ExportArgs) -> Result<Output> {
     };
     let params = json!({
         "format": format,
-        "out": a.out.as_ref().map(|p| p.display().to_string()),
+        "out": a.out.as_ref().map(|p| session::arg_path(g, p).display().to_string()),
         "docs": docs,
         "edges": export::payload::edges(&s.corpus, &s.graph, &only),
     });
@@ -163,7 +163,9 @@ fn built_in(g: &Global, a: &ExportArgs) -> Result<Output> {
         bail!("--format is for plugins; the built-in exporter takes --target");
     }
     let s = session::open(g)?;
-    let previous = markdown::check_out(out, &s.corpus.cfg.root).map_err(|e| {
+    // C161: read and written from -C; shown as typed, so the next commands keep working.
+    let out_path = session::arg_path(g, out);
+    let previous = markdown::check_out(&out_path, &s.corpus.cfg.root).map_err(|e| {
         let m = e.to_string();
         if !(m.contains("not empty") || m.contains("not a directory")) {
             return e;
@@ -238,7 +240,7 @@ fn built_in(g: &Global, a: &ExportArgs) -> Result<Output> {
             ))
             .next(format!("spec export markdown --target {} --out {again} --yes", target.name())));
     }
-    markdown::write(out, &tree, target, &previous)?;
+    markdown::write(&out_path, &tree, target, &previous)?;
     let mut o = o.head(format!(
         "exported {} document(s) for {} into {} ({} files)",
         tree.docs,
@@ -251,7 +253,7 @@ fn built_in(g: &Global, a: &ExportArgs) -> Result<Output> {
     } else {
         // Done: look at what changed in the output rather than exporting again.
         // C104: git sees only an --out inside the repository.
-        let inside = std::fs::canonicalize(out)
+        let inside = std::fs::canonicalize(&out_path)
             .ok()
             .zip(std::fs::canonicalize(&s.corpus.cfg.root).ok())
             .is_some_and(|(o, r)| o.starts_with(r));

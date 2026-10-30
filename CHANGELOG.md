@@ -9,6 +9,8 @@ Release notes for each version are also on
 
 What an existing command does differs from 0.3.0; check scripts and CI that call these.
 
+`-C <dir>` now resolves relative path arguments against `<dir>`, and `next` commands include `-C <dir>`.
+
 Write previews show an update's changed lines as unified-diff hunks (`@@ -old,n +new,m @@`): changes with an unchanged line between them, such as the refreshed `updated:` line and an edited section, are separate hunks instead of one block. In `--json`, update items carry `hunks` (each with `line`, `old_line`, `before`, `after`) in place of the top-level `before` and `after`; `line` is still the first changed line.
 `spec sync --prune` previews name the trash folder `.specfold/trash/<timestamp>/` instead of the current second, so a preview and the refusal of the same write agree; the write itself uses the second it runs in and prints the real path. The pruned-files note names `.specfold/trash/`.
 `spec check --rule`/`--skip` refuse (rc 2) a rule id that does not exist, as `--fail-on` does; a lower-case id is pointed at its upper-case form (C132).
@@ -132,6 +134,7 @@ A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is 
 
 ### Fixed
 
+- C161: with `-C <dir>`, relative path arguments (`attach` files, `edit --file`, `import --map`, `export --out`, `audit --from`) are read from `<dir>` instead of the shell's directory, and `next:` commands keep `-C <dir>`.
 - `spec new --title` and `spec set title=` refuse a title with a line break (exit 2, with a next
   command to give it on one line); it split the body heading and one-row-per-document lists.
 - `spec export markdown` looks up relation targets by id instead of scanning every document for

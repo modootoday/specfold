@@ -21,7 +21,7 @@ pub struct Global {
     /// Items to skip for list output.
     #[arg(long, global = true, default_value_t = 0)]
     pub offset: usize,
-    /// Run as if started in this directory.
+    /// Run as if started in this directory: relative path arguments are read from it, and next commands keep -C.
     #[arg(short = 'C', long = "dir", global = true, value_name = "DIR")]
     pub dir: Option<PathBuf>,
     /// Leave out the git-ignored local documents.
