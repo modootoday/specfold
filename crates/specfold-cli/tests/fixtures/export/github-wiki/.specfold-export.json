@@ -1,0 +1,10 @@
+{
+  "generator": "specfold",
+  "target": "github-wiki",
+  "files": [
+    "Home.md",
+    "_Sidebar.md",
+    "cart-totals.md",
+    "checkout.md"
+  ]
+}

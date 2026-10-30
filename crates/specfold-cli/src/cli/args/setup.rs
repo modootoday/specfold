@@ -56,12 +56,24 @@ pub struct PluginsArgs {
 
 #[derive(Debug, Clone, Args)]
 pub struct ExportArgs {
-    /// The exporter plugin.
+    /// `markdown` for the built-in exporter, else an exporter plugin.
     pub plugin: String,
     /// The format, when the plugin offers several.
     #[arg(long)]
     pub format: Option<String>,
-    /// Directory the plugin writes into.
+    /// Directory to write into: empty, or an earlier export (it has .specfold-export.json).
     #[arg(long)]
     pub out: Option<std::path::PathBuf>,
+    /// markdown: obsidian, mkdocs, docusaurus or github-wiki.
+    #[arg(long)]
+    pub target: Option<String>,
+    /// markdown: include documents in the local (git-ignored) directory.
+    #[arg(long)]
+    pub local: bool,
+    /// markdown: start each page with a note naming its source file.
+    #[arg(long)]
+    pub banner: bool,
+    /// markdown: `unresolved` fails, writing nothing, when a reference leads nowhere in the tree.
+    #[arg(long)]
+    pub fail_on: Option<String>,
 }

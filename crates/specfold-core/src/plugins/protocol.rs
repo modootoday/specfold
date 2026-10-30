@@ -48,6 +48,9 @@ pub struct Description {
     pub version: String,
     #[serde(default)]
     pub provides: Provides,
+    /// Extras an exporter asks for in `export.run`: `body` and `links`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub wants: Vec<String>,
 }
 
 /// A finding as a plugin reports it; the rule id is namespaced by specfold.

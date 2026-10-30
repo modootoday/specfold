@@ -7,6 +7,7 @@ pub mod authoring;
 pub mod check;
 pub mod config;
 pub mod corpus;
+pub mod export;
 pub mod files;
 pub mod graph;
 pub mod guards;

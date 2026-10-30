@@ -107,8 +107,10 @@ pub enum Cmd {
     /// Configured plugins and what they provide.
     #[command(after_help = "Examples:\n  spec plugins\n  spec plugins describe <name>")]
     Plugins(setup::PluginsArgs),
-    /// Export through an exporter plugin.
-    #[command(after_help = "Examples:\n  spec export <plugin> --out site")]
+    /// Export as a Markdown tree, or through an exporter plugin.
+    #[command(
+        after_help = "Examples:\n  spec export markdown --target obsidian --out vault\n  spec export markdown --target mkdocs --out docs/specs\n  spec export <plugin> --out site"
+    )]
     Export(setup::ExportArgs),
     /// Serve these commands as MCP tools over stdio.
     #[command(after_help = "Examples:\n  spec mcp")]

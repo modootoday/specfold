@@ -1,0 +1,8 @@
+{
+  "generator": "specfold",
+  "target": "obsidian",
+  "files": [
+    "shop/adr/cart-totals.md",
+    "shop/sot/checkout.md"
+  ]
+}
