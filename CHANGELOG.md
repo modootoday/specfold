@@ -119,7 +119,7 @@ What an existing command does differs from 0.3.0; check scripts and CI that call
 
 - `spec import --apply --dry-run` previews (rc 0, nothing written) instead of failing with a clash against `--plan`; `--dry-run` is listed in `spec help import`, and still refuses `--yes` (C120).
 - `spec import --apply --write` lists the files it created, moved and updated (alias table included) and prints `undo:`; JSON gains `written`, `undo` and `changes`. With no source documents it writes nothing, not even the alias table (C121).
-- `spec mv --write` on a document not yet committed offers an undo that works: it moves the file back with `mv` instead of a `git stash` that failed on the old path and left a stray stash (C122).
+- `spec mv --write` on a document not yet committed offers an undo that works: a copy of the uncommitted file is kept under `.specfold/trash/` and the undo removes the new path and copies it back, instead of a `git stash` that failed on the old path and left a stray stash (C122).
 - `spec set` with values the document already has writes nothing: it reports `no change`, exits 0, and neither bumps `updated` nor offers an undo.
 - `spec import` plans note body lines (`* Status:`, `* Deciders:`, `* Date:` …) that repeat values moved into frontmatter, and an H1 that keeps a number the title dropped.
 - `spec audit` suggests checking open tasks (or `--force`) before archiving an active plan that still has them; `spec check`'s summary counts spec.toml warnings (`+N in spec.toml`, field `config_warnings`); a mistyped `[audit] coverage_types` entry gets a did-you-mean, and `spec doctor` points at the type name to fix.
