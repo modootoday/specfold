@@ -78,7 +78,7 @@ fn sections(label: &str, body: &str) -> Vec<(String, Vec<String>)> {
     let name = |h: &str| if label.is_empty() { h.to_string() } else { format!("{label}: {h}") };
     let mut out: Vec<(String, Vec<String>)> = vec![(name("(top)"), vec![])];
     let mut para: Vec<&str> = vec![];
-    let mut fence = false;
+    let mut fence = crate::markdown::Fence::default();
     let flush = |para: &mut Vec<&str>, out: &mut Vec<(String, Vec<String>)>| {
         let t = para.iter().flat_map(|l| l.split_whitespace()).collect::<Vec<_>>().join(" ");
         if !t.is_empty() {
@@ -88,15 +88,14 @@ fn sections(label: &str, body: &str) -> Vec<(String, Vec<String>)> {
     };
     for line in body.lines() {
         let t = line.trim_start();
-        if t.starts_with("```") || t.starts_with("~~~") {
-            fence = !fence;
+        if fence.step(t) {
             para.push(line);
             continue;
         }
-        if !fence && t.starts_with('#') && t.trim_start_matches('#').starts_with([' ', '\t']) {
+        if !fence.inside() && t.starts_with('#') && t.trim_start_matches('#').starts_with([' ', '\t']) {
             flush(&mut para, &mut out);
             out.push((name(t.trim_start_matches('#').trim()), vec![]));
-        } else if !fence && t.is_empty() {
+        } else if !fence.inside() && t.is_empty() {
             flush(&mut para, &mut out);
         } else {
             para.push(line);

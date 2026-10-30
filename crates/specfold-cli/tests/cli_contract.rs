@@ -742,3 +742,207 @@ fn c123_import_undo_restores_committed_and_uncommitted_sources() {
     let line = t.lines().find_map(|l| l.trim().strip_prefix("undo: ")).unwrap_or_default();
     assert!(line.contains(".specfold/trash/") && line.contains("git stash push"), "{t}");
 }
+
+fn find_file(dir: &std::path::Path, name: &str) -> Option<std::path::PathBuf> {
+    for e in std::fs::read_dir(dir).ok()?.flatten() {
+        let p = e.path();
+        if p.is_dir() {
+            if e.file_name() == ".git" {
+                continue;
+            }
+            if let Some(f) = find_file(&p, name) {
+                return Some(f);
+            }
+        } else if e.file_name().to_string_lossy() == name {
+            return Some(p);
+        }
+    }
+    None
+}
+
+#[test]
+fn c142_c143_attach_into_stays_inside_the_bundle_and_in_next() {
+    let r = common::repo();
+    let d = r.new_doc("design", "services/shop", "Boards");
+    r.write("a.png", "png");
+    r.commit("fixtures");
+    for bad in ["../../escape", "/tmp/abs", "x/../../y", "c:/x"] {
+        let (code, v) = r.json(&["attach", &d, "a.png", "--into", bad, "--write"]);
+        assert_eq!(code, 2, "{bad}: {v}");
+    }
+    assert!(!r.path().join(".spec/escape").exists());
+    let (code, v) = r.json(&["attach", &d, "a.png", "--into", "boards/v1"]);
+    assert_eq!(code, 0, "{v}");
+    assert!(v["next"].to_string().contains("--into boards/v1"), "{v}");
+}
+
+#[test]
+fn c135_nested_and_tilde_fences_hide_their_contents() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Fences");
+    let (_, d) = r.json(&["show", &id]);
+    let path = d["path"].as_str().unwrap().to_string();
+    let text = r.read(&path);
+    r.write(
+        &path,
+        &format!(
+            "{text}\n````md\n```\n[[sot:root/nope-one]]\n```\n[[sot:root/nope-two]]\n````\n\n~~~\n```\n[[sot:root/nope-three]]\n~~~\n"
+        ),
+    );
+    let (_, v) = r.json(&["check", "--rule", "L1"]);
+    assert!(!v.to_string().contains("nope-"), "{v}");
+    // A link after the fence closes is read again.
+    r.write(&path, &format!("{text}\n````\n```\n````\n[[sot:root/nope-after]]\n"));
+    let (_, v) = r.json(&["check", "--rule", "L1"]);
+    assert!(v.to_string().contains("nope-after"), "{v}");
+}
+
+#[test]
+fn c138_import_bound_counts_the_alias_table() {
+    let (r, _) = madr_repo(true);
+    let base = r.read("spec.toml");
+    // One move (two paths) plus the new alias table is three files.
+    r.write("spec.toml", &format!("{base}[write]\nmax_files = 2\n"));
+    let (_, v) = r.json(&["import", "--map", "import.toml", "--apply"]);
+    assert_eq!(v["files"], 3, "{v}");
+    assert_eq!(v["bounded"], true, "{v}");
+    r.write("spec.toml", &format!("{base}[write]\nmax_files = 3\n"));
+    let (_, v) = r.json(&["import", "--map", "import.toml", "--apply"]);
+    assert!(v.get("bounded").is_none(), "{v}");
+}
+
+#[test]
+fn c127_fetch_keeps_the_file_when_the_store_holds_other_bytes() {
+    let r = common::repo();
+    let base = r.read("spec.toml");
+    let store = r.path().join("store");
+    std::fs::create_dir_all(&store).unwrap();
+    r.write("spec.toml", &format!("{base}[files.store]\nkind = \"dir\"\npath = \"{}\"\n", store.display()));
+    let d = r.new_doc("design", "services/shop", "Runs");
+    r.write("run.log", "ok\n");
+    r.commit("fixtures");
+    let (code, v) = r.json(&["attach", &d, "run.log", "--store", "--write", "--yes"]);
+    assert_eq!(code, 0, "{v}");
+    let obj = std::fs::read_dir(&store)
+        .unwrap()
+        .flatten()
+        .flat_map(|e| std::fs::read_dir(e.path()).unwrap().flatten().map(|f| f.path()))
+        .next()
+        .unwrap();
+    std::fs::write(&obj, "tampered\n").unwrap();
+    let local = find_file(&r.path().join("services"), "run.log").or_else(|| find_file(r.path(), "run.log"));
+    let local = local.filter(|p| !p.ends_with("run.log") || p.parent() != Some(r.path())).unwrap();
+    std::fs::write(&local, "mine\n").unwrap();
+    let (code, v) = r.json(&["fetch", &d, "--force"]);
+    assert_eq!(code, 3, "{v}");
+    assert_eq!(std::fs::read_to_string(&local).unwrap(), "mine\n");
+    let dir = local.parent().unwrap();
+    assert!(
+        std::fs::read_dir(dir).unwrap().flatten().all(|e| !e.file_name().to_string_lossy().ends_with(".specfold-part")),
+        "no partial file left"
+    );
+}
+
+#[test]
+fn c124_sync_assets_kind_conflicts_match_and_prune_resolves() {
+    let r = common::repo();
+    let base = r.read("spec.toml");
+    r.write(
+        "spec.toml",
+        &format!(
+            "{base}[[assets]]\nkind = \"skill\"\npath = \".agents/skills\"\n[[assets]]\nkind = \"skill\"\npath = \".claude/skills\"\ncopy_of = \".agents/skills\"\n"
+        ),
+    );
+    r.write(".agents/skills/pdf/SKILL.md", "---\nname: pdf\ndescription: Read PDFs.\n---\n");
+    r.write(".agents/skills/pdf/notes", "file in source\n");
+    r.write(".claude/skills/pdf/SKILL.md", "---\nname: pdf\ndescription: Read PDFs.\n---\n");
+    r.write(".claude/skills/pdf/notes/old.md", "a folder in the copy\n");
+    r.commit("fixtures");
+    let (pc, pv) = r.json(&["sync", "assets"]);
+    let (wc, wv) = r.json(&["sync", "assets", "--write"]);
+    assert_eq!(pc, 0, "{pv}");
+    assert_eq!(wc, 4, "{wv}");
+    assert!(pv.to_string().contains(".claude/skills/pdf/notes"), "{pv}");
+    assert!(wv.to_string().contains(".claude/skills/pdf/notes"), "{wv}");
+    assert!(pv["next"].to_string().contains("--prune"), "{pv}");
+    let (code, v) = r.json(&["sync", "assets", "--prune", "--write", "--yes"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(r.read(".claude/skills/pdf/notes"), "file in source\n");
+}
+
+#[test]
+fn c147_asset_without_a_slug_is_refused() {
+    let r = common::repo();
+    for kind in ["skill", "rule", "agent"] {
+        let (code, v) = r.json(&["new", kind, "--title", "한글 이름", "--write"]);
+        assert_eq!(code, 2, "{kind}: {v}");
+        assert!(v.to_string().contains("--slug"), "{v}");
+    }
+    let (code, v) = r.json(&["new", "skill", "--title", "x", "--slug", "../up", "--write"]);
+    assert_eq!(code, 2, "{v}");
+}
+
+#[test]
+fn c140_init_checks_owner_kinds_and_root() {
+    let dir = tempfile_dir();
+    for args in [
+        &["--owner-kind", "=x"][..],
+        &["--owner-kind", "a/*="],
+        &["--owner-kind", "services/*={2}"],
+        &["--owner-kind", "libs/*=lib.{1}:bogus"],
+        &["--root", "Bad Id!"],
+    ] {
+        let mut full = vec!["init", "--write"];
+        full.extend_from_slice(args);
+        let o = std::process::Command::new(common::bin_dir().join("spec"))
+            .args(&full)
+            .arg("--json")
+            .current_dir(&dir)
+            .output()
+            .unwrap();
+        assert_eq!(o.status.code(), Some(2), "{args:?}: {}", String::from_utf8_lossy(&o.stdout));
+        assert!(!dir.join("spec.toml").exists(), "{args:?}");
+    }
+    let o = std::process::Command::new(common::bin_dir().join("spec"))
+        .args(["init", "--owner-kind", "services/*={1}", "--owner-kind", "libs/*=lib.{1}:manifest", "--root", "ws"])
+        .current_dir(&dir)
+        .output()
+        .unwrap();
+    assert_eq!(o.status.code(), Some(0), "{}", String::from_utf8_lossy(&o.stderr));
+}
+
+fn tempfile_dir() -> std::path::PathBuf {
+    let d = std::env::temp_dir().join(format!("specfold-c140-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&d);
+    std::fs::create_dir_all(&d).unwrap();
+    std::process::Command::new("git").arg("init").arg("-q").current_dir(&d).status().unwrap();
+    d
+}
+
+#[test]
+fn c128_set_refuses_emptying_the_title() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    let (code, v) = r.json(&["set", &id, "title=", "--write"]);
+    assert_eq!(code, 2, "{v}");
+    let (_, d) = r.json(&["show", &id]);
+    assert_eq!(d["frontmatter"]["title"], "Cart", "{d}");
+    assert_eq!(r.json(&["set", &id, "title=Basket", "--write"]).0, 0);
+}
+
+#[test]
+fn c155_import_write_refuses_rows_that_need_a_decision() {
+    let r = common::repo();
+    r.write("docs/adr/0001-use-files.md", "# Use files\n\n* Status: accepted\n\n## Context\n\nWhy.\n");
+    let (_, map) = r.text(&["import", "--preset", "madr"]);
+    r.write("import.toml", &map);
+    r.commit("legacy");
+    let (code, v) = r.json(&["import", "--map", "import.toml", "--apply", "--write"]);
+    assert_eq!(code, 4, "{v}");
+    assert!(r.path().join("docs/adr/0001-use-files.md").exists(), "nothing written: {v}");
+    assert!(v["next"].to_string().contains("--force"), "{v}");
+    assert!(v.to_string().contains("0001-use-files"), "{v}");
+    let (code, v) = r.json(&["import", "--map", "import.toml", "--apply", "--write", "--force"]);
+    assert_eq!(code, 0, "{v}");
+    assert!(!r.path().join("docs/adr/0001-use-files.md").exists(), "{v}");
+}

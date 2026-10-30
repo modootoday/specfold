@@ -8,15 +8,14 @@ pub struct RequiredSections;
 
 /// The headings of a Markdown text outside code fences, without `#` marks or a `{#anchor}`.
 fn headings(text: &str) -> Vec<String> {
-    let mut fence = false;
+    let mut fence = crate::markdown::Fence::default();
     let mut out = vec![];
     for l in text.lines() {
         let t = l.trim_start();
-        if t.starts_with("```") || t.starts_with("~~~") {
-            fence = !fence;
+        if fence.step(t) {
             continue;
         }
-        if fence || !t.starts_with('#') {
+        if fence.inside() || !t.starts_with('#') {
             continue;
         }
         let h = t.trim_start_matches('#');

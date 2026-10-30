@@ -51,6 +51,14 @@ pub fn plan(c: &Corpus, doc: &Doc, sources: &[PathBuf], into: &str, place: Where
         Some(_) => None,
         None => Some((doc.path.clone(), bundle_main(doc).1)),
     };
+    // C142: --into stays inside the bundle.
+    if into.starts_with('/')
+        || into.starts_with('\\')
+        || into.contains(':')
+        || into.split(['/', '\\']).any(|p| p == "..")
+    {
+        bail!("--into '{into}' must be a relative folder inside the bundle (no '..', no absolute path)");
+    }
     let mut files = vec![];
     for src in sources {
         let (sha256, bytes) = hash::file(src).with_context(|| format!("cannot read {}", src.display()))?;

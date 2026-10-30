@@ -75,15 +75,14 @@ impl Rule for AssetRefsExist {
         let commands = &ctx.opts.commands;
         for a in assets::load(&ctx.corpus.cfg) {
             let dir = root.join(&a.path).parent().map(Path::to_path_buf).unwrap_or_else(|| root.clone());
-            let mut fenced = false;
+            let mut fenced = crate::markdown::Fence::default();
             for (i, line) in a.body().lines().enumerate() {
                 let n = a.body_line + i;
-                if line.trim_start().starts_with("```") || line.trim_start().starts_with("~~~") {
-                    fenced = !fenced;
+                if fenced.step(line) {
                     continue;
                 }
                 let mut cmds: Vec<&str> = vec![];
-                if fenced {
+                if fenced.inside() {
                     cmds.extend(spec_subcommand(line));
                 } else {
                     for c in code_re().captures_iter(line) {

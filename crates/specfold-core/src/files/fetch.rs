@@ -46,11 +46,23 @@ pub fn fetch(c: &Corpus, doc: &Doc, force: bool) -> Result<Vec<Fetched>> {
             out.push(Fetched { path: f.path, state: "present".into() });
             continue;
         }
-        s.get(&f.sha256, &dst)?;
-        let (got, _) = hash::file(&dst)?;
-        if got != f.sha256 {
-            bail!("{} arrived with sha256 {got}, expected {}", f.path, f.sha256);
+        // C127: the bytes land beside the target and replace it only once verified.
+        let name = dst.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        let part = dst.with_file_name(format!(".{name}.specfold-part"));
+        if let Err(e) = s.get(&f.sha256, &part) {
+            let _ = std::fs::remove_file(&part);
+            return Err(e);
         }
+        let (got, _) = hash::file(&part)?;
+        if got != f.sha256 {
+            let _ = std::fs::remove_file(&part);
+            // An environment problem (the store holds other bytes), not a usage error: exit 3.
+            return Err(anyhow::Error::new(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("{} arrived with sha256 {got}, expected {}; nothing was written", f.path, f.sha256),
+            )));
+        }
+        std::fs::rename(&part, &dst)?;
         out.push(Fetched { path: f.path, state: "fetched".into() });
     }
     Ok(out)

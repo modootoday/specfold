@@ -304,14 +304,12 @@ fn rewrite_links(out: &mut ImportPlan, by_source: &BTreeMap<String, String>) {
             if *path != row.path {
                 continue;
             }
-            let mut fenced = false;
+            let mut fenced = crate::markdown::Fence::default();
             let mut lines = vec![];
             for l in content.split_inclusive('\n') {
                 let t = l.trim_start();
-                if t.starts_with("```") || t.starts_with("~~~") {
-                    fenced = !fenced;
-                }
-                if fenced {
+                fenced.step(t);
+                if fenced.inside() {
                     lines.push(l.to_string());
                     continue;
                 }

@@ -21,6 +21,21 @@ pub fn run(g: &Global, a: &SyncArgs) -> Result<Output> {
             *c = Change::Move { from: path.clone(), to: format!("{bin}/{path}") };
         }
     }
+    // C124: a path that is a folder on one side and a file on the other cannot be copied over.
+    // With --prune the copy's entry goes to the trash first; without it the run is refused.
+    let conflicts = kind_conflicts(&cfg.root, &plan);
+    if a.prune && !conflicts.is_empty() {
+        plan.changes.retain(
+            |c| !matches!(c, Change::Move { from, .. } if conflicts.iter().any(|k| from.starts_with(&format!("{k}/")))),
+        );
+        for k in &conflicts {
+            if !plan.changes.iter().any(|c| matches!(c, Change::Move { from, .. } if from == k)) {
+                plan.changes.push(Change::Move { from: k.clone(), to: format!("{bin}/{k}") });
+            }
+        }
+        // Moves run before the copies that need their place.
+        plan.changes.sort_by_key(|c| !matches!(c, Change::Move { .. }));
+    }
     let mut o = Output::new("sync").field("roots", pairs.len()).field("changes", plan.changes.len());
     if pairs.is_empty() {
         let found: Vec<&str> =
@@ -42,6 +57,16 @@ pub fn run(g: &Global, a: &SyncArgs) -> Result<Output> {
     }
     if plan.changes.is_empty() {
         return Ok(o.field("written", false).foot("every copy matches its source").next("spec audit --kind drift"));
+    }
+    if !conflicts.is_empty() && !a.prune {
+        let o = o.field("conflicts", json!(conflicts)).head(format!(
+            "{} path(s) are a folder on one side and a file on the other{}: {}; --prune moves the copy's entry to the trash first",
+            conflicts.len(),
+            if a.write { ", so nothing was written" } else { "" },
+            conflicts.join(", ")
+        ));
+        let o = if a.write { o.code(crate::output::Code::Refused) } else { o };
+        return preview::finish(o, &plan, &cfg.root, false, "spec sync assets --prune --write --yes");
     }
     // Deleting files is destructive: --prune applies only with --yes as well (CLI-3).
     let removes = plan.changes.iter().any(|c| matches!(c, Change::Move { .. }));
@@ -91,4 +116,28 @@ pub fn run(g: &Global, a: &SyncArgs) -> Result<Output> {
     } else {
         o
     })
+}
+
+/// Copy targets whose place is taken by the other kind: a folder where a file goes, or a file
+/// where a folder is needed.
+fn kind_conflicts(root: &std::path::Path, plan: &specfold_core::authoring::Plan) -> Vec<String> {
+    let mut out: Vec<String> = vec![];
+    for c in &plan.changes {
+        let Change::Copy { to, .. } = c else { continue };
+        if root.join(to).is_dir() {
+            out.push(to.clone());
+        }
+        let mut at = String::new();
+        let parts: Vec<&str> = to.split('/').collect();
+        for p in &parts[..parts.len().saturating_sub(1)] {
+            at = if at.is_empty() { p.to_string() } else { format!("{at}/{p}") };
+            if root.join(&at).is_file() {
+                out.push(at.clone());
+                break;
+            }
+        }
+    }
+    out.sort();
+    out.dedup();
+    out
 }

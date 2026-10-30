@@ -120,22 +120,13 @@ pub fn md_links(body: &str) -> Vec<MdLink> {
 
 /// Calls `each(line_start, captures)` for every match of `re` outside fences and inline code.
 fn outside_code(body: &str, re: &regex::Regex, mut each: impl FnMut(usize, &regex::Captures)) {
-    let mut fence: Option<String> = None;
+    let mut fence = crate::markdown::Fence::default();
     let mut offset = 0;
     for line in body.split_inclusive('\n') {
         let start = offset;
         offset += line.len();
         let trimmed = line.trim_start();
-        if let Some(f) = &fence {
-            let ch = f.chars().next().unwrap();
-            if trimmed.starts_with(f.as_str()) && trimmed.trim_start_matches(ch).trim().is_empty() {
-                fence = None;
-            }
-            continue;
-        }
-        if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
-            let ch = trimmed.chars().next().unwrap();
-            fence = Some(std::iter::repeat_n(ch, trimmed.chars().take_while(|c| *c == ch).count()).collect());
+        if fence.step(trimmed) || fence.inside() {
             continue;
         }
         let code = code_spans(line);

@@ -12,17 +12,16 @@ pub fn extract(body: &str, name: &str) -> Option<String> {
 pub fn span(body: &str, name: &str) -> Option<(usize, usize)> {
     let want = name.trim().trim_start_matches('#').to_lowercase();
     let lines: Vec<&str> = body.lines().collect();
-    let mut fence = false;
+    let mut fence = crate::markdown::Fence::default();
     let levels: Vec<Option<usize>> = lines
         .iter()
         .map(|l| {
             let t = l.trim_start();
-            if t.starts_with("```") || t.starts_with("~~~") {
-                fence = !fence;
+            if fence.step(t) {
                 return None;
             }
             let n = t.chars().take_while(|c| *c == '#').count();
-            (!fence && n > 0 && t[n..].starts_with(' ')).then_some(n)
+            (!fence.inside() && n > 0 && t[n..].starts_with(' ')).then_some(n)
         })
         .collect();
     let start = (0..lines.len()).find(|&i| {
@@ -43,14 +42,12 @@ pub fn names(body: &str) -> Vec<String> {
 
 /// Heading outline: `(level, text)` for every heading.
 pub fn outline(body: &str) -> Vec<(usize, String)> {
-    let mut fence = false;
+    let mut fence = crate::markdown::Fence::default();
     body.lines()
         .filter_map(|l| {
             let t = l.trim_start();
-            if t.starts_with("```") || t.starts_with("~~~") {
-                fence = !fence;
-            }
-            if fence {
+            fence.step(t);
+            if fence.inside() {
                 return None;
             }
             let n = t.chars().take_while(|c| *c == '#').count();

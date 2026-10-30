@@ -55,7 +55,8 @@ pub fn run(g: &Global, a: &ImportArgs) -> Result<Output> {
     if !a.apply || !a.write || a.dry_run {
         let o = if a.apply { o.foot("preview only; nothing was written") } else { o };
         let max = s.corpus.cfg.raw.write.max_files;
-        let (o, _) = super::preview::bound(o, super::preview::files(&p.plan), max, false, a.yes);
+        let n = super::preview::files(&p.plan) + alias_writes(&s, &p);
+        let (o, _) = super::preview::bound(o, n, max, false, a.yes);
         let o = if unresolved > 0 { o.code(Code::Findings) } else { o };
         return Ok(before_write(&s, &p, o, &map_path.display().to_string()));
     }
@@ -72,7 +73,16 @@ pub fn run(g: &Global, a: &ImportArgs) -> Result<Output> {
             .foot("no source documents matched the map; nothing was written")
             .next(format!("spec import --map {}", map_path.display())));
     }
-    let n = super::preview::files(&p.plan);
+    if unresolved > 0 && !a.force {
+        // C155: a row still marked ! is not imported half-decided.
+        let o = o.code(Code::Refused).head(format!(
+            "{unresolved} row(s) marked ! still need a decision: nothing was written; settle them, or add --force"
+        ));
+        let o = before_write(&s, &p, o, &map_path.display().to_string());
+        return Ok(o.next(format!("spec import --map {} --apply --write --force", map_path.display())));
+    }
+    // C138: the alias table counts toward [write] max_files too.
+    let n = super::preview::files(&p.plan) + alias_writes(&s, &p);
     let (o, go) = super::preview::bound(o, n, s.corpus.cfg.raw.write.max_files, true, a.yes);
     if !go {
         return Ok(o.next(format!("spec import --map {} --apply --write --yes", map_path.display())));
@@ -172,6 +182,14 @@ fn before_write(s: &session::Session, p: &import::ImportPlan, o: Output, map: &s
         };
     }
     o.next(format!("spec import --map {map} --apply --write"))
+}
+
+/// 1 when applying would create or change the alias table, else 0.
+fn alias_writes(s: &session::Session, p: &import::ImportPlan) -> usize {
+    let Some(file) = &s.corpus.cfg.raw.aliases.file else { return 0 };
+    let existing = std::fs::read_to_string(s.corpus.cfg.root.join(file)).ok();
+    let new = import::alias_table(existing.as_deref().unwrap_or_default(), &p.alias_rows);
+    usize::from(existing.as_deref() != Some(new.as_str()))
 }
 
 /// A status as a TOML key: bare when it can be, quoted otherwise.

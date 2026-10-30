@@ -24,6 +24,9 @@ pub fn run(g: &Global, a: &AttachArgs) -> Result<Output> {
         attach::Where::Auto
     };
     let plan = attach::plan(&s.corpus, d, &a.files, &a.into, place)?;
+    // C143: every next keeps --into, so it attaches where the preview showed.
+    let into =
+        if a.into.is_empty() { String::new() } else { format!(" --into {}", crate::session::shell_word(&a.into)) };
     let mut o = Output::new("attach").field("id", d.id.to_string());
     if let Some((from, to)) = &plan.to_bundle {
         o = o.head(format!("{from} becomes a bundle: {to}"));
@@ -60,7 +63,7 @@ pub fn run(g: &Global, a: &AttachArgs) -> Result<Output> {
                 .code(Code::Findings)
                 .foot(format!("nothing uploaded: guard {} refuses a file bound for the store", refusing.join(", ")))
                 .next(format!(
-                    "spec attach {} {}{} --write --yes {}",
+                    "spec attach {} {}{}{into} --write --yes {}",
                     a.doc,
                     files.join(" "),
                     if a.store { " --store" } else { "" },
@@ -77,7 +80,7 @@ pub fn run(g: &Global, a: &AttachArgs) -> Result<Output> {
             .head("a file goes to the store, outside the repository: nothing was written; add --yes to confirm")
             .foot("preview only; nothing was written")
             .next(format!(
-                "spec attach {} {}{} --write --yes",
+                "spec attach {} {}{}{into} --write --yes",
                 a.doc,
                 files.join(" "),
                 if a.store { " --store" } else { "" }
@@ -89,7 +92,7 @@ pub fn run(g: &Global, a: &AttachArgs) -> Result<Output> {
     }
     let files: Vec<String> = a.files.iter().map(|p| p.display().to_string()).collect();
     let confirm = if uploads { " --yes" } else { "" };
-    let store = if a.store { " --store" } else { "" };
+    let store = format!("{}{into}", if a.store { " --store" } else { "" });
     Ok(o.foot("preview only; nothing was written").next(format!(
         "spec attach {} {}{store} --write{confirm}",
         a.doc,

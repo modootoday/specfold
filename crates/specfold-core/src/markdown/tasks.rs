@@ -13,15 +13,14 @@ pub struct Task {
 
 /// Every task item outside fenced code, in order.
 pub fn list(body: &str) -> Vec<Task> {
-    let mut fence = false;
+    let mut fence = crate::markdown::Fence::default();
     let mut out = Vec::new();
     for (i, l) in body.lines().enumerate() {
         let t = l.trim_start();
-        if t.starts_with("```") || t.starts_with("~~~") {
-            fence = !fence;
+        if fence.step(t) {
             continue;
         }
-        if fence {
+        if fence.inside() {
             continue;
         }
         let Some(rest) = ["- ", "* ", "+ "].iter().find_map(|m| t.strip_prefix(m)) else { continue };

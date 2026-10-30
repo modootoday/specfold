@@ -153,6 +153,17 @@ fn asset_kind(s: &session::Session, ty: &str) -> Option<AssetKind> {
 
 fn asset(s: &session::Session, a: &NewArgs, kind: AssetKind) -> Result<Output> {
     let name = a.slug.clone().unwrap_or_else(|| slugify(a.title()));
+    // C147: an empty or path-like name would write SKILL.md straight into the asset folder.
+    if !specfold_core::model::stamp::is_slug(&name) {
+        if a.slug.is_some() {
+            bail!("--slug '{name}' is not a kebab-case name (a-z, 0-9, '-'); rerun with --slug my-{}", kind.as_str());
+        }
+        bail!(
+            "the title has no ASCII words to make a {} name from; rerun with --slug my-{} (an English kebab-case name)",
+            kind.as_str(),
+            kind.as_str()
+        );
+    }
     let description = a.description.clone().unwrap_or_else(|| a.title().to_string());
     let cfg = &s.corpus.cfg;
     let Some((path, text, covered)) = assets::template(cfg, kind, &name, &description, a.title()) else {

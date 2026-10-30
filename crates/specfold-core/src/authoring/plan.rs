@@ -70,7 +70,7 @@ impl Plan {
     pub fn apply(&self, root: &Path) -> Result<()> {
         let ensure_parent = |p: &Path| -> Result<()> {
             if let Some(d) = p.parent() {
-                std::fs::create_dir_all(d)?;
+                std::fs::create_dir_all(d).with_context(|| format!("cannot create folder {}", d.display()))?;
             }
             Ok(())
         };

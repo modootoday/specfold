@@ -20,15 +20,14 @@ static LINK: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\[[^\]]*\]\(([^)\s]
 
 /// Lines outside fenced code, trimmed.
 fn lines(body: &str) -> Vec<&str> {
-    let mut fenced = false;
+    let mut fenced = crate::markdown::Fence::default();
     let mut out = vec![];
     for l in body.lines() {
         let t = l.trim();
-        if t.starts_with("```") || t.starts_with("~~~") {
-            fenced = !fenced;
+        if fenced.step(t) {
             continue;
         }
-        if !fenced {
+        if !fenced.inside() {
             out.push(t);
         }
     }
