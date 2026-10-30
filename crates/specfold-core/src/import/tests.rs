@@ -1,3 +1,5 @@
+//! Unit tests for `import`.
+
 use super::*;
 use crate::config::{Config, OwnerKind, RawConfig};
 use crate::corpus::{Corpus, LoadOptions};

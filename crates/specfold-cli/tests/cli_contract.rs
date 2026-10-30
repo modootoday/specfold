@@ -1595,3 +1595,27 @@ fn c164_mv_to_the_same_place_is_no_change() {
     let (_, t) = r.text(&["mv", &d, "--slug", &slug, "--write"]);
     assert!(t.contains("no change") && !t.contains("undo:"), "{t}");
 }
+
+/// CLI-21: every source file in both crates opens with a `//!` module doc.
+#[test]
+fn every_source_module_has_a_module_doc() {
+    fn walk(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
+        for e in std::fs::read_dir(dir).expect("source dir reads") {
+            let p = e.expect("dir entry").path();
+            if p.is_dir() {
+                walk(&p, out);
+            } else if p.extension().is_some_and(|x| x == "rs") {
+                out.push(p);
+            }
+        }
+    }
+    let crates = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+    let mut files = vec![];
+    walk(&crates.join("specfold-cli/src"), &mut files);
+    walk(&crates.join("specfold-core/src"), &mut files);
+    let missing: Vec<_> = files
+        .iter()
+        .filter(|p| !std::fs::read_to_string(p).expect("source reads").trim_start().starts_with("//!"))
+        .collect();
+    assert!(missing.is_empty(), "modules without //!: {missing:?}");
+}
