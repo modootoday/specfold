@@ -22,14 +22,17 @@ const PAST: &[&str] = &["superseded", "archived", "rejected"];
 
 fn path_token_re() -> &'static Regex {
     static R: OnceLock<Regex> = OnceLock::new();
-    R.get_or_init(|| Regex::new(r"(?:[A-Za-z0-9_.@-]+/)+[A-Za-z0-9_.@-]+").unwrap())
+    R.get_or_init(|| Regex::new(r"(?:[A-Za-z0-9_.@-]+/)+[A-Za-z0-9_.@-]+").expect("static regex is valid"))
 }
 
 /// `type:owner/key`: outside documents, `[[…]]` is also TOML, shell and array syntax, so only
 /// this shape (or a known alias) is read as a reference that must resolve.
 fn id_shaped(target: &str) -> bool {
     static R: OnceLock<Regex> = OnceLock::new();
-    R.get_or_init(|| Regex::new(r"^[a-z][a-z0-9-]*:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(#\S+)?$").unwrap()).is_match(target)
+    R.get_or_init(|| {
+        Regex::new(r"^[a-z][a-z0-9-]*:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(#\S+)?$").expect("static regex is valid")
+    })
+    .is_match(target)
 }
 
 struct Files {

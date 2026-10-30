@@ -128,7 +128,7 @@ pub fn build(c: &Corpus, map: &ImportMap) -> Result<ImportPlan> {
 /// `0002-use-y`), the text itself, and its trailing number (`ADR-0002` → `0002`).
 fn by_candidates(by: &str) -> Vec<String> {
     static LINK: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"\[([^\]]*)\]\(([^)\s]+)\)").unwrap());
+        std::sync::LazyLock::new(|| Regex::new(r"\[([^\]]*)\]\(([^)\s]+)\)").expect("static regex is valid"));
     let mut out = vec![];
     let mut texts = vec![];
     for c in LINK.captures_iter(by) {
@@ -292,7 +292,7 @@ fn dir_of(p: &str) -> &str {
 /// files outside the import stay for L1/L2 to report.
 fn rewrite_links(out: &mut ImportPlan, by_source: &BTreeMap<String, String>) {
     static LINK: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"\]\(([^)\s#]+)(#[^)\s]*)?\)").unwrap());
+        std::sync::LazyLock::new(|| Regex::new(r"\]\(([^)\s#]+)(#[^)\s]*)?\)").expect("static regex is valid"));
     let paths: BTreeMap<String, String> =
         out.rows.iter().filter(|r| r.kind == "doc").map(|r| (r.id.clone(), r.path.clone())).collect();
     for row in out.rows.iter_mut().filter(|r| r.kind == "doc" && !r.old_main.is_empty()) {

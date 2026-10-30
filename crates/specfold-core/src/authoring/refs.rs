@@ -5,7 +5,8 @@ use serde_json::{Map, Value};
 
 /// Replaces `[[old]]` and `[[old#anchor]]` (and `[[old|label]]`) with the new id in Markdown text.
 pub fn rewrite_body(text: &str, old: &str, new: &str) -> String {
-    let re = Regex::new(&format!(r"\[\[{}(#[^\]|]*)?(\|[^\]]*)?\]\]", regex::escape(old))).unwrap();
+    let re = Regex::new(&format!(r"\[\[{}(#[^\]|]*)?(\|[^\]]*)?\]\]", regex::escape(old)))
+        .expect("an escaped id always forms a valid regex");
     re.replace_all(text, |c: &regex::Captures| {
         format!("[[{new}{}{}]]", c.get(1).map_or("", |m| m.as_str()), c.get(2).map_or("", |m| m.as_str()))
     })

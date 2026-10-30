@@ -9,7 +9,9 @@ use std::sync::OnceLock;
 
 fn path_re() -> &'static Regex {
     static R: OnceLock<Regex> = OnceLock::new();
-    R.get_or_init(|| Regex::new(r"(?:^|[\s`(\[])((?:[A-Za-z0-9_.@-]+/){1,6}[A-Za-z0-9_.@-]+)").unwrap())
+    R.get_or_init(|| {
+        Regex::new(r"(?:^|[\s`(\[])((?:[A-Za-z0-9_.@-]+/){1,6}[A-Za-z0-9_.@-]+)").expect("static regex is valid")
+    })
 }
 
 /// Returns the owner and a reason. A single owner must hold at least 60% of the mentions;

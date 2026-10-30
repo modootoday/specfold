@@ -52,7 +52,7 @@ pub fn docs(c: &Corpus, g: &Graph, w: Wants, budget: Option<usize>, only: &[usiz
             parts.iter().map(|(p, t)| (p.clone(), frontmatter::split(t).body.to_string())).collect();
         let parts_for_rev: Vec<translation::Part> =
             bodies.iter().map(|(p, b)| translation::Part { label: p.clone(), body: b.clone() }).collect();
-        let m = v.as_object_mut().unwrap();
+        let m = v.as_object_mut().expect("payload is built as an object");
         m.insert("hash".into(), json!(translation::rev_of_parts(&parts_for_rev)));
         let size: usize = bodies.iter().map(|(_, b)| b.len()).sum();
         let inline = w.body && budget.is_none_or(|b| used + size <= b);
@@ -76,7 +76,7 @@ pub fn docs(c: &Corpus, g: &Graph, w: Wants, budget: Option<usize>, only: &[usiz
             Value::Object(o)
         };
         let main = part(&bodies[0]);
-        for (k, val) in main.as_object().unwrap() {
+        for (k, val) in main.as_object().expect("part() returns an object") {
             if k != "path" {
                 m.insert(k.clone(), val.clone());
             }

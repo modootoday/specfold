@@ -32,23 +32,24 @@ pub struct Body {
 /// `[[target]]` and `[[target|label]]`; group 1 is the target.
 pub fn wiki_re() -> &'static Regex {
     static R: OnceLock<Regex> = OnceLock::new();
-    R.get_or_init(|| Regex::new(r"\[\[([^\[\]\n|]+)(?:\|[^\[\]\n]*)?\]\]").unwrap())
+    R.get_or_init(|| Regex::new(r"\[\[([^\[\]\n|]+)(?:\|[^\[\]\n]*)?\]\]").expect("static regex is valid"))
 }
 
 fn anchor_re() -> &'static Regex {
     static R: OnceLock<Regex> = OnceLock::new();
-    R.get_or_init(|| Regex::new(r"\{#([A-Za-z0-9][A-Za-z0-9_.-]*)\}\s*$").unwrap())
+    R.get_or_init(|| Regex::new(r"\{#([A-Za-z0-9][A-Za-z0-9_.-]*)\}\s*$").expect("static regex is valid"))
 }
 
 fn inline_code_re() -> &'static Regex {
     static R: OnceLock<Regex> = OnceLock::new();
-    R.get_or_init(|| Regex::new(r"`+[^`]*`+").unwrap())
+    R.get_or_init(|| Regex::new(r"`+[^`]*`+").expect("static regex is valid"))
 }
 
 /// Builds the regex that finds plain-text paths into `<spec_dir>/` ending in `.md`.
 pub fn path_cite_re(spec_dir: &str) -> Regex {
     let dir = regex::escape(spec_dir);
-    Regex::new(&format!(r"(?:[A-Za-z0-9_.@-]+/)*{dir}/[A-Za-z0-9_./@-]+\.md")).unwrap()
+    Regex::new(&format!(r"(?:[A-Za-z0-9_.@-]+/)*{dir}/[A-Za-z0-9_./@-]+\.md"))
+        .expect("an escaped spec dir always forms a valid regex")
 }
 
 /// `first_line` is the 1-based line number of the body's first line in the file.

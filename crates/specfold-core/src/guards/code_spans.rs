@@ -6,7 +6,9 @@ use std::sync::OnceLock;
 
 fn code_re() -> &'static Regex {
     static R: OnceLock<Regex> = OnceLock::new();
-    R.get_or_init(|| Regex::new(r"(?s)```.*?```|`[^`\n]+`|<code(?:\s[^>]*)?>.*?</code>").unwrap())
+    R.get_or_init(|| {
+        Regex::new(r"(?s)```.*?```|`[^`\n]+`|<code(?:\s[^>]*)?>.*?</code>").expect("static regex is valid")
+    })
 }
 
 /// Byte spans `[start, end)` of code in `text`.

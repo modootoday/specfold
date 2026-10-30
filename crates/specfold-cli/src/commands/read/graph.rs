@@ -139,7 +139,12 @@ pub fn run(g: &Global, a: &GraphArgs) -> Result<Output> {
                 })
                 .collect();
             for x in &assets {
-                let names: Vec<&str> = x["names"].as_array().unwrap().iter().filter_map(|v| v.as_str()).collect();
+                let names: Vec<&str> = x["names"]
+                    .as_array()
+                    .expect("graph nodes always carry a names array")
+                    .iter()
+                    .filter_map(|v| v.as_str())
+                    .collect();
                 o = o.foot(format!(
                     "asset {} {}  names {}",
                     x["kind"].as_str().unwrap_or(""),
