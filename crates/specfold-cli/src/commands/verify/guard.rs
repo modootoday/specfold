@@ -9,6 +9,14 @@ use specfold_core::guards::{self, GuardRange};
 
 pub fn run(g: &Global, a: &GuardArgs) -> Result<Output> {
     let cfg = session::config(g)?;
+    if a.write_baseline && !a.yes {
+        // A baseline hides today's hits from every later run: --yes confirms it (CLI-3).
+        let names = if a.names.is_empty() { String::new() } else { format!(" {}", a.names.join(" ")) };
+        return Ok(Output::new("guard")
+            .field("written", false)
+            .head("would record each guard's current hits as its baseline, hiding them from later runs: nothing was written")
+            .next(format!("spec guard{names} --write-baseline --yes")));
+    }
     if a.write_baseline {
         let mut o = Output::new("guard");
         for (name, rel, hits) in guards::write_baselines(&cfg, &a.names)? {

@@ -32,6 +32,19 @@ pub struct CommandInfo {
     pub notes: String,
     /// The schema name of its --json output.
     pub output: String,
+    /// CLI-2: what it can do at worst: read, write (files in the repository), destructive
+    /// (deletes or overwrites; needs --yes as well) or external (sends or runs something outside).
+    pub risk: String,
+}
+
+/// CLI-2: the risk level of each command, its worst case with every flag.
+pub fn risk(name: &str) -> &'static str {
+    match name {
+        "new" | "set" | "edit" | "mv" | "fix" | "init" | "import" | "audit" | "check" | "guard" => "write",
+        "sync" | "export" => "destructive",
+        "attach" | "fetch" | "verify" | "plugins" => "external",
+        _ => "read",
+    }
 }
 
 const GLOBAL: &[&str] = &["json", "jsonl", "limit", "offset", "max_bytes", "dir", "no_local", "help", "version"];
@@ -71,6 +84,7 @@ fn info(c: &clap::Command) -> CommandInfo {
         examples,
         notes,
         output: format!("spec.{}.v1", c.get_name()),
+        risk: risk(c.get_name()).to_string(),
     }
 }
 

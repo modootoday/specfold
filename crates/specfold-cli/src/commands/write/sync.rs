@@ -34,6 +34,12 @@ pub fn run(g: &Global, a: &SyncArgs) -> Result<Output> {
     if plan.changes.is_empty() {
         return Ok(o.field("written", false).foot("every copy matches its source").next("spec audit --kind drift"));
     }
-    let rerun = if a.prune { "spec sync assets --prune --write" } else { "spec sync assets --write" };
+    // Deleting files is destructive: --prune applies only with --yes as well (CLI-3).
+    let removes = plan.changes.iter().any(|c| matches!(c, specfold_core::authoring::Change::Remove { .. }));
+    if a.write && removes && !a.yes {
+        let o = o.head("--prune deletes files: nothing was written; add --yes to confirm");
+        return preview::finish(o, &plan, &cfg.root, false, "spec sync assets --prune --write --yes");
+    }
+    let rerun = if a.prune { "spec sync assets --prune --write --yes" } else { "spec sync assets --write" };
     preview::finish(o, &plan, &cfg.root, a.write, rerun)
 }

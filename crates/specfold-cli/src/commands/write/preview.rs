@@ -60,8 +60,31 @@ pub fn finish(mut o: Output, plan: &Plan, root: &Path, write: bool, rerun: &str)
     }
     if write {
         plan.apply(root)?;
-        Ok(o.field("written", true).foot(format!("{} change(s) written", plan.changes.len())))
+        let undo = undo(plan);
+        Ok(o.field("written", true)
+            .field("undo", undo.clone())
+            .foot(format!("{} change(s) written", plan.changes.len()))
+            .foot(format!("undo: {undo}")))
     } else {
         Ok(o.field("written", false).foot("preview only; nothing was written").next(rerun.to_string()))
     }
+}
+
+/// CLI-5: a git command that takes back what a write changed, new files included; it keeps the
+/// changes in a stash, so the undo itself can be undone with `git stash pop`.
+pub fn undo(plan: &Plan) -> String {
+    let mut paths: Vec<String> = vec![];
+    for c in &plan.changes {
+        match c {
+            Change::Write { path, .. } | Change::Remove { path } => paths.push(path.clone()),
+            Change::Move { from, to } | Change::Copy { from, to } => {
+                paths.push(from.clone());
+                paths.push(to.clone());
+            }
+        }
+    }
+    paths.sort();
+    paths.dedup();
+    let words: Vec<String> = paths.iter().map(|p| crate::session::shell_word(p)).collect();
+    format!("git stash push --include-untracked -- {}", words.join(" "))
 }

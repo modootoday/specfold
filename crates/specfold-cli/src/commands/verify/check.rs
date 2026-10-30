@@ -149,8 +149,19 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
         check::run(&s.corpus, &s.graph, range, &opts, &Selection { only: a.rules.clone(), skip: a.skip.clone() })?;
     if a.write_baseline {
         let b = baseline::measure(&s.corpus, &report.findings)?;
-        let rel = baseline::write(&s.corpus, &b)?;
         let total: usize = b.counts.values().sum();
+        // A baseline hides today's errors from every later run: --yes confirms it (CLI-3).
+        if !a.yes {
+            return Ok(Output::new("check")
+                .field("written", false)
+                .field("baselined", total)
+                .head(format!(
+                    "would record {total} error(s) in {} rule/path pair(s) as the baseline, hiding them from later runs: nothing was written",
+                    b.counts.len()
+                ))
+                .next("spec check --write-baseline --yes"));
+        }
+        let rel = baseline::write(&s.corpus, &b)?;
         return Ok(Output::new("check")
             .field("baseline", rel.clone())
             .field("measured_on", b.measured_on.clone())

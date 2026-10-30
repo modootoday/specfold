@@ -80,4 +80,7 @@ pub struct ExportArgs {
     /// read everything before it leaves.
     #[arg(long)]
     pub no_guard: bool,
+    /// Confirm an action that deletes, overwrites or sends files out (with its write flag).
+    #[arg(long)]
+    pub yes: bool,
 }

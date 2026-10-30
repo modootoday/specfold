@@ -1,4 +1,5 @@
-//! The CLI contract (C1–C10) checked for every command, so an agent can rely on it.
+//! The CLI contract (C1–C10) and the CLI conventions (CLI-1–CLI-16) checked for every command, so an
+//! agent can rely on them. Contracts C1–C10 are not the usability findings C1… in research notes.
 
 mod common;
 
@@ -204,3 +205,138 @@ fn help_next_is_the_first_example_without_padding_or_comment() {
     assert_eq!(code, 0, "{t}");
     assert!(t.trim_end().ends_with("next: spec guard"), "{t}");
 }
+
+// ---- CLI conventions CLI-1–CLI-16 (AGENTS.md). Rules not implemented yet are ignored with a reason.
+
+#[test]
+fn cli1_writes_need_write_flag_everywhere() {
+    let (r, sot, adr) = populated();
+    let path = r.json(&["resolve", &adr]).1["path"].as_str().unwrap().to_string();
+    let before = r.read(&path);
+    let (code, v) = r.json(&["edit", &adr, "--section", "Decision", "--text", "Use cards."]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["written"], false);
+    assert!(v["next"].as_str().unwrap().contains("--write"), "{v}");
+    assert_eq!(r.read(&path), before);
+    // --dry-run is accepted by every write command and writes nothing.
+    for args in [
+        vec!["edit", &adr, "--section", "Decision", "--text", "x", "--dry-run"],
+        vec!["mv", &sot, "--slug", "basket", "--dry-run"],
+        vec!["fix", "--dry-run"],
+        vec!["sync", "assets", "--dry-run"],
+        vec!["audit", "--dry-run"],
+        vec!["set", &adr, "tags+=money", "--dry-run"],
+    ] {
+        let (code, v) = r.json(&args);
+        assert!(code < 2, "spec {args:?}: {v}");
+    }
+    assert_eq!(r.read(&path), before);
+    // --dry-run and --write together are a usage error.
+    let out = r.spec().args(["mv", &sot, "--slug", "b", "--dry-run", "--write"]).output().unwrap();
+    assert_eq!(out.status.code(), Some(2));
+}
+
+#[test]
+fn cli1_new_without_write_warns_on_stderr_until_0_4() {
+    let r = common::repo();
+    let out =
+        r.spec().args(["new", "plan", "--governs", "services/blog", "--title", "Blog", "--json"]).output().unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(err.contains("from 0.4 it previews unless --write"), "{err}");
+    serde_json::from_slice::<Value>(&out.stdout).expect("stdout stays JSON");
+    let out = r
+        .spec()
+        .args(["new", "plan", "--governs", "services/blog", "--title", "Blog two", "--write"])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    assert!(!String::from_utf8_lossy(&out.stderr).contains("warning"));
+}
+
+#[test]
+fn cli2_every_command_declares_risk() {
+    let r = common::repo();
+    let (_, v) = r.json(&["help"]);
+    for c in v["items"].as_array().unwrap() {
+        let risk = c["risk"].as_str().unwrap_or_default();
+        assert!(["read", "write", "destructive", "external"].contains(&risk), "{} risk {risk:?}", c["name"]);
+    }
+    let risk = |n: &str| v["items"].as_array().unwrap().iter().find(|c| c["name"] == n).unwrap()["risk"].clone();
+    assert_eq!(risk("show"), "read");
+    assert_eq!(risk("edit"), "write");
+    assert_eq!(risk("sync"), "destructive");
+    assert_eq!(risk("attach"), "external");
+}
+
+#[test]
+fn cli3_destructive_needs_yes_off_tty() {
+    let (r, _, _) = populated();
+    r.write("services/shop/src/cart/total.rs", "// TODO: round\n");
+    r.commit("code");
+    let (_, v) = r.json(&["check"]);
+    if v["items"].as_array().unwrap().iter().any(|f| f["severity"] == "error") {
+        let (code, v) = r.json(&["check", "--write-baseline"]);
+        assert!(code < 2, "{v}");
+        assert_eq!(v["written"], false, "{v}");
+        assert!(v["next"].as_str().unwrap().ends_with("--yes"), "{v}");
+        assert!(!r.path().join(".specfold/baseline.json").exists());
+    }
+    let (code, v) = r.json(&["guard", "--write-baseline"]);
+    assert!(code < 2, "{v}");
+    assert_eq!(v["written"], false, "{v}");
+    assert!(v["next"].as_str().unwrap().contains("--write-baseline --yes"), "{v}");
+}
+
+#[test]
+#[ignore = "CLI-4 not implemented: overwrite checks ownership only for export (manifest); --force is not a flag yet"]
+fn cli4_overwrite_needs_ownership_or_force() {}
+
+#[test]
+fn cli5_writes_list_changes_and_an_undo() {
+    let (r, _, adr) = populated();
+    let (code, v) = r.json(&["edit", &adr, "--section", "Decision", "--text", "Use cards.", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    assert!(v["undo"].as_str().unwrap().starts_with("git stash push --include-untracked -- "), "{v}");
+    let (_, text) = r.text(&["edit", &adr, "--section", "Decision", "--text", "Use cash.", "--write"]);
+    assert!(text.contains("undo: git stash push"), "{text}");
+}
+
+#[test]
+#[ignore = "CLI-7 not implemented: no bound on bulk writes yet"]
+fn cli7_bulk_writes_are_bounded() {}
+
+#[test]
+fn cli8_stdout_is_data_only() {
+    let r = common::repo();
+    let out =
+        r.spec().args(["new", "plan", "--governs", "services/blog", "--title", "Blog", "--json"]).output().unwrap();
+    serde_json::from_slice::<Value>(&out.stdout).expect("diagnostics stay off stdout");
+}
+
+#[test]
+fn cli9_no_color() {
+    let (r, sot, _) = populated();
+    for env in [Some("1"), None] {
+        let mut c = r.spec();
+        c.args(["show", &sot]);
+        if let Some(v) = env {
+            c.env("NO_COLOR", v);
+        }
+        let out = c.output().unwrap();
+        assert!(!out.stdout.contains(&0x1b), "ESC in piped output (NO_COLOR={env:?})");
+        assert!(!out.stderr.contains(&0x1b), "ESC in piped stderr (NO_COLOR={env:?})");
+    }
+}
+
+#[test]
+#[ignore = "CLI-11 not implemented: no registry of shared flag meanings yet"]
+fn cli11_shared_flags_have_one_meaning() {}
+
+#[test]
+#[ignore = "CLI-12 not implemented: default help lists every command; --all is not a flag yet"]
+fn cli12_default_help_is_short() {}
+
+#[test]
+#[ignore = "CLI-13 not implemented: help JSON has no deprecated marker yet"]
+fn cli13_deprecated_aliases_warn() {}

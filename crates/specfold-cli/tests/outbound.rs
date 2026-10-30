@@ -23,13 +23,13 @@ fn an_upload_with_a_secret_is_refused_unless_its_guard_is_allowed() {
     with_store(&r, SECRETS);
     let d = r.new_doc("design", "services/shop", "Runs");
     r.write("run.log", &format!("connecting to {}\n", leaky_url()));
-    let (code, v) = r.json(&["attach", &d, "run.log", "--store", "--write"]);
+    let (code, v) = r.json(&["attach", &d, "run.log", "--store", "--write", "--yes"]);
     assert_eq!(code, 1, "{v}");
     let s = v.to_string();
     assert!(s.contains("connection string") && !s.contains("Et-77x"), "{s}");
-    assert_eq!(v["next"], format!("spec attach {d} run.log --store --write --allow-hit secrets"));
+    assert_eq!(v["next"], format!("spec attach {d} run.log --store --write --yes --allow-hit secrets"));
     assert!(r.json(&["files", &d]).1.to_string().find("run.log").is_none(), "nothing attached");
-    let (code, v) = r.json(&["attach", &d, "run.log", "--store", "--write", "--allow-hit", "secrets"]);
+    let (code, v) = r.json(&["attach", &d, "run.log", "--store", "--write", "--yes", "--allow-hit", "secrets"]);
     assert_eq!(code, 0, "{v}");
     assert_eq!(v["guard"][0]["allowed"], true);
 }
@@ -40,7 +40,7 @@ fn a_warn_guard_shows_its_hit_and_uploads() {
     with_store(&r, &format!("{SECRETS}level = \"warn\"\n"));
     let d = r.new_doc("design", "services/shop", "Runs");
     r.write("run.log", &format!("connecting to {}\n", leaky_url()));
-    let (code, v) = r.json(&["attach", &d, "run.log", "--store", "--write"]);
+    let (code, v) = r.json(&["attach", &d, "run.log", "--store", "--write", "--yes"]);
     assert_eq!(code, 0, "{v}");
     assert_eq!(v["guard"][0]["level"], "warn");
 }
@@ -51,7 +51,7 @@ fn clean_and_placeholder_uploads_pass_and_unknown_guards_are_named() {
     with_store(&r, SECRETS);
     let d = r.new_doc("design", "services/shop", "Runs");
     r.write("run.log", "url postgres://app:${DB_PASSWORD}@db.acme.io/x and mysql://root:hunter22@localhost/x\n");
-    let (code, v) = r.json(&["attach", &d, "run.log", "--store", "--write"]);
+    let (code, v) = r.json(&["attach", &d, "run.log", "--store", "--write", "--yes"]);
     assert_eq!(code, 0, "{v}");
     let (code, v) = r.json(&["attach", &d, "run.log", "--store", "--allow-hit", "nope"]);
     assert_ne!(code, 0);
@@ -99,12 +99,12 @@ fn a_denied_term_guard_refuses_an_upload_too() {
     with_store(&r, "[[guards]]\nname = \"terms\"\ndeny_terms = [\"orchid-internal\"]\nrange = \"all\"\n");
     let d = r.new_doc("design", "services/shop", "Runs");
     r.write("run.log", "host Orchid-Internal-7\n");
-    let (code, v) = r.json(&["attach", &d, "run.log", "--store", "--write"]);
+    let (code, v) = r.json(&["attach", &d, "run.log", "--store", "--write", "--yes"]);
     assert_eq!(code, 1, "{v}");
     assert_eq!(v["guard"][0]["guard"], "terms", "{v}");
     assert_eq!(v["guard"][0]["allowed"], false, "{v}");
     assert!(!v.to_string().contains("Orchid-Internal-7"), "the matched text is never printed: {v}");
-    assert_eq!(v["next"], format!("spec attach {d} run.log --store --write --allow-hit terms"));
+    assert_eq!(v["next"], format!("spec attach {d} run.log --store --write --yes --allow-hit terms"));
 }
 
 #[test]
@@ -116,7 +116,7 @@ fn allowing_one_guard_does_not_let_another_through() {
     );
     let d = r.new_doc("design", "services/shop", "Runs");
     r.write("run.log", &format!("{}\norchid-internal\n", leaky_url()));
-    let (code, v) = r.json(&["attach", &d, "run.log", "--store", "--write", "--allow-hit", "secrets"]);
+    let (code, v) = r.json(&["attach", &d, "run.log", "--store", "--write", "--yes", "--allow-hit", "secrets"]);
     assert_eq!(code, 1, "{v}");
     let hits = v["guard"].as_array().unwrap();
     assert_eq!(hits.len(), 2, "{v}");
@@ -182,11 +182,11 @@ fn attach_runs_the_built_in_secrets_check_with_no_guard_configured() {
     with_store(&r, "");
     let d = r.new_doc("design", "services/shop", "Runs");
     r.write("run.log", &format!("connecting to {}\n", leaky_url()));
-    let (code, v) = r.json(&["attach", &d, "run.log", "--store", "--write"]);
+    let (code, v) = r.json(&["attach", &d, "run.log", "--store", "--write", "--yes"]);
     assert_eq!(code, 1, "a store upload is refused: {v}");
     assert!(!v.to_string().contains("Et-77x"), "{v}");
-    assert_eq!(v["next"], format!("spec attach {d} run.log --store --write --allow-hit secrets"));
-    let (code, v) = r.json(&["attach", &d, "run.log", "--store", "--write", "--allow-hit", "secrets"]);
+    assert_eq!(v["next"], format!("spec attach {d} run.log --store --write --yes --allow-hit secrets"));
+    let (code, v) = r.json(&["attach", &d, "run.log", "--store", "--write", "--yes", "--allow-hit", "secrets"]);
     assert_eq!(code, 0, "{v}");
     assert_eq!(v["guard"][0]["allowed"], true, "{v}");
     r.write("small.log", &format!("db {}\n", leaky_url()));

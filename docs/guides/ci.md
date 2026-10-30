@@ -29,7 +29,7 @@ rule, and `--json` gives one object for tooling.
 
 ## Adopt gradually
 
-`spec check --write-baseline` records today's findings in a committed file, so only new findings
+`spec check --write-baseline --yes` records today's findings in a committed file, so only new findings
 fail. `[check] severity` sets a rule to `error`, `warn` or `off`. `[check] strict` lists paths that
 never get a baseline.
 
