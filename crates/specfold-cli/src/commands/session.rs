@@ -113,6 +113,18 @@ pub fn resolve(s: &Session, text: &str) -> Result<usize> {
         let tail = format!("/{text}");
         by_slug = (0..s.corpus.docs.len()).filter(|&i| s.corpus.docs[i].id.to_string().ends_with(&tail)).collect();
     }
+    if by_slug.is_empty() {
+        // `plan:root/payment-rollout`: the id with its slug in place of the timestamp.
+        if let Some((head, slug)) = text.rsplit_once('/').filter(|(h, _)| h.contains(':')) {
+            by_slug = (0..s.corpus.docs.len())
+                .filter(|&i| {
+                    let d = &s.corpus.docs[i];
+                    let id = d.id.to_string();
+                    d.slug == slug && id.rsplit_once('/').is_some_and(|(h, _)| h == head)
+                })
+                .collect();
+        }
+    }
     match by_slug.as_slice() {
         [i] => Ok(*i),
         [] => {

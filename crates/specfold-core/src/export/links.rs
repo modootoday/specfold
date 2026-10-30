@@ -42,6 +42,49 @@ pub struct Link {
 /// The references in `body`, skipping fenced code blocks and inline code like rule L1 does.
 pub fn occurrences(body: &str) -> Vec<Occurrence> {
     let mut out = Vec::new();
+    outside_code(body, wiki_re(), |start, m| {
+        let whole = m.get(0).unwrap();
+        let inner = &whole.as_str()[2..whole.as_str().len() - 2];
+        let label = inner.split_once('|').map(|(_, l)| l.trim().to_string()).filter(|l| !l.is_empty());
+        out.push(Occurrence {
+            span: (start + whole.start(), start + whole.end()),
+            raw: whole.as_str().to_string(),
+            target: m[1].trim().to_string(),
+            label,
+        });
+    });
+    out
+}
+
+/// `[text](plan:root/…)`: a Markdown link whose target has the shape of a document id. Such a
+/// link is not a reference: rule L1 warns and points at `[[id]]`, and the built-in export
+/// rewrites the ones that resolve.
+fn md_id_re() -> &'static regex::Regex {
+    static R: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
+    R.get_or_init(|| {
+        regex::Regex::new(r"(^|[^!\]])\[([^\[\]\n]*)\]\(<?([a-z][a-z0-9_-]*:[^\s()<>/:]+/[^\s()<>]+)>?\)").unwrap()
+    })
+}
+
+/// The Markdown links in `body` whose target looks like `<type>:<owner>/<rest>`, outside code.
+pub fn md_id_occurrences(body: &str) -> Vec<Occurrence> {
+    let mut out = Vec::new();
+    outside_code(body, md_id_re(), |start, m| {
+        let lead = m.get(1).map_or(0, |g| g.len());
+        let whole = m.get(0).unwrap();
+        let text = m[2].trim().to_string();
+        out.push(Occurrence {
+            span: (start + whole.start() + lead, start + whole.end()),
+            raw: whole.as_str()[lead..].to_string(),
+            target: m[3].to_string(),
+            label: Some(text).filter(|l| !l.is_empty()),
+        });
+    });
+    out
+}
+
+/// Calls `each(line_start, captures)` for every match of `re` outside fences and inline code.
+fn outside_code(body: &str, re: &regex::Regex, mut each: impl FnMut(usize, &regex::Captures)) {
     let mut fence: Option<String> = None;
     let mut offset = 0;
     for line in body.split_inclusive('\n') {
@@ -61,22 +104,14 @@ pub fn occurrences(body: &str) -> Vec<Occurrence> {
             continue;
         }
         let code = code_spans(line);
-        for m in wiki_re().captures_iter(line) {
+        for m in re.captures_iter(line) {
             let whole = m.get(0).unwrap();
             if code.iter().any(|&(a, b)| whole.start() < b && whole.end() > a) {
                 continue;
             }
-            let inner = &line[whole.start() + 2..whole.end() - 2];
-            let label = inner.split_once('|').map(|(_, l)| l.trim().to_string()).filter(|l| !l.is_empty());
-            out.push(Occurrence {
-                span: (start + whole.start(), start + whole.end()),
-                raw: whole.as_str().to_string(),
-                target: m[1].trim().to_string(),
-                label,
-            });
+            each(start, &m);
         }
     }
-    out
 }
 
 /// Byte ranges of inline code on one line.
@@ -184,8 +219,15 @@ fn remote(cfg: &Config, text: &str, l: &mut Link) {
 }
 
 /// Every reference in `body`, resolved.
+/// Markdown links to a document id count as references here when they resolve, so an export
+/// rewrites them; one that resolves to nothing is left as written.
 pub fn of_body(c: &Corpus, g: &Graph, body: &str) -> Vec<Link> {
-    occurrences(body).iter().map(|o| resolve(c, g, o)).collect()
+    let mut out: Vec<Link> = occurrences(body).iter().map(|o| resolve(c, g, o)).collect();
+    out.extend(
+        md_id_occurrences(body).iter().map(|o| resolve(c, g, o)).filter(|l| l.idx.is_some() && l.remote.is_none()),
+    );
+    out.sort_by_key(|l| l.span.0);
+    out
 }
 
 #[cfg(test)]
@@ -201,5 +243,16 @@ mod tests {
         assert_eq!(o[0].target, "a:b/c");
         assert_eq!(o[0].label.as_deref(), Some("the c"));
         assert_eq!(&body[o[1].span.0..o[1].span.1], "[[d:e#F]]");
+    }
+
+    #[test]
+    fn markdown_links_shaped_like_ids() {
+        let body = "See [the plan](plan:root/2026) and [x](https://a.b/c), ![i](img:a/b),\n`[c](plan:a/b)` [d](<adr:shop/x#Y>).\n";
+        let o = md_id_occurrences(body);
+        assert_eq!(o.len(), 2, "{o:?}");
+        assert_eq!(&body[o[0].span.0..o[0].span.1], "[the plan](plan:root/2026)");
+        assert_eq!(o[0].target, "plan:root/2026");
+        assert_eq!(o[0].label.as_deref(), Some("the plan"));
+        assert_eq!(o[1].target, "adr:shop/x#Y");
     }
 }

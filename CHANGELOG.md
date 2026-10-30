@@ -18,9 +18,19 @@ Release notes for each version are also on
   files) over files bound for the store before uploading; an error-level hit refuses, a warn
   hit is shown, and `--allow-hit <guard>` lets one guard's hits through. Matched values are
   never printed.
-- `spec export` runs the guards marked `public = true` over what leaves (the built-in tree, or
-  the source files of the documents a plugin receives) and writes nothing, nor calls the
-  plugin, on an error-level hit; `--no-guard` skips them.
+- `spec export` runs the built-in secrets check, and the guards marked `public = true`, over
+  what leaves (the built-in tree, or the source files of the documents a plugin receives) and
+  writes nothing, nor calls the plugin, on an error-level hit. The secrets check runs even when
+  no guard is configured; `--no-guard` skips the check and the guards.
+- Rule L1 warns about a Markdown link whose target is a document id (`[text](plan:root/…)`)
+  and offers `[[id|text]]` (`spec fix --rule L1 --write`); the built-in export rewrites the
+  ones that resolve into the target's link.
+- A timestamp-keyed document resolves by its id with the slug in place of the timestamp:
+  `plan:root/payment-rollout` names `plan:root/20261030020644`.
+- `spec export markdown` ends with a next command, and its missing `--target`/`--out` and
+  non-empty `--out` errors offer a runnable one. The export guide documents how same-named
+  files get `-2`, `-3`.
+- The Markdown source of the export guide is published at `/guides/export/index.md`.
 - `spec mcp` replaces built-in secret matches with `[redacted: <pattern>]` in tool results and
   reports the count as `redacted`; `[mcp] redact = false` turns it off. `spec edit` and
   `spec set` refuse text holding a redaction marker the document does not already hold.
@@ -40,6 +50,7 @@ Release notes for each version are also on
 ### Changed
 
 - `spec new` and `spec set` accept `--write` (they always write).
+- A missing-section error from `spec edit` and `spec show` no longer lists the H1 title.
 - `spec new --translation` no longer suggests `--title` when the title comes from the source.
 - An error that ends with a runnable `spec …` command offers it as `next`.
 - Exporter plugins no longer receive `.spec.local` documents unless `--local` is given; edges to

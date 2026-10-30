@@ -94,7 +94,13 @@ fn refuses_unsafe_output_and_fails_on_unresolved() {
     let (code, v) = r.json(&["export", "markdown", "--target", "mkdocs", "--out", "notes"]);
     assert_ne!(code, 0);
     assert!(v["error"].as_str().unwrap_or_default().contains("not empty"), "{v}");
+    assert_eq!(v["next"], "spec export markdown --target mkdocs --out notes-export", "{v}");
     assert_eq!(r.read("notes/keep.md"), "mine\n");
+    let (_, v) = r.json(&["export", "markdown", "--out", "site"]);
+    assert_eq!(v["next"], "spec export markdown --target obsidian --out site", "{v}");
+    let (code, v) = r.json(&["export", "markdown", "--target", "mkdocs", "--out", "fresh"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["next"], "spec check --rule L1", "two references lead nowhere: {v}");
     let (code, _) = r.json(&["export", "markdown", "--target", "mkdocs", "--out", "."]);
     assert_ne!(code, 0);
     let (code, _) = r.json(&["export", "markdown", "--target", "mkdocs", "--out", "services/shop/.spec/x"]);
@@ -235,6 +241,34 @@ fn the_public_guard_stops_an_export_that_holds_a_secret() {
     assert_eq!(code, 0, "{v}");
 }
 
+#[test]
+fn the_built_in_secrets_check_runs_with_no_guard_configured() {
+    let r = corpus();
+    let path = "services/shop/.spec/sot/checkout.sot.md";
+    r.write(path, &(CHECKOUT.to_string() + "\nDSN: " + &leaky_url() + "\n"));
+    let (code, v) = r.json(&["export", "markdown", "--target", "mkdocs", "--out", "site"]);
+    assert_eq!(code, 1, "{v}");
+    assert!(!r.path().join("site").exists(), "nothing is written");
+    let s = v.to_string();
+    assert!(s.contains("built-in check") && !s.contains("Et-77x"), "{s}");
+    assert_eq!(v["next"], "spec help export", "{v}");
+    let (_, t) = r.text(&["export", "markdown", "--target", "mkdocs", "--out", "site"]);
+    assert!(t.contains("pass --no-guard"), "{t}");
+    let (code, v) = r.json(&["export", "markdown", "--target", "mkdocs", "--out", "site", "--no-guard"]);
+    assert_eq!(code, 0, "{v}");
+}
+
+#[test]
+fn a_guard_and_the_built_in_check_report_a_line_once() {
+    let r = corpus();
+    with_public_guard(&r);
+    let path = "services/shop/.spec/sot/checkout.sot.md";
+    r.write(path, &(CHECKOUT.to_string() + "\nDSN: " + &leaky_url() + "\n"));
+    let (code, v) = r.json(&["export", "markdown", "--target", "mkdocs", "--out", "site"]);
+    assert_eq!(code, 1, "{v}");
+    assert_eq!(v["guard"].as_array().map(|a| a.len()), Some(1), "{v}");
+}
+
 #[cfg(unix)]
 #[test]
 fn the_public_guard_runs_before_a_plugin_is_called() {
@@ -250,4 +284,26 @@ fn the_public_guard_runs_before_a_plugin_is_called() {
     let (code, v) = r.json(&["export", "rich"]);
     assert_eq!(code, 0, "a placeholder passes: {v}");
     assert!(seen.exists());
+}
+
+#[test]
+fn a_markdown_link_to_an_id_is_warned_about_and_rewritten_on_export() {
+    let r = common::repo();
+    let a = CHECKOUT.replace(
+        "The decision is [[adr:shop/20260101000000]]; see also [[sot:shop/nowhere]].",
+        "The decision is [the tax rule](adr:shop/20260101000000); also [gone](adr:shop/1999).",
+    );
+    let a = a.replace("Notes: [[adr:shop/20260102000000]].", "Notes.");
+    r.write("services/shop/.spec/sot/checkout.sot.md", &a);
+    r.write("services/shop/.spec/adr/20260101000000-cart-totals.adr.md", TOTALS);
+    let (_, v) = r.json(&["check"]);
+    let s = v.to_string();
+    assert!(s.contains("[[adr:shop/20260101000000|the tax rule]]"), "{s}");
+    assert!(s.contains("[gone](adr:shop/1999) is a Markdown link to a document id that names no document"), "{s}");
+    let (code, v) = r.json(&["export", "markdown", "--target", "mkdocs", "--out", "site"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["next"], "spec export markdown --target mkdocs --out site", "{v}");
+    let page = r.read("site/shop/sot/checkout.md");
+    assert!(page.contains("[the tax rule](../adr/cart-totals.md)"), "{page}");
+    assert!(page.contains("[gone](adr:shop/1999)"), "left as written: {page}");
 }

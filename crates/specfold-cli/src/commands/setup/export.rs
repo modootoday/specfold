@@ -9,7 +9,7 @@ use serde_json::{Value, json};
 use specfold_core::export::{self, markdown, payload::Wants};
 use specfold_core::plugins::{self, payload, process};
 
-/// Runs the public guards over what is about to leave. Some(output) when they refuse; the hits
+/// Runs the built-in secrets check and the public guards over what is about to leave; the hits
 /// that let it through are added to `o` either way.
 fn guard(
     cfg: &specfold_core::Config,
@@ -18,19 +18,31 @@ fn guard(
     o: Output,
 ) -> Result<(Output, bool)> {
     if a.no_guard {
-        return Ok((o.foot("public guards skipped (--no-guard)"), false));
+        return Ok((o.foot("secrets check and public guards skipped (--no-guard)"), false));
     }
-    let gate = outbound::gate(cfg, |g| g.public, blobs, &[])?;
+    let mut gate = outbound::gate(cfg, |g| g.public, blobs, &[])?;
+    // The built-in secrets check runs even with no public guard configured; a line a guard
+    // already reported is not reported twice.
+    for (g, f) in specfold_core::guards::builtin_secrets(blobs) {
+        if !gate.hits.iter().any(|(_, h, _)| h.path == f.path && h.line == f.line) {
+            gate.hits.push((g, f, false));
+        }
+    }
     let mut o = o.field("guard", gate.json());
     for l in gate.lines() {
         o = o.head(l);
     }
     if gate.refuses() {
+        // `spec guard` re-runs a configured guard; the built-in check alone is explained in help.
+        let refusing_guard = gate.refusing().iter().any(|g| g != "secrets");
         let n = gate.hits.iter().filter(|(_, f, _)| f.severity == specfold_core::check::Severity::Error).count();
         return Ok((
-            o.head(format!("nothing exported: public guard {} found {n} hit(s)", gate.refusing().join(", ")))
-                .code(Code::Findings)
-                .next("spec guard --range all"),
+            o.head(format!(
+                "nothing exported: {} found {n} hit(s); remove the value, or pass --no-guard to skip the check",
+                gate.refusing().join(", ")
+            ))
+            .code(Code::Findings)
+            .next(if refusing_guard { "spec guard --range all" } else { "spec help export" }),
             true,
         ));
     }
@@ -90,9 +102,22 @@ pub fn run(g: &Global, a: &ExportArgs) -> Result<Output> {
 
 fn built_in(g: &Global, a: &ExportArgs) -> Result<Output> {
     let names = markdown::Target::ALL.join(", ");
-    let Some(t) = &a.target else { bail!("spec export markdown needs --target ({names})") };
-    let target = markdown::Target::parse(t).ok_or_else(|| anyhow!("unknown --target '{t}' (one of {names})"))?;
-    let Some(out) = &a.out else { bail!("spec export markdown needs --out <dir>") };
+    let first = markdown::Target::ALL[0];
+    let out_word = a.out.as_ref().map_or("export".to_string(), |p| session::shell_word(&p.display().to_string()));
+    let Some(t) = &a.target else {
+        bail!(
+            "spec export markdown needs --target ({names}); next: spec export markdown --target {first} --out {out_word}"
+        )
+    };
+    let target = markdown::Target::parse(t).ok_or_else(|| {
+        anyhow!("unknown --target '{t}' (one of {names}); next: spec export markdown --target {first} --out {out_word}")
+    })?;
+    let Some(out) = &a.out else {
+        bail!(
+            "spec export markdown needs --out <dir>; next: spec export markdown --target {} --out export",
+            target.name()
+        )
+    };
     let strict = match a.fail_on.as_deref() {
         None => false,
         Some("unresolved") => true,
@@ -102,7 +127,15 @@ fn built_in(g: &Global, a: &ExportArgs) -> Result<Output> {
         bail!("--format is for plugins; the built-in exporter takes --target");
     }
     let s = session::open(g)?;
-    let previous = markdown::check_out(out, &s.corpus.cfg.root)?;
+    let previous = markdown::check_out(out, &s.corpus.cfg.root).map_err(|e| {
+        let m = e.to_string();
+        if !(m.contains("not empty") || m.contains("not a directory")) {
+            return e;
+        }
+        // A fresh directory beside the refused one is accepted.
+        let fresh = session::shell_word(&format!("{}-export", out.display().to_string().trim_end_matches('/')));
+        anyhow!("{m}; next: spec export markdown --target {} --out {fresh}", target.name())
+    })?;
     let opts = markdown::Options { target, local: a.local, banner: a.banner };
     let tree = markdown::build(&s.corpus, &s.graph, &opts);
     let n = tree.unresolved.len();
@@ -137,7 +170,11 @@ fn built_in(g: &Global, a: &ExportArgs) -> Result<Output> {
         tree.files.len()
     ));
     if n > 0 {
-        o = o.foot(format!("{n} reference(s) written as plain text"));
+        o = o.foot(format!("{n} reference(s) written as plain text")).next("spec check --rule L1");
+    } else {
+        // Exporting again into the same directory replaces what this export wrote.
+        let again = session::shell_word(&out.display().to_string());
+        o = o.next(format!("spec export markdown --target {} --out {again}", target.name()));
     }
     Ok(o)
 }

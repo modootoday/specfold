@@ -79,6 +79,21 @@ pub fn scan_blobs(
     Ok(out)
 }
 
+/// The built-in secret patterns over `blobs`, with no guard configured: the check `spec export`
+/// always runs. Hits are errors named `secrets`; matched values are never in the message.
+pub fn builtin_secrets(blobs: &[(String, Vec<u8>)]) -> Vec<(String, Finding)> {
+    let mut out = vec![];
+    for (label, bytes) in blobs {
+        let text = String::from_utf8_lossy(bytes);
+        for h in secrets::find(&text) {
+            let line = text[..h.start].matches('\n').count() + 1;
+            let msg = format!("[secrets] {} (built-in check)", h.name);
+            out.push(("secrets".to_string(), Finding::error("U1", label.clone(), line, msg)));
+        }
+    }
+    out
+}
+
 /// Guards that read content for secrets or denied text, the ones an upload must pass.
 pub fn reads_content(g: &GuardDef) -> bool {
     g.secrets

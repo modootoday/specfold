@@ -1701,3 +1701,25 @@ fn a_unique_timestamp_part_of_an_id_opens_the_document() {
     assert_ne!(code, 0, "{text}");
     assert!(text.contains("starts with it") && text.contains(&id), "{text}");
 }
+
+#[test]
+fn a_timestamp_keyed_id_resolves_by_its_slug_in_place_of_the_timestamp() {
+    let r = common::repo();
+    let id = r.new_doc("plan", "services/shop", "Payment rollout");
+    let (head, _) = id.rsplit_once('/').unwrap();
+    let (code, v) = r.json(&["resolve", &format!("{head}/payment-rollout")]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["id"], id.as_str(), "{v}");
+    let (code, _) = r.json(&["resolve", "plan:nowhere/payment-rollout"]);
+    assert_eq!(code, 2);
+}
+
+#[test]
+fn a_missing_section_error_leaves_out_the_title() {
+    let r = common::repo();
+    let id = r.new_doc("plan", "services/shop", "Payment rollout");
+    let (code, v) = r.json(&["edit", &id, "--section", "Nope", "--text", "x"]);
+    assert_ne!(code, 0, "{v}");
+    let s = v.to_string();
+    assert!(s.contains("sections: ") && !s.contains("sections: Payment rollout"), "{s}");
+}

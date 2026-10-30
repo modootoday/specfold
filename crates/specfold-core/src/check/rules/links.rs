@@ -32,7 +32,7 @@ impl Rule for LinksResolve {
         &RuleInfo {
             id: "L1",
             title: "every [[reference]] resolves to one document",
-            explain: "Body references are written [[<id>]] or [[<id>#<anchor>]]. A reference that names nothing, an anchor that does not exist, or an alias shared by two documents is an error. An alias that resolves is accepted but reported, with the id to write instead; `spec fix --rule L1 --write` rewrites them all. [[<remote>:<id>]] names a document in a repository listed in [remotes]; it is checked when that directory is on disk and skipped when it is not.",
+            explain: "Body references are written [[<id>]] or [[<id>#<anchor>]]. A reference that names nothing, an anchor that does not exist, or an alias shared by two documents is an error. A Markdown link whose target is a document id, `[text](<id>)`, is reported with the [[<id>|text]] to write instead (`spec fix --rule L1 --write` rewrites it); the built-in export rewrites the ones that resolve. An alias that resolves is accepted but reported, with the id to write instead; `spec fix --rule L1 --write` rewrites them all. [[<remote>:<id>]] names a document in a repository listed in [remotes]; it is checked when that directory is on disk and skipped when it is not.",
             on_commit: true,
         }
     }
@@ -112,6 +112,46 @@ impl Rule for LinksResolve {
                     }
                 }
             }
+            md_id_links(ctx, d, out);
+        }
+    }
+}
+
+/// `[text](plan:root/…)` is a Markdown link, not a reference: nothing checks it and a reader's
+/// tool cannot open it. Warns and offers `[[id|text]]`.
+fn md_id_links(ctx: &Ctx, d: &crate::model::Doc, out: &mut Vec<Finding>) {
+    let files = std::iter::once(d.path.as_str()).chain(d.chapters.iter().map(String::as_str));
+    for path in files {
+        let Some(text) = ctx.current(path) else { continue };
+        for o in crate::export::links::md_id_occurrences(&text) {
+            let ty = o.target.split(':').next().unwrap_or_default();
+            if !ctx.corpus.docs.iter().any(|x| x.id.ty == ty) {
+                continue;
+            }
+            let line = text[..o.span.0].matches('\n').count() + 1;
+            let wiki = match &o.label {
+                Some(l) => format!("[[{}|{l}]]", o.target),
+                None => format!("[[{}]]", o.target),
+            };
+            let f = match ctx.graph.resolve(&o.target) {
+                Resolution::Doc { .. } => Finding::warn(
+                    "L1",
+                    path,
+                    line,
+                    format!("{} is a Markdown link to a document; write {wiki} so check and export follow it", o.raw),
+                )
+                .fix_replace(o.raw.clone(), wiki),
+                _ => Finding::warn(
+                    "L1",
+                    path,
+                    line,
+                    format!(
+                        "{} is a Markdown link to a document id that names no document; write {wiki} with the id from spec find",
+                        o.raw
+                    ),
+                ),
+            };
+            out.push(f);
         }
     }
 }
