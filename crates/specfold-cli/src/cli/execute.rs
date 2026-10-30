@@ -318,6 +318,11 @@ fn usage_example(argv: &[String], kind: clap::error::ErrorKind, rendered: &str, 
         {
             // C133: an option's value is not a positional word; --title and --governs carry over.
             let (words, opts) = split_new_args(&argv[pos + 1..]);
+            // C178: an option `new` does not have would be carried into the next and fail the
+            // same way; the caller falls back to `spec help new` instead.
+            if opts.iter().any(|(k, _)| !new_knows(k)) {
+                return None;
+            }
             let ty = words.first().map(|t| t.as_str()).unwrap_or("adr");
             let given = opts.iter().find(|(k, _)| k == "--title").and_then(|(_, v)| v.clone());
             let title = match given {
@@ -345,6 +350,17 @@ fn usage_example(argv: &[String], kind: clap::error::ErrorKind, rendered: &str, 
         }
         _ => None,
     }
+}
+
+/// Whether `spec new` (or the global options) defines this flag.
+fn new_knows(flag: &str) -> bool {
+    use clap::CommandFactory;
+    let cmd = Cli::command();
+    let long = flag.trim_start_matches('-');
+    let short = (flag.len() == 2 && !flag.starts_with("--")).then(|| flag.chars().nth(1)).flatten();
+    let all: Vec<_> =
+        cmd.find_subcommand("new").into_iter().flat_map(|c| c.get_arguments()).chain(cmd.get_arguments()).collect();
+    all.iter().any(|a| a.get_long() == Some(long) || (short.is_some() && a.get_short() == short))
 }
 
 /// The positional words and the options of `spec new` arguments in order (a switch has no
