@@ -47,7 +47,7 @@ pub struct FindArgs {
 
 #[derive(Debug, Clone, Args)]
 #[command(
-    after_help = "Examples:\n  spec show sot:shop/cart\n  spec show sot:shop/cart --section rules\n  spec show adr:shop/20260101000000 --rel\n  spec show plan:shop/20260101000000 --tasks"
+    after_help = "Examples:\n  spec show sot:shop/cart\n  spec show sot:shop/cart --section rule\n  spec show adr:shop/20260101000000 --rel\n  spec show plan:shop/20260101000000 --tasks"
 )]
 pub struct ShowArgs {
     /// An id, alias, path, or unique slug.
