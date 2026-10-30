@@ -3,6 +3,27 @@
 Release notes for each version are also on
 [GitHub releases](https://github.com/modootoday/specfold/releases).
 
+## Unreleased
+
+### Added
+
+- `spec export markdown --target obsidian|mkdocs|docusaurus|github-wiki --out <dir>`: a
+  built-in exporter that writes plain Markdown with each target's links, flattened
+  frontmatter, a `.specfold-export.json` manifest, and a report of references written as text
+  (`--fail-on unresolved` to fail instead). `--local` adds `.spec.local` documents; `--banner`
+  names each page's source. The name `markdown` is reserved for it.
+- Exporter plugins can declare `wants: ["body", "links"]` to receive each document's body,
+  `source_rev` hash and resolved references with byte spans; past `--max-bytes`, bodies come as
+  `body_path`.
+- `spec graph consumers` prints a header, a count and scope footer, and `searched` in JSON.
+- `spec help lsp` takes `--dir` and points to the editor setup guide.
+
+### Changed
+
+- `spec new` and `spec set` accept `--write` (they always write).
+- `spec new --translation` no longer suggests `--title` when the title comes from the source.
+- An error that ends with a runnable `spec …` command offers it as `next`.
+
 ## 0.3.0
 
 ### Added
