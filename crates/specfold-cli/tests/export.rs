@@ -449,11 +449,16 @@ fn the_built_in_check_reads_repository_attachments_of_exported_documents() {
 
 #[test]
 fn c104_an_out_outside_the_repository_is_listed_not_git_statused() {
-    let r = corpus();
+    let r = common::repo();
+    r.new_doc("sot", "services/shop/src/cart", "Cart totals");
+    r.commit("docs");
     let outside = tempfile::tempdir().unwrap();
     let out = outside.path().join("vault");
     let (code, v) = r.json(&["export", "markdown", "--target", "obsidian", "--out", out.to_str().unwrap()]);
     assert_eq!(code, 0, "{v}");
-    let (_, v) = r.json(&["export", "markdown", "--target", "obsidian", "--out", out.to_str().unwrap(), "--yes"]);
-    assert!(v["next"].as_str().unwrap_or("").starts_with("ls ") || v["next"] == "spec check --rule L1", "{v}");
+    assert_eq!(v["unresolved"].as_array().unwrap().len(), 0, "{v}");
+    assert_eq!(v["next"], format!("ls {}", out.display()), "git cannot see outside the repository: {v}");
+    let (code, v) = r.json(&["export", "markdown", "--target", "obsidian", "--out", "vault"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["next"], "git status --short -- vault", "inside, git status still applies: {v}");
 }

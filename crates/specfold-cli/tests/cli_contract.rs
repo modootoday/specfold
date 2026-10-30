@@ -474,3 +474,84 @@ fn cli13_renamed_flags_keep_their_old_name_with_a_warning() {
     let tree = v["items"][0]["args"].as_array().unwrap().iter().find(|a| a["long"] == "tree").cloned().unwrap();
     assert_eq!(tree["deprecated_aliases"], serde_json::json!(["all"]), "{tree}");
 }
+
+#[test]
+fn cli6_the_same_write_twice_reports_no_change() {
+    let r = common::repo();
+    let base = r.read("spec.toml");
+    r.write(
+        "spec.toml",
+        &format!("{base}[[assets]]\nkind = \"skill\"\npath = \".claude/skills\"\ncopy_of = \".agents/skills\"\n"),
+    );
+    r.write(".agents/skills/db/SKILL.md", "---\nname: db\ndescription: D.\n---\n");
+    let (_, v) = r.json(&["sync", "assets", "--write"]);
+    assert_eq!(v["written"], true, "{v}");
+    let (code, v) = r.json(&["sync", "assets", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["changes"], 0, "a second run has nothing to do: {v}");
+}
+
+#[test]
+fn cli10_a_flag_beats_project_config() {
+    let (r, sot, _) = populated();
+    let base = r.read("spec.toml");
+    r.write("spec.toml", &format!("{base}[check]\nbaseline = \".specfold/baseline.json\"\n"));
+    let (_, v) = r.json(&["resolve", &sot]);
+    let path =
+        v["path"].as_str().map(String::from).unwrap_or_else(|| v["items"][0]["path"].as_str().unwrap().to_string());
+    let text = r.read(&path);
+    r.write(&path, &format!("{text}\nSee [[sot:nowhere/missing]].\n"));
+    r.commit("broken link");
+    let (_, v) = r.json(&["check", "--write-baseline", "--yes"]);
+    let recorded = v["baselined"].as_u64().unwrap_or(0);
+    assert!(recorded > 0, "the broken link is an error to hold: {v}");
+    let (_, v) = r.json(&["check"]);
+    assert_eq!(v["errors"], 0, "config: the baseline holds today's errors: {v}");
+    let (_, v) = r.json(&["check", "--no-baseline"]);
+    assert_eq!(v["errors"].as_u64().unwrap(), recorded, "the flag overrides [check] baseline: {v}");
+}
+
+#[test]
+fn cli14_skipping_a_safeguard_says_so() {
+    let (r, _, _) = populated();
+    let out = tempfile::tempdir().unwrap();
+    let dir = out.path().join("e");
+    let (_, t) = r.text(&["export", "markdown", "--target", "obsidian", "--out", dir.to_str().unwrap(), "--no-guard"]);
+    assert!(t.contains("skipped (--no-guard)"), "{t}");
+}
+
+#[test]
+fn cli15_off_a_terminal_nothing_waits_for_an_answer() {
+    let (r, _, _) = populated();
+    for args in
+        [&["sync", "assets", "--prune", "--write"][..], &["check", "--write-baseline"], &["guard", "--write-baseline"]]
+    {
+        let out = assert_cmd::Command::cargo_bin("spec")
+            .unwrap()
+            .args(args)
+            .arg("--json")
+            .current_dir(r.path())
+            .write_stdin("y\nyes\n")
+            .timeout(std::time::Duration::from_secs(20))
+            .output()
+            .unwrap();
+        assert!(out.status.code().is_some(), "{args:?} finished without a prompt");
+        let v: Value = serde_json::from_slice(&out.stdout).unwrap();
+        assert_ne!(v["written"], true, "an answer on stdin is never read as --yes: {args:?} {v}");
+    }
+}
+
+#[test]
+fn cli16_the_v1_envelope_keeps_its_fields() {
+    let (r, _, _) = populated();
+    for args in [&["check"][..], &["find"], &["help"]] {
+        let (_, v) = r.json(args);
+        for k in ["schema", "ok", "exit", "items", "total"] {
+            assert!(v.get(k).is_some(), "{args:?} lost {k}: {v}");
+        }
+    }
+    let (_, v) = r.json(&["check"]);
+    for k in ["errors", "warnings", "docs_checked", "docs_total", "rules", "elapsed_ms"] {
+        assert!(v.get(k).is_some(), "spec.check.v1 lost {k}: {v}");
+    }
+}
