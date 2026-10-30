@@ -6,9 +6,10 @@ Release notes for each version are also on
 ## Unreleased
 
 ### Behavior changes
-- `spec check --write-baseline` with `--rule` or `--skip` is refused with exit 2: a baseline is recorded from a full run only (C181).
 
 What an existing command does differs from 0.3.0; check scripts and CI that call these.
+`spec check --write-baseline` with `--rule` or `--skip` is refused with exit 2: a baseline is recorded from a full run only (C181).
+
 
 `-C <dir>` now resolves relative path arguments against `<dir>`, and `next` commands include `-C <dir>`.
 
