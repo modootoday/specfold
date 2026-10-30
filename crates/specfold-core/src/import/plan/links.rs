@@ -139,8 +139,6 @@ fn dir_of(p: &str) -> &str {
 /// Relative links in imported bodies that named old files now point at the new paths; links to
 /// files outside the import stay for L1/L2 to report.
 pub(super) fn rewrite_links(out: &mut ImportPlan, by_source: &BTreeMap<String, String>) {
-    static LINK: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"\]\(([^)\s#]+)(#[^)\s]*)?\)").expect("static regex is valid"));
     let paths: BTreeMap<String, String> =
         out.rows.iter().filter(|r| r.kind == "doc").map(|r| (r.id.clone(), r.path.clone())).collect();
     for row in out.rows.iter_mut().filter(|r| r.kind == "doc" && !r.old_main.is_empty()) {
@@ -152,35 +150,18 @@ pub(super) fn rewrite_links(out: &mut ImportPlan, by_source: &BTreeMap<String, S
             if *path != row.path {
                 continue;
             }
-            let mut fenced = crate::markdown::Fence::default();
-            let mut lines = vec![];
-            for l in content.split_inclusive('\n') {
-                let t = l.trim_start();
-                fenced.step(t);
-                if fenced.inside() {
-                    lines.push(l.to_string());
-                    continue;
-                }
-                lines.push(
-                    LINK.replace_all(l, |c: &regex::Captures| {
-                        let target = &c[1];
-                        let new = (!target.contains("://") && !target.starts_with('/'))
-                            .then(|| join(&old_dir, target))
-                            .flatten()
-                            .and_then(|old| by_source.get(&old))
-                            .and_then(|id| paths.get(id));
-                        match new {
-                            Some(p) => {
-                                count += 1;
-                                format!("]({}{})", relative(&new_dir, p), c.get(2).map_or("", |m| m.as_str()))
-                            }
-                            None => c[0].to_string(),
-                        }
-                    })
-                    .into_owned(),
-                );
-            }
-            *content = lines.concat();
+            // C180: inline, <angle>, reference-definition and percent-encoded links alike;
+            // fenced and inline code stay as written.
+            let (text, n) = crate::markdown::link_dest::rewrite(content, |target| {
+                (!target.contains("://") && !target.starts_with('/'))
+                    .then(|| join(&old_dir, target))
+                    .flatten()
+                    .and_then(|old| by_source.get(&old))
+                    .and_then(|id| paths.get(id))
+                    .map(|p| relative(&new_dir, p))
+            });
+            *content = text;
+            count += n;
         }
         if count > 0 {
             row.notes.push(format!("{count} link(s) to old file names now point at the new paths"));

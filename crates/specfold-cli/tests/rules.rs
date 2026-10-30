@@ -474,3 +474,17 @@ fn c119_audit_archive_next_respects_open_tasks_and_config_warnings_are_counted()
     let (_, v) = r.json(&["doctor"]);
     assert!(v.to_string().contains("correct the type name in [audit] coverage_types"), "{v}");
 }
+
+#[test]
+fn c180_l8_checks_reference_definitions_and_encoded_paths() {
+    let r = common::repo();
+    let id = r.new_doc("adr", "services/shop", "Use files");
+    let p = path_of(&r, &id);
+    let dir = p.rsplit_once('/').unwrap().0.to_string();
+    r.write(&format!("{dir}/a b.md"), "# A\n");
+    let body = "\n[x][gone] [y][ok] [z](a%20b.md) [w](<a b.md>)\n\n[gone]: missing.md \"t\"\n[ok]: <a b.md>\n[^1]: not a link\n\n```\n[r]: missing2.md\n```\n";
+    r.write(&p, &(r.read(&p) + body));
+    let (_, v) = r.json(&["check", "--rule", "L8"]);
+    assert_eq!(rules_hit(&v), ["L8"], "only the missing definition: {v}");
+    assert!(v.to_string().contains("missing.md"), "{v}");
+}

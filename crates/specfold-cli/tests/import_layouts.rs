@@ -329,3 +329,29 @@ fn c118_madr2_plan_says_which_body_lines_repeat_frontmatter() {
     let notes = v.to_string();
     assert!(notes.contains("the body keeps") && notes.contains("'* Status:'"), "C118: {v}");
 }
+
+#[test]
+fn c180_import_rewrites_reference_angle_and_encoded_links_but_not_code() {
+    let r = common::repo();
+    copy_fixture(&r, "madr4");
+    let second = "docs/decisions/0002-use-a-database.md";
+    let mut text = r.read(second);
+    text.push_str(
+        "\nSee [ref][old], [angle](<0001-use-plain-files.md#context-and-problem-statement>) and [enc](0001-use%2Dplain-files.md).\n\n[old]: 0001-use-plain-files.md \"the old record\"\n\nKept: `[code](0001-use-plain-files.md)`\n",
+    );
+    r.write(second, &text);
+    let (_, map) = r.text(&["import", "--preset", "madr"]);
+    r.write("import.toml", &map);
+    r.commit("legacy");
+    let (code, v) = r.json(&["import", "--map", "import.toml", "--apply", "--write", "--force"]);
+    assert_eq!(code, 0, "{v}");
+    let (_, first) = r.json(&["show", "0001"]);
+    let new = first["path"].as_str().unwrap().rsplit('/').next().unwrap().to_string();
+    let (_, d) = r.json(&["show", "0002"]);
+    let body = r.read(d["path"].as_str().unwrap());
+    assert!(body.contains(&format!("[old]: {new} \"the old record\"")), "{body}");
+    assert!(body.contains(&format!("](<{new}#context-and-problem-statement>)")), "{body}");
+    assert!(body.contains(&format!("[enc]({new})")), "{body}");
+    assert!(body.contains("`[code](0001-use-plain-files.md)`"), "inline code stays: {body}");
+    assert_eq!(body.matches("0001-use").count(), 1, "only the code span keeps the old name: {body}");
+}

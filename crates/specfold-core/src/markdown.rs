@@ -1,6 +1,7 @@
 //! Reading and writing the Markdown files documents are made of.
 
 pub mod body;
+pub mod link_dest;
 
 /// C135: where fenced code starts and ends, the CommonMark way: a fence opens with three or
 /// more backticks or tildes and closes only with the same character, at least as many, and
