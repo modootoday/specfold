@@ -633,3 +633,84 @@ fn sd5_sync_export_and_attach_previews_refuse_alike() {
         &["export", "markdown", "--target", "obsidian", "--out", o],
     );
 }
+
+fn madr_repo(sources: bool) -> (common::Repo, String) {
+    let r = common::repo();
+    if sources {
+        r.write(
+            "docs/adr/0001-use-files.md",
+            "# Use files\n\n* Status: accepted\n* Date: 2026-03-01\n\n## Context\n\nWhy.\n",
+        );
+    }
+    let (_, map) = r.text(&["import", "--preset", "madr"]);
+    r.write("import.toml", &map);
+    r.commit("legacy");
+    let status = |r: &common::Repo| {
+        let o =
+            std::process::Command::new("git").args(["status", "--porcelain"]).current_dir(r.path()).output().unwrap();
+        String::from_utf8_lossy(&o.stdout).to_string()
+    };
+    let s = status(&r);
+    (r, s)
+}
+
+#[test]
+fn c120_import_dry_run_previews_even_with_apply() {
+    let (r, before) = madr_repo(true);
+    for args in [
+        &["import", "--map", "import.toml", "--apply", "--dry-run"][..],
+        &["import", "--map", "import.toml", "--dry-run"],
+    ] {
+        let (code, v) = r.json(args);
+        assert_eq!(code, 0, "{args:?}: {v}");
+    }
+    let o = std::process::Command::new("git").args(["status", "--porcelain"]).current_dir(r.path()).output().unwrap();
+    assert_eq!(String::from_utf8_lossy(&o.stdout), before, "nothing written");
+    assert_eq!(r.json(&["import", "--map", "import.toml", "--apply", "--dry-run", "--yes"]).0, 2);
+    let (_, help) = r.text(&["help", "import"]);
+    assert!(help.contains("--dry-run"), "{help}");
+}
+
+#[test]
+fn c121_import_write_lists_files_and_an_undo_that_works() {
+    let (r, before) = madr_repo(true);
+    let (code, v) = r.json(&["import", "--map", "import.toml", "--apply", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["written"], true, "{v}");
+    let changes = v["changes"].to_string();
+    assert!(changes.contains(".spec/_aliases.tsv") && changes.contains("adr"), "{v}");
+    let undo = v["undo"].as_str().unwrap().to_string();
+    assert!(undo.starts_with("git stash push"), "{undo}");
+    let ok = std::process::Command::new("sh").args(["-c", &undo]).current_dir(r.path()).status().unwrap();
+    assert!(ok.success(), "{undo}");
+    let o = std::process::Command::new("git").args(["status", "--porcelain"]).current_dir(r.path()).output().unwrap();
+    assert_eq!(String::from_utf8_lossy(&o.stdout), before, "undo restores the tree");
+    // No sources: nothing written, no alias table.
+    let (r, _) = madr_repo(false);
+    let (code, v) = r.json(&["import", "--map", "import.toml", "--apply", "--write"]);
+    assert_eq!((code, v["written"].clone()), (0, serde_json::json!(false)), "{v}");
+    assert!(!r.path().join(".spec/_aliases.tsv").exists());
+    assert!(!v.to_string().contains("SPECFOLD_IMPORT"), "{v}");
+}
+
+#[test]
+fn c122_mv_undo_restores_committed_and_uncommitted_documents() {
+    for commit in [true, false] {
+        let r = common::repo();
+        let id = r.new_doc("adr", "services/shop", "Use files");
+        if commit {
+            r.commit("doc");
+        }
+        let (_, d) = r.json(&["show", &id]);
+        let path = d["path"].as_str().unwrap().to_string();
+        let text = r.read(&path);
+        let (code, v) = r.json(&["mv", &id, "--slug", "use-plain-files", "--write"]);
+        assert_eq!(code, 0, "{v}");
+        let undo = v["undo"].as_str().unwrap().to_string();
+        let out = std::process::Command::new("sh").args(["-c", &undo]).current_dir(r.path()).output().unwrap();
+        assert!(out.status.success(), "commit={commit} {undo}: {}", String::from_utf8_lossy(&out.stderr));
+        assert_eq!(r.read(&path), text, "commit={commit}: {undo}");
+        let (_, d) = r.json(&["show", &id]);
+        assert_eq!(d["path"], path.as_str(), "commit={commit}");
+    }
+}

@@ -60,7 +60,7 @@ pub fn finish(mut o: Output, plan: &Plan, root: &Path, write: bool, rerun: &str)
     }
     if write {
         plan.apply(root)?;
-        let undo = undo(plan);
+        let undo = undo(plan, root);
         Ok(o.field("written", true)
             .field("undo", undo.clone())
             .foot(format!("{} change(s) written", plan.changes.len()))
@@ -122,9 +122,16 @@ pub fn finish_bounded(
 /// A file moved here instead of deleted comes back with a copy, since git may never have had it.
 pub const TRASH: &str = ".specfold/trash";
 
-pub fn undo(plan: &Plan) -> String {
+pub fn undo(plan: &Plan, root: &Path) -> String {
+    // C122: git knows only tracked paths and files on disk; a path that is neither (the old end
+    // of a move of a document not yet committed) would make the stash fail, so that move is
+    // taken back with a plain `mv` instead.
+    let tracked: std::collections::HashSet<String> =
+        specfold_core::workspace::vcs::tracked(root, &[]).unwrap_or_default().into_iter().collect();
+    let known = |p: &str| tracked.contains(p) || root.join(p).exists();
     let mut paths: Vec<String> = vec![];
     let mut trash: Vec<String> = vec![];
+    let mut back: Vec<(String, String)> = vec![];
     for c in &plan.changes {
         match c {
             Change::Write { path, .. } | Change::Remove { path } => paths.push(path.clone()),
@@ -133,6 +140,7 @@ pub fn undo(plan: &Plan) -> String {
                 let dir: Vec<&str> = to.splitn(4, '/').take(3).collect();
                 trash.push(dir.join("/"));
             }
+            Change::Move { from, to } if !tracked.contains(from) => back.push((to.clone(), from.clone())),
             Change::Move { from, to } => {
                 paths.push(from.clone());
                 paths.push(to.clone());
@@ -141,17 +149,25 @@ pub fn undo(plan: &Plan) -> String {
             Change::Copy { to, .. } => paths.push(to.clone()),
         }
     }
+    paths.retain(|p| known(p) && !back.iter().any(|(to, _)| to == p));
     paths.sort();
     paths.dedup();
     trash.sort();
     trash.dedup();
+    let w = crate::session::shell_word;
     let mut parts = vec![];
+    for (to, from) in &back {
+        if let Some(dir) = Path::new(from).parent().filter(|d| !d.as_os_str().is_empty()) {
+            parts.push(format!("mkdir -p {}", w(&dir.to_string_lossy())));
+        }
+        parts.push(format!("mv -- {} {}", w(to), w(from)));
+    }
     if !paths.is_empty() {
-        let words: Vec<String> = paths.iter().map(|p| crate::session::shell_word(p)).collect();
+        let words: Vec<String> = paths.iter().map(|p| w(p)).collect();
         parts.push(format!("git stash push --include-untracked -- {}", words.join(" ")));
     }
     for t in &trash {
-        parts.push(format!("cp -Rp {}/. .", crate::session::shell_word(t)));
+        parts.push(format!("cp -Rp {}/. .", w(t)));
     }
     parts.join(" && ")
 }

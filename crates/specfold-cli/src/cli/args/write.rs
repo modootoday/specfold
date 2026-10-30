@@ -214,9 +214,12 @@ pub struct ImportArgs {
     /// Print a starter map for adr-tools, madr or log4brains to edit (nothing is imported).
     #[arg(long, value_parser = ["adr-tools", "madr", "log4brains"], conflicts_with_all = ["map", "apply", "write"])]
     pub preset: Option<String>,
-    /// Print the plan rows (the default); `--dry-run` is the same.
-    #[arg(long, visible_alias = "dry-run", conflicts_with = "apply")]
+    /// Print the plan rows (the default).
+    #[arg(long, conflicts_with = "apply")]
     pub plan: bool,
+    /// Preview only, writing nothing, even with --apply.
+    #[arg(long, conflicts_with_all = ["write", "yes"])]
+    pub dry_run: bool,
     /// Apply the plan (with --write).
     #[arg(long)]
     pub apply: bool,

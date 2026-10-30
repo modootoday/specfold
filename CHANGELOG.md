@@ -17,7 +17,7 @@ What an existing command does differs from 0.3.0; check scripts and CI that call
   `--yes`). These exited `0` before.
 - `spec set <id> key=[a, b]` stores a list, not the string `"[a, b]"`.
 - `spec sync --prune --write --yes` no longer deletes: each pruned file moves to `.specfold/trash/<stamp>/` (ignored by git), and the undo line copies it back (`cp -Rp .specfold/trash/<stamp>/. .`), so a file never committed can be restored. The undo of a sync or copy lists only the files written, not their sources; a successful sync ends with `next: git status --short` (C100, C101, C106).
-- `spec check --write-baseline` without `[check] baseline` says what to add to spec.toml before previewing, with `next: spec explain config` (C102). `--dry-run` is accepted on every command guarded by `--yes` or `--write` and writes nothing: check, guard and import ignore it, and export previews instead (C103, C114). An export whose `--out` is outside the repository suggests `ls <out>` instead of `git status` (C104).
+- `spec check --write-baseline` without `[check] baseline` says what to add to spec.toml before previewing, with `next: spec explain config` (C102). `--dry-run` is accepted on every command guarded by `--yes` or `--write` and writes nothing: check and guard ignore it, import previews even with `--apply` (C120), and export previews instead (C103, C114). An export whose `--out` is outside the repository suggests `ls <out>` instead of `git status` (C104).
 - `spec new` warns about the 0.4 `--write` change only when it wrote something; an invalid spec.toml points to `spec explain config` (C106).
 - Overwrites need ownership or `--force` (CLI-4): `spec sync assets --write` overwrites a copy file only when its content is a version its source has had (git history or now); a hand-edited copy needs `--force`. `spec fetch` leaves a different existing file alone and fetches nothing unless `--force`. `init` upgrades and `export` are unchanged.
 - Bulk writes are bounded (CLI-7): `[write] max_files = 50` (0 = no bound). When `spec mv`, `fix`, `sync` or `import` would change more files, the preview says how many and `--write` alone writes nothing; narrow the scope or add `--yes` (new on mv, fix and import).
@@ -117,6 +117,9 @@ What an existing command does differs from 0.3.0; check scripts and CI that call
 
 ### Fixed
 
+- `spec import --apply --dry-run` previews (rc 0, nothing written) instead of failing with a clash against `--plan`; `--dry-run` is listed in `spec help import`, and still refuses `--yes` (C120).
+- `spec import --apply --write` lists the files it created, moved and updated (alias table included) and prints `undo:`; JSON gains `written`, `undo` and `changes`. With no source documents it writes nothing, not even the alias table (C121).
+- `spec mv --write` on a document not yet committed offers an undo that works: it moves the file back with `mv` instead of a `git stash` that failed on the old path and left a stray stash (C122).
 - `spec set` with values the document already has writes nothing: it reports `no change`, exits 0, and neither bumps `updated` nor offers an undo.
 - `spec import` plans note body lines (`* Status:`, `* Deciders:`, `* Date:` …) that repeat values moved into frontmatter, and an H1 that keeps a number the title dropped.
 - `spec audit` suggests checking open tasks (or `--force`) before archiving an active plan that still has them; `spec check`'s summary counts spec.toml warnings (`+N in spec.toml`, field `config_warnings`); a mistyped `[audit] coverage_types` entry gets a did-you-mean, and `spec doctor` points at the type name to fix.
