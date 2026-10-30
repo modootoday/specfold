@@ -136,21 +136,37 @@ pub fn run(g: &Global, a: &ExportArgs) -> Result<Output> {
     Ok(o.field("result", result).head(format!("exported with {} ({format})", a.plugin)))
 }
 
+/// C166: the flags the user gave that shape the run (preview, output, content), so a next
+/// command from a refused preview stays a preview. `--json` is left out, as in every next.
+fn kept_flags(a: &ExportArgs) -> String {
+    let mut f = String::new();
+    for (on, flag) in [(a.local, " --local"), (a.banner, " --banner"), (a.dry_run, " --dry-run")] {
+        if on {
+            f.push_str(flag);
+        }
+    }
+    if let Some(x) = &a.fail_on {
+        f.push_str(&format!(" --fail-on {}", session::shell_word(x)));
+    }
+    f
+}
+
 fn built_in(g: &Global, a: &ExportArgs) -> Result<Output> {
+    let kept = kept_flags(a);
     let names = markdown::Target::ALL.join(", ");
     let first = markdown::Target::ALL[0];
     let out_word = a.out.as_ref().map_or("export".to_string(), |p| session::shell_word(&p.display().to_string()));
     let Some(t) = &a.target else {
         bail!(
-            "spec export markdown needs --target ({names}); next: spec export markdown --target {first} --out {out_word}"
+            "spec export markdown needs --target ({names}); next: spec export markdown --target {first} --out {out_word}{kept}"
         )
     };
     let target = markdown::Target::parse(t).ok_or_else(|| {
-        anyhow!("unknown --target '{t}' (one of {names}); next: spec export markdown --target {first} --out {out_word}")
+        anyhow!("unknown --target '{t}' (one of {names}); next: spec export markdown --target {first} --out {out_word}{kept}")
     })?;
     let Some(out) = &a.out else {
         bail!(
-            "spec export markdown needs --out <dir>; next: spec export markdown --target {} --out export",
+            "spec export markdown needs --out <dir>; next: spec export markdown --target {} --out export{kept}",
             target.name()
         )
     };
@@ -172,7 +188,7 @@ fn built_in(g: &Global, a: &ExportArgs) -> Result<Output> {
         }
         // A fresh directory beside the refused one is accepted.
         let fresh = session::shell_word(&format!("{}-export", out.display().to_string().trim_end_matches('/')));
-        anyhow!("{m}; next: spec export markdown --target {} --out {fresh}", target.name())
+        anyhow!("{m}; next: spec export markdown --target {} --out {fresh}{kept}", target.name())
     })?;
     let opts = markdown::Options { target, local: a.local, banner: a.banner };
     let tree = markdown::build(&s.corpus, &s.graph, &opts);
