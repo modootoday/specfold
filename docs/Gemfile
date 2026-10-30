@@ -1,11 +1,5 @@
 # Local preview only (excluded from the site): bundle exec jekyll serve
+# Same builder as classic GitHub Pages (Deploy from a branch, /docs).
 source "https://rubygems.org"
-gem "jekyll", "~> 4.4"
-gem "jekyll-theme-modootoday", "1.0.0"
+gem "github-pages", "~> 232", group: :jekyll_plugins
 gem "webrick"
-group :jekyll_plugins do
-  gem "jekyll-seo-tag"
-  gem "jekyll-sitemap"
-  gem "jekyll-relative-links"
-  gem "jekyll-redirect-from"
-end

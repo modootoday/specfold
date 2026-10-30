@@ -1,5 +1,5 @@
-# Theme: jekyll-theme-modootoday v1.0.0 (gem locally; on GitHub Pages use
-# remote_theme: modootoday/jekyll-theme-modootoday@v1.0.0).
+# Classic GitHub Pages (Deploy from a branch, /docs) builds this directory.
+# Only plugins on https://pages.github.com/versions/ are used.
 title: specfold
 description: "specfold keeps design, plan, and maintenance docs next to your code, linked as a graph and guarded by checks."
 url: "https://specfold.build"
@@ -7,11 +7,11 @@ baseurl: ""
 lang: en
 permalink: pretty
 repository: modootoday/specfold
-theme: jekyll-theme-modootoday
+remote_theme: modootoday/jekyll-theme-modootoday@v1.0.0
 markdown: kramdown
 kramdown: {input: GFM, syntax_highlighter: rouge}
 sass: {style: compressed, silence_deprecations: [import, global-builtin]}
-plugins: [jekyll-sitemap, jekyll-relative-links, jekyll-redirect-from]
+plugins: [jekyll-remote-theme, jekyll-sitemap, jekyll-relative-links, jekyll-redirect-from]
 relative_links: { enabled: true }
 modootoday:
   nav: main
