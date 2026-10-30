@@ -18,10 +18,8 @@ Release notes for each version are also on
   `[files] scan_max_bytes`, 1 MiB by default; binary files are skipped), so a secret attached
   with a warning keeps being reported by `spec check` and `spec guard secrets`. `spec export`
   reads the same attachments of the documents it exports and refuses on a hit.
-  U2 also reads each document's text attachments kept in the repository (up to the new
-  `[files] scan_max_bytes`, 1 MiB by default; binary files are skipped), so a secret attached
-  with a warning keeps being reported by `spec check` and `spec guard secrets`. `spec export`
-  reads the same attachments of the documents it exports and refuses on a hit.
+  Attachments it skips are named in one U2 warning (and a `not_scanned` line in
+  `spec guard secrets`) that points at raising `[files] scan_max_bytes`.
 - `spec attach` runs the built-in secrets check on every file, with no `[[guards]]` needed: a hit
   refuses a store upload (`--allow-hit secrets` lets it through) and warns for a repository file.
 - A slug id (`plan:root/payment-rollout` for a timestamp-keyed plan) resolves in `[[…]]`
@@ -72,6 +70,11 @@ Release notes for each version are also on
 
 ### Fixed
 
+- An attachment that changed because a secret was added to it lists U2 before E1, and E1
+  points at `spec explain U2` instead of suggesting to attach the leaky file again. Secret
+  findings now come first among findings of their level.
+- `spec help <command>` gives the first example as `next` without its column padding and
+  `# ...` comment (`spec help guard` ended with the padded example line).
 - `spec export` secret refusals name the source document file and line (not the exported copy)
   and suggest `spec guard secrets`.
 - `spec find` with no current match suggests the same search with `--all`, runnable as written.

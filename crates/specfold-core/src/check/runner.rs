@@ -51,7 +51,12 @@ pub fn run(c: &Corpus, g: &Graph, range: Range, opts: &Options, sel: &Selection)
         plugins::rules::run(&ctx, &loaded, &mut findings);
     }
     let mut findings = super::severity::apply(c, findings);
-    findings.sort_by(|a, b| (a.severity, &a.path, a.line, &a.rule).cmp(&(b.severity, &b.path, b.line, &b.rule)));
+    // A secret comes first among findings of its level: it is what to fix before anything else,
+    // and an attachment that changed because of it (E1) should not be re-attached first.
+    let secret = |f: &Finding| f.rule == "U2" || (f.rule == "U1" && f.message.starts_with("[secrets]"));
+    findings.sort_by(|a, b| {
+        (a.severity, !secret(a), &a.path, a.line, &a.rule).cmp(&(b.severity, !secret(b), &b.path, b.line, &b.rule))
+    });
     findings.dedup_by(|a, b| a.rule == b.rule && a.path == b.path && a.line == b.line && a.message == b.message);
     let docs_checked = if scope.is_all() { c.docs.len() } else { scope.with_neighbours.len() };
     Ok(Report { findings, rules_run: rules.iter().map(|r| r.info().id).collect(), docs_checked })

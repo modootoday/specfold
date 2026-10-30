@@ -29,9 +29,12 @@ pub fn run(g: &Global, a: &GuardArgs) -> Result<Output> {
     let asked_builtin = a.names.iter().any(|n| n == BUILTIN && !configured(n));
     let names: Vec<String> = a.names.iter().filter(|n| *n != BUILTIN || configured(n)).cloned().collect();
     let builtin = asked_builtin || (a.names.is_empty() && !cfg.raw.guards.iter().any(|g| g.secrets));
+    let mut unread = None;
     let mut list = if names.is_empty() && asked_builtin { vec![] } else { guards::run(&cfg, &names, range.as_ref())? };
     if builtin {
-        for f in builtin_hits(g, range.as_ref())? {
+        let (hits, note) = builtin_hits(g, range.as_ref())?;
+        unread = note;
+        for f in hits {
             if !list.iter().any(|x| x.path == f.path && x.line == f.line) {
                 list.push(f);
             }
@@ -46,6 +49,10 @@ pub fn run(g: &Global, a: &GuardArgs) -> Result<Output> {
     }
     let names = shown.join(", ");
     let o = o.foot(format!("guards {names}: {errors} error(s), {warnings} warning(s)"));
+    let o = match unread {
+        Some(note) => o.field("not_scanned", note.clone()).foot(note),
+        None => o,
+    };
     Ok(if errors > 0 {
         o.code(Code::Findings).next(if list.iter().all(|f| f.rule == "U2") {
             "spec explain U2"
@@ -60,26 +67,32 @@ pub fn run(g: &Global, a: &GuardArgs) -> Result<Output> {
 const BUILTIN: &str = "secrets";
 
 /// The built-in secret check over document files in the range (the whole tree without one).
-fn builtin_hits(g: &Global, range: Option<&GuardRange>) -> Result<Vec<specfold_core::check::Finding>> {
+/// Also returns one line naming the attachments it skipped (over the size limit or binary).
+fn builtin_hits(
+    g: &Global,
+    range: Option<&GuardRange>,
+) -> Result<(Vec<specfold_core::check::Finding>, Option<String>)> {
     let s = session::open(g)?;
     let root = &s.corpus.cfg.root;
     // Each document's files: the main file, its chapters and its repository text attachments.
     let max = s.corpus.cfg.raw.files.scan_max_bytes;
+    let unread = std::cell::RefCell::new(Vec::<String>::new());
     let own = |d: &specfold_core::model::Doc| -> Vec<String> {
-        std::iter::once(d.path.clone())
-            .chain(d.chapters.iter().cloned())
-            .chain(guards::secrets::scanned_attachments(root, d, max))
-            .collect()
+        let (read, skipped) = guards::secrets::attachment_scan(root, d, max);
+        unread.borrow_mut().extend(skipped);
+        std::iter::once(d.path.clone()).chain(d.chapters.iter().cloned()).chain(read).collect()
     };
     let docs: Vec<String> = s.corpus.docs.iter().flat_map(own).collect();
     let local: Vec<String> =
         s.corpus.docs.iter().filter(|d| d.tier == specfold_core::model::Tier::Local).flat_map(own).collect();
+    let mut in_range: Option<Vec<String>> = None;
     let blobs: Vec<(String, Vec<u8>)> = match range {
         None | Some(GuardRange::All) => {
             docs.into_iter().filter_map(|p| Some((p.clone(), std::fs::read(root.join(&p)).ok()?))).collect()
         }
         Some(r) => {
             let res = guards::range::resolve(root, r, &[])?;
+            in_range = Some(res.files.clone());
             res.files
                 .into_iter()
                 .filter(|f| docs.contains(f))
@@ -87,7 +100,15 @@ fn builtin_hits(g: &Global, range: Option<&GuardRange>) -> Result<Vec<specfold_c
                 .collect()
         }
     };
-    Ok(guards::builtin_secrets(&blobs)
+    let mut unread = unread.into_inner();
+    unread.sort();
+    unread.dedup();
+    // In a range, only skipped files the range touches are worth a line.
+    if let Some(files) = &in_range {
+        unread.retain(|p| files.contains(p));
+    }
+    let note = guards::secrets::skipped_note(&unread);
+    let hits = guards::builtin_secrets(&blobs)
         .into_iter()
         .map(|(_, mut f)| {
             f.rule = "U2".into();
@@ -97,5 +118,6 @@ fn builtin_hits(g: &Global, range: Option<&GuardRange>) -> Result<Vec<specfold_c
             }
             f
         })
-        .collect())
+        .collect();
+    Ok((hits, note))
 }

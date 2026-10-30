@@ -56,10 +56,18 @@ pub fn run(_g: &Global, a: &HelpArgs) -> Result<Output> {
     let next = match (&a.command, picked.as_slice()) {
         // `spec lsp` in a terminal only waits on stdin; the editor setup is the next step.
         (Some(_), [one]) if one.name == "lsp" => EDITOR_GUIDE.to_string(),
-        (Some(_), [one]) => one.examples.first().cloned().unwrap_or_else(|| format!("spec {} --help", one.name)),
+        (Some(_), [one]) => {
+            one.examples.first().map(|e| command_only(e)).unwrap_or_else(|| format!("spec {} --help", one.name))
+        }
         _ => "spec help <command>".to_string(),
     };
     Ok(o.next(next))
+}
+
+/// An example as a runnable command: without the column padding and `# ...` comment it carries
+/// in `--help`.
+fn command_only(example: &str) -> String {
+    example.split(" #").next().unwrap_or(example).trim_end().to_string()
 }
 
 /// " (also `spec list`, `spec ls`)" for a command with visible aliases.
