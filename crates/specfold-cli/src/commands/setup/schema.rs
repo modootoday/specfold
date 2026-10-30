@@ -38,6 +38,10 @@ fn frontmatter_schema(t: &TypeDef) -> Value {
     }}}));
     props.insert("generated_by".into(), json!({"type": "string"}));
     props.insert(
+        "pins".into(),
+        json!({"type": "object", "additionalProperties": {"type": "string", "pattern": "^sha256:[0-9a-f]{12}$"}, "description": "remote documents (<remote>:<id>) pinned at a body revision"}),
+    );
+    props.insert(
         "review_by".into(),
         json!({"type": "string", "format": "date", "description": "date an exception (rel.exception_of) is reviewed by"}),
     );

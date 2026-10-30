@@ -56,11 +56,14 @@ pub struct SetArgs {
     /// An id, alias, path, or unique slug.
     pub doc: String,
     /// key=value, key+=value (add to a list), key-=value (remove from a list).
-    #[arg(required_unless_present = "source_rev")]
+    #[arg(required_unless_present_any = ["source_rev", "pin"])]
     pub assignments: Vec<String>,
     /// Record the source's current body as this translation's source_rev (after re-translating).
     #[arg(long)]
     pub source_rev: bool,
+    /// Pin a remote document (`<remote>:<id>`) at its current body: records `pins.<ref>`.
+    #[arg(long, value_name = "REMOTE_ID")]
+    pub pin: Vec<String>,
     /// Show the change without writing.
     #[arg(long)]
     pub dry_run: bool,

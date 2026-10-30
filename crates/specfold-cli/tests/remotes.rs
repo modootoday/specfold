@@ -101,3 +101,27 @@ fn doctor_lists_remotes_and_whether_they_are_present() {
     assert_eq!(r.iter().find(|x| x["name"] == "org").unwrap()["present"], true, "{v}");
     assert_eq!(r.iter().find(|x| x["name"] == "ci").unwrap()["present"], false, "{v}");
 }
+
+#[test]
+fn a_pinned_remote_document_warns_when_it_changes() {
+    let (shared, app, doc) = linked();
+    let me = app.new_doc("guide", "services/shop", "Relies on the shared setup");
+    let pin = format!("org:{doc}");
+    let (code, v) = app.json(&["set", &me, "--pin", &pin]);
+    assert_eq!(code, 0, "{v}");
+    let (_, v) = app.json(&["check"]);
+    assert_eq!(v["errors"], 0, "{v}");
+    assert!(app.json(&["check", "--rule", "L7"]).1["items"].as_array().unwrap().is_empty());
+    let p = shared.json(&["resolve", &doc]).1["path"].as_str().unwrap().to_string();
+    shared.write(&p, &(shared.read(&p) + "\nA new step.\n"));
+    let (_, v) = app.json(&["check", "--rule", "L7"]);
+    assert!(v["items"][0]["message"].as_str().unwrap().contains("changed since the pinned"), "{v}");
+    assert_eq!(app.json(&["set", &me, "--pin", &pin]).0, 0);
+    assert!(app.json(&["check", "--rule", "L7"]).1["items"].as_array().unwrap().is_empty());
+    assert_ne!(app.json(&["set", &me, "--pin", "ci:guide:a/b"]).0, 0);
+    let mp = app.json(&["resolve", &me]).1["path"].as_str().unwrap().to_string();
+    let text = app.read(&mp).replacen("pins:\n", "pins:\n  org:guide:shop/missing: sha256:0123456789ab\n", 1);
+    app.write(&mp, &text);
+    let (code, v) = app.json(&["check", "--rule", "L7"]);
+    assert_eq!(code, 1, "{v}");
+}
