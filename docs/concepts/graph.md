@@ -29,19 +29,9 @@ This block is the output of `spec graph --format mermaid` on the tutorial reposi
 
 <!-- spec:graph format=mermaid source=tutorial -->
 
-```mermaid
-graph LR
-  d0["adr:root/20261029190946"]
-  d1["plan:shop/20261029190949"]
-  d2["sot:shop/cart-totals"]
-  d1 -->|implements| d2
-  d2 -->|depends_on| d0
-  p0[/"services/shop/src/cart"/]
-  d0 -.->|governs| p0
-  p1[/"services/shop"/]
-  d1 -.->|governs| p1
-  d2 -.->|governs| p0
-```
+![A plan implements the cart-totals source of truth, which depends on a root decision; dashed edges show the code paths each document governs](../assets/diagrams/graph-tutorial.svg)
+
+*The tutorial repository as `spec graph --format mermaid` draws it. Source: [graph-tutorial.mmd](../assets/diagrams/graph-tutorial.mmd).*
 
 <!-- /spec:graph -->
 

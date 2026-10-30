@@ -1,0 +1,8 @@
+flowchart LR
+  A[documents + spec.toml] --> B[spec check]
+  B --> C{findings?}
+  C -->|none| D[exit 0]
+  C -->|errors| E[exit 1 + rule ids]
+  E --> F[spec explain RULE]
+  F --> G[spec fix --write]
+  G --> B

@@ -1,0 +1,6 @@
+flowchart LR
+  new([spec new]) --> draft
+  draft -->|spec set status=active| active
+  draft --> rejected
+  active -->|a successor supersedes it| superseded
+  active --> archived
