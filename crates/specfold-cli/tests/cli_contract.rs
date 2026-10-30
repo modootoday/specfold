@@ -497,7 +497,8 @@ fn cli10_a_flag_beats_project_config() {
     let base = r.read("spec.toml");
     r.write("spec.toml", &format!("{base}[check]\nbaseline = \".specfold/baseline.json\"\n"));
     let (_, v) = r.json(&["resolve", &sot]);
-    let path = v["path"].as_str().map(String::from).unwrap_or_else(|| v["items"][0]["path"].as_str().unwrap().to_string());
+    let path =
+        v["path"].as_str().map(String::from).unwrap_or_else(|| v["items"][0]["path"].as_str().unwrap().to_string());
     let text = r.read(&path);
     r.write(&path, &format!("{text}\nSee [[sot:nowhere/missing]].\n"));
     r.commit("broken link");
@@ -522,7 +523,9 @@ fn cli14_skipping_a_safeguard_says_so() {
 #[test]
 fn cli15_off_a_terminal_nothing_waits_for_an_answer() {
     let (r, _, _) = populated();
-    for args in [&["sync", "assets", "--prune", "--write"][..], &["check", "--write-baseline"], &["guard", "--write-baseline"]] {
+    for args in
+        [&["sync", "assets", "--prune", "--write"][..], &["check", "--write-baseline"], &["guard", "--write-baseline"]]
+    {
         let out = assert_cmd::Command::cargo_bin("spec")
             .unwrap()
             .args(args)
