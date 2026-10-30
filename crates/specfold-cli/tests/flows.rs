@@ -1674,7 +1674,7 @@ fn required_sections_are_in_new_documents_and_a_missing_one_names_the_command() 
     assert!(out.contains(&format!("next: spec edit {id} --new-section 'Rollout plan' --text \"…\" --write")), "{out}");
     let (code, out) = r.text(&["edit", &id, "--section", "Rollout plan", "--text", "x"]);
     assert_ne!(code, 0);
-    assert!(out.contains("--new-section \"Rollout plan\""), "{out}");
+    assert!(out.contains(&format!("next: spec edit {id} --new-section 'Rollout plan' --text=x --write")), "{out}");
 }
 
 #[test]

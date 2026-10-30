@@ -14,6 +14,12 @@ const SHOWN: usize = 40;
 pub fn run(g: &Global, a: &EditArgs) -> Result<Output> {
     let s = session::open(g)?;
     let idx = session::resolve(&s, &a.doc)?;
+    if a.text.as_deref() == Some("-") {
+        anyhow::bail!(
+            "--text - would write a lone '-'; standard input is --file -; next: {}",
+            rerun_with(a, " --file - --write")
+        );
+    }
     let cells_only = a.row.is_some() && !a.cell.is_empty() && a.text.is_none() && a.file.is_none();
     let text = match (&a.text, &a.file) {
         _ if cells_only => String::new(),
@@ -58,7 +64,20 @@ pub fn run(g: &Global, a: &EditArgs) -> Result<Output> {
         text: text.clone(),
         row,
     };
-    let out = edit::plan(&s.corpus, idx, &e)?;
+    let out = match edit::plan(&s.corpus, idx, &e) {
+        Ok(o) => o,
+        Err(err) => {
+            let msg = format!("{err:#}");
+            // A missing section: the next step is the same edit adding it.
+            if let (Some(sec), Some((head, _))) = (&a.section, msg.split_once("; to add it: --new-section")) {
+                let mut cmd = format!("spec edit {} --new-section {}", sh(&a.doc), sh(sec));
+                cmd.push_str(&text_flag(a, false));
+                cmd.push_str(" --write");
+                anyhow::bail!("{head}; next: {cmd}");
+            }
+            return Err(err);
+        }
+    };
     let id = s.corpus.docs[idx].id.to_string();
     let verb = if a.append { "append to" } else { "replace" };
     let shown: Vec<&str> = out.after.lines().take(SHOWN).collect();
@@ -97,16 +116,38 @@ pub fn run(g: &Global, a: &EditArgs) -> Result<Output> {
     if a.append {
         rerun.push_str(" --append");
     }
-    match (&a.text, &a.file) {
-        _ if cells_only => {}
-        (Some(t), _) => rerun.push_str(&format!(" --text={}", sh(t))),
-        (None, Some(p)) if p.as_os_str() == "-" => rerun.push_str(" --file <saved-input>"),
-        (None, None) => rerun.push_str(" --file <saved-input>"),
-        (None, Some(p)) => rerun.push_str(&format!(" --file {}", sh(&p.display().to_string()))),
-    }
+    rerun.push_str(&text_flag(a, cells_only));
     rerun.push_str(" --write");
     let o = preview::finish(o, &out.plan, &s.corpus.cfg.root, a.write, &rerun)?;
     Ok(if a.write { o.next(format!("spec check  # then: spec show {id}")) } else { o })
+}
+
+/// Where the text came from, as flags for a command to paste.
+fn text_flag(a: &EditArgs, cells_only: bool) -> String {
+    match (&a.text, &a.file) {
+        _ if cells_only => String::new(),
+        (Some(t), _) => format!(" --text={}", sh(t)),
+        (None, Some(p)) if p.as_os_str() == "-" => " --file <saved-input>".into(),
+        (None, None) => " --file <saved-input>".into(),
+        (None, Some(p)) => format!(" --file {}", sh(&p.display().to_string())),
+    }
+}
+
+/// The command as given, without its text, and `tail` appended.
+fn rerun_with(a: &EditArgs, tail: &str) -> String {
+    let mut c = format!("spec edit {}", sh(&a.doc));
+    for (flag, v) in
+        [("--section", &a.section), ("--new-section", &a.new_section), ("--after", &a.after), ("--row", &a.row)]
+    {
+        if let Some(v) = v {
+            c.push_str(&format!(" {flag} {}", sh(v)));
+        }
+    }
+    if a.append {
+        c.push_str(" --append");
+    }
+    c.push_str(tail);
+    c
 }
 
 /// Quotes for a POSIX shell when needed, so the rerun hint can be pasted as is.

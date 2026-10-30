@@ -49,6 +49,11 @@ pub fn run(g: &Global, a: &FixArgs) -> Result<Output> {
         .field("fixable", applied)
         .field("remaining", left)
         .head(format!("{applied} fix(es) ready, {left} finding(s) need a decision"));
+    // A file that is not UTF-8 has nothing to fill in; say where it breaks, as check does.
+    let mut o = o;
+    for f in findings.iter().filter(|f| f.message.contains(specfold_core::corpus::overlay::UTF8)) {
+        o = o.head(format!("{}:{}: {}", f.path, f.line, f.message));
+    }
     let mut rerun = String::from("spec fix --write");
     for r in &a.rules {
         rerun.push_str(&format!(" --rule {r}"));

@@ -100,6 +100,9 @@ pub fn run(g: &Global, a: &SetArgs) -> Result<Output> {
             if !a.pin.is_empty() || !a.unpin.is_empty() || assigns.iter().any(|x| x.key.starts_with("pins")) {
                 rules.push("L7");
             }
+            if assigns.iter().any(|x| x.key.starts_with("aliases")) {
+                rules.push("I2");
+            }
             if assigns.iter().any(|x| x.key == "review_by" || x.key == "rel.exception_of") {
                 rules.push("T5");
             }

@@ -17,12 +17,24 @@ Release notes for each version are also on
   `body_path`.
 - `spec graph consumers` prints a header, a count and scope footer, and `searched` in JSON.
 - `spec help lsp` takes `--dir` and points to the editor setup guide.
+- `spec new` warns when the slug leaves out words in another script ("결제 비교 Gateway" gives
+  `gateway`), not only when most of the title is lost.
 
 ### Changed
 
 - `spec new` and `spec set` accept `--write` (they always write).
 - `spec new --translation` no longer suggests `--title` when the title comes from the source.
 - An error that ends with a runnable `spec …` command offers it as `next`.
+- Exporter plugins no longer receive `.spec.local` documents unless `--local` is given; edges to
+  them are left out and references to them arrive unresolved (`reason: "not exported"`).
+- `spec edit --text`, `--new-section`, `--row` and `spec new --title` take values that start with
+  `-`, such as `--text "- [ ] wire gateway"`.
+- `spec edit --text -` is refused and points to `--file -` instead of writing a lone `-`.
+- A file that is not UTF-8 is reported by `check` (S1), `fix` and `show` with its path and line,
+  instead of "no frontmatter block".
+- After `spec set <id> aliases=…`, the suggested check includes I2 (duplicate aliases).
+- `spec edit --section` on a missing section offers the `--new-section` command as `next`;
+  `spec graph --format json` says JSON output is `--json` and offers that command.
 
 ## 0.3.0
 

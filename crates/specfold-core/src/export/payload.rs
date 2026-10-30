@@ -29,12 +29,15 @@ impl Wants {
 /// The documents with what `w` asks for. Bodies are the text after the frontmatter; link spans
 /// are byte ranges in that text. Once the bodies sent so far pass `budget` bytes, the rest are
 /// given as `body_path` (the repository-relative file) for the plugin to read itself.
-pub fn docs(c: &Corpus, g: &Graph, w: Wants, budget: Option<usize>) -> Value {
+///
+/// Only the documents in `only` are sent. A reference to a document left out is sent as
+/// unresolved (`reason: "not exported"`) so nothing about it reaches the plugin.
+pub fn docs(c: &Corpus, g: &Graph, w: Wants, budget: Option<usize>, only: &[usize]) -> Value {
     let mut used = 0usize;
     let root = c.cfg.root.clone();
     let read = |p: &str| crate::corpus::overlay::read(&root.join(p)).ok();
     let mut out = Vec::new();
-    for i in 0..c.docs.len() {
+    for &i in only {
         let mut v = payload::doc(c, i);
         if !w.any() {
             out.push(v);
@@ -70,7 +73,8 @@ pub fn docs(c: &Corpus, g: &Graph, w: Wants, budget: Option<usize>) -> Value {
                 }
             }
             if w.links {
-                o.insert("links".into(), json!(links::of_body(c, g, b)));
+                let ls: Vec<links::Link> = links::of_body(c, g, b).into_iter().map(|l| hide(l, only)).collect();
+                o.insert("links".into(), json!(ls));
             }
             Value::Object(o)
         };
@@ -86,4 +90,35 @@ pub fn docs(c: &Corpus, g: &Graph, w: Wants, budget: Option<usize>) -> Value {
         out.push(v);
     }
     Value::Array(out)
+}
+
+/// Which documents an export may show: committed ones, plus local ones with `local`.
+pub fn visible(c: &Corpus, local: bool) -> Vec<usize> {
+    (0..c.docs.len()).filter(|&i| local || c.docs[i].tier == crate::model::Tier::Committed).collect()
+}
+
+/// Edges between documents in `only`.
+pub fn edges(c: &Corpus, g: &Graph, only: &[usize]) -> Value {
+    Value::Array(
+        g.edges
+            .iter()
+            .filter(|e| only.contains(&e.from) && only.contains(&e.to))
+            .map(|e| json!({"from": c.docs[e.from].id.to_string(), "to": c.docs[e.to].id.to_string(), "kind": e.kind, "anchor": e.anchor}))
+            .collect(),
+    )
+}
+
+fn hide(mut l: links::Link, only: &[usize]) -> links::Link {
+    if let Some(i) = l.idx
+        && !only.contains(&i)
+    {
+        l.target_id = None;
+        l.anchor = None;
+        l.resolved_path = None;
+        l.title = None;
+        l.status = None;
+        l.idx = None;
+        l.reason = Some("not exported".into());
+    }
+    l
 }

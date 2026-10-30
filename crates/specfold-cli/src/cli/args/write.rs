@@ -12,7 +12,7 @@ pub struct NewArgs {
     #[arg(id = "type", value_name = "TYPE", required_unless_present = "translation")]
     pub ty: Option<String>,
     /// One-line title; also the source of the slug. Also accepted as the second argument.
-    #[arg(long, required_unless_present_any = ["title_text", "translation"])]
+    #[arg(long, allow_hyphen_values = true, required_unless_present_any = ["title_text", "translation"])]
     pub title: Option<String>,
     /// The title, as `spec new adr "Use files"`.
     #[arg(id = "title_text", value_name = "TITLE", conflicts_with = "title")]
@@ -206,13 +206,13 @@ pub struct EditArgs {
     #[arg(long)]
     pub section: Option<String>,
     /// Add a new section with this heading (refused if one exists).
-    #[arg(long, conflicts_with_all = ["section", "append", "replace"])]
+    #[arg(long, allow_hyphen_values = true, conflicts_with_all = ["section", "append", "replace"])]
     pub new_section: Option<String>,
     /// With --new-section: place it after this section, at the same heading level.
     #[arg(long, requires = "new_section")]
     pub after: Option<String>,
     /// Change one table row: the row whose first cell is this text (with --section to pick the table).
-    #[arg(long, conflicts_with = "new_section")]
+    #[arg(long, allow_hyphen_values = true, conflicts_with = "new_section")]
     pub row: Option<String>,
     /// With --row: set this column (by header) to a value, `Status=done`; repeatable. Without it the
     /// text is the whole new row, `A1 | done | note`.
@@ -224,8 +224,8 @@ pub struct EditArgs {
     /// Replace the content (the default; spelled out for scripts).
     #[arg(long, conflicts_with = "append")]
     pub replace: bool,
-    /// The new Markdown text.
-    #[arg(long, conflicts_with = "file")]
+    /// The new Markdown text; may start with `-`, as list items do.
+    #[arg(long, allow_hyphen_values = true, conflicts_with = "file")]
     pub text: Option<String>,
     /// Read the new Markdown text from a file; `-` reads standard input, as does no --text or --file when input is piped.
     #[arg(long)]

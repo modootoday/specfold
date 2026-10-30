@@ -14,7 +14,7 @@ pub fn run(g: &Global, a: &ShowArgs) -> Result<Output> {
     let idx = session::resolve(&s, &doc)?;
     let d = &s.corpus.docs[idx];
     let shown = remote.as_ref().map_or(d.id.to_string(), |r| format!("{r}:{}", d.id));
-    let text = std::fs::read_to_string(s.corpus.cfg.root.join(&d.path))?;
+    let text = specfold_core::corpus::overlay::read(&s.corpus.cfg.root.join(&d.path))?;
     let split = frontmatter::split(&text);
     let body = split.body;
     let mut o = Output::new("show")

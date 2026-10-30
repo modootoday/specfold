@@ -53,7 +53,12 @@ fn derive_slug(title: &str, governs: &[String]) -> Result<(String, Option<String
         if !stamp::is_slug(&from_title) {
             bail!("cannot derive a slug from the title; pass --slug <kebab-case>");
         }
-        return Ok((from_title, None));
+        // Mostly ASCII, but words in another script still vanish from the slug: say which.
+        let dropped: Vec<&str> =
+            title.split_whitespace().filter(|w| w.chars().any(|c| c.is_alphanumeric() && !c.is_ascii())).collect();
+        let note = (!dropped.is_empty())
+            .then(|| format!("the slug '{from_title}' leaves out '{}'; pass --slug to name it", dropped.join(" ")));
+        return Ok((from_title, note));
     }
     let from_path = governs
         .iter()

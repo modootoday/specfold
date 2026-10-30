@@ -67,7 +67,7 @@ pub struct ExportArgs {
     /// markdown: obsidian, mkdocs, docusaurus or github-wiki.
     #[arg(long)]
     pub target: Option<String>,
-    /// markdown: include documents in the local (git-ignored) directory.
+    /// Include documents in the local (git-ignored) directory; left out by default, for plugins too.
     #[arg(long)]
     pub local: bool,
     /// markdown: start each page with a note naming its source file.

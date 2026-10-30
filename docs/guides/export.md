@@ -26,7 +26,8 @@ spec export markdown --target mkdocs --out docs/specs --banner
 ## What goes in
 
 - Committed documents of every status. Superseded and rejected documents carry a status line.
-- Documents in `.spec.local/` only with `--local`.
+- Documents in `.spec.local/` only with `--local`. The same holds for exporter plugins: without
+  `--local` they never see a local document, and a reference to one comes as unresolved.
 - Frontmatter is flattened: `id`, `type`, `status`, `title`, `aliases`, `tags`, `created`,
   `updated` and one `rel_<kind>` list per relation. Docusaurus pages also get `id`,
   `specfold_id`, `sidebar_label` and `sidebar_position`. GitHub wiki pages have no frontmatter.
