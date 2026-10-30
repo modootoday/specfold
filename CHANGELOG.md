@@ -132,6 +132,8 @@ A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is 
 
 ### Fixed
 
+A write preview of a very large change no longer runs out of memory: hunks are computed only while the compared region stays under about four million line pairs, and a larger change is shown as one hunk; 30,000 replaced lines had aborted (C158).
+Preview hunk headers match `git diff -U0`: an empty side names the line before the change, a count of 1 is left out, and an insertion or deletion among repeated lines sits where git puts it; JSON `line` and `old_line` follow the same rule (C159).
 The pre-push snippet from `spec hook print` no longer fails on a branch without an upstream: it compares with the merge-base of the default branch (`origin/HEAD`), and when there is neither it prints a note and skips (C126).
 The `spec edit` preview diff on a CRLF document compares lines with their original endings, so it shows only the changed lines instead of the whole document (C157).
 A refused `--slug` (e.g. `spec new skill --slug 'Bad Slug'`) is replaced in the suggested rerun instead of given twice (C156).

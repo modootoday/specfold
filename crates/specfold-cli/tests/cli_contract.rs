@@ -1353,3 +1353,63 @@ fn sync_prune_preview_names_the_trash_without_a_clock() {
     assert!(r.path().join(to).is_file(), "{w}");
     assert!(w["undo"].as_str().unwrap().contains(to.trim_end_matches("/.claude/skills/stale/SKILL.md")), "{w}");
 }
+
+/// C159: preview hunk headers are the ones `git diff -U0` prints for the same write.
+#[test]
+fn c159_preview_hunk_headers_match_git() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    let p = doc_path(&r, &id);
+    let old: String =
+        r.read(&p)
+            .lines()
+            .map(|l| {
+                if l.starts_with("updated:") { "updated: 2000-01-01T00:00:00Z\n".to_string() } else { format!("{l}\n") }
+            })
+            .collect();
+    r.write(&p, &old);
+    r.commit("doc");
+    let headers =
+        |t: &str| t.lines().map(str::trim).filter(|l| l.starts_with("@@ ")).map(|l| l.to_string()).collect::<Vec<_>>();
+    let git_headers = || {
+        let out = std::process::Command::new("git").args(["diff", "-U0"]).current_dir(r.path()).output().unwrap();
+        let t = String::from_utf8_lossy(&out.stdout).into_owned();
+        // git adds the section heading after the second @@; spec does not.
+        headers(&t)
+            .into_iter()
+            .map(|h| h.splitn(4, ' ').take(3).collect::<Vec<_>>().join(" ") + " @@")
+            .collect::<Vec<_>>()
+    };
+    // An insertion (and the refreshed `updated:` line), then a deletion.
+    for (text, step) in [("one\ntwo\nthree", "insert"), ("one", "delete")] {
+        let (code, t) = r.text(&["edit", &id, "--section", "Rule", "--text", text]);
+        assert_eq!(code, 0, "{t}");
+        let shown = headers(&t);
+        assert!(!shown.is_empty(), "{t}");
+        let (code, w) = r.text(&["edit", &id, "--section", "Rule", "--text", text, "--write"]);
+        assert_eq!(code, 0, "{w}");
+        // The write refreshes `updated:` to another second than the preview may have: same header.
+        assert_eq!(shown, git_headers(), "{step}: {t}");
+        r.commit(step);
+    }
+}
+
+/// C158: a preview of a very large change keeps memory and time small.
+#[test]
+fn c158_large_edit_preview_is_bounded() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    let old: String = (1..=5000).map(|i| format!("old line {i}\n")).collect();
+    r.write("old.md", &old);
+    assert_eq!(r.json(&["edit", &id, "--section", "Rule", "--file", "old.md", "--write"]).0, 0);
+    r.commit("big");
+    let new: String = (1..=5000).map(|i| format!("new line {i}\n")).collect();
+    r.write("new.md", &new);
+    let t = std::time::Instant::now();
+    let (code, v) = r.json(&["edit", &id, "--section", "Rule", "--file", "new.md"]);
+    assert_eq!(code, 0, "{v}");
+    assert!(t.elapsed() < std::time::Duration::from_secs(10), "{:?}", t.elapsed());
+    let it = v["items"].as_array().unwrap().iter().find(|i| i["op"] == "update").cloned().unwrap();
+    let after: usize = it["hunks"].as_array().unwrap().iter().map(|h| h["after"].as_array().unwrap().len()).sum();
+    assert!(after >= 5000, "{after}");
+}
