@@ -69,36 +69,16 @@ fn relative(from: &str, to: &str) -> String {
     parts.join("/")
 }
 
-/// Rewrites `[text](rel/path#frag)` links in `file` that point at `old` so they point at `new`.
+/// Rewrites local Markdown links in `file` that point at `old` so they point at `new`:
+/// inline, angle-bracket, percent-encoded and reference-definition forms, outside code.
 pub fn rewrite_relative_links(body: &str, file: &str, old: &str, new: &str) -> String {
     let dir = file.rsplit_once('/').map(|x| x.0).unwrap_or("");
-    let mut out = String::with_capacity(body.len());
-    let mut rest = body;
-    while let Some(i) = rest.find("](") {
-        out.push_str(&rest[..i + 2]);
-        rest = &rest[i + 2..];
-        let Some(end) = rest.find(')') else { break };
-        let link = &rest[..end];
-        let (target, frag) = match link.split_once('#') {
-            Some((t, f)) => (t, Some(f)),
-            None => (link, None),
-        };
-        let local = !target.is_empty() && !target.contains("://") && !target.starts_with('/') && !target.contains(' ');
+    crate::markdown::link_dest::rewrite(body, |target| {
+        let local = !target.is_empty() && !target.contains("://") && !target.starts_with('/');
         let joined = if dir.is_empty() { target.to_string() } else { format!("{dir}/{target}") };
-        if local && normalize(&joined).as_deref() == Some(old) {
-            out.push_str(&relative(file, new));
-            if let Some(f) = frag {
-                out.push('#');
-                out.push_str(f);
-            }
-        } else {
-            out.push_str(link);
-        }
-        out.push(')');
-        rest = &rest[end + 1..];
-    }
-    out.push_str(rest);
-    out
+        (local && normalize(&joined).as_deref() == Some(old)).then(|| relative(file, new))
+    })
+    .0
 }
 
 #[cfg(test)]
