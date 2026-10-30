@@ -41,3 +41,12 @@ pub struct ExternalRoot {
     #[serde(default = "defaults::cite_check")]
     pub mode: String,
 }
+
+/// Another repository's documents, read-only: `<name>:<id>` in references and relations names a
+/// document there. The directory is a checkout already on disk (sibling, submodule, CI step).
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct RemoteRoot {
+    /// The other repository's root (its spec.toml or git root), relative to this one or `~`.
+    pub path: String,
+}

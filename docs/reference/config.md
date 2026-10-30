@@ -18,6 +18,7 @@ description: The spec.toml tables and what each one controls.
 | `[public]` | published paths that hold no documents, and where their documents go |
 | `[local]` | the git-ignored directory for drafts and private notes |
 | `[external.<name>]` | directories outside the repository whose citations are checked |
+| `[remotes.<name>]` | other repositories on disk whose documents are named `<name>:<id>`, read-only |
 
 ## Documents
 
@@ -59,4 +60,7 @@ count_paths = ["README.md", "docs/**/*.md"]
 [translations]
 layout = "suffix"   # guide:shop/setup-ko translates guide:shop/setup
 languages = ["ko", "ja"]
+
+[remotes.org]
+path = "../shared-decisions"   # [[org:adr:root/20261030000000]] names a document there
 ```

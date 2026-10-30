@@ -54,6 +54,27 @@ pub fn open(g: &Global) -> Result<Session> {
     Ok(Session { corpus, graph })
 }
 
+/// The session that holds `doc`: this repository, or for `<remote>:<id>` the remote repository
+/// named in `[remotes]` (read-only), with the id left to resolve there and the remote's name.
+pub fn open_for(g: &Global, doc: &str) -> Result<(Session, String, Option<String>)> {
+    let cfg = config(g)?;
+    if let Some((name, rest)) = specfold_core::remotes::split(&cfg, doc) {
+        let dir = specfold_core::remotes::dir(&cfg, name).unwrap_or_default();
+        if !dir.is_dir() {
+            bail!(
+                "the remote {name} is not on disk ({}); check it out there or fix [remotes.{name}] path",
+                dir.display()
+            );
+        }
+        let corpus = Corpus::load(Config::discover(&dir)?, &LoadOptions { include_local: false });
+        let graph = Graph::build(&corpus);
+        return Ok((Session { corpus, graph }, rest.to_string(), Some(name.to_string())));
+    }
+    let corpus = Corpus::load(cfg, &LoadOptions { include_local: !g.no_local });
+    let graph = Graph::build(&corpus);
+    Ok((Session { corpus, graph }, doc.to_string(), None))
+}
+
 /// A path given on the command line, made relative to the repository root.
 pub fn repo_path(s: &Session, p: &str) -> String {
     let path = PathBuf::from(p);

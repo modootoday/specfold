@@ -56,6 +56,10 @@ const CONFIG_HELP: &[(&str, &str)] = &[
         "Files outside documents (code, READMEs, agent instructions) whose citations rule L6 checks, and regexes for history lines it leaves alone.",
     ),
     (
+        "[remotes.<name>] path",
+        "Another repository already on disk (a sibling checkout, a submodule, a CI checkout) whose documents are named <name>:<id> in references and relations. Read-only: L1 and L3 check those targets when the directory exists and skip them when it does not; spec show and spec resolve read them. A name equal to a type name is not a remote.",
+    ),
+    (
         "[translations] layout, languages, source_lang, strict",
         "Translations paired by place (rule R2): layout suffix (`<slug>-<lang>` beside the source) or dir (the same slug under a `<lang>` owner), none by default; the languages the layout and spec census --translations use, the sources' language, and strict to make R2 errors. rel.translation_of and lang in frontmatter win over the layout.",
     ),

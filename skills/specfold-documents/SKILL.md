@@ -77,7 +77,9 @@ spec set sot:shop/cart tags-=draft
 Statuses move forward only: `draft`, `active`, then `superseded`, `archived` or `rejected`.
 Relations are written once, on the document that makes them: `rel.governs`, `rel.supersedes`,
 `rel.implements`, `rel.evidence`, `rel.depends_on`, `rel.translation_of`. In the body, refer to
-another document as `[[<id>]]` or `[[<id>#<anchor>]]`, never by path.
+another document as `[[<id>]]` or `[[<id>#<anchor>]]`, never by path. A document in another
+repository listed under `[remotes.<name>]` in spec.toml is `<name>:<id>` (`[[org:adr:root/…]]`);
+read it with `spec show <name>:<id>`, and change it in that repository, not from here.
 
 A translation is its own document that names its source and language, and records the source
 body it was made from:
