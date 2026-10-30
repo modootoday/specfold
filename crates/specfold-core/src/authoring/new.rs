@@ -31,6 +31,8 @@ pub struct NewDoc {
     pub key: Option<String>,
     /// Body to write instead of the type's template (audit records, generated documents).
     pub body: Option<String>,
+    /// Documents this one depends on (`rel.depends_on`), e.g. what a change note updates.
+    pub depends_on: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -142,6 +144,14 @@ pub fn plan(c: &Corpus, g: &Graph, req: &NewDoc) -> Result<(Created, Plan)> {
     let mut rel = Map::new();
     if !req.governs.is_empty() {
         rel.insert("governs".into(), json!(req.governs));
+    }
+    if !req.depends_on.is_empty() {
+        let mut ids = vec![];
+        for r in &req.depends_on {
+            let Resolution::Doc { idx, .. } = g.resolve(r) else { bail!("--depends-on {r} names no single document") };
+            ids.push(c.docs[idx].id.to_string());
+        }
+        rel.insert("depends_on".into(), json!(ids));
     }
     let mut plan = Plan::default();
     if let Some(from) = &req.from {

@@ -182,19 +182,32 @@ pub fn attachment_scan(root: &std::path::Path, d: &crate::model::Doc, max: u64) 
 }
 
 /// One line naming attachments the secrets check did not read, or None when it read them all.
-pub fn skipped_note(skipped: &[String]) -> Option<String> {
+/// Only files over `max` bytes are told to raise [files] scan_max_bytes; binary files are never read.
+pub fn skipped_note(root: &std::path::Path, skipped: &[String], max: u64) -> Option<String> {
     if skipped.is_empty() {
         return None;
     }
-    let mut names: Vec<&str> = skipped.iter().map(String::as_str).take(5).collect();
-    let more = skipped.len().saturating_sub(5);
-    let more = if more > 0 { format!(" (+{more} more)") } else { String::new() };
-    names.sort_unstable();
-    Some(format!(
-        "{} attachment(s) not scanned for secrets (over [files] scan_max_bytes or binary): {}{more}; raise [files] scan_max_bytes in spec.toml to read larger text files",
-        skipped.len(),
-        names.join(", ")
-    ))
+    let list = |v: &[&String]| {
+        let mut names: Vec<&str> = v.iter().map(|s| s.as_str()).take(5).collect();
+        names.sort_unstable();
+        let more = v.len().saturating_sub(5);
+        let more = if more > 0 { format!(" (+{more} more)") } else { String::new() };
+        format!("{}{more}", names.join(", "))
+    };
+    let (big, binary): (Vec<&String>, Vec<&String>) =
+        skipped.iter().partition(|p| std::fs::metadata(root.join(p)).is_ok_and(|m| m.len() > max));
+    let mut parts = vec![];
+    if !big.is_empty() {
+        parts.push(format!(
+            "{} over [files] scan_max_bytes: {} (raise scan_max_bytes in spec.toml to read them)",
+            big.len(),
+            list(&big)
+        ));
+    }
+    if !binary.is_empty() {
+        parts.push(format!("{} binary: {}", binary.len(), list(&binary)));
+    }
+    Some(format!("{} attachment(s) not scanned for secrets: {}", skipped.len(), parts.join("; ")))
 }
 
 #[cfg(test)]

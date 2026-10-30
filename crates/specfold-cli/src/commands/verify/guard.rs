@@ -9,19 +9,26 @@ use specfold_core::guards::{self, GuardRange};
 
 pub fn run(g: &Global, a: &GuardArgs) -> Result<Output> {
     let cfg = session::config(g)?;
-    if a.write_baseline && !a.yes {
-        // A baseline hides today's hits from every later run: --yes confirms it (CLI-3).
-        let names = if a.names.is_empty() { String::new() } else { format!(" {}", a.names.join(" ")) };
-        return Ok(Output::new("guard")
-            .field("written", false)
-            .head("would record each guard's current hits as its baseline, hiding them from later runs: nothing was written")
-            .next(format!("spec guard{names} --write-baseline --yes")));
-    }
     if a.write_baseline {
-        let mut o = Output::new("guard");
-        for (name, rel, hits) in guards::write_baselines(&cfg, &a.names)? {
-            o = o
-                .item(json!({"guard": name, "baseline": rel, "hits": hits}), format!("{name}: {hits} hit(s) in {rel}"));
+        // A baseline hides today's hits from every later run: --yes confirms it (CLI-3).
+        let mut o = Output::new("guard").field("written", a.yes);
+        let mut total = 0;
+        for (name, rel, hits) in guards::write_baselines(&cfg, &a.names, a.yes)? {
+            total += hits;
+            let verb = if a.yes { "" } else { "would record " };
+            o = o.item(
+                json!({"guard": name, "baseline": rel, "hits": hits}),
+                format!("{name}: {verb}{hits} hit(s) in {rel}"),
+            );
+        }
+        if !a.yes {
+            let names = if a.names.is_empty() { String::new() } else { format!(" {}", a.names.join(" ")) };
+            return Ok(o
+                .field("baselined", total)
+                .head(format!(
+                    "would record {total} hit(s) as baselines, hiding them from later runs: nothing was written"
+                ))
+                .next(format!("spec guard{names} --write-baseline --yes")));
         }
         return Ok(o.next("git add <baseline files>"));
     }
@@ -115,7 +122,7 @@ fn builtin_hits(
     if let Some(files) = &in_range {
         unread.retain(|p| files.contains(p));
     }
-    let note = guards::secrets::skipped_note(&unread);
+    let note = guards::secrets::skipped_note(root, &unread, max);
     let hits = guards::builtin_secrets(&blobs)
         .into_iter()
         .map(|(_, mut f)| {

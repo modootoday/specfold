@@ -56,7 +56,19 @@ fn target<'a>(map: &'a mut Map<String, Value>, key: &str) -> (&'a mut Map<String
 fn apply_one(map: &mut Map<String, Value>, a: &Assign) {
     let is_list = a.key.starts_with("rel.") || LIST_KEYS.contains(&a.key.as_str());
     let value = if a.key == "updated" && a.value == "today" { stamp::now_value() } else { a.value.clone() };
+    let nested = a.key.contains('.');
     let (m, k) = target(map, &a.key);
+    // `key=` with nothing after it deletes the key, so an unknown relation can be taken out.
+    if matches!(a.op, Op::Set) && value.is_empty() {
+        m.remove(&k);
+        if nested {
+            let parent = a.key.split('.').next().unwrap_or_default();
+            if map.get(parent).is_some_and(|v| v.as_object().is_some_and(|o| o.is_empty())) {
+                map.remove(parent);
+            }
+        }
+        return;
+    }
     match (&a.op, is_list) {
         (Op::Set, true) => {
             m.insert(
@@ -230,6 +242,9 @@ mod tests {
         assert_eq!(m["rel"]["implements"], serde_json::json!(["sot:a/b"]));
         assert_eq!(m["tags"], serde_json::json!(["x", "y"]));
         apply_one(&mut m, &Assign::parse("tags-=x").unwrap());
+        apply_one(&mut m, &Assign::parse("rel.affects=a").unwrap());
+        apply_one(&mut m, &Assign::parse("rel.affects=").unwrap());
+        assert!(m["rel"].get("affects").is_none());
         assert_eq!(m["tags"], serde_json::json!(["y"]));
         assert!(Assign::parse("=x").is_err());
     }

@@ -314,7 +314,7 @@ fn a_markdown_link_to_an_id_is_warned_about_and_rewritten_on_export() {
     assert!(s.contains("[gone](adr:shop/1999) is a Markdown link to a document id that names no document"), "{s}");
     let (code, v) = r.json(&["export", "markdown", "--target", "mkdocs", "--out", "site"]);
     assert_eq!(code, 0, "{v}");
-    assert_eq!(v["next"], "spec export markdown --target mkdocs --out site --yes", "{v}");
+    assert_eq!(v["next"], "git status --short -- site", "{v}");
     let page = r.read("site/shop/sot/checkout.md");
     assert!(page.contains("[the tax rule](../adr/cart-totals.md)"), "{page}");
     assert!(page.contains("[gone](adr:shop/1999)"), "left as written: {page}");
@@ -443,4 +443,6 @@ fn the_built_in_check_reads_repository_attachments_of_exported_documents() {
     r.write("spec.toml", &(r.read("spec.toml") + "\n[files]\nscan_max_bytes = 8\n"));
     let (code, v) = r.json(&["export", "markdown", "--target", "mkdocs", "--out", "site"]);
     assert_eq!(code, 0, "over scan_max_bytes the file is not read: {v}");
+    let note = v["not_scanned"].as_str().unwrap_or_default();
+    assert!(note.starts_with("2 attachment(s) not scanned") && note.contains("board.bin"), "{v}");
 }

@@ -111,5 +111,7 @@ pub fn run(g: &Global, a: &ExplainArgs) -> Result<Output> {
         };
         o = o.item(json!({"id": i.id, "title": i.title, "explain": i.explain, "on_commit": i.on_commit}), text);
     }
-    Ok(o.next(format!("spec check --rule {first}")))
+    // D1 never reports in a full run: point at the run that shows it.
+    let staged = if first == "D1" { " --staged" } else { "" };
+    Ok(o.next(format!("spec check{staged} --rule {first}")))
 }

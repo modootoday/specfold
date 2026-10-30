@@ -5,6 +5,13 @@ Release notes for each version are also on
 
 ## Unreleased
 
+- `spec set` without `--write` still writes in 0.3 but warns on stderr. **From 0.4, `set` (like `new`) previews unless `--write`.**
+- `spec set ID key=` with an empty value deletes the key (an emptied `rel` is removed too).
+- D1 also counts staged deletes and the old paths of renames (`p (removed)`). Its fix is a runnable `spec new change ... --depends-on ID --write`; `spec explain D1` points to `spec check --staged --rule D1`. A staged/changed run without documents says so in its summary.
+- `spec new --depends-on ID` (repeatable) writes `rel.depends_on`.
+- `spec export` reports attachments it did not scan for secrets (`not_scanned`); binary files no longer get the `scan_max_bytes` hint. Success `next` is `git status --short -- <out>`.
+- `spec guard --write-baseline` without `--yes` previews the hit counts it would record.
+
 ### Changed
 
 - CLI conventions CLI-1–CLI-16 (AGENTS.md, `tests/cli_contract.rs`). Actions that delete,

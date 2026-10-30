@@ -52,6 +52,18 @@ fn guard(
     Ok((o, false))
 }
 
+/// One line naming the exported documents' attachments the secrets check could not read.
+fn unscanned(c: &specfold_core::corpus::Corpus, only: &[usize]) -> Option<String> {
+    let max = c.cfg.raw.files.scan_max_bytes;
+    let mut skipped: Vec<String> = only
+        .iter()
+        .flat_map(|&i| specfold_core::guards::secrets::attachment_scan(&c.cfg.root, &c.docs[i], max).1)
+        .collect();
+    skipped.sort();
+    skipped.dedup();
+    specfold_core::guards::secrets::skipped_note(&c.cfg.root, &skipped, max)
+}
+
 /// The files the exported documents come from (main file and chapters) and their repository
 /// text attachments up to [files] scan_max_bytes (the set rule U2 reads), as guard blobs.
 fn source_blobs(c: &specfold_core::corpus::Corpus, only: &[usize]) -> Vec<(String, Vec<u8>)> {
@@ -107,6 +119,10 @@ pub fn run(g: &Global, a: &ExportArgs) -> Result<Output> {
     if refused {
         return Ok(o);
     }
+    let o = match (a.no_guard, unscanned(&s.corpus, &only)) {
+        (false, Some(note)) => o.field("not_scanned", note.clone()).foot(note),
+        _ => o,
+    };
     let result: Value = process::call(&s.corpus.cfg, &p.def, "export.run", params)?;
     Ok(o.field("result", result).head(format!("exported with {} ({format})", a.plugin)))
 }
@@ -168,11 +184,17 @@ fn built_in(g: &Global, a: &ExportArgs) -> Result<Output> {
             .next("spec check --rule L1"));
     }
     let blobs: Vec<(String, Vec<u8>)> = tree.files.iter().map(|(p, t)| (p.clone(), t.as_bytes().to_vec())).collect();
-    let sources = source_blobs(&s.corpus, &export::payload::visible(&s.corpus, a.local));
+    let visible = export::payload::visible(&s.corpus, a.local);
+    let sources = source_blobs(&s.corpus, &visible);
     let (o, refused) = guard(&s.corpus.cfg, a, &blobs, &sources, o)?;
     if refused {
         return Ok(o);
     }
+    // Attachments the secrets check could not read leave too: say so, as check and guard do.
+    let o = match (a.no_guard, unscanned(&s.corpus, &visible)) {
+        (false, Some(note)) => o.field("not_scanned", note.clone()).foot(note),
+        _ => o,
+    };
     // Replacing an earlier export overwrites files outside the repository: --yes confirms it (CLI-3).
     let again = session::shell_word(&out.display().to_string());
     if !previous.is_empty() && !a.yes {
@@ -196,8 +218,8 @@ fn built_in(g: &Global, a: &ExportArgs) -> Result<Output> {
     if n > 0 {
         o = o.foot(format!("{n} reference(s) written as plain text")).next("spec check --rule L1");
     } else {
-        // Exporting again into the same directory replaces what this export wrote.
-        o = o.next(format!("spec export markdown --target {} --out {again} --yes", target.name()));
+        // Done: look at what changed in the output rather than exporting again.
+        o = o.next(format!("git status --short -- {again}"));
     }
     Ok(o)
 }

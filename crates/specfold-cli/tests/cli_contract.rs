@@ -286,6 +286,7 @@ fn cli3_destructive_needs_yes_off_tty() {
     assert!(code < 2, "{v}");
     assert_eq!(v["written"], false, "{v}");
     assert!(v["next"].as_str().unwrap().contains("--write-baseline --yes"), "{v}");
+    assert!(v["baselined"].is_u64(), "the preview counts what it would record: {v}");
 }
 
 #[test]

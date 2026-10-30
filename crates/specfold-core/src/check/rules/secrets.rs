@@ -51,7 +51,9 @@ impl Rule for NoSecrets {
         // One line for every attachment left unread, so a skipped file is never silent.
         unread.sort();
         unread.dedup();
-        if let Some(note) = guards::secrets::skipped_note(&unread) {
+        if let Some(note) =
+            guards::secrets::skipped_note(&ctx.corpus.cfg.root, &unread, ctx.corpus.cfg.raw.files.scan_max_bytes)
+        {
             out.push(Finding::warn("U2", &unread[0], 1, note).fix_cmd("spec explain U2"));
         }
     }
