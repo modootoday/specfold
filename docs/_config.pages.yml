@@ -1,0 +1,10 @@
+# Classic GitHub Pages overlay (not used for local builds).
+# Local:  bundle exec jekyll build
+# Pages:  jekyll build --config _config.yml,_config.pages.yml
+# For the classic "Deploy from a branch" build, copy these keys into _config.yml
+# (Pages reads only _config.yml). With a GitHub Actions build, the gem setup
+# in _config.yml/Gemfile can be used as is (actions/jekyll-build-pages or
+# ruby/setup-ruby + bundle exec jekyll build + actions/deploy-pages).
+theme: null
+remote_theme: modootoday/jekyll-theme-modootoday@v1.0.0
+plugins: [jekyll-remote-theme, jekyll-sitemap, jekyll-relative-links, jekyll-redirect-from]

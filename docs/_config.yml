@@ -23,6 +23,4 @@ modootoday:
 defaults:
   - scope: { path: "" }
     values: { layout: doc }
-  - scope: { path: "index.md" }
-    values: { layout: home }
 exclude: [Gemfile, Gemfile.lock, node_modules, vendor, CNAME.txt, _src]
