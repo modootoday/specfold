@@ -667,3 +667,20 @@ fn c181_write_baseline_refuses_a_rule_subset() {
     }
     assert!(!r.read("spec.toml").contains("baseline"), "nothing written");
 }
+
+#[test]
+fn c184_guards_sharing_a_baseline_file_are_refused_at_load() {
+    let r = common::repo();
+    let mut toml = r.read("spec.toml");
+    for g in ["g1", "g2"] {
+        toml.push_str(&format!("[[guards]]\nname = \"{g}\"\ndeny_terms = [\"x\"]\nbaseline = \".base.json\"\n"));
+    }
+    r.write("spec.toml", &toml);
+    let (code, v) = r.json(&["guard", "--write-baseline"]);
+    assert_eq!(code, 2, "{v}");
+    let err = v["error"].as_str().unwrap();
+    assert!(err.contains("'g1' and 'g2'") && err.contains(".base.json"), "{v}");
+    assert_eq!(v["next"], "spec explain config", "{v}");
+    r.write("spec.toml", &toml.replacen(".base.json", ".g1.json", 1));
+    assert_ne!(r.json(&["guard", "--write-baseline"]).0, 2, "own files load");
+}

@@ -68,6 +68,20 @@ impl Config {
                 );
             }
         }
+        // C184: guards sharing a baseline file overwrite each other's entries on --write-baseline.
+        let mut seen: Vec<(&str, &str)> = Vec::new();
+        for g in &raw.guards {
+            let Some(b) = g.baseline.as_deref() else { continue };
+            let b = b.trim_start_matches("./");
+            if let Some((other, _)) = seen.iter().find(|(_, x)| *x == b) {
+                bail!(
+                    "{}: guards '{other}' and '{}' both use baseline = \"{b}\"; give each guard its own baseline file; next: spec explain config",
+                    path.display(),
+                    g.name
+                );
+            }
+            seen.push((&g.name, b));
+        }
         let root = path.parent().unwrap_or(Path::new(".")).to_path_buf();
         Ok(Self::from_raw(root, raw, false))
     }
