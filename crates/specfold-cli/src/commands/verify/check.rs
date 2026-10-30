@@ -239,12 +239,13 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
     } else {
         findings::push_all(o, &list)
     };
-    let o = o.foot(format!(
-        "{errors} error(s), {warnings} warning(s) in {} of {} documents{held} · {:.2}s",
-        report.docs_checked,
-        s.corpus.docs.len(),
-        ms as f64 / 1000.0
-    ));
+    // A staged or ranged run that changes no document still checks the changed code (D1, U1).
+    let place = if report.docs_checked == 0 && (a.staged || a.changed.is_some()) {
+        "in the changed files (no document changed)".to_string()
+    } else {
+        format!("in {} of {} documents", report.docs_checked, s.corpus.docs.len())
+    };
+    let o = o.foot(format!("{errors} error(s), {warnings} warning(s) {place}{held} · {:.2}s", ms as f64 / 1000.0));
     let mut o = excluded
         .iter()
         .fold(o, |o, (r, n)| o.foot(format!("{r}: {n} error(s) left out of the exit code by --fail-on")));

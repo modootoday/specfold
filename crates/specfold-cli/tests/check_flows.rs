@@ -508,7 +508,8 @@ fn a_secret_in_a_repository_attachment_is_found_after_attach() {
     let (_, t) = r.text(&["check", "--rule", "U2"]);
     let bin: Vec<&str> = t.lines().filter(|l| l.contains("board.bin")).collect();
     assert_eq!(bin.len(), 1, "a binary file is not read, only named once as skipped: {t}");
-    assert!(bin[0].contains("1 attachment(s) not scanned") && bin[0].contains("scan_max_bytes"), "{t}");
+    assert!(bin[0].contains("1 attachment(s) not scanned") && bin[0].contains("1 binary"), "{t}");
+    assert!(!bin[0].contains("scan_max_bytes"), "raising the limit does not help a binary file: {t}");
     let (code, v) = r.json(&["guard", "secrets", "--all"]);
     assert_ne!(code, 0, "{v}");
     assert!(v.to_string().contains("notes.txt"), "{v}");
@@ -579,4 +580,61 @@ fn governed_code_changed_without_its_document_warns_in_a_staged_run() {
     r.git(&["add", &sot_path]);
     let (_, v) = r.json(&["check", "--staged"]);
     assert!(d1(&v).is_empty(), "{v}");
+}
+
+#[test]
+fn d1_counts_deleted_and_renamed_away_code_and_its_fix_runs() {
+    let r = common::repo();
+    let sot = r.new_doc("sot", "services/shop", "Cart rules");
+    assert_eq!(r.json(&["set", &sot, "status=active", "--write"]).0, 0);
+    r.write("services/shop/src/a.rs", "fn a() {}\n");
+    r.write("services/shop/src/b.rs", "fn b() {}\n");
+    r.commit("rules");
+    r.git(&["rm", "-q", "services/shop/src/a.rs"]);
+    r.git(&["mv", "services/shop/src/b.rs", "elsewhere.rs"]);
+    let (code, v) = r.json(&["check", "--staged"]);
+    assert_eq!(code, 0, "{v}");
+    let f = v["items"].as_array().unwrap().iter().find(|f| f["rule"] == "D1").expect("D1").clone();
+    let msg = f["message"].as_str().unwrap();
+    assert!(
+        msg.contains("services/shop/src/a.rs (removed)") && msg.contains("services/shop/src/b.rs (removed)"),
+        "{msg}"
+    );
+    // The fix is a command that writes a change note linking the document; staged, it clears D1.
+    let fix = f["fix"]["cmd"].as_str().unwrap().to_string();
+    assert!(fix.starts_with("spec new change ") && fix.contains(&format!("--depends-on {sot}")), "{fix}");
+    let out = std::process::Command::new("sh")
+        .arg("-c")
+        .arg(fix.replacen("spec", common::bin_dir().join("spec").to_str().unwrap(), 1))
+        .current_dir(r.path())
+        .env("SPECFOLD_CACHE", r.path().join(".cache"))
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    r.git(&["add", "-A"]);
+    let (_, v) = r.json(&["check", "--staged"]);
+    assert!(!v["items"].as_array().unwrap().iter().any(|f| f["rule"] == "D1"), "{v}");
+    // explain D1 points at the run that reports it.
+    assert_eq!(r.json(&["explain", "D1"]).1["next"], "spec check --staged --rule D1");
+}
+
+#[test]
+fn a_staged_run_without_documents_says_so_in_its_summary() {
+    let r = common::repo();
+    r.write("services/shop/src/x.rs", "fn x() {}\n");
+    r.git(&["add", "-A"]);
+    let (_, t) = r.text(&["check", "--staged"]);
+    assert!(t.contains("in the changed files (no document changed)"), "{t}");
+}
+
+#[test]
+fn set_with_an_empty_value_deletes_the_key() {
+    let r = common::repo();
+    let sot = r.new_doc("sot", "services/shop", "Cart rules");
+    assert_eq!(r.json(&["set", &sot, "rel.affects+=x", "--write"]).0, 0);
+    let path = r.json(&["resolve", &sot]).1["path"].as_str().unwrap().to_string();
+    assert!(r.read(&path).contains("affects"));
+    let out = r.spec().args(["set", &sot, "rel.affects="]).output().unwrap();
+    assert!(String::from_utf8_lossy(&out.stderr).contains("from 0.4 it previews unless --write"));
+    assert!(!r.read(&path).contains("affects"), "{}", r.read(&path));
 }

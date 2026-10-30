@@ -106,7 +106,8 @@ pub fn reads_content(g: &GuardDef) -> bool {
 }
 
 /// Measures each named guard over the whole tree and writes its baseline file.
-pub fn write_baselines(cfg: &Config, names: &[String]) -> Result<Vec<(String, String, usize)>> {
+/// With `write` false, only measures: what `--write-baseline` would record, for its preview.
+pub fn write_baselines(cfg: &Config, names: &[String], write: bool) -> Result<Vec<(String, String, usize)>> {
     let mut written = vec![];
     for g in select(cfg, names)? {
         let Some(rel) = &g.baseline else {
@@ -117,7 +118,9 @@ pub fn write_baselines(cfg: &Config, names: &[String]) -> Result<Vec<(String, St
         };
         let scanned = scan_one(cfg, g, Some(&GuardRange::All))?;
         let b = baseline::measure_with(&cfg.root, &scanned.findings, &[], |p| scanned.files.iter().any(|f| f == p))?;
-        baseline::write_file(&cfg.root, rel, &b)?;
+        if write {
+            baseline::write_file(&cfg.root, rel, &b)?;
+        }
         written.push((g.name.clone(), rel.clone(), b.counts.values().sum()));
     }
     Ok(written)

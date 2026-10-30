@@ -20,6 +20,9 @@ pub struct NewArgs {
     /// Code this document rules; decides where it is stored.
     #[arg(long)]
     pub governs: Vec<String>,
+    /// A document this one depends on (rel.depends_on), e.g. what a change note updates. Repeatable.
+    #[arg(long, value_name = "ID")]
+    pub depends_on: Vec<String>,
     /// Store with this owner instead of the computed one.
     #[arg(long)]
     pub owner: Option<String>,
@@ -53,12 +56,12 @@ pub struct NewArgs {
 
 #[derive(Debug, Clone, Args)]
 #[command(
-    after_help = "Examples:\n  spec set adr:shop/20260101000000 status=active\n  spec set plan:shop/20260101000000 phase=P3 rel.implements+=sot:shop/cart\n  spec set sot:shop/cart tags-=draft\n  spec set sot:shop/cart verified_at=HEAD   # pin: audit flags any later commit to the governed code\n  spec set guide:docs/ko-setup --source-rev   # after re-translating: record the source it now matches"
+    after_help = "Examples:\n  spec set adr:shop/20260101000000 status=active\n  spec set plan:shop/20260101000000 phase=P3 rel.implements+=sot:shop/cart\n  spec set sot:shop/cart tags-=draft\n  spec set sot:shop/cart rel.affects=   # delete a key\n  spec set sot:shop/cart verified_at=HEAD   # pin: audit flags any later commit to the governed code\n  spec set guide:docs/ko-setup --source-rev   # after re-translating: record the source it now matches"
 )]
 pub struct SetArgs {
     /// An id, alias, path, or unique slug.
     pub doc: String,
-    /// key=value, key+=value (add to a list), key-=value (remove from a list).
+    /// key=value, key+=value (add to a list), key-=value (remove from a list), key= (delete the key).
     #[arg(required_unless_present_any = ["source_rev", "pin", "unpin"])]
     pub assignments: Vec<String>,
     /// Record the source's current body as this translation's source_rev (after re-translating).
@@ -73,7 +76,7 @@ pub struct SetArgs {
     /// Show the change without writing.
     #[arg(long)]
     pub dry_run: bool,
-    /// Accepted and ignored: set writes directly, like `--write` elsewhere; preview with --dry-run.
+    /// Write the change. 0.3 also writes without it but warns; from 0.4 set previews unless --write.
     #[arg(long, conflicts_with = "dry_run")]
     pub write: bool,
 }

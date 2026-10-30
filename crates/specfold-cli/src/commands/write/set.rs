@@ -9,6 +9,12 @@ use specfold_core::authoring::set::{self, Assign, Op};
 use specfold_core::translation;
 
 pub fn run(g: &Global, a: &SetArgs) -> Result<Output> {
+    // CLI-1: from 0.4 `set` previews unless --write; 0.3 still writes, and says so on stderr.
+    if !a.dry_run && !a.write {
+        eprintln!(
+            "warning: spec set writes without --write in 0.3; from 0.4 it previews unless --write. Add --write to keep writing (--dry-run previews)."
+        );
+    }
     let s = session::open(g)?;
     let idx = session::resolve(&s, &a.doc)?;
     let mut assigns = a.assignments.iter().map(|x| Assign::parse(x)).collect::<Result<Vec<_>>>()?;

@@ -26,6 +26,27 @@ pub fn changed_in_range(root: &Path, range: &str) -> Option<Vec<String>> {
     git(root, &["diff", "--name-only", "-z", "--diff-filter=ACMR", range]).map(split_nul)
 }
 
+/// Paths a change removes: deleted files and the old side of renames, in the index (`base`
+/// None) or since `base`. They no longer exist, so the other change lists leave them out.
+pub fn gone(root: &Path, base: Option<&str>) -> Option<Vec<String>> {
+    let mut args = vec!["diff", "--name-status", "-z", "-M", "--diff-filter=DR"];
+    match base {
+        Some(b) => args.push(b),
+        None => args.push("--cached"),
+    }
+    let words = split_nul(git(root, &args)?);
+    let mut out = vec![];
+    let mut it = words.into_iter();
+    while let Some(status) = it.next() {
+        let Some(old) = it.next() else { break };
+        if status.starts_with('R') {
+            it.next();
+        }
+        out.push(old);
+    }
+    Some(out)
+}
+
 /// Line numbers added per path: in the index against HEAD (`base` None) or in the working tree
 /// against `base`. Lets a check judge only what a change writes, not the history it touches.
 pub fn added_lines(root: &Path, base: Option<&str>) -> Option<HashMap<String, Vec<usize>>> {

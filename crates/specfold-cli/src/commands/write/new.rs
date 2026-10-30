@@ -38,6 +38,7 @@ pub fn run(g: &Global, a: &NewArgs) -> Result<Output> {
         bundle: a.bundle,
         key: None,
         body: None,
+        depends_on: a.depends_on.clone(),
     };
     let (created, plan) = new::plan(&s.corpus, &s.graph, &req)?;
     let o = Output::new("new")

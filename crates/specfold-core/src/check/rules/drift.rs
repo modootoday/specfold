@@ -19,7 +19,7 @@ impl Rule for GovernedCodeDrift {
         &RuleInfo {
             id: "D1",
             title: "changed code moves its governing document",
-            explain: "In a staged or ranged run (`spec check --staged`, `--changed`), each changed file that is not a document is matched against the explicit `rel.governs` globs of active, committed documents. A document whose governed code changed is expected to change in the same range, or to be named by a `change` note that changes in the range; otherwise this warning lists the changed paths. Documents that govern only through their owner directory are not asked, and a full run never reports D1. Update the document (or its `verified_at`), or write a change note: spec new change --title … and link the document.",
+            explain: "In a staged or ranged run (`spec check --staged`, `--changed`), each changed file that is not a document is matched against the explicit `rel.governs` globs of active, committed documents. A document whose governed code changed is expected to change in the same range, or to be named by a `change` note that changes in the range; otherwise this warning lists the changed paths. Documents that govern only through their owner directory are not asked, and a full run never reports D1. Deleted files and the old paths of renamed files count as changed. Update the document (or its `verified_at`), or write a change note that links it: `spec new change --title … --depends-on <id> --write` (a `[[<id>]]` link in its body works too). See it with `spec check --staged --rule D1`.",
             on_commit: true,
         }
     }
@@ -32,13 +32,16 @@ impl Rule for GovernedCodeDrift {
         let own: BTreeSet<&String> =
             c.docs.iter().flat_map(|d| std::iter::once(&d.path).chain(&d.chapters).chain(&d.bundle_files)).collect();
         let mut drift: BTreeMap<usize, Vec<&str>> = BTreeMap::new();
-        for p in ctx.scope.paths.iter().filter(|p| !own.contains(p)) {
+        let gone: Vec<String> = ctx.scope.gone.iter().map(|p| format!("{p} (removed)")).collect();
+        let changed = ctx.scope.paths.iter().map(|p| (p.as_str(), p.as_str()));
+        let removed = ctx.scope.gone.iter().zip(&gone).map(|(p, shown)| (p.as_str(), shown.as_str()));
+        for (p, shown) in changed.chain(removed).filter(|(p, _)| !own.contains(&p.to_string())) {
             for g in governing(c, p) {
                 let d = &c.docs[g.idx];
                 let explicit = d.rel().get("governs").is_some_and(|v| !v.is_empty());
                 if explicit && d.tier == Tier::Committed && d.status().as_deref() == Some("active") && !skipped(d, "D1")
                 {
-                    drift.entry(g.idx).or_default().push(p);
+                    drift.entry(g.idx).or_default().push(shown);
                 }
             }
         }
@@ -63,7 +66,10 @@ impl Rule for GovernedCodeDrift {
                     1,
                     format!("{named} changed under {}'s governs, but the document and its change notes did not", d.id),
                 )
-                .fix_cmd(format!("spec show {}", d.id)),
+                .fix_cmd(format!(
+                    "spec new change --title 'Code change under {}' --depends-on {} --write",
+                    d.id.owner, d.id
+                )),
             );
         }
     }

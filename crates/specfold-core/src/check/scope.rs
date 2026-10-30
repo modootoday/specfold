@@ -31,6 +31,8 @@ pub struct Scope {
     pub with_neighbours: BTreeSet<usize>,
     /// The revision to compare against for transition checks.
     pub base: Option<String>,
+    /// Paths the change deletes or renames away; they are not in `paths`.
+    pub gone: BTreeSet<String>,
 }
 
 impl Scope {
@@ -50,6 +52,11 @@ impl Scope {
             }
         };
         paths.extend(in_submodules.iter().cloned());
+        let gone: BTreeSet<String> = match &range {
+            Range::All => BTreeSet::new(),
+            Range::Staged => vcs::gone(root, None).unwrap_or_default().into_iter().collect(),
+            Range::Changed(base) => vcs::gone(root, Some(base)).unwrap_or_default().into_iter().collect(),
+        };
         let mut touched = BTreeSet::new();
         if !matches!(range, Range::All) {
             for (i, d) in c.docs.iter().enumerate() {
@@ -65,7 +72,7 @@ impl Scope {
                 with_neighbours.insert(e.from);
             }
         }
-        Ok(Scope { range, paths, in_submodules, touched, with_neighbours, base })
+        Ok(Scope { range, paths, in_submodules, touched, with_neighbours, base, gone })
     }
 
     pub fn is_all(&self) -> bool {
