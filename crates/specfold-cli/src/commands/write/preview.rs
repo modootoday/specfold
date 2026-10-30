@@ -38,7 +38,8 @@ pub fn finish(mut o: Output, plan: &Plan, root: &Path, write: bool, rerun: &str)
             && !write
             && let Ok(old) = std::fs::read_to_string(root.join(path))
         {
-            let (at, before, after) = changed_lines(&old, content);
+            // C157: the write keeps the file's line endings, so compare with them set aside.
+            let (at, before, after) = changed_lines(&old.replace("\r\n", "\n"), &content.replace("\r\n", "\n"));
             if !before.is_empty() || !after.is_empty() {
                 item["line"] = json!(at);
                 item["before"] = json!(before);

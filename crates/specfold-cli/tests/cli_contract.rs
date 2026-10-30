@@ -1242,3 +1242,47 @@ fn c156_a_bad_asset_slug_next_replaces_the_slug() {
     let (code, v) = r.json(&args);
     assert_eq!(code, 0, "{v}");
 }
+
+#[test]
+fn c157_edit_preview_on_crlf_matches_lf() {
+    let r = common::repo();
+    let lf = r.new_doc("sot", "services/shop", "Cart");
+    let cr = r.new_doc("sot", "services/blog", "Post");
+    let p = doc_path(&r, &cr);
+    r.write(&p, &r.read(&p).replace('\n', "\r\n"));
+    r.commit("crlf");
+    let changed = |id: &str| {
+        let (_, v) = r.json(&["edit", id, "--section", "Rule", "--text", "New rule."]);
+        let it = v["items"].as_array().unwrap().iter().find(|i| i["op"] == "update").cloned().unwrap();
+        (it["before"].as_array().unwrap().len(), it["after"].as_array().unwrap().len())
+    };
+    assert_eq!(changed(&cr), changed(&lf));
+}
+
+#[cfg(unix)]
+#[test]
+fn c126_push_hook_works_without_an_upstream() {
+    let r = common::repo();
+    r.new_doc("sot", "services/shop", "Cart");
+    r.commit("init");
+    let (_, v) = r.json(&["hook", "print", "--for", "lefthook"]);
+    let content = v["content"].as_str().unwrap().to_string();
+    let cmd = content.lines().last().unwrap().trim().trim_start_matches("run: ").to_string();
+    let path = format!("{}:{}", common::bin_dir().display(), std::env::var("PATH").unwrap_or_default());
+    let run = || {
+        std::process::Command::new("sh").arg("-c").arg(&cmd).current_dir(r.path()).env("PATH", &path).output().unwrap()
+    };
+    let out = run();
+    assert!(out.status.success(), "{out:?}");
+    assert!(String::from_utf8_lossy(&out.stderr).contains("skipped"), "{out:?}");
+    // With a default branch to compare with, the check runs against the merge-base.
+    let bare = r.path().join("remote.git");
+    r.git(&["init", "-q", "--bare", bare.to_str().unwrap()]);
+    r.git(&["remote", "add", "origin", bare.to_str().unwrap()]);
+    r.git(&["push", "-q", "origin", "HEAD:refs/heads/main"]);
+    r.git(&["remote", "set-head", "origin", "main"]);
+    r.git(&["checkout", "-q", "-b", "feat"]);
+    let out = run();
+    assert!(out.status.success(), "{out:?}");
+    assert!(!String::from_utf8_lossy(&out.stderr).contains("skipped"), "{out:?}");
+}
