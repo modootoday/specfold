@@ -1528,3 +1528,20 @@ fn c161_dir_resolves_import_map() {
     assert_eq!(code, 0, "{v}");
     assert!(v["rows"].as_u64().unwrap() > 0, "{v}");
 }
+
+#[test]
+fn c162_unicode_line_breaks_in_titles_are_refused() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    r.commit("doc");
+    for t in ["a\u{85}b", "a\u{2028}b", "a\u{2029}b"] {
+        let (code, v) = r.json(&["new", "sot", "--governs", "services/shop", "--title", t, "--write"]);
+        assert_eq!(code, 2, "{v}");
+        assert!(v["next"].as_str().unwrap().starts_with("spec new sot --title"), "{v}");
+        let (code, v) = r.json(&["set", &id, &format!("title={t}"), "--write"]);
+        assert_eq!(code, 2, "{v}");
+        assert!(v["next"].as_str().unwrap().starts_with(&format!("spec set {id} title=")), "{v}");
+    }
+    let st = std::process::Command::new("git").args(["status", "--porcelain"]).current_dir(r.path()).output().unwrap();
+    assert!(st.stdout.is_empty(), "{st:?}");
+}

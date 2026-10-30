@@ -25,7 +25,7 @@ pub fn run(g: &Global, a: &NewArgs) -> Result<Output> {
 
 fn create(g: &Global, a: &NewArgs) -> Result<Output> {
     // C160: a title is one line; a line break splits the heading and list rows.
-    if [&a.title, &a.title_text].into_iter().flatten().any(|t| t.contains(['\n', '\r'])) {
+    if [&a.title, &a.title_text].into_iter().flatten().any(|t| t.contains(session::LINE_BREAKS)) {
         let ty = a.ty.as_deref().unwrap_or("<type>");
         bail!("the title has a line break; give it on one line; next: spec new {ty} --title \"<one-line title>\"");
     }
