@@ -1,3 +1,5 @@
+//! Unit tests for `assets`.
+
 use super::*;
 
 #[test]

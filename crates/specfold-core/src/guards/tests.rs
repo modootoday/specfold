@@ -1,3 +1,5 @@
+//! Unit tests for `guards`.
+
 use super::*;
 use crate::config::RawConfig;
 

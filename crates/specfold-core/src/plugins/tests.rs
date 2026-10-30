@@ -1,3 +1,5 @@
+//! Unit tests for `plugins`.
+
 use super::*;
 use crate::config::{Config, PluginDef, RawConfig};
 
