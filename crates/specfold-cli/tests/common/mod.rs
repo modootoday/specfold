@@ -93,3 +93,22 @@ pub fn repo() -> Repo {
 pub fn bin_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_BIN_EXE_spec")).parent().unwrap().to_path_buf()
 }
+
+/// LSP messages framed with Content-Length headers, as an editor sends them.
+pub fn lsp_frames(msgs: &[serde_json::Value]) -> String {
+    msgs.iter()
+        .map(|m| {
+            let b = m.to_string();
+            format!("Content-Length: {}\r\n\r\n{b}", b.len())
+        })
+        .collect()
+}
+
+/// The JSON messages in a framed LSP stream.
+pub fn lsp_replies(out: &[u8]) -> Vec<serde_json::Value> {
+    let text = String::from_utf8_lossy(out);
+    text.split("Content-Length: ")
+        .filter(|s| !s.is_empty())
+        .map(|s| serde_json::from_str(s.split_once("\r\n\r\n").unwrap().1).unwrap())
+        .collect()
+}
