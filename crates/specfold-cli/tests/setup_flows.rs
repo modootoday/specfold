@@ -135,3 +135,15 @@ fn c169_init_upgrade_reads_a_commented_table_header() {
     assert!(r.read("spec.toml").contains("[spec] # main\nschema = 1"));
     assert_eq!(r.json(&["check"]).0, 0);
 }
+
+#[test]
+fn c170_init_upgrade_refuses_a_newer_schema_like_check() {
+    let r = common::repo();
+    r.write("spec.toml", &r.read("spec.toml").replacen("schema = 1", "schema = 7", 1));
+    let (code, v) = r.json(&["check"]);
+    let (code2, v2) = r.json(&["init", "--upgrade"]);
+    assert_eq!((code, code2), (2, 2), "{v} {v2}");
+    assert_eq!(v["error"], v2["error"], "{v2}");
+    assert!(v2["error"].as_str().unwrap().contains("install the latest spec"), "{v2}");
+    assert!(r.read("spec.toml").contains("schema = 7"));
+}

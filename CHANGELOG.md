@@ -134,6 +134,7 @@ A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is 
 
 ### Fixed
 
+- `spec init --upgrade`: a spec.toml from a newer version is refused with the same message and exit code as `spec check`, not reported as current.
 - `spec init --upgrade`: a table header with a trailing comment (`[spec] # main`) is read as TOML reads it, so an old schema under it is raised as `spec check` asks.
 - `spec fix --write` with nothing to fix says "no change" and reports `written: false`, with no empty undo line (as `mv` and `set`).
 - `spec fix --rule`: an unknown or lower-case rule is refused (exit 2, "no such rule", upper-case hint) as in `spec check --rule`.
