@@ -4,7 +4,7 @@
 mod common;
 
 fn leaky_url() -> String {
-    format!("postgres://app:{}{}@db.acme.io/main", "s3cr", "Et-77x")
+    format!("postgres:{}app:{}{}@db.acme.io/main", "//", "s3cr", "Et-77x")
 }
 
 fn with_store(r: &common::Repo, guard: &str) {
