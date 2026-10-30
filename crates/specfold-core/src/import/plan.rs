@@ -367,28 +367,7 @@ fn doc_row(c: &Corpus, map: &ImportMap, u: &Unit, taken: &mut BTreeSet<String>, 
         }
     };
     let mut old = old;
-    let mut body_links = vec![];
-    if !generated {
-        let found = super::body_meta::scan(split.body, &map.body);
-        // A gap only matters where the frontmatter has no value either.
-        let has_status = old.contains_key("status");
-        let has_date = old.contains_key("date") || old.contains_key("created");
-        if let Some(st) = found.status
-            && !old.contains_key("status")
-        {
-            old.insert("status".into(), Value::String(st));
-        }
-        if let Some(d) = found.date
-            && !old.contains_key("date")
-            && !old.contains_key("created")
-        {
-            old.insert("date".into(), Value::String(d));
-        }
-        body_links = found.links;
-        unresolved.extend(found.missed.into_iter().filter(|m| {
-            !(has_status && m.starts_with("no status in the body") || has_date && m.starts_with("no date in the body"))
-        }));
-    }
+    let body_links = if generated { vec![] } else { merge_body_meta(split.body, map, &mut old, &mut unresolved) };
     if ty.fields.iter().any(|f| f == "decision_makers") {
         let body = if generated { "" } else { split.body };
         super::body_meta::people(&mut old, body);
@@ -402,24 +381,12 @@ fn doc_row(c: &Corpus, map: &ImportMap, u: &Unit, taken: &mut BTreeSet<String>, 
     let fallback_title = heading.unwrap_or_else(|| named.replace(['-', '_'], " "));
     let mut conv = convert::frontmatter(map, rule, &old, &ty.statuses, &fallback_title);
     unresolved.append(&mut conv.unresolved);
-    if !body_links.is_empty() {
-        let rel = conv.fm.entry("rel").or_insert_with(|| Value::Object(Map::new()));
-        if let Value::Object(rel) = rel {
-            for (kind, target) in body_links {
-                let name = target.rsplit('/').next().unwrap_or(&target).trim_end_matches(".md").to_string();
-                if let Value::Array(items) = rel.entry(kind).or_insert_with(|| Value::Array(vec![]))
-                    && !items.iter().any(|v| v.as_str() == Some(&name))
-                {
-                    items.push(Value::String(name));
-                }
-            }
-        }
-    }
+    add_body_links(&mut conv.fm, body_links);
     let title = conv.fm.get("title").and_then(Value::as_str).unwrap_or(&fallback_title).to_string();
     let created = conv.fm.get("created").and_then(Value::as_str).map(str::to_string);
     let src =
         key::Source { path: &u.main, caps: caps.as_ref(), created: created.as_deref(), title: &title, name_stem: name };
-    let (mut k, slug) = key::choose(&c.cfg.root, rule, ty, &src);
+    let (k, slug) = key::choose(&c.cfg.root, rule, ty, &src);
     let governs: Vec<String> = conv
         .fm
         .get("rel")
@@ -436,16 +403,7 @@ fn doc_row(c: &Corpus, map: &ImportMap, u: &Unit, taken: &mut BTreeSet<String>, 
             (o, format!("fixed to {fixed} by the import map"))
         }
     };
-    loop {
-        let id = DocId::new(&ty.name, &owner.id, &k).to_string();
-        if !taken.contains(&id) {
-            break;
-        }
-        k = match ty.key {
-            KeyKind::Stamp => stamp::next_stamp(&k).unwrap_or(k),
-            KeyKind::Slug => format!("{k}-2"),
-        };
-    }
+    let k = unique_key(ty, &owner.id, k, taken);
     let slug = if ty.key == KeyKind::Slug { k.clone() } else { slug };
     let id = DocId::new(&ty.name, &owner.id, &k);
     taken.insert(id.to_string());
@@ -454,25 +412,7 @@ fn doc_row(c: &Corpus, map: &ImportMap, u: &Unit, taken: &mut BTreeSet<String>, 
     let main = paths::main_file(&dir, ty, &paths::stem(ty, &k, &slug), bundle);
     let bundle_dir = main.rsplit_once('/').map(|x| x.0.to_string()).unwrap_or_default();
     let base = if u.source == u.main { u.main.trim_end_matches(".md").to_string() } else { u.source.clone() };
-    let mut files = vec![];
-    // Chapters and attachments move: a sibling directory is not the unit's source, so removing
-    // the source alone would leave them behind.
-    for ch in &u.chapters {
-        let rel = ch.strip_prefix(&format!("{base}/")).unwrap_or(name_of(ch));
-        out.plan.copy(ch.clone(), format!("{bundle_dir}/{}", rel.replace('/', "-")));
-        out.plan.remove(ch.clone());
-    }
-    for a in &u.attachments {
-        let rel = a.strip_prefix(&format!("{base}/")).unwrap_or(name_of(a)).to_string();
-        let (sha, bytes) = hash::file(&c.cfg.root.join(a))?;
-        let store = if bytes > c.cfg.raw.files.inline_max_bytes { "store" } else { "repo" };
-        if store == "store" {
-            out.uploads.push((format!("{bundle_dir}/{rel}"), sha.clone()));
-        }
-        out.plan.copy(a.clone(), format!("{bundle_dir}/{rel}"));
-        out.plan.remove(a.clone());
-        files.push(json!({"path": rel, "sha256": sha, "bytes": bytes, "store": store}));
-    }
+    let files = move_files(c, u, &base, &bundle_dir, out)?;
     let mut fm = conv.fm;
     fm.insert("id".into(), Value::String(id.to_string()));
     fm.entry("created").or_insert_with(|| Value::String(stamp::normalize_date(&k).unwrap_or_else(stamp::today)));
@@ -505,28 +445,7 @@ fn doc_row(c: &Corpus, map: &ImportMap, u: &Unit, taken: &mut BTreeSet<String>, 
             ));
         }
     }
-    // C118: say what the body still repeats, rather than rewrite prose the user wrote.
-    if !generated {
-        let kept = super::body_meta::copied_bullets(&body);
-        if !kept.is_empty() {
-            notes.push(format!(
-                "the body keeps {} next to the same values in frontmatter; delete those lines so they cannot drift",
-                kept.iter().map(|k| format!("'{k}:'")).collect::<Vec<_>>().join(", ")
-            ));
-        }
-        if let Some(h) = &scanned.first_heading
-            && map.strip_title_number
-            && strip_number(h) != *h
-        {
-            notes.push(format!("the title drops the number, but the body's heading keeps '# {h}'"));
-        }
-    }
-    // As with `spec new`: a mostly non-ASCII name loses its words from the slug.
-    let alnum = named.chars().filter(|c| c.is_alphanumeric() && !c.is_ascii_digit()).count();
-    let ascii = named.chars().filter(|c| c.is_ascii_alphabetic()).count();
-    if alnum > 0 && ascii * 2 < alnum {
-        notes.push(format!("the name is mostly non-ASCII, so the slug is '{slug}' (the title stays); to rename: spec mv {} --slug <slug> --write", crate::shell::word(&id)));
-    }
+    notes.extend(body_notes(map, &body, generated, scanned.first_heading.as_deref(), named, &slug, &id));
     let content = format!("{}{}", frontmatter::render(&crate::markdown::frontmatter::edit::ordered(fm)), body);
     crate::authoring::forbid::refuse(c, &main, crate::authoring::forbid::NO_LOCAL_HINT)?;
     out.plan.write(main.clone(), content, true);
@@ -557,6 +476,127 @@ fn doc_row(c: &Corpus, map: &ImportMap, u: &Unit, taken: &mut BTreeSet<String>, 
 }
 
 /// `2. Use X` → `Use X`; a title that is only a number stays.
+/// Fills status and date from the body where the frontmatter lacks them; returns the body's typed links.
+fn merge_body_meta(
+    body: &str,
+    map: &ImportMap,
+    old: &mut Map<String, Value>,
+    unresolved: &mut Vec<String>,
+) -> Vec<(String, String)> {
+    let found = super::body_meta::scan(body, &map.body);
+    // A gap only matters where the frontmatter has no value either.
+    let has_status = old.contains_key("status");
+    let has_date = old.contains_key("date") || old.contains_key("created");
+    if let Some(st) = found.status
+        && !old.contains_key("status")
+    {
+        old.insert("status".into(), Value::String(st));
+    }
+    if let Some(d) = found.date
+        && !old.contains_key("date")
+        && !old.contains_key("created")
+    {
+        old.insert("date".into(), Value::String(d));
+    }
+    unresolved.extend(found.missed.into_iter().filter(|m| {
+        !(has_status && m.starts_with("no status in the body") || has_date && m.starts_with("no date in the body"))
+    }));
+    found.links
+}
+
+/// Adds links found in the body to `rel`, once each.
+fn add_body_links(fm: &mut Map<String, Value>, body_links: Vec<(String, String)>) {
+    if body_links.is_empty() {
+        return;
+    }
+    let rel = fm.entry("rel").or_insert_with(|| Value::Object(Map::new()));
+    if let Value::Object(rel) = rel {
+        for (kind, target) in body_links {
+            let name = target.rsplit('/').next().unwrap_or(&target).trim_end_matches(".md").to_string();
+            if let Value::Array(items) = rel.entry(kind).or_insert_with(|| Value::Array(vec![]))
+                && !items.iter().any(|v| v.as_str() == Some(&name))
+            {
+                items.push(Value::String(name));
+            }
+        }
+    }
+}
+
+/// The first key after `k` whose id is not taken yet.
+fn unique_key(ty: &crate::model::doctype::TypeDef, owner: &str, mut k: String, taken: &BTreeSet<String>) -> String {
+    loop {
+        let id = DocId::new(&ty.name, owner, &k).to_string();
+        if !taken.contains(&id) {
+            break;
+        }
+        k = match ty.key {
+            KeyKind::Stamp => stamp::next_stamp(&k).unwrap_or(k),
+            KeyKind::Slug => format!("{k}-2"),
+        };
+    }
+    k
+}
+
+/// Plans the move of a unit's chapters and attachments into the bundle; returns the `files` entries.
+fn move_files(c: &Corpus, u: &Unit, base: &str, bundle_dir: &str, out: &mut ImportPlan) -> Result<Vec<Value>> {
+    let mut files = vec![];
+    // Chapters and attachments move: a sibling directory is not the unit's source, so removing
+    // the source alone would leave them behind.
+    for ch in &u.chapters {
+        let rel = ch.strip_prefix(&format!("{base}/")).unwrap_or(name_of(ch));
+        out.plan.copy(ch.clone(), format!("{bundle_dir}/{}", rel.replace('/', "-")));
+        out.plan.remove(ch.clone());
+    }
+    for a in &u.attachments {
+        let rel = a.strip_prefix(&format!("{base}/")).unwrap_or(name_of(a)).to_string();
+        let (sha, bytes) = hash::file(&c.cfg.root.join(a))?;
+        let store = if bytes > c.cfg.raw.files.inline_max_bytes { "store" } else { "repo" };
+        if store == "store" {
+            out.uploads.push((format!("{bundle_dir}/{rel}"), sha.clone()));
+        }
+        out.plan.copy(a.clone(), format!("{bundle_dir}/{rel}"));
+        out.plan.remove(a.clone());
+        files.push(json!({"path": rel, "sha256": sha, "bytes": bytes, "store": store}));
+    }
+    Ok(files)
+}
+
+/// Notes on what the imported body still repeats and on a slug that lost its words.
+fn body_notes(
+    map: &ImportMap,
+    body: &str,
+    generated: bool,
+    heading: Option<&str>,
+    named: &str,
+    slug: &str,
+    id: &DocId,
+) -> Vec<String> {
+    let mut notes = vec![];
+    // C118: say what the body still repeats, rather than rewrite prose the user wrote.
+    if !generated {
+        let kept = super::body_meta::copied_bullets(body);
+        if !kept.is_empty() {
+            notes.push(format!(
+                "the body keeps {} next to the same values in frontmatter; delete those lines so they cannot drift",
+                kept.iter().map(|k| format!("'{k}:'")).collect::<Vec<_>>().join(", ")
+            ));
+        }
+        if let Some(h) = heading
+            && map.strip_title_number
+            && strip_number(h) != h
+        {
+            notes.push(format!("the title drops the number, but the body's heading keeps '# {h}'"));
+        }
+    }
+    // As with `spec new`: a mostly non-ASCII name loses its words from the slug.
+    let alnum = named.chars().filter(|c| c.is_alphanumeric() && !c.is_ascii_digit()).count();
+    let ascii = named.chars().filter(|c| c.is_ascii_alphabetic()).count();
+    if alnum > 0 && ascii * 2 < alnum {
+        notes.push(format!("the name is mostly non-ASCII, so the slug is '{slug}' (the title stays); to rename: spec mv {} --slug <slug> --write", crate::shell::word(id)));
+    }
+    notes
+}
+
 fn strip_number(title: &str) -> String {
     let digits = title.chars().take_while(char::is_ascii_digit).count();
     match title[digits..].strip_prefix('.') {

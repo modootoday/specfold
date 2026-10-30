@@ -96,38 +96,9 @@ pub fn run(g: &Global, a: &ShowArgs) -> Result<Output> {
         o = o.field("task_items", Value::Array(items));
     }
     if a.rel {
-        let out_edges: Vec<Value> = s
-            .graph
-            .edges_from(idx)
-            .map(|e| json!({"kind": e.kind, "to": s.corpus.docs[e.to].id.to_string(), "anchor": e.anchor}))
-            .collect();
-        let in_edges: Vec<Value> = s
-            .graph
-            .edges_to(idx)
-            .map(|e| json!({"kind": e.kind, "from": s.corpus.docs[e.from].id.to_string()}))
-            .collect();
-        o = o.foot("relations:");
-        for e in &out_edges {
-            o = o.foot(format!("  -> {} {}", e["kind"].as_str().unwrap_or(""), e["to"].as_str().unwrap_or("")));
-        }
-        for e in &in_edges {
-            o = o.foot(format!("  <- {} {}", e["kind"].as_str().unwrap_or(""), e["from"].as_str().unwrap_or("")));
-        }
-        o = o.field("outgoing", Value::Array(out_edges)).field("incoming", Value::Array(in_edges));
+        o = relations(&s, idx, o);
     }
-    // Assets that name this document; read on every show, since none are stored in the graph.
-    let named: Vec<Value> = specfold_core::assets::load(&s.corpus.cfg)
-        .iter()
-        .filter(|x| x.docs(&s.graph).contains(&idx))
-        .map(|x| json!({"kind": x.kind.as_str(), "name": x.name(), "path": x.path}))
-        .collect();
-    if !named.is_empty() {
-        o = o.foot("assets:");
-        for x in &named {
-            o = o.foot(format!("  <- {} {}", x["kind"].as_str().unwrap_or(""), x["path"].as_str().unwrap_or("")));
-        }
-    }
-    o = o.field("assets", Value::Array(named));
+    o = assets(&s, idx, o);
     let next = if let Some(c) = cont {
         c
     } else if a.tasks && done < total {
@@ -142,6 +113,43 @@ pub fn run(g: &Global, a: &ShowArgs) -> Result<Output> {
         format!("spec show {} --section <heading>", specfold_core::shell::word(&shown))
     };
     Ok(o.next(next))
+}
+
+/// `--rel`: the document's outgoing and incoming relations.
+fn relations(s: &session::Session, idx: usize, mut o: Output) -> Output {
+    let out_edges: Vec<Value> = s
+        .graph
+        .edges_from(idx)
+        .map(|e| json!({"kind": e.kind, "to": s.corpus.docs[e.to].id.to_string(), "anchor": e.anchor}))
+        .collect();
+    let in_edges: Vec<Value> =
+        s.graph.edges_to(idx).map(|e| json!({"kind": e.kind, "from": s.corpus.docs[e.from].id.to_string()})).collect();
+    o = o.foot("relations:");
+    for e in &out_edges {
+        o = o.foot(format!("  -> {} {}", e["kind"].as_str().unwrap_or(""), e["to"].as_str().unwrap_or("")));
+    }
+    for e in &in_edges {
+        o = o.foot(format!("  <- {} {}", e["kind"].as_str().unwrap_or(""), e["from"].as_str().unwrap_or("")));
+    }
+    o = o.field("outgoing", Value::Array(out_edges)).field("incoming", Value::Array(in_edges));
+    o
+}
+
+/// Assets that name this document; read on every show, since none are stored in the graph.
+fn assets(s: &session::Session, idx: usize, mut o: Output) -> Output {
+    let named: Vec<Value> = specfold_core::assets::load(&s.corpus.cfg)
+        .iter()
+        .filter(|x| x.docs(&s.graph).contains(&idx))
+        .map(|x| json!({"kind": x.kind.as_str(), "name": x.name(), "path": x.path}))
+        .collect();
+    if !named.is_empty() {
+        o = o.foot("assets:");
+        for x in &named {
+            o = o.foot(format!("  <- {} {}", x["kind"].as_str().unwrap_or(""), x["path"].as_str().unwrap_or("")));
+        }
+    }
+    o = o.field("assets", Value::Array(named));
+    o
 }
 
 /// Lines are reported in the file, where an editor or agent will look for them.

@@ -86,19 +86,7 @@ pub fn run(g: &Global, a: &SetArgs) -> Result<Output> {
             bail!("{me} cannot be an exception to itself; name the rule or decision it departs from");
         }
     }
-    for x in assigns.iter().filter(|x| matches!(x.op, Op::Set)) {
-        let problem = match x.key.as_str() {
-            "lang" => translation::lang_problem(&x.value),
-            "review_by" if !specfold_core::check::rules::is_date(&x.value) => {
-                Some(format!("review_by '{}' is not a date (YYYY-MM-DD), for example review_by=2027-03-31", x.value))
-            }
-            translation::KEY => translation::rev_problem(&x.value).map(|p| format!("{p}; record it with --source-rev")),
-            _ => None,
-        };
-        if let Some(p) = problem {
-            bail!("{p}");
-        }
-    }
+    check_values(&assigns)?;
     let plan = set::plan(&s.corpus, idx, &assigns)?;
     // A plan is archived when its work is done: open tasks refuse the move unless --force.
     let open = open_tasks(&s.corpus, idx, &assigns);
@@ -137,30 +125,7 @@ pub fn run(g: &Global, a: &SetArgs) -> Result<Output> {
     }
     let o = preview::finish(o, &plan, &s.corpus.cfg.root, !a.dry_run, "rerun without --dry-run")?;
     let o = unknown.iter().fold(o.field("warnings", unknown.clone()), |o, w| o.foot(format!("warn  S1  {w}")));
-    Ok(if a.dry_run {
-        o
-    } else {
-        {
-            let mut rules = vec!["S1", "T1", "S4", "L3"];
-            if !a.pin.is_empty() || !a.unpin.is_empty() || assigns.iter().any(|x| x.key.starts_with("pins")) {
-                rules.push("L7");
-            }
-            // C111: a new status can require fields, and a required field's value is checked.
-            let required: Vec<&String> =
-                s.corpus.cfg.registry.get(&ty).map(|t| t.require_when.values().flatten().collect()).unwrap_or_default();
-            if assigns.iter().any(|x| x.key == "status" || required.contains(&&x.key)) {
-                rules.extend(["S6", "S8"]);
-            }
-            if assigns.iter().any(|x| x.key.starts_with("aliases")) {
-                rules.push("I2");
-            }
-            if assigns.iter().any(|x| x.key == "review_by" || x.key == "rel.exception_of") {
-                rules.push("T5");
-            }
-            let rules: Vec<String> = rules.iter().map(|r| format!("--rule {r}")).collect();
-            o.next(format!("spec check {}  # then: spec show {}", rules.join(" "), specfold_core::shell::word(&id)))
-        }
-    })
+    Ok(if a.dry_run { o } else { o.next(check_next(&s, a, &assigns, &ty, &id)) })
 }
 
 /// Why `--pin <target>` names nothing to pin, with the next step for that case.
@@ -214,4 +179,44 @@ fn open_tasks(c: &specfold_core::corpus::Corpus, idx: usize, assigns: &[Assign])
         }
     }
     open
+}
+
+/// Refuses a set value that is malformed for its key.
+fn check_values(assigns: &[Assign]) -> Result<()> {
+    for x in assigns.iter().filter(|x| matches!(x.op, Op::Set)) {
+        let problem = match x.key.as_str() {
+            "lang" => translation::lang_problem(&x.value),
+            "review_by" if !specfold_core::check::rules::is_date(&x.value) => {
+                Some(format!("review_by '{}' is not a date (YYYY-MM-DD), for example review_by=2027-03-31", x.value))
+            }
+            translation::KEY => translation::rev_problem(&x.value).map(|p| format!("{p}; record it with --source-rev")),
+            _ => None,
+        };
+        if let Some(p) = problem {
+            bail!("{p}");
+        }
+    }
+    Ok(())
+}
+
+/// The check to run after a written set: the rules its keys touch.
+fn check_next(s: &session::Session, a: &SetArgs, assigns: &[Assign], ty: &str, id: &str) -> String {
+    let mut rules = vec!["S1", "T1", "S4", "L3"];
+    if !a.pin.is_empty() || !a.unpin.is_empty() || assigns.iter().any(|x| x.key.starts_with("pins")) {
+        rules.push("L7");
+    }
+    // C111: a new status can require fields, and a required field's value is checked.
+    let required: Vec<&String> =
+        s.corpus.cfg.registry.get(ty).map(|t| t.require_when.values().flatten().collect()).unwrap_or_default();
+    if assigns.iter().any(|x| x.key == "status" || required.contains(&&x.key)) {
+        rules.extend(["S6", "S8"]);
+    }
+    if assigns.iter().any(|x| x.key.starts_with("aliases")) {
+        rules.push("I2");
+    }
+    if assigns.iter().any(|x| x.key == "review_by" || x.key == "rel.exception_of") {
+        rules.push("T5");
+    }
+    let rules: Vec<String> = rules.iter().map(|r| format!("--rule {r}")).collect();
+    format!("spec check {}  # then: spec show {}", rules.join(" "), specfold_core::shell::word(id))
 }

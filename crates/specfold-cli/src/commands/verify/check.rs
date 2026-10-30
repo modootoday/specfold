@@ -139,10 +139,7 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
     check_rule_names("--rule", &a.rules)?;
     check_rule_names("--skip", &a.skip)?;
     if let Some(p) = &a.stdin_path {
-        let abs = absolute(std::path::Path::new(p));
-        let mut text = String::new();
-        std::io::Read::read_to_string(&mut std::io::stdin(), &mut text)?;
-        specfold_core::corpus::overlay::set(abs, text);
+        overlay_stdin(p)?;
     }
     // C116: config warnings are a line each and not findings, so -q shows them too.
     session::show_config_warnings();
@@ -160,37 +157,7 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
     let report =
         check::run(&s.corpus, &s.graph, range, &opts, &Selection { only: a.rules.clone(), skip: a.skip.clone() })?;
     if a.write_baseline {
-        // C102: without a baseline path there is nothing to preview; say what to set first.
-        if s.corpus.cfg.raw.check.baseline.is_none() {
-            // C134: JSON carries the reason as `error`, like every other rc 2.
-            return Ok(Output::error(
-                "check",
-                crate::output::Code::Usage,
-                "--write-baseline needs a file to write: add `[check]` with `baseline = \".spec-baseline.json\"` to spec.toml",
-                Some("spec explain config".into()),
-            )
-            .field("written", false));
-        }
-        let b = baseline::measure(&s.corpus, &report.findings)?;
-        let total: usize = b.counts.values().sum();
-        // A baseline hides today's errors from every later run: --yes confirms it (CLI-3).
-        if !a.yes {
-            return Ok(Output::new("check")
-                .field("written", false)
-                .field("baselined", total)
-                .head(format!(
-                    "would record {total} error(s) in {} rule/path pair(s) as the baseline, hiding them from later runs: nothing was written",
-                    b.counts.len()
-                ))
-                .next("spec check --write-baseline --yes"));
-        }
-        let rel = baseline::write(&s.corpus, &b)?;
-        return Ok(Output::new("check")
-            .field("baseline", rel.clone())
-            .field("measured_on", b.measured_on.clone())
-            .field("baselined", total)
-            .foot(format!("{total} error(s) in {} rule/path pair(s) recorded in {rel}", b.counts.len()))
-            .next(format!("git add {rel}")));
+        return write_baseline(&s, a, &report.findings);
     }
     let base = if a.no_baseline { None } else { baseline::load(&s.corpus)? };
     let (list, known, lowerable) = match &base {
@@ -204,15 +171,7 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
     let (errors, warnings) = findings::counts(&list);
     let fails = failing(&list, &a.fail_on);
     let ms = started.elapsed().as_millis();
-    let mut excluded: std::collections::BTreeMap<String, usize> = Default::default();
-    if !a.fail_on.is_empty() && !a.fail_on.iter().any(|r| r == "any") {
-        let none = a.fail_on.iter().any(|r| r == "none");
-        for f in list.iter().filter(|f| f.severity == Severity::Error) {
-            if none || !a.fail_on.contains(&f.rule) {
-                *excluded.entry(f.rule.clone()).or_default() += 1;
-            }
-        }
-    }
+    let excluded = left_out(&list, &a.fail_on);
     // C119: config warnings (printed on stderr) count in the summary too.
     let cfg_warns = session::config_warnings(&s.corpus.cfg).len();
     let mut o = Output::new("check")
@@ -232,11 +191,7 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
     if base.is_some() {
         o = o.field("baselined", known).field("lowerable", lowerable);
     }
-    let mut by_rule: std::collections::BTreeMap<String, (usize, usize)> = Default::default();
-    for f in &list {
-        let e = by_rule.entry(f.rule.clone()).or_default();
-        if f.severity == Severity::Error { e.0 += 1 } else { e.1 += 1 }
-    }
+    let by_rule = by_rule(&list);
     o = o.field(
         "by_rule",
         by_rule
@@ -244,11 +199,7 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
             .map(|(r, (e, w))| (r.clone(), serde_json::json!({"errors": e, "warnings": w})))
             .collect::<serde_json::Map<_, _>>(),
     );
-    let held = if base.is_some() && known > 0 {
-        format!(" · {known} more error(s) held by the baseline (--no-baseline shows them)")
-    } else {
-        String::new()
-    };
+    let held = held_note(base.is_some() && known > 0, known);
     if a.format != "text" {
         return ci_output(g, a, o, &list, errors, warnings, fails, &s.corpus.cfg.root);
     }
@@ -278,39 +229,9 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
         .iter()
         .fold(o, |o, (r, n)| o.foot(format!("{r}: {n} error(s) left out of the exit code by --fail-on")));
     if a.new {
-        let committed: std::collections::HashSet<String> =
-            vcs::committed(&s.corpus.cfg.root).unwrap_or_default().into_iter().collect();
-        let fresh: Vec<_> = s.corpus.docs.iter().filter(|d| !committed.contains(&d.path)).collect();
-        o = o
-            .field(
-                "new_docs",
-                fresh.iter().map(|d| serde_json::json!({"id": d.id.to_string(), "path": d.path})).collect::<Vec<_>>(),
-            )
-            .foot(format!("{} document(s) not in the last commit", fresh.len()));
-        for d in fresh {
-            o = o.foot(format!("  new  {}  {}", d.id, d.path));
-        }
+        o = new_docs(&s, o);
     }
-    // Only fixes `spec fix` applies; a command to finish by hand is shown with its finding.
-    let has_fix = list.iter().any(|f| {
-        matches!(&f.fix, Some(Fix::Replace { .. })) || matches!(&f.fix, Some(Fix::Cmd(c)) if c.starts_with("spec fix"))
-    });
-    // C112: when the fixes touch more files than [write] max_files, `spec fix --write` alone
-    // would refuse, so the next says --yes.
-    let fixable: std::collections::BTreeSet<&str> = list
-        .iter()
-        .filter(|f| {
-            matches!(&f.fix, Some(Fix::Replace { .. }))
-                || matches!(&f.fix, Some(Fix::Cmd(c)) if c.starts_with("spec fix"))
-        })
-        .map(|f| f.path.as_str())
-        .collect();
-    let max = s.corpus.cfg.raw.write.max_files;
-    let fix_next = format!(
-        "spec fix{} --write{}",
-        if a.staged { " --staged" } else { "" },
-        if max > 0 && fixable.len() > max { " --yes" } else { "" }
-    );
+    let (has_fix, fix_next) = fix_next(&s, a, &list);
     Ok(match (fails, has_fix) {
         (0, _) if lowerable > 0 => o.next("spec check --write-baseline"),
         (0, _) if !excluded.is_empty() => {
@@ -337,6 +258,116 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
             o.code(Code::Findings).next(format!("spec explain {rule}"))
         }
     })
+}
+
+/// `--write-baseline`: preview, or with --yes record, today's errors as the baseline.
+fn write_baseline(s: &session::Session, a: &CheckArgs, findings: &[Finding]) -> Result<Output> {
+    // C102: without a baseline path there is nothing to preview; say what to set first.
+    if s.corpus.cfg.raw.check.baseline.is_none() {
+        // C134: JSON carries the reason as `error`, like every other rc 2.
+        return Ok(Output::error(
+            "check",
+            crate::output::Code::Usage,
+            "--write-baseline needs a file to write: add `[check]` with `baseline = \".spec-baseline.json\"` to spec.toml",
+            Some("spec explain config".into()),
+        )
+        .field("written", false));
+    }
+    let b = baseline::measure(&s.corpus, findings)?;
+    let total: usize = b.counts.values().sum();
+    // A baseline hides today's errors from every later run: --yes confirms it (CLI-3).
+    if !a.yes {
+        return Ok(Output::new("check")
+            .field("written", false)
+            .field("baselined", total)
+            .head(format!(
+                "would record {total} error(s) in {} rule/path pair(s) as the baseline, hiding them from later runs: nothing was written",
+                b.counts.len()
+            ))
+            .next("spec check --write-baseline --yes"));
+    }
+    let rel = baseline::write(&s.corpus, &b)?;
+    Ok(Output::new("check")
+        .field("baseline", rel.clone())
+        .field("measured_on", b.measured_on.clone())
+        .field("baselined", total)
+        .foot(format!("{total} error(s) in {} rule/path pair(s) recorded in {rel}", b.counts.len()))
+        .next(format!("git add {rel}")))
+}
+
+/// Errors per rule that --fail-on leaves out of the exit code.
+fn left_out(list: &[Finding], fail_on: &[String]) -> std::collections::BTreeMap<String, usize> {
+    let mut excluded: std::collections::BTreeMap<String, usize> = Default::default();
+    if !fail_on.is_empty() && !fail_on.iter().any(|r| r == "any") {
+        let none = fail_on.iter().any(|r| r == "none");
+        for f in list.iter().filter(|f| f.severity == Severity::Error) {
+            if none || !fail_on.contains(&f.rule) {
+                *excluded.entry(f.rule.clone()).or_default() += 1;
+            }
+        }
+    }
+    excluded
+}
+
+/// `--new`: the documents not in the last commit.
+fn new_docs(s: &session::Session, mut o: Output) -> Output {
+    let committed: std::collections::HashSet<String> =
+        vcs::committed(&s.corpus.cfg.root).unwrap_or_default().into_iter().collect();
+    let fresh: Vec<_> = s.corpus.docs.iter().filter(|d| !committed.contains(&d.path)).collect();
+    o = o
+        .field(
+            "new_docs",
+            fresh.iter().map(|d| serde_json::json!({"id": d.id.to_string(), "path": d.path})).collect::<Vec<_>>(),
+        )
+        .foot(format!("{} document(s) not in the last commit", fresh.len()));
+    for d in fresh {
+        o = o.foot(format!("  new  {}  {}", d.id, d.path));
+    }
+    o
+}
+
+/// Whether `spec fix` applies any finding, and the command that applies them.
+fn fix_next(s: &session::Session, a: &CheckArgs, list: &[Finding]) -> (bool, String) {
+    // Only fixes `spec fix` applies; a command to finish by hand is shown with its finding.
+    let has_fix = list.iter().any(|f| {
+        matches!(&f.fix, Some(Fix::Replace { .. })) || matches!(&f.fix, Some(Fix::Cmd(c)) if c.starts_with("spec fix"))
+    });
+    // C112: when the fixes touch more files than [write] max_files, `spec fix --write` alone
+    // would refuse, so the next says --yes.
+    let fixable: std::collections::BTreeSet<&str> = list
+        .iter()
+        .filter(|f| {
+            matches!(&f.fix, Some(Fix::Replace { .. }))
+                || matches!(&f.fix, Some(Fix::Cmd(c)) if c.starts_with("spec fix"))
+        })
+        .map(|f| f.path.as_str())
+        .collect();
+    let max = s.corpus.cfg.raw.write.max_files;
+    let fix_next = format!(
+        "spec fix{} --write{}",
+        if a.staged { " --staged" } else { "" },
+        if max > 0 && fixable.len() > max { " --yes" } else { "" }
+    );
+    (has_fix, fix_next)
+}
+
+/// `--stdin-path`: standard input stands in for that file's contents.
+fn overlay_stdin(p: &str) -> Result<()> {
+    let abs = absolute(std::path::Path::new(p));
+    let mut text = String::new();
+    std::io::Read::read_to_string(&mut std::io::stdin(), &mut text)?;
+    specfold_core::corpus::overlay::set(abs, text);
+    Ok(())
+}
+
+/// (errors, warnings) per rule.
+fn by_rule(list: &[Finding]) -> std::collections::BTreeMap<String, (usize, usize)> {
+    let mut by_rule: std::collections::BTreeMap<String, (usize, usize)> = Default::default();
+    for f in list {
+        let e = by_rule.entry(f.rule.clone()).or_default();
+        if f.severity == Severity::Error { e.0 += 1 } else { e.1 += 1 }
+    }
+    by_rule
 }
 
 /// A CI format replaces the text: only the document goes to standard output, so it can be
@@ -378,4 +409,13 @@ fn ci_output(
     out.summary = o.summary;
     let out = doc.trim_end_matches('\n').lines().fold(out, |o, l| o.head(l));
     Ok(if fails > 0 { out.code(Code::Findings) } else { out })
+}
+
+/// The summary's note on errors the baseline holds back.
+fn held_note(held: bool, known: usize) -> String {
+    if held {
+        format!(" · {known} more error(s) held by the baseline (--no-baseline shows them)")
+    } else {
+        String::new()
+    }
 }
