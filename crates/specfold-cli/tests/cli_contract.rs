@@ -1048,3 +1048,64 @@ fn c125_section_text_may_not_start_another_section() {
         0
     );
 }
+
+#[cfg(unix)]
+fn add_plugin(r: &common::Repo, name: &str, body: &str, timeout_ms: u64) {
+    r.write(&format!("{name}.sh"), body);
+    let script = r.path().join(format!("{name}.sh"));
+    let mut toml = r.read("spec.toml");
+    toml.push_str(&format!(
+        "[[plugins]]\nname = \"{name}\"\ncmd = [\"sh\", \"{}\"]\ntimeout_ms = {timeout_ms}\n",
+        script.display()
+    ));
+    r.write("spec.toml", &toml);
+}
+
+#[cfg(unix)]
+#[test]
+fn c150_a_plugin_writing_much_stderr_does_not_hang() {
+    let r = common::repo();
+    let describe = "read -r req\nhead -c 200000 /dev/zero | tr '\\0' x >&2\necho '{\"protocol\":\"specfold.plugin.v1\",\"name\":\"noisy\",\"wants\":[],\"provides\":{\"exporters\":[\"noisy\"]}}'\n";
+    add_plugin(&r, "noisy", describe, 5000);
+    let t = std::time::Instant::now();
+    let (code, v) = r.json(&["plugins"]);
+    assert!(t.elapsed().as_secs() < 5, "{v}");
+    assert_eq!(code, 0, "{v}");
+}
+
+#[cfg(unix)]
+#[test]
+fn c151_a_plugin_leaving_a_background_child_meets_its_deadline() {
+    let r = common::repo();
+    add_plugin(&r, "bg", "read -r req\nsleep 30 &\nsleep 30\n", 500);
+    let t = std::time::Instant::now();
+    let _ = r.json(&["plugins"]);
+    assert!(t.elapsed().as_secs() < 10);
+    let t = std::time::Instant::now();
+    let (code, v) = r.json(&["plugins", "frobnicate"]);
+    assert_eq!(code, 2, "{v}");
+    assert!(t.elapsed().as_secs() < 2, "usage errors come before plugins run");
+}
+
+#[test]
+fn c130_governs_paths_must_be_inside_the_repository() {
+    let r = common::repo();
+    for p in ["", "../elsewhere", "/tmp"] {
+        let (code, v) = r.json(&["new", "sot", "--governs", p, "--title", "X", "--write"]);
+        assert_eq!(code, 2, "{p}: {v}");
+        let (code, v) = r.json(&["context", p]);
+        assert_eq!(code, 2, "{p}: {v}");
+        assert!(!v.to_string().contains("spec new --governs"), "{v}");
+    }
+}
+
+#[test]
+fn c141_an_unknown_guard_range_is_refused_at_load() {
+    let r = common::repo();
+    let mut toml = r.read("spec.toml");
+    toml.push_str("[[guards]]\nname = \"g\"\nrange = \"stagde\"\ndeny_terms = [\"x\"]\n");
+    r.write("spec.toml", &toml);
+    let (code, v) = r.json(&["doctor"]);
+    assert_ne!(code, 0, "{v}");
+    assert!(v.to_string().contains("stagde"), "{v}");
+}

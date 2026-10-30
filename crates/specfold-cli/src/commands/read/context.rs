@@ -15,7 +15,7 @@ pub fn run(g: &Global, a: &ContextArgs) -> Result<Output> {
     let mut seen = BTreeSet::new();
     let mut first: Option<String> = None;
     for p in &a.paths {
-        let rel = session::repo_path(&s, p);
+        let rel = session::governed_path(&s, p)?;
         let owner = s.corpus.owners.containing(&rel);
         o = o.head(format!("{rel}  (owner {})", owner.id));
         for gv in query::governing(&s.corpus, &rel) {

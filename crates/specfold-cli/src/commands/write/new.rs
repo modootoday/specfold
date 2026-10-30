@@ -32,7 +32,7 @@ fn create(g: &Global, a: &NewArgs) -> Result<Output> {
     if let Some(kind) = asset_kind(&s, &ty) {
         return asset(&s, a, kind);
     }
-    let governs: Vec<String> = a.governs.iter().map(|p| session::repo_path(&s, p)).collect();
+    let governs: Vec<String> = a.governs.iter().map(|p| session::governed_path(&s, p)).collect::<Result<_>>()?;
     let req = NewDoc {
         ty: ty.clone(),
         title: a.title().to_string(),

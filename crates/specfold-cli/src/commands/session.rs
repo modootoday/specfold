@@ -92,6 +92,15 @@ pub fn repo_path(s: &Session, p: &str) -> String {
     }
 }
 
+/// C130: a path a document can govern: inside the repository, below its root.
+pub fn governed_path(s: &Session, p: &str) -> Result<String> {
+    let rel = repo_path(s, p);
+    if p.trim().is_empty() || rel.is_empty() || rel.starts_with('/') || rel.split('/').any(|c| c == "..") {
+        bail!("'{p}' is not a path inside the repository; give a file or folder below {}", s.corpus.cfg.root.display());
+    }
+    Ok(rel)
+}
+
 /// A word quoted for a shell when it needs to be.
 pub fn shell_word(s: &str) -> String {
     if !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric() || "-_./:#@".contains(c)) {

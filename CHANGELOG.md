@@ -9,6 +9,8 @@ Release notes for each version are also on
 
 What an existing command does differs from 0.3.0; check scripts and CI that call these.
 
+`spec new --governs` and `spec context` refuse (rc 2) an empty path or one outside the repository, instead of recording it or suggesting `spec new --governs` for it (C130).
+A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is refused when `spec.toml` is loaded, naming the guard (C141).
 - An id held by two files (I1, e.g. a `.spec/` and a `.spec.local/` copy) is refused (exit 2) by every command that takes a document, listing both paths; name one by its path. `spec doctor`'s fix names the path (C139).
 - `spec edit --section`/`--new-section` refuses (exit 2) text holding a heading at the section's level or above, which would start or duplicate a section; deeper headings and fenced code are fine (C125).
 - `spec import --apply --write` refuses (exit 4) while rows marked `!` still need a decision, lists them and suggests `--force`; the new `--force` imports anyway. Previews are unchanged (C155).
@@ -124,6 +126,8 @@ What an existing command does differs from 0.3.0; check scripts and CI that call
 
 ### Fixed
 
+A plugin that writes a lot to stderr no longer stalls until its timeout; stdout and stderr are read together and the error shows the last stderr line (C150).
+A plugin that leaves a background child holding its pipes now stops at its `timeout_ms`; `spec plugins` reports a bad action before starting any plugin (C151).
 - Writes keep a file's CRLF line endings instead of mixing in LF (C154).
 - `spec mv` rewrites relative Markdown links to the moved file (fragment kept), and its next includes L8 (C137).
 - `spec audit --record` cites findings as `[[id]]` so the record passes L2, and audit records are no longer reported as orphans (C136).
