@@ -71,6 +71,21 @@ fn targets(ctx: &Ctx, files: &Files) -> Vec<(String, Option<BTreeSet<usize>>)> {
 
 fn judge(ctx: &Ctx, path: &str, line: usize, written: &str, target: &str, by_path: bool) -> Option<Finding> {
     let id_of = |idx: usize| ctx.corpus.docs[idx].id.to_string();
+    if !by_path {
+        use crate::remotes::Remote;
+        let problem = match crate::remotes::resolve(&ctx.corpus.cfg, target) {
+            Remote::Local => None,
+            Remote::Absent { .. } | Remote::Found { .. } => return None,
+            Remote::Missing { name, id } => Some(format!("{written} names no document in the remote {name} ({id})")),
+            Remote::MissingAnchor { name, id, anchor } => Some(format!("{name}:{id} has no anchor #{anchor}")),
+            Remote::Ambiguous { name, ids } => {
+                Some(format!("{written} is ambiguous in the remote {name}: {}", ids.join(", ")))
+            }
+        };
+        if let Some(m) = problem {
+            return Some(Finding::error("L6", path, line, m));
+        }
+    }
     match ctx.graph.resolve(target) {
         Resolution::Doc { idx, anchor, via_alias } => {
             let id = match anchor {
@@ -105,7 +120,7 @@ impl Rule for CitesOutside {
         &RuleInfo {
             id: "L6",
             title: "citations outside documents still resolve",
-            explain: "Files listed in [cites] paths (code, READMEs, agent instructions) are read for [[id]] references, paths into spec directories and old paths from the alias table. A reference that names nothing is an error; an old name or a path is reported with the id to write; a citation of a superseded, archived or rejected document is reported. Staged and ranged runs read only the lines the change adds, and lines matching [cites] history are left alone.",
+            explain: "Files listed in [cites] paths (code, READMEs, agent instructions) are read for [[id]] references, paths into spec directories and old paths from the alias table. A reference that names nothing is an error, and so is `[[<remote>:<id>]]` that names nothing in a configured remote whose directory is present (an absent remote directory is skipped); an old name or a path is reported with the id to write; a citation of a superseded, archived or rejected document is reported. Staged and ranged runs read only the lines the change adds, and lines matching [cites] history are left alone.",
             on_commit: true,
         }
     }

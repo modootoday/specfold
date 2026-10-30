@@ -113,6 +113,18 @@ pub fn resolve(cfg: &Config, text: &str) -> Remote {
     }
 }
 
+/// The id and source revision (see `translation::rev_of`) of the remote document `<name>:<id>`,
+/// or `None` when it is not a remote reference that resolves.
+pub fn rev(cfg: &Config, text: &str) -> Option<(String, String)> {
+    let (name, rest) = split(cfg, text)?;
+    let l = load(cfg, name)?;
+    match l.graph.resolve(rest) {
+        Resolution::Doc { idx, .. } => {
+            Some((format!("{name}:{}", l.corpus.docs[idx].id), crate::translation::rev_of(&l.corpus, idx)?))
+        }
+        _ => None,
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
