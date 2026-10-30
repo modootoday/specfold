@@ -1,5 +1,5 @@
 ---
 layout: twin
-twin_of: guides/ci.md
+twin_of: ci.md
 permalink: /guides/ci/index.md
 ---

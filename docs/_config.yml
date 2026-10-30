@@ -1,24 +1,28 @@
-# GitHub Pages builds this directory with Jekyll; no build step. Only plugins on
-# https://pages.github.com/versions/ are used.
+# Theme: jekyll-theme-modootoday v1.0.0 (gem locally; on GitHub Pages use
+# remote_theme: modootoday/jekyll-theme-modootoday@v1.0.0).
 title: specfold
 description: "specfold keeps design, plan, and maintenance docs next to your code, linked as a graph and guarded by checks."
 url: "https://specfold.build"
 baseurl: ""
 lang: en
 permalink: pretty
-logo: /assets/img/logo.svg
 repository: modootoday/specfold
+theme: jekyll-theme-modootoday
 markdown: kramdown
-kramdown:
-  input: GFM
-  syntax_highlighter: rouge
-plugins: [jekyll-seo-tag, jekyll-sitemap, jekyll-relative-links, jekyll-redirect-from]
+kramdown: {input: GFM, syntax_highlighter: rouge}
+sass: {style: compressed, silence_deprecations: [import, global-builtin]}
+plugins: [jekyll-sitemap, jekyll-relative-links, jekyll-redirect-from]
 relative_links: { enabled: true }
-twitter: { card: summary_large_image }
+modootoday:
+  nav: main
+  twins: source
+  og_image: /assets/og/default.png
+  logo: /assets/img/logo.svg
+  favicon: /assets/img/favicon.svg
+  edit_url: https://github.com/modootoday/specfold/edit/main/docs/
 defaults:
   - scope: { path: "" }
-    values: { layout: doc, image: /assets/og/default.png }
+    values: { layout: doc }
   - scope: { path: "index.md" }
     values: { layout: home }
-# Setting exclude replaces Jekyll's defaults, so they are listed again.
-exclude: [Gemfile, Gemfile.lock, node_modules, vendor/bundle, vendor/cache, vendor/gems, vendor/ruby, CNAME.txt]
+exclude: [Gemfile, Gemfile.lock, node_modules, vendor, CNAME.txt, _src]

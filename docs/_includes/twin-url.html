@@ -1,3 +1,0 @@
-{%- comment -%}Sets `twin`: the Markdown twin of `include.page`, if one exists.{%- endcomment -%}
-{%- assign twin_path = include.page.url | append: "index.md" -%}
-{%- assign twin = site.pages | where: "url", twin_path | first -%}

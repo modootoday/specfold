@@ -1,5 +1,5 @@
 ---
 layout: twin
-twin_of: concepts/times-relations.md
+twin_of: times-relations.md
 permalink: /concepts/times-relations/index.md
 ---

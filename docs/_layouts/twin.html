@@ -1,7 +1,0 @@
-{%- comment -%}A page's Markdown source for agents: the source body byte-for-byte (jekyll-md-kit v1 twin rule), read at build time so it cannot drift. Subdirectory pages set twin_of to their path; the file is included by basename.{%- endcomment -%}
-{%- assign twin_file = page.twin_of | split: "/" | last -%}
-{%- capture raw -%}{% include_relative {{ twin_file }} %}{%- endcapture -%}
-{%- assign fm = raw | split: "---" -%}
-{%- assign front = "---" | append: fm[1] | append: "---
-" -%}
-{{- raw | remove_first: front -}}

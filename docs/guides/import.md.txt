@@ -1,5 +1,5 @@
 ---
 layout: twin
-twin_of: guides/import.md
+twin_of: import.md
 permalink: /guides/import/index.md
 ---

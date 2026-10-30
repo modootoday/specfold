@@ -1,5 +1,5 @@
 ---
 layout: twin
-twin_of: concepts/index.md
+twin_of: index.md
 permalink: /concepts/index.md
 ---

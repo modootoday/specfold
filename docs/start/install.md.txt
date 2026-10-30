@@ -1,5 +1,5 @@
 ---
 layout: twin
-twin_of: start/install.md
+twin_of: install.md
 permalink: /start/install/index.md
 ---
