@@ -579,7 +579,14 @@ fn same_refusal(r: &common::Repo, preview: &[&str], write: &[&str]) {
         for k in ["written", "next", "undo", "exit", "ok"] {
             m.remove(k);
         }
-        m
+        // The trash folder is named for the second of the run, which can tick between the two.
+        let mut t = Value::Object(m).to_string();
+        while let Some(i) = t.find("trash/2") {
+            let end = i + 6 + t[i + 6..].find('/').unwrap_or(0);
+            t.replace_range(i + 6..end, "<ts>");
+            t = t.replacen("trash/<ts>", "TRASH/<ts>", 1);
+        }
+        t
     };
     assert_eq!(facts(&p), facts(&w), "preview {preview:?} and write {write:?} disagree");
 }
@@ -1249,6 +1256,19 @@ fn c157_edit_preview_on_crlf_matches_lf() {
     let lf = r.new_doc("sot", "services/shop", "Cart");
     let cr = r.new_doc("sot", "services/blog", "Post");
     let p = doc_path(&r, &cr);
+    // An edit refreshes `updated`, so set it in the past on both: then the line changes in both
+    // previews whatever second the edit runs in.
+    for id in [&lf, &cr] {
+        let p = doc_path(&r, id);
+        let old: String = r
+            .read(&p)
+            .lines()
+            .map(|l| {
+                if l.starts_with("updated:") { "updated: 2000-01-01T00:00:00Z\n".to_string() } else { format!("{l}\n") }
+            })
+            .collect();
+        r.write(&p, &old);
+    }
     r.write(&p, &r.read(&p).replace('\n', "\r\n"));
     r.commit("crlf");
     let changed = |id: &str| {
