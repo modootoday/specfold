@@ -37,9 +37,12 @@ spec edit <id> --row "Login" --cell Status=done --write
 ```
 
 A preview lists each file an update changes, with its changed lines as unified-diff hunks
-(`@@ -old,n +new,m @@`): changes with an unchanged line between them are separate hunks, so the
-refreshed `updated:` line and the edited section show apart. In `--json`, each update item has
-`line` (the first changed line) and `hunks`, each with `line`, `old_line`, `before` and `after`.
+(`@@ -old,n +new,m @@`, written as `git diff -U0` writes them: a count of 1 is left out, and an
+empty side names the line before the change): changes with an unchanged line between them are
+separate hunks, so the refreshed `updated:` line and the edited section show apart. A change too
+large to compare line by line (over about four million line pairs) is shown as one hunk. In `--json`, each update item has
+`line` (where the first hunk starts in the new text) and `hunks`, each with `line`, `old_line`,
+`before` and `after`; `line` and `old_line` follow the same rule as the header.
 
 ## Move and fix
 
