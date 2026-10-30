@@ -1545,3 +1545,27 @@ fn c162_unicode_line_breaks_in_titles_are_refused() {
     let st = std::process::Command::new("git").args(["status", "--porcelain"]).current_dir(r.path()).output().unwrap();
     assert!(st.stdout.is_empty(), "{st:?}");
 }
+
+#[test]
+fn c163_dir_reaches_shell_next_undo_and_fix_hints() {
+    let r = common::repo();
+    let d = r.new_doc("sot", "services/shop", "Cart");
+    r.commit("doc");
+    let (code, v) = from_sub(&r, &["set", &d, "title=Basket", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    assert!(v["undo"].as_str().unwrap().starts_with("git -C .. stash push --include-untracked -- "), "{v}");
+    let (code, v) = from_sub(&r, &["export", "markdown", "--target", "obsidian", "--out", "outdir"]);
+    assert_eq!(code, 0, "{v}");
+    let next = v["next"].as_str().unwrap();
+    assert!(next.starts_with("git -C .. status") || next.starts_with("cd .. && "), "{v}");
+    // A check fix hint keeps -C too.
+    let p = walk(r.path()).into_iter().find(|p| p.to_string_lossy().contains("cart")).unwrap();
+    let t = std::fs::read_to_string(&p).unwrap();
+    std::fs::write(&p, t.replacen(&d, &format!("{d}x"), 1)).unwrap();
+    let mut c = r.spec();
+    c.current_dir(r.path().join("sub")).args(["-C", "..", "check"]);
+    let out = String::from_utf8(c.output().unwrap().stdout).unwrap();
+    assert!(out.contains("(spec -C .. fix --write") || out.contains("fix: spec -C .. "), "{out}");
+    let (_, plain) = r.text(&["check"]);
+    assert!(!plain.contains("-C"), "{plain}");
+}

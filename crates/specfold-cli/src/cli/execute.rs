@@ -162,22 +162,67 @@ pub fn execute(argv: Vec<String>) -> Executed {
     };
     let mut output = output;
     if let Some(d) = &cli.global.dir {
-        output.next = output.next.map(|n| keep_dir(&n, d));
+        with_dir(&mut output, d);
     }
     Executed { output, format, page, raw: None, serve_mcp: false }
 }
 
-/// C161: a next command run from the same place needs the same -C, so every `spec ` in it gets it.
-fn keep_dir(next: &str, dir: &std::path::Path) -> String {
-    let flag = format!("spec -C {} ", crate::session::shell_word(&dir.display().to_string()));
-    let fix = |part: &str| match part.strip_prefix("spec ") {
-        Some(rest) if !rest.starts_with("-C ") && !rest.starts_with("--dir") => format!("{flag}{rest}"),
+/// C161/C163: commands to paste work from where -C was typed: spec gets `-C <dir>`, git gets
+/// `git -C <dir>`, any other shell command `cd <dir> &&`.
+fn with_dir(o: &mut Output, dir: &std::path::Path) {
+    let w = crate::session::shell_word(&dir.display().to_string());
+    o.next = o.next.as_deref().map(|n| dir_cmd(n, &w));
+    if let Some(serde_json::Value::String(u)) = o.summary.get_mut("undo") {
+        *u = dir_cmd(u, &w);
+    }
+    for f in &mut o.foot {
+        if let Some(u) = f.strip_prefix("undo: ") {
+            *f = format!("undo: {}", dir_cmd(u, &w));
+        }
+    }
+    let spec_c = format!("spec -C {w} ");
+    for it in &mut o.items {
+        if let Some(serde_json::Value::String(c)) = it.json.get_mut("fix").and_then(|f| f.get_mut("cmd")) {
+            *c = dir_cmd(c, &w);
+        }
+        if it.text.contains("\n  fix: ") {
+            it.text = it
+                .text
+                .lines()
+                .map(|l| match l.strip_prefix("  fix: ") {
+                    Some(c) => format!("  fix: {}", dir_cmd(c, &w))
+                        .replace("(spec fix --write", &format!("({spec_c}fix --write")),
+                    None => l.to_string(),
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+        }
+    }
+}
+
+/// Shell commands that next, undo and fix hints start with.
+const SHELL: &[&str] = &["git", "mkdir", "mv", "ls", "rm", "rmdir", "cp", "cat", "touch", "ln", "find"];
+
+fn dir_cmd(cmd: &str, w: &str) -> String {
+    let spec = |part: &str| match part.strip_prefix("spec ") {
+        Some(rest) if !rest.starts_with("-C ") && !rest.starts_with("--dir") => format!("spec -C {w} {rest}"),
         _ => part.to_string(),
     };
-    match next.split_once("# then: ") {
-        Some((a, b)) => format!("{}# then: {}", fix(a), fix(b)),
-        None => fix(next),
+    if cmd.starts_with("spec ") {
+        return match cmd.split_once("# then: ") {
+            Some((a, b)) => format!("{}# then: {}", spec(a), spec(b)),
+            None => spec(cmd),
+        };
     }
+    let first = cmd.split_whitespace().next().unwrap_or("");
+    // Prose such as "replace `x` with `y`" is not a command.
+    if !SHELL.contains(&first) {
+        return cmd.to_string();
+    }
+    if first == "git" && !cmd.contains("&&") && !cmd.starts_with("git -C ") {
+        return format!("git -C {w} {}", &cmd[4..]);
+    }
+    format!("cd {w} && {cmd}")
 }
 
 /// clap's error without its usage block: the first line, the missing arguments it lists under
