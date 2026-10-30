@@ -117,6 +117,7 @@ What an existing command does differs from 0.3.0; check scripts and CI that call
 
 ### Fixed
 
+- `spec import --apply --write`'s undo brings back source documents that were never committed: they are copied to `.specfold/trash/<stamp>/` before the write and copied back by the undo, alongside the `git stash` for committed sources (C123).
 - `spec import --apply --dry-run` previews (rc 0, nothing written) instead of failing with a clash against `--plan`; `--dry-run` is listed in `spec help import`, and still refuses `--yes` (C120).
 - `spec import --apply --write` lists the files it created, moved and updated (alias table included) and prints `undo:`; JSON gains `written`, `undo` and `changes`. With no source documents it writes nothing, not even the alias table (C121).
 - `spec mv --write` on a document not yet committed offers an undo that works: a copy of the uncommitted file is kept under `.specfold/trash/` and the undo removes the new path and copies it back, instead of a `git stash` that failed on the old path and left a stray stash (C122).

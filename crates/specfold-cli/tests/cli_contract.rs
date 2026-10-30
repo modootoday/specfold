@@ -716,3 +716,29 @@ fn c122_mv_undo_restores_committed_and_uncommitted_documents() {
         assert_eq!(d["path"], path.as_str(), "commit={commit}");
     }
 }
+
+#[test]
+fn c123_import_undo_restores_committed_and_uncommitted_sources() {
+    let (r, _) = madr_repo(true);
+    let committed = r.read("docs/adr/0001-use-files.md");
+    let loose = "# Untracked\n\n* Status: accepted\n* Date: 2026-03-02\n\n## Context\n\nNot committed.\n";
+    r.write("docs/adr/0003-untracked.md", loose);
+    let (code, v) = r.json(&["import", "--map", "import.toml", "--apply", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    assert!(!r.path().join("docs/adr/0003-untracked.md").exists(), "{v}");
+    let undo = v["undo"].as_str().unwrap().to_string();
+    let out = std::process::Command::new("sh").args(["-c", &undo]).current_dir(r.path()).output().unwrap();
+    assert!(out.status.success(), "{undo}: {}", String::from_utf8_lossy(&out.stderr));
+    assert_eq!(r.read("docs/adr/0001-use-files.md"), committed, "{undo}");
+    assert_eq!(r.read("docs/adr/0003-untracked.md"), loose, "{undo}");
+    assert!(
+        !r.path().join(".spec/adr").exists() || std::fs::read_dir(r.path().join(".spec/adr")).unwrap().next().is_none(),
+        "{undo}"
+    );
+    // Text and JSON name the same undo.
+    let (r2, _) = madr_repo(true);
+    r2.write("docs/adr/0003-untracked.md", loose);
+    let (_, t) = r2.text(&["import", "--map", "import.toml", "--apply", "--write"]);
+    let line = t.lines().find_map(|l| l.trim().strip_prefix("undo: ")).unwrap_or_default();
+    assert!(line.contains(".specfold/trash/") && line.contains("git stash push"), "{t}");
+}
