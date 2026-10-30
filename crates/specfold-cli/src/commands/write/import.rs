@@ -54,6 +54,8 @@ pub fn run(g: &Global, a: &ImportArgs) -> Result<Output> {
     }
     if !a.apply || !a.write {
         let o = if a.apply { o.foot("preview only; nothing was written") } else { o };
+        let max = s.corpus.cfg.raw.write.max_files;
+        let (o, _) = super::preview::bound(o, super::preview::files(&p.plan), max, false, a.yes);
         let o = if unresolved > 0 { o.code(Code::Findings) } else { o };
         return Ok(before_write(&s, &p, o, &map_path.display().to_string()));
     }
@@ -62,6 +64,11 @@ pub fn run(g: &Global, a: &ImportArgs) -> Result<Output> {
     };
     if !p.uploads.is_empty() && s.corpus.cfg.raw.files.store.is_none() {
         bail!("{} attachment(s) are over the repository limit; configure [files.store] first", p.uploads.len());
+    }
+    let n = super::preview::files(&p.plan);
+    let (o, go) = super::preview::bound(o, n, s.corpus.cfg.raw.write.max_files, true, a.yes);
+    if !go {
+        return Ok(o.next(format!("spec import --map {} --apply --write --yes", map_path.display())));
     }
     p.plan.apply(&s.corpus.cfg.root)?;
     let table_path = s.corpus.cfg.root.join(&alias_file);

@@ -52,6 +52,10 @@ const CONFIG_HELP: &[(&str, &str)] = &[
         "How spec verify runs commands: the default deadline, parallel workers, regexes for heavy commands run one at a time, paths whose change runs every check, and the shell (sh unless set, bash for bash syntax).",
     ),
     (
+        "[write] max_files",
+        "mv, fix, sync and import refuse --write without --yes when more files than this would change (default 50; 0 means no bound). The preview says how many.",
+    ),
+    (
         "[mcp] redact",
         "Whether spec mcp replaces built-in secret matches (the guard secrets list) with [redacted: <pattern>] in tool results; on unless set to false.",
     ),

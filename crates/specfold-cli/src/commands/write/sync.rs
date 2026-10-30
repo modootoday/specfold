@@ -41,5 +41,8 @@ pub fn run(g: &Global, a: &SyncArgs) -> Result<Output> {
         return preview::finish(o, &plan, &cfg.root, false, "spec sync assets --prune --write --yes");
     }
     let rerun = if a.prune { "spec sync assets --prune --write --yes" } else { "spec sync assets --write" };
-    preview::finish(o, &plan, &cfg.root, a.write, rerun)
+    let (o, go) = preview::bound(o, preview::files(&plan), cfg.raw.write.max_files, a.write, a.yes);
+    let rerun =
+        if o.summary.contains_key("bounded") && !a.prune { format!("{rerun} --yes") } else { rerun.to_string() };
+    preview::finish(o, &plan, &cfg.root, go, &rerun)
 }

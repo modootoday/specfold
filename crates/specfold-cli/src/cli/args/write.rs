@@ -108,6 +108,9 @@ pub struct MvArgs {
     /// Preview only, writing nothing (the default without --write).
     #[arg(long, conflicts_with = "write")]
     pub dry_run: bool,
+    /// Confirm an action that deletes, overwrites, sends files out, or writes more than [write] max_files files (with its write flag).
+    #[arg(long)]
+    pub yes: bool,
 }
 
 #[derive(Debug, Clone, Args)]
@@ -136,6 +139,9 @@ pub struct FixArgs {
     /// Preview only, writing nothing (the default without --write).
     #[arg(long, conflicts_with = "write")]
     pub dry_run: bool,
+    /// Confirm an action that deletes, overwrites, sends files out, or writes more than [write] max_files files (with its write flag).
+    #[arg(long)]
+    pub yes: bool,
 }
 
 #[derive(Debug, Clone, Args)]
@@ -163,7 +169,7 @@ pub struct AttachArgs {
     /// Preview only, writing nothing (the default without --write).
     #[arg(long, conflicts_with = "write")]
     pub dry_run: bool,
-    /// Confirm an action that deletes, overwrites or sends files out (with its write flag).
+    /// Confirm an action that deletes, overwrites, sends files out, or writes more than [write] max_files files (with its write flag).
     #[arg(long)]
     pub yes: bool,
     /// Upload even though this guard flags a file bound for the store (repeatable; `secrets` is the built-in check).
@@ -214,6 +220,9 @@ pub struct ImportArgs {
     /// Write files (otherwise a preview of --apply).
     #[arg(long)]
     pub write: bool,
+    /// Confirm an action that deletes, overwrites, sends files out, or writes more than [write] max_files files (with its write flag).
+    #[arg(long)]
+    pub yes: bool,
 }
 
 #[derive(Debug, Clone, Args)]
@@ -276,7 +285,7 @@ pub struct SyncArgs {
     /// Preview only, writing nothing (the default without --write).
     #[arg(long, conflicts_with = "write")]
     pub dry_run: bool,
-    /// Confirm an action that deletes, overwrites or sends files out (with its write flag).
+    /// Confirm an action that deletes, overwrites, sends files out, or writes more than [write] max_files files (with its write flag).
     #[arg(long)]
     pub yes: bool,
 }

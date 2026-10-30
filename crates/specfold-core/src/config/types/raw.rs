@@ -49,9 +49,31 @@ pub struct RawConfig {
     pub translations: TranslationsSection,
     #[serde(default)]
     pub mcp: McpSection,
+    #[serde(default)]
+    pub write: WriteSection,
     /// Agent assets read beside the documents.
     #[serde(default)]
     pub assets: Vec<AssetRoot>,
+}
+
+/// Bounds on what one command writes (CLI-7).
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct WriteSection {
+    /// mv, fix, sync and import refuse `--write` without `--yes` when more files than this
+    /// would change; 0 means no bound.
+    #[serde(default = "max_files")]
+    pub max_files: usize,
+}
+
+fn max_files() -> usize {
+    50
+}
+
+impl Default for WriteSection {
+    fn default() -> Self {
+        WriteSection { max_files: max_files() }
+    }
 }
 
 /// How `spec mcp` hands text to agents.
