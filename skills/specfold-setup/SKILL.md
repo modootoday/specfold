@@ -38,7 +38,7 @@ ls -d */ */*/ | head -50
 git ls-files '*package.json' '*Cargo.toml' '*pyproject.toml' '*go.mod' | head -50
 ```
 
-Each `--owner` is `pattern=id-template`; `{1}` is the first wildcard. Add `:manifest` when only
+Each `--owner-kind` is `pattern=id-template`; `{1}` is the first wildcard. Add `:manifest` when only
 directories with a package manifest count.
 
 ```sh

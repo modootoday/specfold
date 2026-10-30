@@ -31,7 +31,7 @@ $ spec agents --for claude
 
 ## What happened
 
-The `--owner` pattern makes every directory under `services/` an owner, so the document lands in
+The `--owner-kind` pattern makes every directory under `services/` an owner, so the document lands in
 `services/shop/.spec/sot/`. Its id, `sot:shop/cart-totals`, comes from that place.
 
 `spec context` answers the question an agent or reviewer asks first: which documents must I read

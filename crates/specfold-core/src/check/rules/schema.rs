@@ -55,7 +55,11 @@ impl Rule for RequiredByStatus {
                         key_line(ctx, &d.path, "status"),
                         format!("status '{status}' requires {}", missing.join(", ")),
                     )
-                    .fix_cmd(format!("spec set {} {}=…", d.id, missing[0])),
+                    .fix_cmd(format!(
+                        "spec set {} {}",
+                        d.id,
+                        missing.iter().map(|k| format!("{k}=…")).collect::<Vec<_>>().join(" ")
+                    )),
                 );
             }
         }

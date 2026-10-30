@@ -275,6 +275,22 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
     let has_fix = list.iter().any(|f| {
         matches!(&f.fix, Some(Fix::Replace { .. })) || matches!(&f.fix, Some(Fix::Cmd(c)) if c.starts_with("spec fix"))
     });
+    // C112: when the fixes touch more files than [write] max_files, `spec fix --write` alone
+    // would refuse, so the next says --yes.
+    let fixable: std::collections::BTreeSet<&str> = list
+        .iter()
+        .filter(|f| {
+            matches!(&f.fix, Some(Fix::Replace { .. }))
+                || matches!(&f.fix, Some(Fix::Cmd(c)) if c.starts_with("spec fix"))
+        })
+        .map(|f| f.path.as_str())
+        .collect();
+    let max = s.corpus.cfg.raw.write.max_files;
+    let fix_next = format!(
+        "spec fix{} --write{}",
+        if a.staged { " --staged" } else { "" },
+        if max > 0 && fixable.len() > max { " --yes" } else { "" }
+    );
     Ok(match (fails, has_fix) {
         (0, _) if lowerable > 0 => o.next("spec check --write-baseline"),
         (0, _) if !excluded.is_empty() => {
@@ -286,7 +302,7 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
             // otherwise the first warning's rule.
             let w: Vec<_> = list.iter().filter(|f| f.severity != Severity::Error).collect();
             if w.iter().any(|f| matches!(f.fix, Some(Fix::Replace { .. }))) {
-                o.next(if a.staged { "spec fix --staged --write" } else { "spec fix --write" })
+                o.next(fix_next)
             } else if let Some(Fix::Cmd(c)) = &w[0].fix {
                 // A command to finish by hand, such as the section a type requires.
                 o.next(format!("{c}  # {} warning(s) to fix", w.len()))
@@ -295,9 +311,7 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
             }
         }
         (0, _) => o.next("spec audit  # optional: stale, orphan and unfinished documents"),
-        (_, true) => {
-            o.code(Code::Findings).next(if a.staged { "spec fix --staged --write" } else { "spec fix --write" })
-        }
+        (_, true) => o.code(Code::Findings).next(fix_next),
         _ => {
             let rule = list.iter().find(|f| f.severity == Severity::Error).map(|f| f.rule.clone()).unwrap_or_default();
             o.code(Code::Findings).next(format!("spec explain {rule}"))

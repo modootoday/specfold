@@ -64,7 +64,7 @@ fn call(params: &Value) -> Value {
         Ok(argv) => {
             let ex = execute(argv);
             let text = redact(render(&ex.output, Format::Json, &ex.page));
-            json!({"content": [{"type": "text", "text": text}], "isError": matches!(ex.output.code, Code::Usage | Code::Env)})
+            json!({"content": [{"type": "text", "text": text}], "isError": matches!(ex.output.code, Code::Usage | Code::Env | Code::Refused)})
         }
         Err(e) => json!({"content": [{"type": "text", "text": e}], "isError": true}),
     }

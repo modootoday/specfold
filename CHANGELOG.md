@@ -9,6 +9,11 @@ Release notes for each version are also on
 
 What an existing command does differs from 0.3.0; check scripts and CI that call these.
 
+- Exit code `4` (CLI-17): a write flag was given but a safeguard refused it, so nothing was
+  written (`--write` over `[write] max_files`, `sync --prune` without `--yes`, a hand-edited
+  copy without `--force`, `export` over an earlier export or `attach` to the store without
+  `--yes`). These exited `0` before.
+- `spec set <id> key=[a, b]` stores a list, not the string `"[a, b]"`.
 - `spec sync --prune --write --yes` no longer deletes: each pruned file moves to `.specfold/trash/<stamp>/` (ignored by git), and the undo line copies it back (`cp -Rp .specfold/trash/<stamp>/. .`), so a file never committed can be restored. The undo of a sync or copy lists only the files written, not their sources; a successful sync ends with `next: git status --short` (C100, C101, C106).
 - `spec check --write-baseline` without `[check] baseline` says what to add to spec.toml before previewing, with `next: spec explain config` (C102). `--dry-run` is accepted (and does nothing) on every command guarded by `--yes` or `--write`: check, guard, import and export (C103). An export whose `--out` is outside the repository suggests `ls <out>` instead of `git status` (C104).
 - `spec new` warns about the 0.4 `--write` change only when it wrote something; an invalid spec.toml points to `spec explain config` (C106).
@@ -28,6 +33,8 @@ What an existing command does differs from 0.3.0; check scripts and CI that call
 
 ### Added
 
+- `[check] link_ignore`: globs of link targets rule L8 skips.
+- A config warning when `require_when` names a status the type does not have.
 - Rules L8 and L9 (warn). L8 checks plain Markdown links and images offline: a relative path
   must exist and a `#fragment` must match a heading's GitHub slug (repeats get `-1`, `-2`) or a
   `{#anchor}` in the target file; URLs and ids are skipped. L9 flags an image without alt text.
@@ -105,6 +112,11 @@ What an existing command does differs from 0.3.0; check scripts and CI that call
 
 ### Fixed
 
+- `spec mv` previews keep `--owner`, `--slug`, `--tier` and `--cited-paths` in the next command.
+- After `spec set` changes a status or a required field, the next check includes S6 and S8.
+- Nexts add `--force` (sync over a hand-edited copy) and `--yes` (fix over `max_files`); the S6
+  fix names every missing field.
+- Docs say `--owner-kind` where they still said `--owner`.
 - An attachment that changed because a secret was added to it lists U2 before E1, and E1
   points at `spec explain U2` instead of suggesting to attach the leaky file again. Secret
   findings now come first among findings of their level.

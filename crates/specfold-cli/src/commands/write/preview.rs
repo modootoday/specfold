@@ -97,6 +97,7 @@ pub fn bound(o: Output, n: usize, max: usize, write: bool, yes: bool) -> (Output
         "{n} files would change, over [write] max_files = {max}: {}narrow the scope or add --yes",
         if write { "nothing was written; " } else { "" }
     ));
+    let o = if write { o.code(crate::output::Code::Refused) } else { o };
     (o, false)
 }
 

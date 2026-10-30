@@ -137,7 +137,7 @@ declares skills, rules and subagents that `spec check` keeps consistent. See
 ## Exit codes and JSON
 
 Exit codes: `0` nothing to report, `1` findings or an ambiguous answer, `2` usage error,
-`3` environment error. With `--json` every command prints one object with `schema` (`spec.<command>.v1`), `ok`,
+`3` environment error, `4` a write flag was given but a safeguard refused it (nothing written). With `--json` every command prints one object with `schema` (`spec.<command>.v1`), `ok`,
 `exit`, `items` and `next`. `spec schema output` lists the schema names.
 
 ## Contributing

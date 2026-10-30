@@ -35,7 +35,7 @@ pub fn run(g: &Global, a: &HelpArgs) -> Result<Output> {
     let mut o = Output::new("help")
         .unpaged()
         .field("global", to_value(describe::global_args())?)
-        .field("exit_codes", serde_json::json!({"0": "nothing to report", "1": "findings or an ambiguous answer", "2": "usage error", "3": "environment error"}));
+        .field("exit_codes", serde_json::json!({"0": "nothing to report", "1": "findings or an ambiguous answer", "2": "usage error", "3": "environment error", "4": "a write flag was given but a safeguard refused it; nothing was written"}));
     for c in &picked {
         let mut text = format!("{:<9} {}", c.name, c.about);
         if a.command.is_some() {

@@ -112,6 +112,17 @@ pub fn suspect_overrides(overrides: &BTreeMap<String, TypeOverride>) -> Vec<Stri
             ));
         }
     }
+    // C110: a status `require_when` names that the type does not have never applies.
+    for t in Registry::new(overrides).types {
+        for s in t.require_when.keys().filter(|s| !t.statuses.contains(s)) {
+            out.push(format!(
+                "[types.{}] require_when names status '{s}', which {} documents never have, so it never applies; statuses: {}",
+                t.name,
+                t.name,
+                t.statuses.join(", ")
+            ));
+        }
+    }
     out
 }
 
@@ -161,5 +172,10 @@ mod suspect_tests {
         let got = suspect_overrides(&m);
         assert_eq!(got.len(), 1, "{got:?}");
         assert!(got[0].contains("did you mean [types.adr]"), "{got:?}");
+        let mut m = BTreeMap::new();
+        let when = BTreeMap::from([("accepted".to_string(), vec!["approvers".to_string()])]);
+        m.insert("adr".to_string(), TypeOverride { require_when: Some(when), ..Default::default() });
+        let got = suspect_overrides(&m);
+        assert!(got.len() == 1 && got[0].contains("status 'accepted'") && got[0].contains("active"), "C110: {got:?}");
     }
 }

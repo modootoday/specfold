@@ -73,6 +73,7 @@ pub fn run(g: &Global, a: &AttachArgs) -> Result<Output> {
     if a.write && uploads && !a.yes {
         let files: Vec<String> = a.files.iter().map(|p| p.display().to_string()).collect();
         return Ok(o
+            .code(crate::output::Code::Refused)
             .head("a file goes to the store, outside the repository: nothing was written; add --yes to confirm")
             .foot("preview only; nothing was written")
             .next(format!(

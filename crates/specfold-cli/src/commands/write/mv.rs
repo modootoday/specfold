@@ -55,16 +55,19 @@ pub fn run(g: &Global, a: &MvArgs) -> Result<Output> {
         }
         o = o.field("cited_paths", cited);
     }
+    // C108: the rerun keeps every flag that shaped the move.
+    let mut rerun = format!("spec mv {}", session::shell_word(&a.doc));
+    for (flag, v) in [("--owner", &a.owner), ("--slug", &a.slug), ("--tier", &a.tier)] {
+        if let Some(v) = v {
+            rerun.push_str(&format!(" {flag} {}", session::shell_word(v)));
+        }
+    }
+    if a.cited_paths {
+        rerun.push_str(" --cited-paths");
+    }
+    rerun.push_str(" --write");
     let max = s.corpus.cfg.raw.write.max_files;
-    let (o, written) = preview::finish_bounded(
-        o,
-        &plan,
-        &s.corpus.cfg.root,
-        max,
-        a.write,
-        a.yes,
-        &format!("spec mv {} --write", a.doc),
-    )?;
+    let (o, written) = preview::finish_bounded(o, &plan, &s.corpus.cfg.root, max, a.write, a.yes, &rerun)?;
     Ok(if !written && o.summary.contains_key("bounded") {
         o
     } else if cited > 0 && written {

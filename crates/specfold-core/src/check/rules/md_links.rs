@@ -76,20 +76,23 @@ impl Rule for LocalLinks {
         &RuleInfo {
             id: "L8",
             title: "local Markdown links lead somewhere",
-            explain: "A plain Markdown link or image with a relative path ([text](../api.md), ![](diagram.png)) must name a file or directory that exists, and a #fragment must match a heading of the target Markdown file (or of this file for [text](#heading)): its GitHub slug (lower case, spaces to -, punctuation dropped, a repeated heading gets -1, -2) or an explicit {#anchor}. Renaming a heading or moving a file breaks such links silently. Links with a scheme (https:, mailto:) and document ids are not checked here (L1 checks ids; use a link checker such as lychee for URLs). Fix the path or fragment, or write [[id#anchor]] for another document. Warns; turn it off with [check.severity] L8 = \"off\".",
+            explain: "A plain Markdown link or image with a relative path ([text](../api.md), ![](diagram.png)) must name a file or directory that exists, and a #fragment must match a heading of the target Markdown file (or of this file for [text](#heading)): its GitHub slug (lower case, spaces to -, punctuation dropped, a repeated heading gets -1, -2) or an explicit {#anchor}. Renaming a heading or moving a file breaks such links silently. Links with a scheme (https:, mailto:) and document ids are not checked here (L1 checks ids; use a link checker such as lychee for URLs). Fix the path or fragment, or write [[id#anchor]] for another document. Targets matching a glob in [check] link_ignore (as written, or as the repository path) are skipped. Warns; turn it off with [check.severity] L8 = \"off\".",
             on_commit: true,
         }
     }
 
     fn run(&self, ctx: &Ctx, out: &mut Vec<Finding>) {
         let root = &ctx.corpus.cfg.root;
+        let ignore: Vec<_> =
+            ctx.corpus.cfg.raw.check.link_ignore.iter().filter_map(|p| crate::workspace::owners::matcher(p)).collect();
+        let ignored = |s: &str| ignore.iter().any(|m| m.is_match(s));
         for (i, d) in ctx.corpus.docs.iter().enumerate() {
             if !ctx.scope.covers(i) || skipped(d, "L8") {
                 continue;
             }
             each_link(ctx, d, |path, body, line, l| {
                 let t = l.target.trim();
-                if t.is_empty() || has_scheme(t) {
+                if t.is_empty() || has_scheme(t) || ignored(t) || ignored(t.split('#').next().unwrap_or(t)) {
                     return;
                 }
                 let (file, frag) = match t.split_once('#') {
@@ -105,7 +108,11 @@ impl Rule for LocalLinks {
                         Some(abs) => abs.to_string(),
                         None => format!("{}/{file}", path.rsplit_once('/').map_or("", |x| x.0)),
                     };
-                    let Some(rel) = normalize(&joined) else {
+                    let rel = normalize(&joined);
+                    if rel.as_deref().is_some_and(ignored) {
+                        return;
+                    }
+                    let Some(rel) = rel else {
                         out.push(Finding::warn("L8", path, line, format!("{what} {t} leaves the repository")));
                         return;
                     };

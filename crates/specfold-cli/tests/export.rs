@@ -82,7 +82,7 @@ fn local_documents_only_with_local_and_reexport_replaces_its_own_files() {
     assert!(r.read("vault/shop/adr/scratch.md").contains("> Exported by specfold from `.spec.local/shop/adr/"));
     r.write("vault/.obsidian/app.json", "{}");
     let (code, v) = r.json(&["export", "markdown", "--target", "obsidian", "--out", o]);
-    assert_eq!(code, 0);
+    assert_eq!(code, 4, "CLI-17: a refused write");
     assert_eq!(v["written"], false, "replacing an earlier export needs --yes (CLI-3): {v}");
     assert!(v["next"].as_str().unwrap().ends_with("--yes"), "{v}");
     assert!(out.join("shop/adr/scratch.md").exists(), "nothing is removed without --yes");
