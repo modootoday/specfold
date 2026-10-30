@@ -111,6 +111,7 @@ fn a_pinned_remote_document_warns_when_it_changes() {
     assert_eq!(code, 0, "{v}");
     let (_, v) = app.json(&["check"]);
     assert_eq!(v["errors"], 0, "{v}");
+    assert!(app.json(&["check", "--rule", "S1"]).1["items"].as_array().unwrap().is_empty());
     assert!(app.json(&["check", "--rule", "L7"]).1["items"].as_array().unwrap().is_empty());
     let p = shared.json(&["resolve", &doc]).1["path"].as_str().unwrap().to_string();
     shared.write(&p, &(shared.read(&p) + "\nA new step.\n"));

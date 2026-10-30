@@ -36,3 +36,14 @@ fn an_exception_to_nothing_is_a_broken_relation() {
     assert_eq!(r.json(&["set", &ex, "rel.exception_of+=guide:shop/nope", "review_by=2999-01-01"]).0, 0);
     assert_eq!(r.json(&["check", "--rule", "L3"]).0, 1);
 }
+
+#[test]
+fn review_by_is_a_known_key_and_t5_can_be_made_an_error() {
+    let (r, ex) = exception();
+    assert_eq!(r.json(&["set", &ex, "review_by=2000-01-01"]).0, 0);
+    assert!(r.json(&["check", "--rule", "S1"]).1["items"].as_array().unwrap().is_empty());
+    let cfg = r.read("spec.toml");
+    r.write("spec.toml", &format!("{cfg}\n[check.severity]\nT5 = \"error\"\n"));
+    let (code, v) = r.json(&["check", "--rule", "T5"]);
+    assert_eq!((code, v["errors"].as_u64()), (1, Some(1)), "{v}");
+}
