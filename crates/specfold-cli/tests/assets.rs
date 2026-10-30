@@ -174,6 +174,9 @@ fn sync_assets_previews_then_copies_only_into_declared_copy_roots() {
     assert_eq!(r.read(".claude/skills/pdf-tools/scripts/run.sh"), "echo pdf\n");
     assert!(r.path().join(".claude/skills/stale/SKILL.md").is_file(), "nothing is deleted without --prune");
     assert_eq!(r.read(".agents/skills/pdf-tools/SKILL.md"), skill, "the source is never written");
+    let undo = v["undo"].as_str().unwrap();
+    assert!(undo.contains(".claude/skills/pdf-tools/SKILL.md") && !undo.contains(".agents/"), "C101: {undo}");
+    assert_eq!(v["next"], "git status --short", "C106: {v}");
 
     let (code, v) = r.json(&["sync", "assets", "--prune", "--write"]);
     assert_eq!(code, 0, "{v}");
@@ -182,6 +185,16 @@ fn sync_assets_previews_then_copies_only_into_declared_copy_roots() {
     let (code, v) = r.json(&["sync", "assets", "--prune", "--write", "--yes"]);
     assert_eq!(code, 0, "{v}");
     assert!(!r.path().join(".claude/skills/stale/SKILL.md").exists(), "--prune removes what the source lacks");
+    // C100: the pruned file was never committed; it waits in the trash and the undo copies it back.
+    let undo = v["undo"].as_str().unwrap().to_string();
+    assert!(undo.starts_with("cp -Rp .specfold/trash/"), "{undo}");
+    let st = std::process::Command::new("git").args(["status", "--short"]).current_dir(r.path()).output().unwrap();
+    let st = String::from_utf8_lossy(&st.stdout);
+    assert!(!st.contains(".specfold"), "the trash is ignored: {st}");
+    let ok = std::process::Command::new("sh").arg("-c").arg(&undo).current_dir(r.path()).status().unwrap();
+    assert!(ok.success());
+    assert!(r.path().join(".claude/skills/stale/SKILL.md").is_file(), "undo restores it");
+    std::fs::remove_file(r.path().join(".claude/skills/stale/SKILL.md")).unwrap();
     let (_, v) = r.json(&["sync", "assets"]);
     assert_eq!(v["changes"], 0, "{v}");
 
@@ -279,4 +292,23 @@ fn machine_paths_in_agent_assets_are_reported() {
     assert_eq!(items.len(), 1, "{v}");
     assert_eq!(items[0]["line"], 2, "{v}");
     assert!(items[0]["message"].as_str().unwrap().contains("/Users/ana"), "{v}");
+}
+
+#[test]
+fn c102_c106_guarded_writes_say_what_comes_next() {
+    let r = common::repo();
+    let (code, v) = r.json(&["check", "--write-baseline"]);
+    assert_eq!(code, 2, "C102: {v}");
+    assert_eq!(v["next"], "spec explain config", "{v}");
+    for args in [
+        &["check", "--write-baseline", "--dry-run"][..],
+        &["export", "markdown", "--target", "obsidian", "--out", "x", "--dry-run"],
+    ] {
+        let (_, v) = r.json(args);
+        assert!(!v.to_string().contains("unexpected argument"), "C103 {args:?}: {v}");
+    }
+    let base = r.read("spec.toml");
+    r.write("spec.toml", &(base + "[[[broken\n"));
+    let (_, v) = r.json(&["find"]);
+    assert_eq!(v["next"], "spec explain config", "C106: {v}");
 }

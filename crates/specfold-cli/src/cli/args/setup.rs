@@ -86,4 +86,7 @@ pub struct ExportArgs {
     /// Confirm an action that deletes, overwrites, sends files out, or writes more than [write] max_files files (with its write flag).
     #[arg(long)]
     pub yes: bool,
+    /// Preview only, writing nothing (the default without --write).
+    #[arg(long, conflicts_with = "yes")]
+    pub dry_run: bool,
 }

@@ -148,6 +148,14 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
     let report =
         check::run(&s.corpus, &s.graph, range, &opts, &Selection { only: a.rules.clone(), skip: a.skip.clone() })?;
     if a.write_baseline {
+        // C102: without a baseline path there is nothing to preview; say what to set first.
+        if s.corpus.cfg.raw.check.baseline.is_none() {
+            return Ok(Output::new("check")
+                .code(crate::output::Code::Usage)
+                .field("written", false)
+                .head("--write-baseline needs a file to write: add `[check]` with `baseline = \".spec-baseline.json\"` to spec.toml")
+                .next("spec explain config"));
+        }
         let b = baseline::measure(&s.corpus, &report.findings)?;
         let total: usize = b.counts.values().sum();
         // A baseline hides today's errors from every later run: --yes confirms it (CLI-3).

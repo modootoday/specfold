@@ -118,19 +118,39 @@ pub fn finish_bounded(
 
 /// CLI-5: a git command that takes back what a write changed, new files included; it keeps the
 /// changes in a stash, so the undo itself can be undone with `git stash pop`.
+/// A file moved here instead of deleted comes back with a copy, since git may never have had it.
+pub const TRASH: &str = ".specfold/trash";
+
 pub fn undo(plan: &Plan) -> String {
     let mut paths: Vec<String> = vec![];
+    let mut trash: Vec<String> = vec![];
     for c in &plan.changes {
         match c {
             Change::Write { path, .. } | Change::Remove { path } => paths.push(path.clone()),
-            Change::Move { from, to } | Change::Copy { from, to } => {
+            Change::Move { to, .. } if to.starts_with(&format!("{TRASH}/")) => {
+                // .specfold/trash/<stamp>/<path>: restoring the stamp directory puts every file back.
+                let dir: Vec<&str> = to.splitn(4, '/').take(3).collect();
+                trash.push(dir.join("/"));
+            }
+            Change::Move { from, to } => {
                 paths.push(from.clone());
                 paths.push(to.clone());
             }
+            // A copy changes only its target; its source stays the user's.
+            Change::Copy { to, .. } => paths.push(to.clone()),
         }
     }
     paths.sort();
     paths.dedup();
-    let words: Vec<String> = paths.iter().map(|p| crate::session::shell_word(p)).collect();
-    format!("git stash push --include-untracked -- {}", words.join(" "))
+    trash.sort();
+    trash.dedup();
+    let mut parts = vec![];
+    if !paths.is_empty() {
+        let words: Vec<String> = paths.iter().map(|p| crate::session::shell_word(p)).collect();
+        parts.push(format!("git stash push --include-untracked -- {}", words.join(" ")));
+    }
+    for t in &trash {
+        parts.push(format!("cp -Rp {}/. .", crate::session::shell_word(t)));
+    }
+    parts.join(" && ")
 }

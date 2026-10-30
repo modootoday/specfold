@@ -19,7 +19,8 @@ $ spec fetch <id>
 ```
 
 `spec fetch` never replaces a file that is already there with other content; it names the file
-and fetches nothing, unless you add `--force`.
+and fetches nothing, unless you add `--force`. `spec sync --prune` deletes files only with
+`--yes`, and keeps each one in `.specfold/trash/<stamp>/` so its undo line can copy it back.
 
 ## Stores
 

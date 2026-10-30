@@ -58,7 +58,8 @@ check and the guards. Matched values are never printed.
 `--out` must be missing, empty, or an earlier export. Each export writes
 `.specfold-export.json`, listing its files; the next export removes those files and keeps
 everything else (an `.obsidian/` folder, for example). Specfold refuses a directory that holds
-the repository or sits inside `.spec`, `.spec.local` or `.git`.
+the repository or sits inside `.spec`, `.spec.local` or `.git`. Replacing an earlier export, or
+sending documents past a public guard, previews first and writes only with `--yes`.
 
 Files are named after the slug. When two documents would get the same file name (compared
 without case), documents are taken in id order: the first keeps `payment-rollout.md`, the next

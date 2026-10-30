@@ -149,7 +149,14 @@ pub fn execute(argv: Vec<String>) -> Executed {
                 name.as_deref().unwrap_or("spec"),
                 code_of(&e),
                 &msg,
-                Some(next.unwrap_or_else(|| help_hint(&name))),
+                // C106: a broken spec.toml is fixed from the config reference, not the command's help.
+                Some(next.unwrap_or_else(|| {
+                    if msg.starts_with("invalid ") && msg.contains("spec.toml") {
+                        "spec explain config".into()
+                    } else {
+                        help_hint(&name)
+                    }
+                })),
             )
         }
     };
