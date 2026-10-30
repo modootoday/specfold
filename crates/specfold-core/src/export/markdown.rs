@@ -171,10 +171,17 @@ pub fn build(c: &Corpus, g: &Graph, o: &Options) -> Tree {
         });
     }
     let mut tree = Tree { docs: pages.len(), ..Default::default() };
+    // Relation targets are looked up per page; a scan of every document each time made export
+    // quadratic. The first document with an id wins, as the scan did.
+    let mut by_id: HashMap<String, usize> = HashMap::new();
+    for (i, d) in c.docs.iter().enumerate() {
+        by_id.entry(d.id.to_string()).or_insert(i);
+    }
+    let ix = Index { pages: &pages, by_idx: &by_idx, by_id: &by_id };
     for p in &pages {
         let mut out = String::new();
         if !o.target.flat() {
-            out.push_str(&front(c, p, o.target, &pages, &by_idx));
+            out.push_str(&front(c, p, o.target, &ix));
         }
         let d = &c.docs[p.idx];
         if o.banner {
@@ -206,7 +213,14 @@ fn strings(v: Option<&Value>) -> Vec<String> {
     }
 }
 
-fn front(c: &Corpus, p: &Page, t: Target, pages: &[Page], by_idx: &HashMap<usize, usize>) -> String {
+/// Lookups shared by every exported page.
+struct Index<'a> {
+    pages: &'a [Page],
+    by_idx: &'a HashMap<usize, usize>,
+    by_id: &'a HashMap<String, usize>,
+}
+
+fn front(c: &Corpus, p: &Page, t: Target, ix: &Index) -> String {
     let d = &c.docs[p.idx];
     let fm = d.fm();
     let get = |k: &str| fm.and_then(|m| m.get(k));
@@ -216,7 +230,7 @@ fn front(c: &Corpus, p: &Page, t: Target, pages: &[Page], by_idx: &HashMap<usize
         lines.push(format!("id: {}", yaml_str(stem)));
         lines.push(format!("specfold_id: {}", yaml_str(&d.id.to_string())));
         lines.push(format!("sidebar_label: {}", yaml_str(&p.title)));
-        lines.push(format!("sidebar_position: {}", by_idx[&p.idx] + 1));
+        lines.push(format!("sidebar_position: {}", ix.by_idx[&p.idx] + 1));
     } else {
         lines.push(format!("id: {}", yaml_str(&d.id.to_string())));
     }
@@ -240,7 +254,7 @@ fn front(c: &Corpus, p: &Page, t: Target, pages: &[Page], by_idx: &HashMap<usize
         for (kind, v) in rel {
             let ids: Vec<String> = strings(Some(v))
                 .into_iter()
-                .map(|s| match (t, g_target(c, &s, pages, by_idx)) {
+                .map(|s| match (t, g_target(&s, ix)) {
                     (Target::Obsidian, Some(q)) => format!("[[{}|{}]]", q.file.trim_end_matches(".md"), q.title),
                     _ => s,
                 })
@@ -255,10 +269,10 @@ fn front(c: &Corpus, p: &Page, t: Target, pages: &[Page], by_idx: &HashMap<usize
 }
 
 /// The exported page for a relation target written as an id.
-fn g_target<'a>(c: &Corpus, id: &str, pages: &'a [Page], by_idx: &HashMap<usize, usize>) -> Option<&'a Page> {
+fn g_target<'a>(id: &str, ix: &Index<'a>) -> Option<&'a Page> {
     let target = crate::model::RefText::parse(id).target;
-    let idx = c.docs.iter().position(|d| d.id.to_string() == target)?;
-    by_idx.get(&idx).map(|&i| &pages[i])
+    let idx = ix.by_id.get(target.as_str())?;
+    ix.by_idx.get(idx).map(|&i| &ix.pages[i])
 }
 
 /// GitHub's heading slug: lower case, punctuation dropped, spaces to `-`.

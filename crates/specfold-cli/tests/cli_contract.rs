@@ -1413,3 +1413,32 @@ fn c158_large_edit_preview_is_bounded() {
     let after: usize = it["hunks"].as_array().unwrap().iter().map(|h| h["after"].as_array().unwrap().len()).sum();
     assert!(after >= 5000, "{after}");
 }
+
+/// Export looks relation targets up by id: an Obsidian page links the document it depends on.
+#[test]
+fn export_frontmatter_links_relation_targets() {
+    let r = common::repo();
+    let first = r.new_doc("sot", "services/shop", "Cart");
+    let (code, v) =
+        r.json(&["new", "sot", "--title", "Checkout", "--governs", "services/shop", "--depends-on", &first, "--write"]);
+    assert_eq!(code, 0, "{v}");
+    r.commit("docs");
+    let dir = r.path().join("out");
+    let (code, t) = r.text(&["export", "markdown", "--target", "obsidian", "--out", dir.to_str().unwrap()]);
+    assert_eq!(code, 0, "{t}");
+    let pages: Vec<String> = walk(&dir).iter().map(|p| std::fs::read_to_string(p).unwrap()).collect();
+    assert!(pages.iter().any(|p| p.contains("rel_depends_on: [\"[[") && p.contains("|Cart]]")), "{pages:?}");
+}
+
+fn walk(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
+    let mut out = vec![];
+    for e in std::fs::read_dir(dir).unwrap().flatten() {
+        let p = e.path();
+        if p.is_dir() {
+            out.extend(walk(&p))
+        } else if p.extension().is_some_and(|x| x == "md") {
+            out.push(p)
+        }
+    }
+    out
+}
