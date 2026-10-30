@@ -135,6 +135,7 @@ A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is 
   `gateway`), not only when most of the title is lost.
 
 ### Fixed
+- `spec edit --row` with a key that several rows share now says so, lists their line numbers and points at editing the whole section; it asks for --section only when the rows sit in different sections (C182).
 - `spec mv` rewrites reference definitions, angle-bracket and percent-encoded relative links too, and no longer touches links inside code (C180).
 - `spec import --apply --write` now rewrites reference definitions, angle-bracket links and percent-encoded links (keeping the encoding), still skipping code; L8 also checks reference definitions (C180).
 
