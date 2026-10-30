@@ -5,8 +5,6 @@ use serde_json::{Value, json};
 use specfold_core::check::{Finding, Fix, Severity, rules::catalog};
 use std::path::Path;
 
-pub const FORMATS: &[&str] = &["text", "github", "sarif", "gitlab", "rdjson"];
-
 /// FNV-1a over rule, path and message: stable across runs and line moves, unlike line numbers.
 pub fn fingerprint(f: &Finding) -> String {
     let mut h: u64 = 0xcbf2_9ce4_8422_2325;

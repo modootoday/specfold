@@ -85,7 +85,7 @@ type = "guide"
             ("docs/plans/2026-02-01-launch/10-steps.md".to_string(), "research:root/20260201000000".to_string());
         assert!(p.alias_rows.contains(&chapter), "a chapter's old path names its document");
         p.plan.apply(r).unwrap();
-        let c2 = Corpus::load(Config::from_raw(r.to_path_buf(), c.cfg.raw.clone(), false), &LoadOptions::default());
+        let c2 = Corpus::load(Config::from_raw(r.to_path_buf(), c.cfg.raw, false), &LoadOptions::default());
         assert_eq!(c2.docs.len(), 3);
         assert!(c2.strays.is_empty(), "{:?}", c2.strays);
         assert!(!r.join("docs/adr/0007-use-postgres.md").exists());

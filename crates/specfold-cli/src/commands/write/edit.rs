@@ -64,7 +64,7 @@ pub fn run(g: &Global, a: &EditArgs) -> Result<Output> {
         new_section: a.new_section.clone(),
         after: a.after.clone(),
         mode,
-        text: text.clone(),
+        text,
         row,
     };
     let out = match edit::plan(&s.corpus, idx, &e) {

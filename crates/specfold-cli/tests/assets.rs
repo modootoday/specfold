@@ -149,7 +149,7 @@ fn sync_assets_previews_then_copies_only_into_declared_copy_roots() {
     let r = common::repo();
     let base = r.read("spec.toml");
     let copy = "[[assets]]\nkind = \"skill\"\npath = \".agents/skills\"\n[[assets]]\nkind = \"skill\"\npath = \".claude/skills\"\ncopy_of = \".agents/skills\"\n";
-    r.write("spec.toml", &(base.clone() + copy));
+    r.write("spec.toml", &(base + copy));
     let skill = "---\nname: pdf-tools\ndescription: Read PDFs.\n---\n# PDF\n";
     r.write(".agents/skills/pdf-tools/SKILL.md", skill);
     r.write(".agents/skills/pdf-tools/scripts/run.sh", "echo pdf\n");

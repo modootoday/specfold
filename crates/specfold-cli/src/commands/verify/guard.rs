@@ -58,7 +58,7 @@ pub fn run(g: &Global, a: &GuardArgs) -> Result<Output> {
     let (errors, warnings) = findings::counts(&list);
     let o = findings::push_all(Output::new("guard").field("errors", errors).field("warnings", warnings), &list);
     let mut shown: Vec<String> =
-        if a.names.is_empty() { cfg.raw.guards.iter().map(|g| g.name.clone()).collect() } else { names.clone() };
+        if a.names.is_empty() { cfg.raw.guards.iter().map(|g| g.name.clone()).collect() } else { names };
     if builtin {
         shown.push("secrets (built-in)".into());
     }

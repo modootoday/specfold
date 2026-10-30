@@ -61,7 +61,7 @@ fn graph_draws_trees_diagrams_relations_and_chains_both_ways() {
 
     let (_, v) = r.json(&["graph", "chain", &new]);
     let ids: Vec<_> = v["items"].as_array().unwrap().iter().map(|i| i["id"].as_str().unwrap().to_string()).collect();
-    assert_eq!(ids, vec![old.clone(), new.clone()], "the chain from the new document shows what it replaced");
+    assert_eq!(ids, vec![old, new], "the chain from the new document shows what it replaced");
     assert_eq!(v["items"][1]["this"], true);
 }
 
