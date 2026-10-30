@@ -69,13 +69,13 @@ impl Config {
             }
         }
         // C184: guards sharing a baseline file overwrite each other's entries on --write-baseline.
-        let mut seen: Vec<(&str, &str)> = Vec::new();
+        let mut seen: Vec<(&str, String)> = Vec::new();
         for g in &raw.guards {
             let Some(b) = g.baseline.as_deref() else { continue };
-            let b = b.trim_start_matches("./");
+            let b = same_file_key(path.parent().unwrap_or(Path::new(".")), b);
             if let Some((other, _)) = seen.iter().find(|(_, x)| *x == b) {
                 bail!(
-                    "{}: guards '{other}' and '{}' both use baseline = \"{b}\"; give each guard its own baseline file; next: spec explain config",
+                    "{}: guards '{other}' and '{}' both write the baseline file \"{b}\"; give each guard its own baseline file; next: spec explain config",
                     path.display(),
                     g.name
                 );
@@ -123,6 +123,24 @@ pub fn newer_schema(path: &Path, schema: u32) -> anyhow::Error {
         path.display(),
         defaults::schema()
     )
+}
+
+/// C186: a baseline path as one string per file: relative to the repository root, with `.` and
+/// `..` resolved lexically, so `./b.json`, `x/../b.json` and `<root>/b.json` compare equal.
+fn same_file_key(root: &Path, p: &str) -> String {
+    let p = Path::new(p);
+    let rel = p.strip_prefix(root).unwrap_or(p);
+    let mut parts: Vec<&str> = vec![];
+    for c in rel.to_str().unwrap_or_default().split(['/', '\\']) {
+        match c {
+            "" | "." => {}
+            ".." if parts.last().is_some_and(|l| *l != "..") => {
+                parts.pop();
+            }
+            other => parts.push(other),
+        }
+    }
+    parts.join("/")
 }
 
 #[cfg(test)]

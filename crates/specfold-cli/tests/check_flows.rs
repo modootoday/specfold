@@ -684,3 +684,23 @@ fn c184_guards_sharing_a_baseline_file_are_refused_at_load() {
     r.write("spec.toml", &toml.replacen(".base.json", ".g1.json", 1));
     assert_ne!(r.json(&["guard", "--write-baseline"]).0, 2, "own files load");
 }
+
+#[test]
+fn c186_shared_baseline_paths_are_compared_after_resolving_dots() {
+    let r = common::repo();
+    let toml = r.read("spec.toml");
+    let with = |a: &str, b: &str| {
+        format!(
+            "{toml}[[guards]]\nname = \"g1\"\ndeny_terms = [\"x\"]\nbaseline = \"{a}\"\n[[guards]]\nname = \"g2\"\ndeny_terms = [\"y\"]\nbaseline = \"{b}\"\n"
+        )
+    };
+    r.write("spec.toml", &with("x/../.guard-base.json", "./.guard-base.json"));
+    let (code, v) = r.json(&["guard", "--write-baseline"]);
+    assert_eq!(code, 2, "{v}");
+    assert!(
+        v["error"].as_str().unwrap().contains("'g1' and 'g2' both write the baseline file \".guard-base.json\""),
+        "{v}"
+    );
+    r.write("spec.toml", &with("a/b.json", "b.json"));
+    assert_ne!(r.json(&["guard", "--write-baseline"]).0, 2, "different files load");
+}

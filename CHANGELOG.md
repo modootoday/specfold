@@ -139,6 +139,7 @@ A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is 
   `gateway`), not only when most of the title is lost.
 
 ### Fixed
+- The shared-baseline check resolves `.` and `..` and paths under the repository root before comparing, so `x/../b.json` and `./b.json` count as one file (C186).
 - Two writes in the same second no longer share a `.specfold/trash/<timestamp>/` folder: each write claims a fresh one (`<timestamp>-1`, `-2`, … when taken), so an earlier trash copy is never overwritten. This applies to edit, fix, set, mv, import and sync --prune (C187).
 - `spec edit --row` with a key that several rows share now says so, lists their line numbers and points at editing the whole section; it asks for --section only when the rows sit in different sections (C182).
 - `spec mv` rewrites reference definitions, angle-bracket and percent-encoded relative links too, and no longer touches links inside code (C180).
