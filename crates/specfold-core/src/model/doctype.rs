@@ -22,6 +22,25 @@ pub enum Form {
     Dir,
 }
 
+/// What a field's value must look like where its status requires it (rule S8).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum FieldKind {
+    /// A name or a list of names, none empty.
+    People,
+    /// An http(s) URL, or a list of them.
+    Url,
+    /// A `YYYY-MM-DD` date (or an RFC 3339 time).
+    Date,
+    /// A document id, alias or path (`[[...]]` allowed) that resolves.
+    Link,
+}
+
+/// Values that stand for "not decided yet": rejected where a status requires the field (S8).
+pub fn default_placeholders() -> Vec<String> {
+    ["TBD", "Pending", "TODO", "?"].iter().map(|s| s.to_string()).collect()
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TypeDef {
     pub name: String,
@@ -49,6 +68,15 @@ pub struct TypeDef {
     /// Headings every document of this type must have (rule S7); empty means none.
     #[serde(default)]
     pub sections: Vec<String>,
+    /// Value kinds for fields, from `fields = { approvers = "people" }` (rule S8).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub kinds: BTreeMap<String, FieldKind>,
+    /// Whole values (any case) that a required field may not hold (rule S8).
+    #[serde(default = "default_placeholders")]
+    pub placeholders: Vec<String>,
+    /// Groups of fields that may not share a value, e.g. `[["authors", "approvers"]]` (rule S8).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub distinct: Vec<Vec<String>>,
 }
 
 impl TypeDef {
@@ -90,6 +118,9 @@ impl From<Spec<'_>> for TypeDef {
             transitions: BTreeMap::new(),
             require_when: BTreeMap::new(),
             sections: vec![],
+            kinds: BTreeMap::new(),
+            placeholders: default_placeholders(),
+            distinct: vec![],
         }
     }
 }

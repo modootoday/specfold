@@ -337,3 +337,35 @@ fn agent_assets_name_paths_and_spec_commands_that_exist() {
     assert!(msgs.iter().any(|m| m.contains("`spec frobnicate`")), "{msgs:?}");
     assert_eq!(v["errors"], 0, "warnings only: {v}");
 }
+
+#[test]
+fn s8_a_required_field_needs_a_real_value_of_its_kind() {
+    let r = common::repo();
+    let toml = r.read("spec.toml")
+        + "[types.finding]\nkey = \"stamp\"\nstatuses = [\"open\", \"accepted-risk\"]\ninitial = \"open\"\nfields = { review_by = \"date\", approvers = \"people\", authors = \"people\", decision = \"link\" }\ndistinct = [[\"authors\", \"approvers\"]]\n[types.finding.transitions]\nopen = [\"accepted-risk\"]\n[types.finding.require_when]\naccepted-risk = [\"review_by\", \"approvers\", \"decision\"]\n";
+    r.write("spec.toml", &toml);
+    let sot = r.new_doc("sot", "services/shop", "Logs");
+    let id = r.new_doc("finding", "services/shop", "Token in logs");
+    // A placeholder on a status that does not require the field is fine.
+    assert_eq!(r.json(&["set", &id, "approvers=TBD"]).0, 0);
+    let (_, v) = r.json(&["check", "--rule", "S8"]);
+    assert!(rules_hit(&v).is_empty(), "{v}");
+    for kv in ["status=accepted-risk", "review_by=2026-12-01", "authors=ann", "decision=sot:nowhere"] {
+        let (c, v) = r.json(&["set", &id, kv]);
+        assert_eq!(c, 0, "{kv}: {v}");
+    }
+    let (code, v) = r.json(&["check", "--rule", "S8"]);
+    assert_eq!(code, 0, "S8 warns by default: {v}");
+    let s = v.to_string();
+    assert!(s.contains("'TBD' is a placeholder"), "{v}");
+    assert!(s.contains("names no document"), "{v}");
+    assert!(s.contains(&format!("spec set {id} approvers=")), "{v}");
+    assert_eq!(r.json(&["set", &id, "approvers=Ann"]).0, 0);
+    let (_, v) = r.json(&["check", "--rule", "S8"]);
+    assert!(v.to_string().contains("in both authors and approvers"), "{v}");
+    for kv in ["authors=Bob", &format!("decision={sot}")] {
+        assert_eq!(r.json(&["set", &id, kv]).0, 0, "{kv}");
+    }
+    let (_, v) = r.json(&["check", "--rule", "S8", "--rule", "S1"]);
+    assert!(rules_hit(&v).is_empty(), "declared kinds are known keys and the values pass: {v}");
+}

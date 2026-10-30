@@ -23,6 +23,7 @@ mod translations;
 pub use lifecycle::{is_date, overdue_exceptions};
 pub use schema::unknown_key;
 pub(crate) mod support;
+mod values;
 mod visibility;
 
 use super::rule::Rule;
@@ -36,6 +37,7 @@ pub fn catalog() -> Vec<Box<dyn Rule>> {
         Box::new(schema::Dates),
         Box::new(schema::RequiredByStatus),
         Box::new(sections::RequiredSections),
+        Box::new(values::RequiredValues),
         Box::new(ids::UniqueIds),
         Box::new(ids::AliasesClean),
         Box::new(ids::AliasTableFrozen),
