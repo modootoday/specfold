@@ -173,6 +173,18 @@ fn built_in(g: &Global, a: &ExportArgs) -> Result<Output> {
     if refused {
         return Ok(o);
     }
+    // Replacing an earlier export overwrites files outside the repository: --yes confirms it (CLI-3).
+    let again = session::shell_word(&out.display().to_string());
+    if !previous.is_empty() && !a.yes {
+        return Ok(o
+            .field("written", false)
+            .head(format!(
+                "{} holds an earlier export ({} file(s)) that this one replaces: nothing was written; add --yes to confirm",
+                out.display(),
+                previous.len()
+            ))
+            .next(format!("spec export markdown --target {} --out {again} --yes", target.name())));
+    }
     markdown::write(out, &tree, target, &previous)?;
     let mut o = o.head(format!(
         "exported {} document(s) for {} into {} ({} files)",
@@ -185,8 +197,7 @@ fn built_in(g: &Global, a: &ExportArgs) -> Result<Output> {
         o = o.foot(format!("{n} reference(s) written as plain text")).next("spec check --rule L1");
     } else {
         // Exporting again into the same directory replaces what this export wrote.
-        let again = session::shell_word(&out.display().to_string());
-        o = o.next(format!("spec export markdown --target {} --out {again}", target.name()));
+        o = o.next(format!("spec export markdown --target {} --out {again} --yes", target.name()));
     }
     Ok(o)
 }

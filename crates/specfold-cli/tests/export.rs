@@ -81,7 +81,12 @@ fn local_documents_only_with_local_and_reexport_replaces_its_own_files() {
     assert!(r.read("vault/shop/adr/scratch.md").starts_with("---\n"));
     assert!(r.read("vault/shop/adr/scratch.md").contains("> Exported by specfold from `.spec.local/shop/adr/"));
     r.write("vault/.obsidian/app.json", "{}");
-    let (code, _) = r.json(&["export", "markdown", "--target", "obsidian", "--out", o]);
+    let (code, v) = r.json(&["export", "markdown", "--target", "obsidian", "--out", o]);
+    assert_eq!(code, 0);
+    assert_eq!(v["written"], false, "replacing an earlier export needs --yes (CLI-3): {v}");
+    assert!(v["next"].as_str().unwrap().ends_with("--yes"), "{v}");
+    assert!(out.join("shop/adr/scratch.md").exists(), "nothing is removed without --yes");
+    let (code, _) = r.json(&["export", "markdown", "--target", "obsidian", "--out", o, "--yes"]);
     assert_eq!(code, 0);
     assert!(!out.join("shop/adr/scratch.md").exists(), "the earlier export's file is removed");
     assert!(out.join(".obsidian/app.json").exists(), "files the export did not write are kept");
@@ -309,7 +314,7 @@ fn a_markdown_link_to_an_id_is_warned_about_and_rewritten_on_export() {
     assert!(s.contains("[gone](adr:shop/1999) is a Markdown link to a document id that names no document"), "{s}");
     let (code, v) = r.json(&["export", "markdown", "--target", "mkdocs", "--out", "site"]);
     assert_eq!(code, 0, "{v}");
-    assert_eq!(v["next"], "spec export markdown --target mkdocs --out site", "{v}");
+    assert_eq!(v["next"], "spec export markdown --target mkdocs --out site --yes", "{v}");
     let page = r.read("site/shop/sot/checkout.md");
     assert!(page.contains("[the tax rule](../adr/cart-totals.md)"), "{page}");
     assert!(page.contains("[gone](adr:shop/1999)"), "left as written: {page}");

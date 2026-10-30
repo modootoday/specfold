@@ -60,7 +60,7 @@ copy_of = ".agents/skills"
 ```
 
 `spec sync assets` previews the copies; `--write` applies them, only inside roots with
-`copy_of`. Files the source lacks stay unless `--prune`. `spec audit --kind drift` names copies
+`copy_of`. Files the source lacks stay unless `--prune` (with `--yes`, since it deletes). `spec audit --kind drift` names copies
 that differ.
 
 ## This site for agents

@@ -43,6 +43,13 @@ fn tool(c: &CommandInfo) -> Value {
         "name": format!("spec_{}", c.name),
         "description": description,
         "inputSchema": {"type": "object", "properties": props, "required": required, "additionalProperties": false},
+        // CLI-2: the MCP tool hints follow the command's risk level.
+        "annotations": {
+            "readOnlyHint": c.risk == "read",
+            "destructiveHint": c.risk == "destructive",
+            "idempotentHint": c.risk == "read",
+            "openWorldHint": c.risk == "external",
+        },
     })
 }
 

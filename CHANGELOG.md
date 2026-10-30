@@ -5,8 +5,23 @@ Release notes for each version are also on
 
 ## Unreleased
 
+### Changed
+
+- CLI conventions CLI-1–CLI-16 (AGENTS.md, `tests/cli_contract.rs`). Actions that delete,
+  overwrite or send files out now need `--yes` besides their write flag; without it they write
+  nothing and `next` shows the command with `--yes`: `spec sync assets --prune --write`,
+  `spec attach … --write` when a file goes to the store, `spec export markdown` replacing an
+  earlier export in `--out`, and `spec check`/`spec guard --write-baseline`.
+- `spec new` without `--write` or `--dry-run` still writes but warns on stderr. **From 0.4,
+  `spec new` previews unless `--write`.** Add `--write` to scripts now.
+
 ### Added
 
+- `--dry-run` on every write command (`edit`, `mv`, `fix`, `init`, `attach`, `sync`, `audit`;
+  `import --plan` takes it as an alias; `new` and `set` keep theirs).
+- `spec help --json` gives each command a `risk`: read, write, destructive or external. MCP tools
+  carry the matching `annotations` (readOnlyHint, destructiveHint, idempotentHint, openWorldHint).
+- Writes report an `undo` command (`git stash push --include-untracked -- <paths>`).
 - Rule D1 (warning, `spec check --staged` and `--changed` only): code changed under an active
   document's `rel.governs` while neither the document nor a `change` note naming it changed.
 - Rule U2 runs the built-in secrets check (the one `spec export` always applies) over every

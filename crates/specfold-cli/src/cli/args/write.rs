@@ -46,7 +46,7 @@ pub struct NewArgs {
     /// Show what would be created without writing.
     #[arg(long)]
     pub dry_run: bool,
-    /// Accepted and ignored: new writes the document directly, like `--write` elsewhere; preview with --dry-run.
+    /// Write the document. 0.3 also writes without it but warns; from 0.4 new previews unless --write.
     #[arg(long, conflicts_with = "dry_run")]
     pub write: bool,
 }
@@ -102,6 +102,9 @@ pub struct MvArgs {
     /// Apply the move (otherwise a preview).
     #[arg(long)]
     pub write: bool,
+    /// Preview only, writing nothing (the default without --write).
+    #[arg(long, conflicts_with = "write")]
+    pub dry_run: bool,
 }
 
 #[derive(Debug, Clone, Args)]
@@ -127,11 +130,14 @@ pub struct FixArgs {
     /// Apply the fixes (otherwise a preview).
     #[arg(long)]
     pub write: bool,
+    /// Preview only, writing nothing (the default without --write).
+    #[arg(long, conflicts_with = "write")]
+    pub dry_run: bool,
 }
 
 #[derive(Debug, Clone, Args)]
 #[command(
-    after_help = "Examples:\n  spec attach design:shop/20260101000000 boards/cart.webp --write\n  spec attach evidence:root/20260101000000 run.jsonl --store --write\n\nEvery file is read by the built-in secrets check; files bound for the store are also read by\nevery guard that checks content (denied terms or patterns, denied files). An error-level hit\nrefuses the upload; a secret in a file kept in the repository is a warning here, and rule U2\nkeeps reading such text files afterwards. --allow-hit <guard> lets one guard's hits through\n(--allow-hit secrets for the built-in check).\n\nThe store is set in spec.toml:\n  [files]\n  inline_max_bytes = 1048576\n  [files.store]\n  kind = \"dir\"                # or \"command\" with put/get/exists\n  path = \"~/specfold-store\"\nSee spec explain config and the attachments guide for a command store."
+    after_help = "Examples:\n  spec attach design:shop/20260101000000 boards/cart.webp --write\n  spec attach evidence:root/20260101000000 run.jsonl --store --write --yes\n\nEvery file is read by the built-in secrets check; files bound for the store are also read by\nevery guard that checks content (denied terms or patterns, denied files). An error-level hit\nrefuses the upload; a secret in a file kept in the repository is a warning here, and rule U2\nkeeps reading such text files afterwards. --allow-hit <guard> lets one guard's hits through\n(--allow-hit secrets for the built-in check).\n\nThe store is set in spec.toml:\n  [files]\n  inline_max_bytes = 1048576\n  [files.store]\n  kind = \"dir\"                # or \"command\" with put/get/exists\n  path = \"~/specfold-store\"\nSee spec explain config and the attachments guide for a command store."
 )]
 pub struct AttachArgs {
     /// An id, alias, path, or unique slug.
@@ -151,6 +157,12 @@ pub struct AttachArgs {
     /// Copy, upload and register (otherwise a preview).
     #[arg(long)]
     pub write: bool,
+    /// Preview only, writing nothing (the default without --write).
+    #[arg(long, conflicts_with = "write")]
+    pub dry_run: bool,
+    /// Confirm an action that deletes, overwrites or sends files out (with its write flag).
+    #[arg(long)]
+    pub yes: bool,
     /// Upload even though this guard flags a file bound for the store (repeatable; `secrets` is the built-in check).
     #[arg(long = "allow-hit", value_name = "GUARD")]
     pub allow_hit: Vec<String>,
@@ -174,6 +186,9 @@ pub struct InitArgs {
     /// Write spec.toml (otherwise a preview).
     #[arg(long)]
     pub write: bool,
+    /// Preview only, writing nothing (the default without --write).
+    #[arg(long, conflicts_with = "write")]
+    pub dry_run: bool,
 }
 
 #[derive(Debug, Clone, Args)]
@@ -187,8 +202,8 @@ pub struct ImportArgs {
     /// Print a starter map for adr-tools, madr or log4brains to edit (nothing is imported).
     #[arg(long, value_parser = ["adr-tools", "madr", "log4brains"], conflicts_with_all = ["map", "apply", "write"])]
     pub preset: Option<String>,
-    /// Print the plan rows (the default).
-    #[arg(long, conflicts_with = "apply")]
+    /// Print the plan rows (the default); `--dry-run` is the same.
+    #[arg(long, visible_alias = "dry-run", conflicts_with = "apply")]
     pub plan: bool,
     /// Apply the plan (with --write).
     #[arg(long)]
@@ -236,11 +251,14 @@ pub struct EditArgs {
     /// Apply the change; without it only the preview is shown.
     #[arg(long)]
     pub write: bool,
+    /// Preview only, writing nothing (the default without --write).
+    #[arg(long, conflicts_with = "write")]
+    pub dry_run: bool,
 }
 
 #[derive(Debug, Clone, Args)]
 #[command(
-    after_help = "Copies each [[assets]] root's copy_of source over that root, for example:\n  [[assets]]\n  kind = \"skill\"\n  path = \".claude/skills\"\n  copy_of = \".agents/skills\"\nOnly roots with copy_of are written, only inside that root; the source is never changed and symbolic links are refused. Files missing from the source stay unless --prune. spec fix never touches assets.\n\nExamples:\n  spec sync assets              # preview\n  spec sync assets --write\n  spec sync assets --prune --write"
+    after_help = "Copies each [[assets]] root's copy_of source over that root, for example:\n  [[assets]]\n  kind = \"skill\"\n  path = \".claude/skills\"\n  copy_of = \".agents/skills\"\nOnly roots with copy_of are written, only inside that root; the source is never changed and symbolic links are refused. Files missing from the source stay unless --prune. spec fix never touches assets.\n\nExamples:\n  spec sync assets              # preview\n  spec sync assets --write\n  spec sync assets --prune --write --yes"
 )]
 pub struct SyncArgs {
     /// What to sync: assets.
@@ -252,6 +270,12 @@ pub struct SyncArgs {
     /// Apply the copies (otherwise a preview).
     #[arg(long)]
     pub write: bool,
+    /// Preview only, writing nothing (the default without --write).
+    #[arg(long, conflicts_with = "write")]
+    pub dry_run: bool,
+    /// Confirm an action that deletes, overwrites or sends files out (with its write flag).
+    #[arg(long)]
+    pub yes: bool,
 }
 
 impl NewArgs {

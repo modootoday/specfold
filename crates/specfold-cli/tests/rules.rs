@@ -58,10 +58,10 @@ fn a_baseline_accepts_the_known_pile_and_fails_anything_new() {
     r.write("spec.toml", &toml);
     let old = r.new_doc("sot", "services/shop/src", "Old rule");
     break_id(&r, &old);
-    let (code, v) = r.json(&["check", "--write-baseline"]);
+    let (code, v) = r.json(&["check", "--write-baseline", "--yes"]);
     assert_ne!(code, 0, "a dirty tree must not be measured: {v}");
     r.commit("old pile");
-    let (code, v) = r.json(&["check", "--write-baseline"]);
+    let (code, v) = r.json(&["check", "--write-baseline", "--yes"]);
     assert_eq!(code, 0, "{v}");
     assert_eq!(v["baselined"], 1);
     r.commit("baseline");

@@ -173,6 +173,10 @@ fn sync_assets_previews_then_copies_only_into_declared_copy_roots() {
 
     let (code, v) = r.json(&["sync", "assets", "--prune", "--write"]);
     assert_eq!(code, 0, "{v}");
+    assert_eq!(v["written"], false, "deleting needs --yes (CLI-3): {v}");
+    assert!(v["next"].as_str().unwrap().ends_with("--prune --write --yes"), "{v}");
+    let (code, v) = r.json(&["sync", "assets", "--prune", "--write", "--yes"]);
+    assert_eq!(code, 0, "{v}");
     assert!(!r.path().join(".claude/skills/stale/SKILL.md").exists(), "--prune removes what the source lacks");
     let (_, v) = r.json(&["sync", "assets"]);
     assert_eq!(v["changes"], 0, "{v}");

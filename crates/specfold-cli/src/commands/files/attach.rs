@@ -60,7 +60,7 @@ pub fn run(g: &Global, a: &AttachArgs) -> Result<Output> {
                 .code(Code::Findings)
                 .foot(format!("nothing uploaded: guard {} refuses a file bound for the store", refusing.join(", ")))
                 .next(format!(
-                    "spec attach {} {}{} --write {}",
+                    "spec attach {} {}{} --write --yes {}",
                     a.doc,
                     files.join(" "),
                     if a.store { " --store" } else { "" },
@@ -68,10 +68,30 @@ pub fn run(g: &Global, a: &AttachArgs) -> Result<Output> {
                 )));
         }
     }
+    // Sending a file to the store leaves the repository: it needs --yes as well (CLI-3).
+    let uploads = plan.files.iter().any(|f| f.store == "store");
+    if a.write && uploads && !a.yes {
+        let files: Vec<String> = a.files.iter().map(|p| p.display().to_string()).collect();
+        return Ok(o
+            .head("a file goes to the store, outside the repository: nothing was written; add --yes to confirm")
+            .foot("preview only; nothing was written")
+            .next(format!(
+                "spec attach {} {}{} --write --yes",
+                a.doc,
+                files.join(" "),
+                if a.store { " --store" } else { "" }
+            )));
+    }
     if a.write {
         attach::apply(&s.corpus, d, &plan)?;
         return Ok(o.foot("attached").next(format!("spec files {}", d.id)));
     }
     let files: Vec<String> = a.files.iter().map(|p| p.display().to_string()).collect();
-    Ok(o.foot("preview only; nothing was written").next(format!("spec attach {} {} --write", a.doc, files.join(" "))))
+    let confirm = if uploads { " --yes" } else { "" };
+    let store = if a.store { " --store" } else { "" };
+    Ok(o.foot("preview only; nothing was written").next(format!(
+        "spec attach {} {}{store} --write{confirm}",
+        a.doc,
+        files.join(" ")
+    )))
 }

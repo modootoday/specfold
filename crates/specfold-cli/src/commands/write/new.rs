@@ -12,6 +12,12 @@ use specfold_core::config::types::AssetKind;
 use specfold_core::model::stamp::slugify;
 
 pub fn run(g: &Global, a: &NewArgs) -> Result<Output> {
+    // CLI-1: from 0.4 `new` previews unless --write; 0.3 still writes, and says so on stderr.
+    if !a.dry_run && !a.write {
+        eprintln!(
+            "warning: spec new writes without --write in 0.3; from 0.4 it previews unless --write. Add --write to keep writing (--dry-run previews)."
+        );
+    }
     let s = session::open(g)?;
     if let Some(lang) = &a.translation {
         return translation(&s, a, lang);

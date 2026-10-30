@@ -49,6 +49,9 @@ pub struct CheckArgs {
     /// Record today's errors as the baseline ([check] baseline); a full run on a clean tree only.
     #[arg(long, conflicts_with_all = ["staged", "changed"])]
     pub write_baseline: bool,
+    /// Confirm an action that deletes, overwrites or sends files out (with its write flag).
+    #[arg(long)]
+    pub yes: bool,
     /// Also list the documents not in the last commit (new or not yet committed).
     #[arg(long)]
     pub new: bool,
@@ -94,6 +97,9 @@ pub struct GuardArgs {
     /// Record each guard's current hits in its baseline file; a clean tree only.
     #[arg(long, conflicts_with_all = ["staged", "range", "all"])]
     pub write_baseline: bool,
+    /// Confirm an action that deletes, overwrites or sends files out (with its write flag).
+    #[arg(long)]
+    pub yes: bool,
 }
 
 #[derive(Debug, Clone, Args)]
@@ -127,6 +133,9 @@ pub struct AuditArgs {
     /// Write the record (otherwise a preview).
     #[arg(long)]
     pub write: bool,
+    /// Preview only, writing nothing (the default without --write).
+    #[arg(long, conflicts_with = "write")]
+    pub dry_run: bool,
 }
 
 #[derive(Debug, Clone, Args)]

@@ -10,6 +10,12 @@
   prompts, text or `--json` with `schema`, `exit` and `next`, fixes on findings, previews before
   writes, bounded lists, one resolver, current documents by default, meaningful exit codes, a
   next command. `tests/cli_contract.rs` checks them for every command; add new commands there.
+- **CLI conventions CLI-1–CLI-16.** Write commands preview by default and apply only with `--write`;
+  every command declares a risk level (read, write, destructive, external) in `spec help --json`;
+  destructive or external actions need explicit confirmation when not on a terminal; data on stdout,
+  diagnostics on stderr; honour NO_COLOR; one meaning per shared flag name; deprecated names stay as
+  hidden aliases for at least one minor release. New commands add a row to `tests/cli_contract.rs`.
+  The conventions are numbered CLI-n so they do not clash with the contracts C1–C10 above.
 - **Dependencies are few and well known.** No network or TLS crates: stores and plugins are
   external commands. Add a dependency only with a reason in the pull request.
 - **Before a commit:** `cargo fmt`, `cargo clippy --all-targets -- -D warnings`, `cargo test`.
