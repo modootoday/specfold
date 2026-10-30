@@ -52,7 +52,7 @@ pub fn run(g: &Global, a: &ImportArgs) -> Result<Output> {
         }
         o = o.item(to_value(r)?, text);
     }
-    if !a.apply || !a.write {
+    if !a.apply || !a.write || a.dry_run {
         let o = if a.apply { o.foot("preview only; nothing was written") } else { o };
         let max = s.corpus.cfg.raw.write.max_files;
         let (o, _) = super::preview::bound(o, super::preview::files(&p.plan), max, false, a.yes);
@@ -65,12 +65,46 @@ pub fn run(g: &Global, a: &ImportArgs) -> Result<Output> {
     if !p.uploads.is_empty() && s.corpus.cfg.raw.files.store.is_none() {
         bail!("{} attachment(s) are over the repository limit; configure [files.store] first", p.uploads.len());
     }
+    if p.rows.is_empty() && p.uploads.is_empty() && p.plan.changes.is_empty() {
+        // C121: nothing to import writes nothing, not even an empty alias table.
+        return Ok(o
+            .field("written", false)
+            .foot("no source documents matched the map; nothing was written")
+            .next(format!("spec import --map {}", map_path.display())));
+    }
     let n = super::preview::files(&p.plan);
     let (o, go) = super::preview::bound(o, n, s.corpus.cfg.raw.write.max_files, true, a.yes);
     if !go {
         return Ok(o.next(format!("spec import --map {} --apply --write --yes", map_path.display())));
     }
-    p.plan.apply(&s.corpus.cfg.root)?;
+    let root = &s.corpus.cfg.root;
+    let table_existed = root.join(&alias_file).exists();
+    let mut o = o.field("written", true);
+    let mut changes = vec![];
+    for c in &p.plan.changes {
+        use specfold_core::authoring::Change;
+        let (op, path) = match c {
+            Change::Write { path, created: true, .. } => ("create", path.clone()),
+            Change::Write { path, .. } => ("update", path.clone()),
+            Change::Move { from, to } => ("move", format!("{from} -> {to}")),
+            Change::Copy { from, to } => ("copy", format!("{from} -> {to}")),
+            Change::Remove { path } => ("remove", path.clone()),
+        };
+        o = o.foot(format!("{op:<7} {path}"));
+        changes.push(serde_json::json!({"op": op, "path": path}));
+    }
+    let op = if table_existed { "update" } else { "create" };
+    o = o.foot(format!("{op:<7} {alias_file}"));
+    changes.push(serde_json::json!({"op": op, "path": alias_file}));
+    let o = o.field("changes", changes);
+    // The alias table is part of the write, so the undo takes it back too.
+    let mut with_table = p.plan.clone();
+    with_table.changes.push(specfold_core::authoring::Change::Write {
+        path: alias_file.clone(),
+        content: String::new(),
+        created: !table_existed,
+    });
+    p.plan.apply(root)?;
     let table_path = s.corpus.cfg.root.join(&alias_file);
     let existing = std::fs::read_to_string(&table_path).unwrap_or_default();
     if let Some(dir) = table_path.parent() {
@@ -82,7 +116,11 @@ pub fn run(g: &Global, a: &ImportArgs) -> Result<Output> {
             st.put(&s.corpus.cfg.root.join(path), sha).with_context(|| format!("uploading {path}"))?;
         }
     }
-    Ok(o.foot(format!("imported; commit with SPECFOLD_IMPORT=1 so the alias table may grow ({alias_file})"))
+    let undo = super::preview::undo(&with_table, root);
+    Ok(o.field("undo", undo.clone())
+        .foot(format!("{} change(s) written", p.plan.changes.len() + 1))
+        .foot(format!("undo: {undo}"))
+        .foot(format!("imported; commit with SPECFOLD_IMPORT=1 so the alias table may grow ({alias_file})"))
         .next("spec check && spec fix --rule L1 --rule L2 --write"))
 }
 

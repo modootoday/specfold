@@ -20,8 +20,8 @@ redirect_from: [/import/]
    numbers and links resolve through it.
 3. **Review the plan.** `spec import --map import.toml` changes nothing. Settle every line
    marked `!` (the plan's `next` names the `[status]` line to add), then plan again.
-4. **Apply.** `--apply` alone previews; `--apply --write` moves everything and writes the alias
-   table.
+4. **Apply.** `--apply` alone (or with `--dry-run`) previews; `--apply --write` moves everything,
+   writes the alias table, lists each file it touched and prints an `undo:` command.
 
 ```console
 $ spec import --preset madr > import.toml
