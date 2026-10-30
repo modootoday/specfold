@@ -272,3 +272,21 @@ fn schema_lists_the_translation_keys() {
     assert!(p["lang"].is_object() && p["source_rev"].is_object(), "{v}");
     assert!(p["rel"]["properties"]["translation_of"].is_object(), "{v}");
 }
+
+#[test]
+fn new_translation_lowercases_the_slug_tag_and_refuses_a_translation_as_source() {
+    let r = common::repo();
+    with_layout(&r, "[translations]\nlayout = \"suffix\"\nlanguages = [\"ko-KR\", \"ja\"]\n");
+    let src = r.new_doc("guide", "services/shop", "Install the CLI");
+    let (code, v) = r.json(&["new", "--translation", "ko-KR", "--from", &src]);
+    assert_eq!(code, 0, "{v}");
+    let ko = v["id"].as_str().unwrap().to_string();
+    assert!(ko.ends_with("install-the-cli-ko-kr"), "{ko}");
+    assert!(r.read(v["path"].as_str().unwrap()).contains("lang: ko-KR"));
+    let (_, v) = r.json(&["check"]);
+    assert_eq!(v["errors"], 0, "{v}");
+    assert!(rules(&v, "R2").is_empty() && rules(&v, "S3").is_empty(), "{v}");
+    let (code, v) = r.json(&["new", "--translation", "ja", "--from", &ko]);
+    assert_ne!(code, 0, "{v}");
+    assert!(v.to_string().contains(&format!("--from {src}")), "{v}");
+}

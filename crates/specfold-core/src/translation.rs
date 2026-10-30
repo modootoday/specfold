@@ -247,7 +247,7 @@ fn position(c: &Corpus, idx: usize) -> Option<(String, (String, String, String))
     match t.layout {
         L::None => None,
         L::Suffix => t.languages.iter().find_map(|l| {
-            let base = d.slug.strip_suffix(&format!("-{l}"))?;
+            let base = d.slug.strip_suffix(&format!("-{}", l.to_ascii_lowercase()))?;
             (!base.is_empty()).then(|| (l.clone(), (d.id.ty.clone(), root.clone(), base.to_string())))
         }),
         L::Dir => {
