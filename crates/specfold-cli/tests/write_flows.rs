@@ -525,3 +525,25 @@ fn c182_duplicate_row_keys_point_at_the_section_or_at_naming_one() {
     assert_eq!(code, 2, "{v}");
     assert!(v["error"].as_str().unwrap().contains("name the section with --section"), "{v}");
 }
+
+#[test]
+fn c183_a_write_over_uncommitted_edits_keeps_a_copy_the_undo_restores() {
+    let r = common::repo();
+    let dirty = r.new_doc("adr", "services/shop", "Use files");
+    let clean = r.new_doc("adr", "services/shop", "Use logs");
+    r.commit("docs");
+    let (_, s) = r.json(&["show", &dirty]);
+    let p = s["path"].as_str().unwrap().to_string();
+    r.write(&p, &(r.read(&p) + "\nmy own edit\n"));
+    let mine = r.read(&p);
+    let (_, v) = r.json(&["edit", &dirty, "--append", "--text", "spec line"]);
+    assert_eq!(v["uncommitted"][0], p.as_str(), "the preview says so: {v}");
+    let (code, v) = r.json(&["edit", &dirty, "--append", "--text", "spec line", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    let undo = v["undo"].as_str().unwrap().to_string();
+    assert!(undo.starts_with("cp -Rp .specfold/trash/") && !undo.contains("git stash"), "{undo}");
+    let ok = std::process::Command::new("sh").arg("-c").arg(&undo).current_dir(r.path()).status().unwrap();
+    assert!(ok.success() && r.read(&p) == mine, "the undo gives back the edited file, not HEAD");
+    let (_, v) = r.json(&["edit", &clean, "--append", "--text", "x", "--write"]);
+    assert!(v["undo"].as_str().unwrap().starts_with("git stash push"), "a clean file keeps the stash: {v}");
+}

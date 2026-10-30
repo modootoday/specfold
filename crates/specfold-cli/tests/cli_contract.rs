@@ -324,7 +324,8 @@ fn cli5_writes_list_changes_and_an_undo() {
     assert_eq!(code, 0, "{v}");
     assert!(v["undo"].as_str().unwrap().starts_with("git stash push --include-untracked -- "), "{v}");
     let (_, text) = r.text(&["edit", &adr, "--section", "Decision", "--text", "Use cash.", "--write"]);
-    assert!(text.contains("undo: git stash push"), "{text}");
+    // C183: the first write left the file with uncommitted edits, so the undo copies it back.
+    assert!(text.contains("undo: cp -Rp .specfold/trash/"), "{text}");
 }
 
 #[test]

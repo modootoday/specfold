@@ -13,6 +13,8 @@ What an existing command does differs from 0.3.0; check scripts and CI that call
 
 Two or more `[[guards]]` with the same `baseline` file are refused when the config loads (exit 2, naming both guards): each guard's `--write-baseline` used to overwrite the other's entries (C184).
 
+A `--write` (fix, edit, set and the rest) over a tracked file that already has uncommitted edits first copies it to `.specfold/trash/<timestamp>/`, and its `undo:` copies that back instead of `git stash`, which also took the user's own edits; the preview names such files. Files without uncommitted edits keep the `git stash` undo (C183).
+
 `-C <dir>` now resolves relative path arguments against `<dir>`, and `next` commands include `-C <dir>`.
 
 Write previews show an update's changed lines as unified-diff hunks (`@@ -old,n +new,m @@`): changes with an unchanged line between them, such as the refreshed `updated:` line and an edited section, are separate hunks instead of one block. In `--json`, update items carry `hunks` (each with `line`, `old_line`, `before`, `after`) in place of the top-level `before` and `after`; `line` is still the first changed line.

@@ -185,12 +185,20 @@ pub fn finish(mut o: Output, plan: &Plan, root: &Path, write: bool, rerun: &str)
     if write {
         let saved = keep_untracked(plan, root)?;
         plan.apply(root)?;
-        let undo = undo(plan, root, saved.as_deref());
+        let undo = undo(plan, root, &saved);
         Ok(o.field("written", true)
             .field("undo", undo.clone())
             .foot(format!("{} change(s) written", plan.changes.len()))
             .foot(format!("undo: {undo}")))
     } else {
+        let dirty = dirty_writes(plan, root);
+        if !dirty.is_empty() {
+            o = o.field("uncommitted", json!(dirty)).foot(format!(
+                "{} file(s) already have uncommitted edits ({}); --write first copies them to {TRASH}/{STAMP}/ and the undo puts that copy back",
+                dirty.len(),
+                dirty.join(", ")
+            ));
+        }
         Ok(o.field("written", false).foot("preview only; nothing was written").next(rerun.to_string()))
     }
 }
@@ -249,7 +257,37 @@ pub const TRASH: &str = ".specfold/trash";
 
 /// C122: git cannot give back a document it never had, so before a move of an untracked file a
 /// copy goes to the trash directory, and the undo copies it back (content included).
-pub fn keep_untracked(plan: &Plan, root: &Path) -> Result<Option<String>> {
+/// What a write kept before it ran: the trash folder holding the copies, and which of them are
+/// tracked files that already had uncommitted edits (C183).
+#[derive(Default)]
+pub struct Saved {
+    pub bin: Option<String>,
+    pub dirty: Vec<String>,
+}
+
+/// C183: tracked files a plan updates that already differ from HEAD. A `git stash` undo would
+/// take the user's own edits away with spec's, so these are copied to the trash instead.
+pub fn dirty_writes(plan: &Plan, root: &Path) -> Vec<String> {
+    let tracked: std::collections::HashSet<String> =
+        specfold_core::workspace::vcs::tracked(root, &[]).unwrap_or_default().into_iter().collect();
+    let changed = specfold_core::workspace::vcs::changed_since(root, "HEAD").unwrap_or_default();
+    let mut out: Vec<String> = plan
+        .changes
+        .iter()
+        .filter_map(|c| match c {
+            Change::Write { path, created: false, .. } if tracked.contains(path) && changed.contains(path) => {
+                Some(path.clone())
+            }
+            _ => None,
+        })
+        .collect();
+    out.sort();
+    out.dedup();
+    out
+}
+
+pub fn keep_untracked(plan: &Plan, root: &Path) -> Result<Saved> {
+    let dirty = dirty_writes(plan, root);
     let tracked: std::collections::HashSet<String> =
         specfold_core::workspace::vcs::tracked(root, &[]).unwrap_or_default().into_iter().collect();
     let bin = format!("{TRASH}/{}", specfold_core::model::stamp::now_stamp());
@@ -259,19 +297,21 @@ pub fn keep_untracked(plan: &Plan, root: &Path) -> Result<Option<String>> {
             Change::Move { from, to } if !to.starts_with(&format!("{TRASH}/")) => from,
             // C123: an import removes its sources; one never committed has no other copy.
             Change::Remove { path } => path,
+            Change::Write { path, .. } if dirty.contains(path) => path,
             _ => continue,
         };
-        if !tracked.contains(from) && root.join(from).is_file() {
+        if (!tracked.contains(from) || dirty.contains(from)) && root.join(from).is_file() {
             let dst = root.join(&bin).join(from);
             std::fs::create_dir_all(dst.parent().expect("a file path has a parent"))?;
             std::fs::copy(root.join(from), dst)?;
             any = true;
         }
     }
-    Ok(any.then_some(bin))
+    Ok(Saved { bin: any.then_some(bin), dirty })
 }
 
-pub fn undo(plan: &Plan, root: &Path, saved: Option<&str>) -> String {
+pub fn undo(plan: &Plan, root: &Path, kept: &Saved) -> String {
+    let saved = kept.bin.as_deref();
     // C122: git knows only tracked paths and files on disk; a path that is neither (the old end
     // of a move of a document not yet committed) would make the stash fail, so that move is
     // taken back with a plain `mv` instead.
@@ -285,6 +325,7 @@ pub fn undo(plan: &Plan, root: &Path, saved: Option<&str>) -> String {
     for c in &plan.changes {
         match c {
             Change::Remove { path } if !tracked.contains(path) => lost = true,
+            Change::Write { path, .. } if kept.dirty.contains(path) => lost = true,
             Change::Write { path, .. } | Change::Remove { path } => paths.push(path.clone()),
             Change::Move { to, .. } if to.starts_with(&format!("{TRASH}/")) => {
                 // .specfold/trash/<stamp>/<path>: restoring the stamp directory puts every file back.
