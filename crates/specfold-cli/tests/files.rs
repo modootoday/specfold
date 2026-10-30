@@ -32,3 +32,10 @@ fn attach_stamps_updated_like_new_and_set() {
     let updated = updated.trim_matches(|c| c == '"' || c == '\'');
     assert!(updated.len() == 20 && updated.contains('T') && updated.ends_with('Z'), "RFC 3339: {updated}");
 }
+
+#[test]
+fn help_attach_names_the_store_setting() {
+    let r = common::repo();
+    let (_, t) = r.text(&["help", "attach"]);
+    assert!(t.contains("[files.store]") && t.contains("kind = \"dir\""), "{t}");
+}
