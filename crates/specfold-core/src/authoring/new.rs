@@ -165,7 +165,7 @@ pub fn plan(c: &Corpus, g: &Graph, req: &NewDoc) -> Result<(Created, Plan)> {
 pub fn translation(c: &Corpus, g: &Graph, from: &str, lang: &str, title: Option<&str>) -> Result<(Created, Plan)> {
     use crate::config::types::TranslationLayout as L;
     let Resolution::Doc { idx, .. } = g.resolve(from) else { bail!("--from {from} names no single document") };
-    if !stamp::is_slug(lang) {
+    if crate::translation::lang_problem(lang).is_some() {
         bail!("--translation '{lang}' is not a language tag like ko or pt-br");
     }
     let src = &c.docs[idx];
