@@ -92,3 +92,22 @@ fn the_action_scripts_pass_their_own_tests() {
     let text = String::from_utf8_lossy(&out.stdout);
     assert!(out.status.success() && text.contains("all passed"), "{text}{}", String::from_utf8_lossy(&out.stderr));
 }
+
+#[test]
+fn c171_sarif_uri_percent_encodes_each_path_segment() {
+    let r = warned();
+    let path = r.json(&["find", "Use files"]).1["items"][0]["path"].as_str().unwrap().to_string();
+    let spaced = path.replacen(".spec/adr/", ".spec/adr/my dir/", 1);
+    r.write(&spaced, &r.read(&path));
+    std::fs::remove_file(r.path().join(&path)).unwrap();
+    let out = r.spec().args(["check", "--format", "sarif"]).output().unwrap();
+    let v: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let uris: Vec<String> = v["runs"][0]["results"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|x| x["locations"][0]["physicalLocation"]["artifactLocation"]["uri"].as_str().unwrap().to_string())
+        .collect();
+    assert!(uris.iter().any(|u| u.contains("/my%20dir/")), "{uris:?}");
+    assert!(uris.iter().all(|u| !u.contains(' ')), "{uris:?}");
+}
