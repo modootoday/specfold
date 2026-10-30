@@ -346,3 +346,14 @@ fn c176_context_next_for_an_ungoverned_path_runs_as_printed() {
         );
     }
 }
+
+#[test]
+fn c179_body_cut_by_max_bytes_continues_with_the_doc_id() {
+    let r = common::repo();
+    let id = r.new_doc("adr", "services/shop", "Use files");
+    let (code, v) = r.json(&["--max-bytes", "40", "show", &id, "--body"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["cut_by"], "max_bytes", "the body is long enough to cut: {v}");
+    let next = v["next"].as_str().unwrap();
+    assert!(next.starts_with(&format!("spec show {id} --section ")), "{v}");
+}
