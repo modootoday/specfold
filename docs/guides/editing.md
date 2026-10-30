@@ -17,6 +17,8 @@ $ spec new plan --governs services/shop --title "Checkout launch"
 $ spec new skill --title review --description "Review a change"
 ```
 
+A title is one line: `new --title` and `set title=` refuse a line break (exit 2).
+
 ## Front matter
 
 ```console
