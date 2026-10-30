@@ -44,6 +44,9 @@ pub fn hold_config_warnings() {
     WARNED.store(true, std::sync::atomic::Ordering::Relaxed);
 }
 
+/// C160/C162: characters that end a line, YAML 1.1 included (NEL, LS, PS).
+pub const LINE_BREAKS: [char; 5] = ['\n', '\r', '\u{85}', '\u{2028}', '\u{2029}'];
+
 /// C161: a relative path argument is read from -C/--dir, as if started there; absolute ones as is.
 pub fn arg_path(g: &Global, p: &std::path::Path) -> PathBuf {
     match &g.dir {

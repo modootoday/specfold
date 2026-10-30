@@ -134,6 +134,7 @@ A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is 
 
 ### Fixed
 
+- C162: `new --title` and `set title=` also refuse U+0085, U+2028 and U+2029 (YAML 1.1 line breaks), as for `\n` and `\r`.
 - C161: with `-C <dir>`, relative path arguments (`attach` files, `edit --file`, `import --map`, `export --out`, `audit --from`) are read from `<dir>` instead of the shell's directory, and `next:` commands keep `-C <dir>`.
 - `spec new --title` and `spec set title=` refuse a title with a line break (exit 2, with a next
   command to give it on one line); it split the body heading and one-row-per-document lists.
