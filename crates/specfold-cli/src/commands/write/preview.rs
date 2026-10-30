@@ -115,23 +115,45 @@ impl Hunk {
 /// know the second the write will run in, so it shows the same path with this in its place.
 pub const STAMP: &str = "<timestamp>";
 
-/// The plan as it is written: the trash folder gets the second of the write.
-fn stamped(plan: &Plan) -> Plan {
+/// C187: a trash folder no other write has: the second of the write, then `-1`, `-2`, … when
+/// that folder exists already. Creating it is the claim, so two writes in one second (or two
+/// processes) never share a folder and an earlier copy is never overwritten.
+pub fn fresh_bin(root: &Path) -> Result<String> {
+    let base = root.join(TRASH);
+    std::fs::create_dir_all(&base)?;
     let now = specfold_core::model::stamp::now_stamp();
+    for n in 0u32.. {
+        let name = if n == 0 { now.clone() } else { format!("{now}-{n}") };
+        match std::fs::create_dir(base.join(&name)) {
+            Ok(()) => return Ok(name),
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
+            Err(e) => return Err(e.into()),
+        }
+    }
+    anyhow::bail!("no free folder name under {TRASH}")
+}
+
+/// The plan as it is written: the trash folder gets a fresh name at the write.
+fn stamped(plan: &Plan, root: &Path) -> Result<Plan> {
     let mut p = plan.clone();
+    let uses = |c: &Change| matches!(c, Change::Move { to, .. } if to.contains(STAMP));
+    if !p.changes.iter().any(uses) {
+        return Ok(p);
+    }
+    let now = fresh_bin(root)?;
     for c in p.changes.iter_mut() {
         if let Change::Move { to, .. } = c {
             *to = to.replace(STAMP, &now);
         }
     }
-    p
+    Ok(p)
 }
 
 pub fn finish(mut o: Output, plan: &Plan, root: &Path, write: bool, rerun: &str) -> Result<Output> {
     // The write names the trash folder now; a preview keeps STAMP, so it matches any later write.
     let stamped_plan;
     let plan = if write {
-        stamped_plan = stamped(plan);
+        stamped_plan = stamped(plan, root)?;
         &stamped_plan
     } else {
         plan
@@ -290,8 +312,7 @@ pub fn keep_untracked(plan: &Plan, root: &Path) -> Result<Saved> {
     let dirty = dirty_writes(plan, root);
     let tracked: std::collections::HashSet<String> =
         specfold_core::workspace::vcs::tracked(root, &[]).unwrap_or_default().into_iter().collect();
-    let bin = format!("{TRASH}/{}", specfold_core::model::stamp::now_stamp());
-    let mut any = false;
+    let mut bin: Option<String> = None;
     for c in &plan.changes {
         let from = match c {
             Change::Move { from, to } if !to.starts_with(&format!("{TRASH}/")) => from,
@@ -301,13 +322,15 @@ pub fn keep_untracked(plan: &Plan, root: &Path) -> Result<Saved> {
             _ => continue,
         };
         if (!tracked.contains(from) || dirty.contains(from)) && root.join(from).is_file() {
-            let dst = root.join(&bin).join(from);
+            if bin.is_none() {
+                bin = Some(format!("{TRASH}/{}", fresh_bin(root)?));
+            }
+            let dst = root.join(bin.as_deref().unwrap_or_default()).join(from);
             std::fs::create_dir_all(dst.parent().expect("a file path has a parent"))?;
             std::fs::copy(root.join(from), dst)?;
-            any = true;
         }
     }
-    Ok(Saved { bin: any.then_some(bin), dirty })
+    Ok(Saved { bin, dirty })
 }
 
 pub fn undo(plan: &Plan, root: &Path, kept: &Saved) -> String {
