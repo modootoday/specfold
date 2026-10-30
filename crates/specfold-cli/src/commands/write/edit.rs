@@ -29,7 +29,9 @@ pub fn run(g: &Global, a: &EditArgs) -> Result<Output> {
             std::io::stdin().read_to_string(&mut t).context("reading standard input")?;
             t
         }
-        (None, Some(p)) => std::fs::read_to_string(p).with_context(|| format!("reading {}", p.display()))?,
+        (None, Some(p)) => {
+            std::fs::read_to_string(session::arg_path(g, p)).with_context(|| format!("reading {}", p.display()))?
+        }
         (None, None) => {
             use std::io::IsTerminal;
             if std::io::stdin().is_terminal() {

@@ -44,6 +44,14 @@ pub fn hold_config_warnings() {
     WARNED.store(true, std::sync::atomic::Ordering::Relaxed);
 }
 
+/// C161: a relative path argument is read from -C/--dir, as if started there; absolute ones as is.
+pub fn arg_path(g: &Global, p: &std::path::Path) -> PathBuf {
+    match &g.dir {
+        Some(d) if p.is_relative() && p.as_os_str() != "-" => d.join(p),
+        _ => p.to_path_buf(),
+    }
+}
+
 pub fn config_quiet(g: &Global) -> Result<Config> {
     let dir = match &g.dir {
         Some(d) => d.clone(),

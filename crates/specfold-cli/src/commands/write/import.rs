@@ -17,7 +17,7 @@ pub fn run(g: &Global, a: &ImportArgs) -> Result<Output> {
     }
     let map_path = a.map.clone().expect("clap requires --map without --preset");
     let s = session::open(g)?;
-    let map = ImportMap::load(&map_path)?;
+    let map = ImportMap::load(&session::arg_path(g, &map_path))?;
     let p = import::build(&s.corpus, &map)?;
     let unresolved = p.rows.iter().filter(|r| !r.unresolved.is_empty()).count();
     let mut o = Output::new("import")

@@ -11,7 +11,7 @@ pub fn run(g: &Global, a: &AuditArgs) -> Result<Output> {
     match a.action.as_deref() {
         Some("record") => {
             let Some(from) = &a.from else { bail!("audit record needs --from <file> with the review") };
-            record::run(&s, a, std::fs::read_to_string(from)?)
+            record::run(&s, a, std::fs::read_to_string(session::arg_path(g, from))?)
         }
         Some(other) => bail!("unknown audit action '{other}' (record)"),
         None if a.pack => pack::run(&s, a),

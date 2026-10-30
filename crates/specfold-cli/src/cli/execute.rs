@@ -160,7 +160,24 @@ pub fn execute(argv: Vec<String>) -> Executed {
             )
         }
     };
+    let mut output = output;
+    if let Some(d) = &cli.global.dir {
+        output.next = output.next.map(|n| keep_dir(&n, d));
+    }
     Executed { output, format, page, raw: None, serve_mcp: false }
+}
+
+/// C161: a next command run from the same place needs the same -C, so every `spec ` in it gets it.
+fn keep_dir(next: &str, dir: &std::path::Path) -> String {
+    let flag = format!("spec -C {} ", crate::session::shell_word(&dir.display().to_string()));
+    let fix = |part: &str| match part.strip_prefix("spec ") {
+        Some(rest) if !rest.starts_with("-C ") && !rest.starts_with("--dir") => format!("{flag}{rest}"),
+        _ => part.to_string(),
+    };
+    match next.split_once("# then: ") {
+        Some((a, b)) => format!("{}# then: {}", fix(a), fix(b)),
+        None => fix(next),
+    }
 }
 
 /// clap's error without its usage block: the first line, the missing arguments it lists under

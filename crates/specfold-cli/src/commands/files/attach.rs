@@ -23,7 +23,8 @@ pub fn run(g: &Global, a: &AttachArgs) -> Result<Output> {
     } else {
         attach::Where::Auto
     };
-    let plan = attach::plan(&s.corpus, d, &a.files, &a.into, place)?;
+    let files: Vec<std::path::PathBuf> = a.files.iter().map(|p| session::arg_path(g, p)).collect();
+    let plan = attach::plan(&s.corpus, d, &files, &a.into, place)?;
     // C143: every next keeps --into, so it attaches where the preview showed.
     let into =
         if a.into.is_empty() { String::new() } else { format!(" --into {}", crate::session::shell_word(&a.into)) };

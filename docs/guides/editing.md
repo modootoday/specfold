@@ -51,6 +51,13 @@ large to compare line by line (over about four million line pairs) is shown as o
 `spec mv <id> --slug <new>` moves a document and rewrites every reference to it. `spec fix`
 applies fixes that need no judgement; `spec fix --rule I2 --pick <id>` resolves a duplicate alias.
 
+## From another directory
+
+`spec -C <dir> ...` runs as if started in `<dir>`. Relative path arguments
+(`attach` files, `edit --file`, `import --map`, `export --out`, `audit --from`) are
+read from `<dir>`, and every `next:` command keeps `-C <dir>`. Absolute paths stay as
+they are.
+
 ## In an editor
 
 `spec lsp` serves the findings of `spec check` as diagnostics over the Language Server Protocol
