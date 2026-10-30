@@ -134,6 +134,7 @@ A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is 
 
 ### Fixed
 
+- `spec fix --rule`: an unknown or lower-case rule is refused (exit 2, "no such rule", upper-case hint) as in `spec check --rule`.
 - `spec export`: a refused run's next keeps `--dry-run`, `--local`, `--banner` and `--fail-on`, so following it from a preview no longer writes.
 - `spec new`: the draft-supersede refusal now names `spec new adr --title '…' --from <id>`, and the missing-`--title` next keeps `--from` and the other options given.
 - C164: `spec mv` to the document's own id and path reports "no change" with `written: false` and no undo, as `set` does, instead of `0 change(s) written`.

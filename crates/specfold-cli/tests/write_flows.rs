@@ -430,3 +430,15 @@ fn c165_draft_refusal_and_missing_title_keep_from() {
     let next = v["next"].as_str().unwrap();
     assert!(next.contains(&format!("--from {id}")) && next.contains("--write") && next.contains("--title"), "{v}");
 }
+
+#[test]
+fn c167_fix_refuses_an_unknown_or_lower_case_rule() {
+    let r = common::repo();
+    let (code, v) = r.json(&["fix", "--rule", "ZZ9", "--write"]);
+    assert_eq!(code, 2, "{v}");
+    assert!(v["error"].as_str().unwrap().contains("no such rule"), "{v}");
+    let (code, v) = r.json(&["fix", "--rule", "s1"]);
+    assert_eq!(code, 2, "{v}");
+    assert!(v["error"].as_str().unwrap().contains("upper case: --rule S1"), "{v}");
+    assert_eq!(r.json(&["fix", "--rule", "S1"]).0, 0);
+}

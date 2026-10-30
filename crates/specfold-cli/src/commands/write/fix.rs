@@ -16,6 +16,8 @@ fn split_target(t: &str) -> (String, Option<usize>) {
 }
 
 pub fn run(g: &Global, a: &FixArgs) -> Result<Output> {
+    // C167: the same check as `spec check --rule`, so a typo cannot read as nothing to fix.
+    crate::commands::verify::check::check_rule_names("--rule", &a.rules)?;
     let s = session::open(g)?;
     if a.translations {
         let (plan, n) = fix::translation_pairs(&s.corpus)?;
