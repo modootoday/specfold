@@ -384,4 +384,34 @@ fn l8_l9_local_links_fragments_and_alt_text() {
     hit.sort();
     assert_eq!(hit, ["L8", "L8", "L9"], "{v}");
     assert_eq!(v["errors"], 0, "both warn: {v}");
+    let toml = r.read("spec.toml");
+    let toml = if toml.lines().any(|l| l == "[check]") {
+        toml.replacen("[check]\n", "[check]\nlink_ignore = [\"missing.*\"]\n", 1)
+    } else {
+        format!("{toml}\n[check]\nlink_ignore = [\"missing.*\"]\n")
+    };
+    r.write("spec.toml", &toml);
+    let (_, v) = r.json(&["check", "--rule", "L8"]);
+    assert_eq!(rules_hit(&v), ["L8"], "link_ignore skips missing.md, #nope stays: {v}");
+}
+
+#[test]
+fn c109_c110_c111_c112_set_lists_statuses_and_nexts() {
+    let r = common::repo();
+    let toml = r.read("spec.toml")
+        + "[types.adr.require_when]\nactive = [\"approvers\", \"review_by\"]\naccepted = [\"approvers\"]\n";
+    r.write("spec.toml", &toml);
+    let id = r.new_doc("adr", "services/shop", "Use files");
+    let out = r.spec().args(["check"]).output().unwrap();
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(err.contains("status 'accepted'") && err.contains("draft"), "C110: {err}");
+    let (_, v) = r.json(&["set", &id, "status=active"]);
+    let next = v["next"].to_string();
+    assert!(next.contains("S6") && next.contains("S8"), "C111: {v}");
+    let (_, v) = r.json(&["check", "--rule", "S6"]);
+    let fix = v["items"][0].to_string();
+    assert!(fix.contains("approvers=") && fix.contains("review_by="), "C112: every missing field: {v}");
+    r.json(&["set", &id, "approvers=[kim, lee]"]);
+    let (_, d) = r.json(&["show", &id]);
+    assert_eq!(d["frontmatter"]["approvers"], serde_json::json!(["kim", "lee"]), "C109: {d}");
 }

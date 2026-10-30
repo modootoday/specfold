@@ -54,8 +54,21 @@ fn target<'a>(map: &'a mut Map<String, Value>, key: &str) -> (&'a mut Map<String
 }
 
 fn apply_one(map: &mut Map<String, Value>, a: &Assign) {
-    let is_list = a.key.starts_with("rel.") || LIST_KEYS.contains(&a.key.as_str());
-    let value = if a.key == "updated" && a.value == "today" { stamp::now_value() } else { a.value.clone() };
+    // C109: `key=[a, b]` is a list, written the way YAML writes one.
+    let bracketed = a.value.trim().strip_prefix('[').and_then(|v| v.strip_suffix(']'));
+    let is_list = bracketed.is_some() || a.key.starts_with("rel.") || LIST_KEYS.contains(&a.key.as_str());
+    let value = if let (Op::Set, Some(inner)) = (&a.op, bracketed) {
+        if inner.trim().is_empty() {
+            let (m, k) = target(map, &a.key);
+            m.insert(k, Value::Array(vec![]));
+            return;
+        }
+        inner.to_string()
+    } else if a.key == "updated" && a.value == "today" {
+        stamp::now_value()
+    } else {
+        a.value.clone()
+    };
     let nested = a.key.contains('.');
     let (m, k) = target(map, &a.key);
     // `key=` with nothing after it deletes the key, so an unknown relation can be taken out.
@@ -237,6 +250,8 @@ mod tests {
         let mut m = Map::new();
         apply_one(&mut m, &Assign::parse("rel.implements+=sot:a/b").unwrap());
         apply_one(&mut m, &Assign::parse("rel.implements+=sot:a/b").unwrap());
+        apply_one(&mut m, &Assign::parse("approvers=[kim, lee]").unwrap());
+        assert_eq!(m["approvers"], serde_json::json!(["kim", "lee"]), "C109");
         apply_one(&mut m, &Assign::parse("tags=x, y").unwrap());
         apply_one(&mut m, &Assign::parse("phase=P3").unwrap());
         assert_eq!(m["rel"]["implements"], serde_json::json!(["sot:a/b"]));

@@ -111,6 +111,12 @@ pub fn run(g: &Global, a: &SetArgs) -> Result<Output> {
             if !a.pin.is_empty() || !a.unpin.is_empty() || assigns.iter().any(|x| x.key.starts_with("pins")) {
                 rules.push("L7");
             }
+            // C111: a new status can require fields, and a required field's value is checked.
+            let required: Vec<&String> =
+                s.corpus.cfg.registry.get(&ty).map(|t| t.require_when.values().flatten().collect()).unwrap_or_default();
+            if assigns.iter().any(|x| x.key == "status" || required.contains(&&x.key)) {
+                rules.extend(["S6", "S8"]);
+            }
             if assigns.iter().any(|x| x.key.starts_with("aliases")) {
                 rules.push("I2");
             }

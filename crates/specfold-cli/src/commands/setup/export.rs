@@ -199,6 +199,7 @@ fn built_in(g: &Global, a: &ExportArgs) -> Result<Output> {
     let again = session::shell_word(&out.display().to_string());
     if !previous.is_empty() && !a.yes {
         return Ok(o
+            .code(crate::output::Code::Refused)
             .field("written", false)
             .head(format!(
                 "{} holds an earlier export ({} file(s)) that this one replaces: nothing was written; add --yes to confirm",

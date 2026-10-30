@@ -334,12 +334,15 @@ fn cli7_bulk_writes_are_bounded() {
     r.write("spec.toml", &format!("{toml}[write]\nmax_files = 1\n"));
     r.commit("bound");
     // A move touches two files: over the bound, --write alone writes nothing and says why.
-    let (_, v) = r.json(&["mv", &sot, "--slug", "basket", "--write"]);
+    let (code, v) = r.json(&["mv", &sot, "--slug", "basket", "--write"]);
+    assert_eq!(code, 4, "CLI-17: a refused write is not success: {v}");
     assert_eq!(v["written"], false, "{v}");
+    assert!(v["next"].to_string().contains("--slug basket"), "C108: the next keeps the flags: {v}");
     assert_eq!(v["files"], 2, "{v}");
     assert_eq!(v["max_files"], 1, "{v}");
     assert!(v["next"].to_string().contains("--yes"), "{v}");
-    let (_, text) = r.text(&["mv", &sot, "--slug", "basket"]);
+    let (code, text) = r.text(&["mv", &sot, "--slug", "basket"]);
+    assert_eq!(code, 0, "a preview without --write is not refused");
     assert!(text.contains("over [write] max_files = 1"), "{text}");
     let (code, v) = r.json(&["mv", &sot, "--slug", "basket", "--write", "--yes"]);
     assert_eq!(code, 0, "{v}");

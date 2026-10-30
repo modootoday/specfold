@@ -179,7 +179,7 @@ fn sync_assets_previews_then_copies_only_into_declared_copy_roots() {
     assert_eq!(v["next"], "git status --short", "C106: {v}");
 
     let (code, v) = r.json(&["sync", "assets", "--prune", "--write"]);
-    assert_eq!(code, 0, "{v}");
+    assert_eq!(code, 4, "CLI-17: a refused write: {v}");
     assert_eq!(v["written"], false, "deleting needs --yes (CLI-3): {v}");
     assert!(v["next"].as_str().unwrap().ends_with("--prune --write --yes"), "{v}");
     let (code, v) = r.json(&["sync", "assets", "--prune", "--write", "--yes"]);

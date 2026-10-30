@@ -43,6 +43,10 @@ pub struct CheckSection {
     /// or globs such as `README.md` and `docs/**/*.md`; off when empty.
     #[serde(default)]
     pub count_paths: Vec<String>,
+    /// Link targets rule L8 leaves alone, as globs matched against the target as written
+    /// (`../generated/**`) and against the repository path it resolves to (`site/api/**`).
+    #[serde(default)]
+    pub link_ignore: Vec<String>,
 }
 
 impl CheckSection {

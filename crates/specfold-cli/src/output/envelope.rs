@@ -13,6 +13,8 @@ pub enum Code {
     Usage = 2,
     /// The environment: no repository, a store or plugin that failed.
     Env = 3,
+    /// A write flag was given but a safeguard refused it: nothing was written (CLI-17).
+    Refused = 4,
 }
 
 #[derive(Debug, Clone)]

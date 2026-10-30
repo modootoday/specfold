@@ -50,7 +50,7 @@ rules as local targets, and skip it when the directory is absent, so a CI job wi
 checkout does not fail. `spec show <name>:<id>` reads it; nothing writes there.
 L8 checks plain links offline: a relative path must exist and a `#fragment` must match a
 heading's GitHub slug (a repeat gets `-1`, `-2`) or a `{#anchor}` in the target file. URLs and
-ids are skipped.
+ids are skipped, and so are targets matching `[check] link_ignore` globs.
 L6 checks `[[<name>:<id>]]` in files listed under `[cites]` the same way. For checking only, a
 translation may name a remote source (`rel.translation_of: [org:guide:root/setup]`); R1 compares
 its `source_rev` with the remote body, and `spec set <id> --source-rev` records it. `spec new

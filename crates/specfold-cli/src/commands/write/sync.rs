@@ -46,7 +46,9 @@ pub fn run(g: &Global, a: &SyncArgs) -> Result<Output> {
     // Deleting files is destructive: --prune applies only with --yes as well (CLI-3).
     let removes = plan.changes.iter().any(|c| matches!(c, Change::Move { .. }));
     if a.write && removes && !a.yes {
-        let o = o.head("--prune deletes files: nothing was written; add --yes to confirm");
+        let o = o
+            .head("--prune deletes files: nothing was written; add --yes to confirm")
+            .code(crate::output::Code::Refused);
         return preview::finish(o, &plan, &cfg.root, false, "spec sync assets --prune --write --yes");
     }
     // CLI-4: overwriting a file that is not a past version of its source needs --force.
@@ -62,10 +64,15 @@ pub fn run(g: &Global, a: &SyncArgs) -> Result<Output> {
             if a.prune {
                 rerun.push_str(" --prune --yes");
             }
-            return preview::finish(o, &plan, &cfg.root, false, &rerun);
+            return preview::finish(o.code(crate::output::Code::Refused), &plan, &cfg.root, false, &rerun);
         }
     }
-    let rerun = if a.prune { "spec sync assets --prune --write --yes" } else { "spec sync assets --write" };
+    let rerun = match (a.prune, !unowned.is_empty()) {
+        (true, true) => "spec sync assets --prune --write --yes --force",
+        (true, false) => "spec sync assets --prune --write --yes",
+        (false, true) => "spec sync assets --write --force",
+        (false, false) => "spec sync assets --write",
+    };
     let (o, go) = preview::bound(o, preview::files(&plan), cfg.raw.write.max_files, a.write, a.yes);
     let rerun =
         if o.summary.contains_key("bounded") && !a.prune { format!("{rerun} --yes") } else { rerun.to_string() };
