@@ -11,6 +11,9 @@ pub struct Loaded {
 }
 
 pub fn describe(cfg: &Config, p: &PluginDef) -> Result<Description> {
+    if p.name == crate::export::BUILT_IN {
+        bail!("the plugin name '{}' is reserved for the built-in exporter; rename it in spec.toml", p.name);
+    }
     let d: Description = process::call(cfg, p, "describe", serde_json::Value::Null)?;
     if d.protocol != PROTOCOL {
         bail!("plugin {} speaks '{}', this specfold speaks {PROTOCOL}", p.name, d.protocol);

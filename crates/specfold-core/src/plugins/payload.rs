@@ -9,11 +9,13 @@ pub fn docs(c: &Corpus, only: Option<&[usize]>) -> Value {
         Some(list) => list.to_vec(),
         None => (0..c.docs.len()).collect(),
     };
-    Value::Array(
-        pick.into_iter()
-            .map(|i| {
-                let d = &c.docs[i];
-                json!({
+    Value::Array(pick.into_iter().map(|i| doc(c, i)).collect())
+}
+
+/// One document as every plugin sees it.
+pub fn doc(c: &Corpus, i: usize) -> Value {
+    let d = &c.docs[i];
+    json!({
                     "id": d.id.to_string(),
                     "type": d.id.ty,
                     "owner": d.id.owner,
@@ -22,11 +24,8 @@ pub fn docs(c: &Corpus, only: Option<&[usize]>) -> Value {
                     "title": d.title,
                     "status": d.status(),
                     "frontmatter": d.fm(),
-                    "anchors": d.anchors.iter().map(|a| &a.item).collect::<Vec<_>>(),
-                })
-            })
-            .collect(),
-    )
+        "anchors": d.anchors.iter().map(|a| &a.item).collect::<Vec<_>>(),
+    })
 }
 
 pub fn edges(c: &Corpus, g: &Graph) -> Value {

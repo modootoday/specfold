@@ -1,0 +1,9 @@
+{
+  "generator": "specfold",
+  "target": "mkdocs",
+  "files": [
+    "index.md",
+    "shop/adr/cart-totals.md",
+    "shop/sot/checkout.md"
+  ]
+}

@@ -110,7 +110,7 @@ times and task items: [docs/concepts/index.md](docs/concepts/index.md).
 | `spec agents` | The lines to put in an agent's instruction file |
 | `spec hook` | Hook snippets for git, pre-commit, lefthook or husky |
 | `spec plugins` | Configured plugins and what they provide |
-| `spec export` | Export through an exporter plugin |
+| `spec export` | Export as a Markdown tree, or through an exporter plugin |
 | `spec mcp` | Serve these commands as MCP tools over stdio |
 | `spec lsp` | Serve check findings as editor diagnostics (Language Server Protocol over stdio) |
 <!-- spec:commands:end -->
@@ -129,7 +129,7 @@ declares skills, rules and subagents that `spec check` keeps consistent. See
 
 - [Concepts](docs/concepts/index.md): types, ids, statuses, relations, times, task items
 - [Editing documents](docs/guides/editing.md): `spec new`, `set`, `edit`, `mv` recipes; [importing an existing layout](docs/guides/import.md)
-- [Checks, guards, plugins and audits](docs/concepts/checks.md)
+- [Checks, guards, plugins and audits](docs/concepts/checks.md); [exporting to Markdown](docs/guides/export.md)
 - [Attachments](docs/guides/attachments.md): files beside a document and external stores
 - [Agent assets](docs/guides/agents.md): skills, rules, subagents and instruction files
 - [All commands](docs/reference/commands.md)

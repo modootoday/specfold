@@ -54,7 +54,8 @@ We keep <!-- spec:count find type=adr status=active -->12<!-- /spec:count --> ac
 - **Guards** (`[[guards]]`, `spec guard`) check files and commit messages for denied terms,
   patterns, files, sizes and secrets. Terms can come from an environment variable and are masked.
 - **Plugins** (`[[plugins]]`) speak `specfold.plugin.v1` JSON over stdin and stdout. Only
-  programs named in `spec.toml` run.
+  programs named in `spec.toml` run. Exporters can ask for bodies and resolved links; see
+  [Exporting to Markdown](../guides/export.md).
 - **Audits** (`spec audit`) report stale documents, orphans, stalled plans and drifted agent
   assets. `spec audit record` seals a review as an `audit` document.
 
