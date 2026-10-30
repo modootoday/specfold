@@ -220,7 +220,10 @@ fn built_in(g: &Global, a: &ExportArgs) -> Result<Output> {
     } else {
         // Done: look at what changed in the output rather than exporting again.
         // C104: git sees only an --out inside the repository.
-        let inside = std::fs::canonicalize(out).ok().zip(std::fs::canonicalize(&s.corpus.cfg.root).ok()).is_some_and(|(o, r)| o.starts_with(r));
+        let inside = std::fs::canonicalize(out)
+            .ok()
+            .zip(std::fs::canonicalize(&s.corpus.cfg.root).ok())
+            .is_some_and(|(o, r)| o.starts_with(r));
         o = if inside { o.next(format!("git status --short -- {again}")) } else { o.next(format!("ls {again}")) };
     }
     Ok(o)

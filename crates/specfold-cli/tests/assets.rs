@@ -300,15 +300,13 @@ fn c102_c106_guarded_writes_say_what_comes_next() {
     let (code, v) = r.json(&["check", "--write-baseline"]);
     assert_eq!(code, 2, "C102: {v}");
     assert_eq!(v["next"], "spec explain config", "{v}");
-    for args in [&["check", "--write-baseline", "--dry-run"][..], &["export", "markdown", "--target", "obsidian", "--out", "x", "--dry-run"]] {
+    for args in [
+        &["check", "--write-baseline", "--dry-run"][..],
+        &["export", "markdown", "--target", "obsidian", "--out", "x", "--dry-run"],
+    ] {
         let (_, v) = r.json(args);
         assert!(!v.to_string().contains("unexpected argument"), "C103 {args:?}: {v}");
     }
-    let out = r.path().parent().unwrap().join(format!("{}-c104", r.path().file_name().unwrap().to_string_lossy()));
-    let (code, v) = r.json(&["export", "markdown", "--target", "obsidian", "--out", out.to_str().unwrap()]);
-    assert_eq!(code, 0, "{v}");
-    assert!(v["next"].as_str().unwrap().starts_with("ls "), "C104: {v}");
-    let _ = std::fs::remove_dir_all(&out);
     let base = r.read("spec.toml");
     r.write("spec.toml", &(base + "[[[broken\n"));
     let (_, v) = r.json(&["find"]);

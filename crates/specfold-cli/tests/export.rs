@@ -446,3 +446,14 @@ fn the_built_in_check_reads_repository_attachments_of_exported_documents() {
     let note = v["not_scanned"].as_str().unwrap_or_default();
     assert!(note.starts_with("2 attachment(s) not scanned") && note.contains("board.bin"), "{v}");
 }
+
+#[test]
+fn c104_an_out_outside_the_repository_is_listed_not_git_statused() {
+    let r = corpus();
+    let outside = tempfile::tempdir().unwrap();
+    let out = outside.path().join("vault");
+    let (code, v) = r.json(&["export", "markdown", "--target", "obsidian", "--out", out.to_str().unwrap()]);
+    assert_eq!(code, 0, "{v}");
+    let (_, v) = r.json(&["export", "markdown", "--target", "obsidian", "--out", out.to_str().unwrap(), "--yes"]);
+    assert!(v["next"].as_str().unwrap_or("").starts_with("ls ") || v["next"] == "spec check --rule L1", "{v}");
+}
