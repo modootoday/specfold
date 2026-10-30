@@ -72,6 +72,13 @@ passed (UTC). Renew it with `spec set <id> review_by=<date>`, or archive the exc
 is kept again. Archived, superseded and rejected exceptions are not checked. A local exception
 lives in `.spec.local`, so it stays out of the shared repository.
 
+T5 is a warning by default. To fail the check on an overdue exception, raise it in `spec.toml`:
+
+```toml
+[check.severity]
+T5 = "error"
+```
+
 ## Visibility
 
 | rule | checks that |
