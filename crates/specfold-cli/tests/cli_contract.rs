@@ -1382,6 +1382,18 @@ fn c159_preview_hunk_headers_match_git() {
     };
     // An insertion (and the refreshed `updated:` line), then a deletion.
     for (text, step) in [("one\ntwo\nthree", "insert"), ("one", "delete")] {
+        // An old `updated:` before each step: had the last write stamped the same second as this
+        // preview, the preview would show no `updated:` hunk while the write a second later did.
+        let stale: String = r
+            .read(&p)
+            .lines()
+            .map(|l| {
+                if l.starts_with("updated:") { "updated: 2000-01-01T00:00:00Z\n".to_string() } else { format!("{l}\n") }
+            })
+            .collect();
+        r.write(&p, &stale);
+        r.git(&["add", "-A"]);
+        r.git(&["commit", "-qm", "stale", "--allow-empty"]);
         let (code, t) = r.text(&["edit", &id, "--section", "Rule", "--text", text]);
         assert_eq!(code, 0, "{t}");
         let shown = headers(&t);
