@@ -53,7 +53,7 @@ its directory and whether it is present.
 A document can pin a remote document by content when it depends on that exact text:
 `spec set <id> --pin org:guide:root/setup` records `pins: {org:guide:root/setup: sha256:…}`, the
 same body hash as a translation's `source_rev`. L7 warns when the remote body has changed; review
-the change, then pin again. A pin of a document that does not exist there is an error, and an
+the change, then pin again. `spec set <id> --unpin org:guide:root/setup` removes a pin. A pin of a document that does not exist there is an error, and an
 absent remote directory is skipped.
 
 ## Lifecycle
@@ -68,8 +68,10 @@ absent remote directory is skipped.
 
 A document that departs from another on purpose names it with `rel.exception_of` and sets
 `review_by: YYYY-MM-DD`. T5 warns when `review_by` is missing or not a date, and once the date has
-passed (UTC). Renew it with `spec set <id> review_by=<date>`, or archive the exception when the rule
-is kept again. Archived, superseded and rejected exceptions are not checked. A local exception
+passed (UTC). Renew it with `spec set <id> review_by=<date>` (set refuses a value that is not a date). When the
+rule is kept again, retire the exception with `status=rejected`, or supersede it with a newer one.
+Superseded and rejected exceptions are not checked. An exception that names itself is refused by
+`spec set` and warned by T5. `spec audit --kind exception` lists the overdue ones. A local exception
 lives in `.spec.local`, so it stays out of the shared repository.
 
 T5 is a warning by default. To fail the check on an overdue exception, raise it in `spec.toml`:

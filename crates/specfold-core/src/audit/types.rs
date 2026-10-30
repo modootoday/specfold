@@ -17,6 +17,8 @@ pub enum Kind {
     Finished,
     /// Markers of unfinished work inside a document.
     OpenItem,
+    /// An exception (rel.exception_of) past its review_by date.
+    Exception,
     /// Leftover compatibility: alias citations, skipped rules.
     Debt,
     /// An agent asset copy that differs from its `.agents/` source, or CLAUDE.md not including AGENTS.md.

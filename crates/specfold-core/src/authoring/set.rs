@@ -81,11 +81,16 @@ fn apply_one(map: &mut Map<String, Value>, a: &Assign) {
                 items.push(Value::String(value));
             }
         }
-        (Op::Remove, _) => {
-            if let Some(Value::Array(items)) = m.get_mut(&k) {
-                items.retain(|x| x.as_str() != Some(value.as_str()));
+        (Op::Remove, _) => match m.get_mut(&k) {
+            Some(Value::Array(items)) => items.retain(|x| x.as_str() != Some(value.as_str())),
+            Some(Value::Object(entries)) => {
+                entries.remove(&value);
+                if entries.is_empty() {
+                    m.remove(&k);
+                }
             }
-        }
+            _ => {}
+        },
     }
 }
 

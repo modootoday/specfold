@@ -2,6 +2,7 @@
 
 mod debt;
 mod drift;
+mod exceptions;
 mod finished;
 mod gap;
 mod open_items;
@@ -58,6 +59,9 @@ pub fn run(c: &Corpus, g: &Graph, filter: &Filter) -> Diagnosis {
     }
     if want(Kind::OpenItem) {
         open_items::run(c, &docs, &mut items);
+    }
+    if want(Kind::Exception) {
+        exceptions::run(c, &docs, &mut items);
     }
     if want(Kind::Drift) {
         drift::run(c, &mut items);
