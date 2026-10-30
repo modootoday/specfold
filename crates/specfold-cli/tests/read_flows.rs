@@ -290,3 +290,23 @@ fn c172_context_next_names_a_section_only_for_a_sot() {
     let words: Vec<&str> = next.split(' ').skip(1).collect();
     assert_eq!(r.json(&words).0, 0, "{next}");
 }
+
+/// C173: every `--section` a help example names is a section of a new document of that type.
+#[test]
+fn c173_help_example_sections_exist_in_new_documents() {
+    let r = common::repo();
+    let mut seen = 0;
+    for cmd in ["show", "edit"] {
+        let (_, help) = r.text(&[cmd, "--help"]);
+        for line in help.lines().map(str::trim).filter(|l| l.starts_with("spec ") && l.contains("--section ")) {
+            let words: Vec<&str> = line.split_whitespace().collect();
+            let Some(at) = words.iter().position(|w| *w == "--section") else { continue };
+            let ty = words.iter().find_map(|w| w.split_once(':').map(|(t, _)| t)).unwrap();
+            let id = r.new_doc(ty, "services/shop", &format!("Example {seen}"));
+            let (code, v) = r.json(&["show", &id, "--section", words[at + 1]]);
+            assert_eq!(code, 0, "{line}: {v}");
+            seen += 1;
+        }
+    }
+    assert!(seen >= 3, "{seen}");
+}
