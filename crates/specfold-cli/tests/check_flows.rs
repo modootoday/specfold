@@ -400,7 +400,7 @@ fn hidden_characters_in_undeclared_agent_files_print_escaped_and_point_at_one_ch
     assert!(text.contains("update  AGENTS.md:2") && text.contains("  + run x and ab"), "{text}");
     let (_, v) = r.json(&["fix", "--rule", "H1"]);
     let item = v["items"].as_array().unwrap().iter().find(|i| i["path"] == "AGENTS.md").unwrap().clone();
-    assert_eq!(item["after"][0], "run x and ab", "{v}");
+    assert_eq!(item["hunks"][0]["after"][0], "run x and ab", "{v}");
     // In an editor the diagnostic covers the one character.
     let id = r.new_doc("sot", "services/shop", "Cart");
     let pc = r.json(&["show", &id]).1["path"].as_str().unwrap().to_string();

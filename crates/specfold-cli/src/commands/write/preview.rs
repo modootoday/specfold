@@ -10,19 +10,82 @@ use std::path::Path;
 /// Lines shown on each side of a changed region in a preview.
 const SHOWN: usize = 4;
 
-/// The changed region between two texts: the first changed line (1-based) and the lines it had
-/// before and has after, once the common start and end are set aside.
-fn changed_lines(old: &str, new: &str) -> (usize, Vec<String>, Vec<String>) {
+/// One changed region: where it starts in the old and new text (1-based) and its lines.
+struct Hunk {
+    old_at: usize,
+    new_at: usize,
+    before: Vec<String>,
+    after: Vec<String>,
+}
+
+/// The changed regions between two texts, as a unified diff splits them: changes with an
+/// unchanged line between them are separate hunks, so a refreshed `updated:` line and an edited
+/// section far below it are shown apart rather than as one block spanning both.
+fn hunks(old: &str, new: &str) -> Vec<Hunk> {
     let a: Vec<&str> = old.lines().collect();
     let b: Vec<&str> = new.lines().collect();
+    // Common start and end first: the table below is then only as big as the changed middle.
     let head = a.iter().zip(&b).take_while(|(x, y)| x == y).count();
     let tail = a[head..].iter().rev().zip(b[head..].iter().rev()).take_while(|(x, y)| x == y).count();
-    let before: Vec<String> = a[head..a.len() - tail].iter().map(|s| s.to_string()).collect();
-    let after: Vec<String> = b[head..b.len() - tail].iter().map(|s| s.to_string()).collect();
-    (head + 1, before, after)
+    let (x, y) = (&a[head..a.len() - tail], &b[head..b.len() - tail]);
+    // Longest common subsequence over the middle.
+    let mut l = vec![vec![0usize; y.len() + 1]; x.len() + 1];
+    for i in (0..x.len()).rev() {
+        for j in (0..y.len()).rev() {
+            l[i][j] = if x[i] == y[j] { l[i + 1][j + 1] + 1 } else { l[i + 1][j].max(l[i][j + 1]) };
+        }
+    }
+    let (mut i, mut j) = (0, 0);
+    let mut out: Vec<Hunk> = vec![];
+    let mut open = false;
+    while i < x.len() || j < y.len() {
+        if i < x.len() && j < y.len() && x[i] == y[j] {
+            open = false;
+            i += 1;
+            j += 1;
+            continue;
+        }
+        if !open {
+            out.push(Hunk { old_at: head + i + 1, new_at: head + j + 1, before: vec![], after: vec![] });
+            open = true;
+        }
+        let h = out.last_mut().expect("a hunk is open");
+        if j < y.len() && (i == x.len() || l[i][j + 1] >= l[i + 1][j]) {
+            h.after.push(y[j].to_string());
+            j += 1;
+        } else {
+            h.before.push(x[i].to_string());
+            i += 1;
+        }
+    }
+    out
+}
+
+/// Sync and other trash users name the trash folder with this until the write: a preview cannot
+/// know the second the write will run in, so it shows the same path with this in its place.
+pub const STAMP: &str = "<timestamp>";
+
+/// The plan as it is written: the trash folder gets the second of the write.
+fn stamped(plan: &Plan) -> Plan {
+    let now = specfold_core::model::stamp::now_stamp();
+    let mut p = plan.clone();
+    for c in p.changes.iter_mut() {
+        if let Change::Move { to, .. } = c {
+            *to = to.replace(STAMP, &now);
+        }
+    }
+    p
 }
 
 pub fn finish(mut o: Output, plan: &Plan, root: &Path, write: bool, rerun: &str) -> Result<Output> {
+    // The write names the trash folder now; a preview keeps STAMP, so it matches any later write.
+    let stamped_plan;
+    let plan = if write {
+        stamped_plan = stamped(plan);
+        &stamped_plan
+    } else {
+        plan
+    };
     for c in &plan.changes {
         let (op, desc) = match c {
             Change::Write { path, created: true, .. } => ("create", path.clone()),
@@ -39,21 +102,31 @@ pub fn finish(mut o: Output, plan: &Plan, root: &Path, write: bool, rerun: &str)
             && let Ok(old) = std::fs::read_to_string(root.join(path))
         {
             // C157: the write keeps the file's line endings, so compare with them set aside.
-            let (at, before, after) = changed_lines(&old.replace("\r\n", "\n"), &content.replace("\r\n", "\n"));
-            if !before.is_empty() || !after.is_empty() {
-                item["line"] = json!(at);
-                item["before"] = json!(before);
-                item["after"] = json!(after);
-                for (sign, lines) in [("-", &before), ("+", &after)] {
-                    for l in lines.iter().take(SHOWN) {
-                        text.push_str(&format!("\n  {sign} {}", visible(l)));
+            let hs = hunks(&old.replace("\r\n", "\n"), &content.replace("\r\n", "\n"));
+            if let Some(first) = hs.first() {
+                item["line"] = json!(first.new_at);
+                item["hunks"] = json!(
+                    hs.iter()
+                        .map(|h| json!({"line": h.new_at, "old_line": h.old_at, "before": h.before, "after": h.after}))
+                        .collect::<Vec<_>>()
+                );
+                text = format!("{op:<7} {desc}:{}", first.new_at);
+                for h in &hs {
+                    text.push_str(&format!(
+                        "\n  @@ -{},{} +{},{} @@",
+                        h.old_at,
+                        h.before.len(),
+                        h.new_at,
+                        h.after.len()
+                    ));
+                    for (sign, lines) in [("-", &h.before), ("+", &h.after)] {
+                        for l in lines.iter().take(SHOWN) {
+                            text.push_str(&format!("\n  {sign} {}", visible(l)));
+                        }
+                        if lines.len() > SHOWN {
+                            text.push_str(&format!("\n  {sign} … {} more line(s)", lines.len() - SHOWN));
+                        }
                     }
-                    if lines.len() > SHOWN {
-                        text.push_str(&format!("\n  {sign} … {} more line(s)", lines.len() - SHOWN));
-                    }
-                }
-                if at > 0 {
-                    text = text.replacen(&format!("{op:<7} {desc}"), &format!("{op:<7} {desc}:{at}"), 1);
                 }
             }
         }

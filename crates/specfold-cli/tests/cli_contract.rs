@@ -3,7 +3,7 @@
 
 mod common;
 
-use serde_json::Value;
+use serde_json::{Value, json};
 
 /// One realistic invocation per command, run against a populated repository.
 fn invocations(sot: &str, adr: &str) -> Vec<Vec<String>> {
@@ -579,14 +579,7 @@ fn same_refusal(r: &common::Repo, preview: &[&str], write: &[&str]) {
         for k in ["written", "next", "undo", "exit", "ok"] {
             m.remove(k);
         }
-        // The trash folder is named for the second of the run, which can tick between the two.
-        let mut t = Value::Object(m).to_string();
-        while let Some(i) = t.find("trash/2") {
-            let end = i + 6 + t[i + 6..].find('/').unwrap_or(0);
-            t.replace_range(i + 6..end, "<ts>");
-            t = t.replacen("trash/<ts>", "TRASH/<ts>", 1);
-        }
-        t
+        m
     };
     assert_eq!(facts(&p), facts(&w), "preview {preview:?} and write {write:?} disagree");
 }
@@ -1274,9 +1267,37 @@ fn c157_edit_preview_on_crlf_matches_lf() {
     let changed = |id: &str| {
         let (_, v) = r.json(&["edit", id, "--section", "Rule", "--text", "New rule."]);
         let it = v["items"].as_array().unwrap().iter().find(|i| i["op"] == "update").cloned().unwrap();
-        (it["before"].as_array().unwrap().len(), it["after"].as_array().unwrap().len())
+        let n = |h: &Value, k: &str| h[k].as_array().unwrap().len();
+        it["hunks"].as_array().unwrap().iter().map(|h| (n(h, "before"), n(h, "after"))).collect::<Vec<_>>()
     };
     assert_eq!(changed(&cr), changed(&lf));
+}
+
+#[test]
+fn edit_preview_splits_apart_changes_into_hunks() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    let p = doc_path(&r, &id);
+    let old: String =
+        r.read(&p)
+            .lines()
+            .map(|l| {
+                if l.starts_with("updated:") { "updated: 2000-01-01T00:00:00Z\n".to_string() } else { format!("{l}\n") }
+            })
+            .collect();
+    r.write(&p, &old);
+    r.commit("doc");
+    let (code, v) = r.json(&["edit", &id, "--section", "Rule", "--text", "New rule."]);
+    assert_eq!(code, 0, "{v}");
+    let it = v["items"].as_array().unwrap().iter().find(|i| i["op"] == "update").cloned().unwrap();
+    let hs = it["hunks"].as_array().unwrap();
+    assert_eq!(hs.len(), 2, "{it}");
+    assert_eq!(hs[0]["before"], json!(["updated: 2000-01-01T00:00:00Z"]), "{it}");
+    assert_eq!(hs[0]["after"].as_array().unwrap().len(), 1, "{it}");
+    assert!(hs[1]["after"].as_array().unwrap().iter().any(|l| l == "New rule."), "{it}");
+    assert_eq!(it["line"], hs[0]["line"], "{it}");
+    let (_, t) = r.text(&["edit", &id, "--section", "Rule", "--text", "New rule."]);
+    assert_eq!(t.matches("@@ -").count(), 2, "{t}");
 }
 
 #[cfg(unix)]
@@ -1305,4 +1326,30 @@ fn c126_push_hook_works_without_an_upstream() {
     let out = run();
     assert!(out.status.success(), "{out:?}");
     assert!(!String::from_utf8_lossy(&out.stderr).contains("skipped"), "{out:?}");
+}
+
+#[test]
+fn sync_prune_preview_names_the_trash_without_a_clock() {
+    let r = common::repo();
+    let base = r.read("spec.toml");
+    r.write(
+        "spec.toml",
+        &format!("{base}[[assets]]\nkind = \"skill\"\npath = \".agents/skills\"\n[[assets]]\nkind = \"skill\"\npath = \".claude/skills\"\ncopy_of = \".agents/skills\"\n"),
+    );
+    r.write(".agents/skills/pdf/SKILL.md", "---\nname: pdf\ndescription: Read PDFs.\n---\n");
+    r.write(".claude/skills/pdf/SKILL.md", "---\nname: pdf\ndescription: Read PDFs.\n---\n");
+    r.write(".claude/skills/stale/SKILL.md", "---\nname: stale\ndescription: S.\n---\n");
+    r.commit("fixtures");
+    let path = |v: &Value| {
+        v["items"].as_array().unwrap().iter().find(|i| i["op"] == "move").unwrap()["path"].as_str().unwrap().to_string()
+    };
+    let (_, p) = r.json(&["sync", "assets", "--prune"]);
+    assert!(path(&p).ends_with(".specfold/trash/<timestamp>/.claude/skills/stale/SKILL.md"), "{p}");
+    let (code, w) = r.json(&["sync", "assets", "--prune", "--write", "--yes"]);
+    assert_eq!(code, 0, "{w}");
+    let moved = path(&w);
+    assert!(!moved.contains("<timestamp>"), "{w}");
+    let to = moved.split(" -> ").nth(1).unwrap();
+    assert!(r.path().join(to).is_file(), "{w}");
+    assert!(w["undo"].as_str().unwrap().contains(to.trim_end_matches("/.claude/skills/stale/SKILL.md")), "{w}");
 }

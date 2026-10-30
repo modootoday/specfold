@@ -36,6 +36,11 @@ spec edit <id> --new-section Risks --after Plan --text "None yet." --write
 spec edit <id> --row "Login" --cell Status=done --write
 ```
 
+A preview lists each file an update changes, with its changed lines as unified-diff hunks
+(`@@ -old,n +new,m @@`): changes with an unchanged line between them are separate hunks, so the
+refreshed `updated:` line and the edited section show apart. In `--json`, each update item has
+`line` (the first changed line) and `hunks`, each with `line`, `old_line`, `before` and `after`.
+
 ## Move and fix
 
 `spec mv <id> --slug <new>` moves a document and rewrites every reference to it. `spec fix`

@@ -15,7 +15,7 @@ pub fn run(g: &Global, a: &SyncArgs) -> Result<Output> {
     let (pairs, mut plan, unowned) = sync::plan(cfg, a.prune)?;
     // C100: a pruned file may never have been committed, so git cannot bring it back; it moves
     // to a trash directory specfold owns, and the undo copies it back.
-    let bin = format!("{}/{}", preview::TRASH, specfold_core::model::stamp::now_stamp());
+    let bin = format!("{}/{}", preview::TRASH, preview::STAMP);
     for c in plan.changes.iter_mut() {
         if let Change::Remove { path } = c {
             *c = Change::Move { from: path.clone(), to: format!("{bin}/{path}") };
@@ -111,7 +111,11 @@ pub fn run(g: &Global, a: &SyncArgs) -> Result<Output> {
     }
     let o = preview::finish(o, &plan, &cfg.root, go, &rerun)?;
     Ok(if go {
-        let o = if removes { o.foot(format!("pruned files are kept in {bin}/ until you delete it")) } else { o };
+        let o = if removes {
+            o.foot(format!("pruned files are kept in {}/ until you delete it", preview::TRASH))
+        } else {
+            o
+        };
         o.next("git status --short")
     } else {
         o
