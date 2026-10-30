@@ -63,6 +63,11 @@ pub fn execute(argv: Vec<String>) -> Executed {
     if let Some(w) = warning {
         eprintln!("{w}");
     }
+    if let Some(name) = command_name(&argv) {
+        for w in crate::cli::describe::flag_warnings(&name, &argv) {
+            eprintln!("{w}");
+        }
+    }
     let (argv, all) = top_level_all(argv);
     let parsed =
         crate::cli::describe::parser_command(all).try_get_matches_from(&argv).and_then(|m| Cli::from_arg_matches(&m));

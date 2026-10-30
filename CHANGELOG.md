@@ -5,6 +5,7 @@ Release notes for each version are also on
 
 ## Unreleased
 
+- One meaning per shared flag (CLI-11): `spec guard --tree` (was `--all`), `spec find --body` (was `--text`), `spec init --owner-kind` (was `--owner`). The old names keep working as hidden aliases with a stderr warning; help JSON lists them under each flag's `deprecated_aliases`.
 - `spec --help` and `spec help` list the 12 core commands (context, find, show, graph, new, set, edit, check, guard, fix, explain, init); `spec --help --all` / `spec help --all` list every command. `spec help --json`, `--markdown`, `--llms` and MCP still describe every command; JSON adds `core`.
 - `spec help --json` marks each command's `deprecated_aliases` (`name`, `use`, `since`). A deprecated name keeps running the new command and warns on stderr (none yet).
 - `spec set` without `--write` still writes in 0.3 but warns on stderr. **From 0.4, `set` (like `new`) previews unless `--write`.**

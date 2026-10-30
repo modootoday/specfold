@@ -86,16 +86,16 @@ pub struct GuardArgs {
     /// Guards to run; all when empty.
     pub names: Vec<String>,
     /// Scan the index.
-    #[arg(long, conflicts_with_all = ["range", "all"])]
+    #[arg(long, conflicts_with_all = ["range", "tree"])]
     pub staged: bool,
     /// A git range, or `push` for upstream..HEAD.
     #[arg(long)]
     pub range: Option<String>,
-    /// Scan the whole working tree.
-    #[arg(long)]
-    pub all: bool,
+    /// Scan the whole working tree (old name: --all).
+    #[arg(long = "tree", alias = "all")]
+    pub tree: bool,
     /// Record each guard's current hits in its baseline file; a clean tree only.
-    #[arg(long, conflicts_with_all = ["staged", "range", "all"])]
+    #[arg(long, conflicts_with_all = ["staged", "range", "tree"])]
     pub write_baseline: bool,
     /// Confirm an action that deletes, overwrites or sends files out (with its write flag).
     #[arg(long)]
