@@ -123,11 +123,30 @@ impl Rule for HashesMatch {
                 if let Ok((got, bytes)) = hashes.file(&base.join(&e.path))
                     && (got != e.sha256 || bytes != e.bytes)
                 {
-                    out.push(
+                    // A file that now holds a secret must not be attached again as it is: point at
+                    // U2, which reports the same file, instead of re-recording its hash.
+                    let full = base.join(&e.path);
+                    let leaky = std::fs::metadata(&full)
+                        .is_ok_and(|m| m.len() <= ctx.corpus.cfg.raw.files.scan_max_bytes)
+                        && std::fs::read(&full)
+                            .is_ok_and(|b| !crate::guards::secrets::find(&String::from_utf8_lossy(&b)).is_empty());
+                    let f = if leaky {
+                        Finding::error(
+                            "E1",
+                            &d.path,
+                            1,
+                            format!(
+                                "{} changed since it was attached and now holds a secret (U2): remove the value before attaching it again",
+                                e.path
+                            ),
+                        )
+                        .fix_cmd("spec explain U2")
+                    } else {
                         Finding::error("E1", &d.path, 1, format!("{} changed since it was attached", e.path)).fix_cmd(
                             format!("spec attach {} {} --write", d.id, quote(&format!("{}/{}", d.base_dir(), e.path))),
-                        ),
-                    );
+                        )
+                    };
+                    out.push(f);
                 }
             }
         }

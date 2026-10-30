@@ -15,7 +15,7 @@ impl Rule for NoSecrets {
         &RuleInfo {
             id: "U2",
             title: "documents hold no secrets",
-            explain: "Every document file (the main file and its chapters) and every text attachment kept in the repository (up to [files] scan_max_bytes, 1 MiB by default; binary files are skipped) is scanned with the built-in secret formats that `spec export` always applies: private keys, cloud and token formats, and URLs with a password. No guard needs to be configured. Hits in committed documents are errors; in local (git-ignored) documents they are warnings, since those never leave the machine. The value is never printed. When a configured guard with secrets = true already runs as U1 in the same check, U2 stays quiet so a hit is reported once. Move the value to the environment or a secret store and write a placeholder instead; `spec guard secrets` runs the same check over any range.",
+            explain: "Every document file (the main file and its chapters) and every text attachment kept in the repository (up to [files] scan_max_bytes, 1 MiB by default; binary files are skipped and named in one warning; raise [files] scan_max_bytes in spec.toml to read larger ones) is scanned with the built-in secret formats that `spec export` always applies: private keys, cloud and token formats, and URLs with a password. No guard needs to be configured. Hits in committed documents are errors; in local (git-ignored) documents they are warnings, since those never leave the machine. The value is never printed. When a configured guard with secrets = true already runs as U1 in the same check, U2 stays quiet so a hit is reported once. Move the value to the environment or a secret store and write a placeholder instead; `spec guard secrets` runs the same check over any range.",
             on_commit: true,
         }
     }
@@ -25,12 +25,14 @@ impl Rule for NoSecrets {
         if u1_runs && ctx.corpus.cfg.raw.guards.iter().any(|g| g.secrets) {
             return;
         }
+        let mut unread: Vec<String> = vec![];
         for (i, d) in ctx.corpus.docs.iter().enumerate() {
             if !ctx.scope.covers(i) || skipped(d, "U2") {
                 continue;
             }
-            let attachments =
-                guards::secrets::scanned_attachments(&ctx.corpus.cfg.root, d, ctx.corpus.cfg.raw.files.scan_max_bytes);
+            let (attachments, over) =
+                guards::secrets::attachment_scan(&ctx.corpus.cfg.root, d, ctx.corpus.cfg.raw.files.scan_max_bytes);
+            unread.extend(over);
             let blobs: Vec<(String, Vec<u8>)> = std::iter::once(&d.path)
                 .chain(&d.chapters)
                 .chain(&attachments)
@@ -45,6 +47,12 @@ impl Rule for NoSecrets {
                 }
                 out.push(f);
             }
+        }
+        // One line for every attachment left unread, so a skipped file is never silent.
+        unread.sort();
+        unread.dedup();
+        if let Some(note) = guards::secrets::skipped_note(&unread) {
+            out.push(Finding::warn("U2", &unread[0], 1, note).fix_cmd("spec explain U2"));
         }
     }
 }

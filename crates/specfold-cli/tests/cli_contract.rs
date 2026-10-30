@@ -196,3 +196,11 @@ fn help_lsp_points_at_the_editor_guide_and_lists_dir() {
     assert!(t.contains("  --dir "), "{t}");
     assert!(t.trim_end().ends_with("next: https://specfold.build/guides/editing/#in-an-editor"), "{t}");
 }
+
+#[test]
+fn help_next_is_the_first_example_without_padding_or_comment() {
+    let r = common::repo();
+    let (code, t) = r.text(&["help", "guard"]);
+    assert_eq!(code, 0, "{t}");
+    assert!(t.trim_end().ends_with("next: spec guard"), "{t}");
+}

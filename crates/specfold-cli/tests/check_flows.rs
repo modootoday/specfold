@@ -505,13 +505,40 @@ fn a_secret_in_a_repository_attachment_is_found_after_attach() {
     assert_ne!(code, 0, "the attachment is read by every later check: {v}");
     let s = v.to_string();
     assert!(s.contains("notes.txt") && !s.contains("Et-77x"), "{s}");
-    assert!(!s.contains("board.bin"), "binary files are skipped: {s}");
+    let (_, t) = r.text(&["check", "--rule", "U2"]);
+    let bin: Vec<&str> = t.lines().filter(|l| l.contains("board.bin")).collect();
+    assert_eq!(bin.len(), 1, "a binary file is not read, only named once as skipped: {t}");
+    assert!(bin[0].contains("1 attachment(s) not scanned") && bin[0].contains("scan_max_bytes"), "{t}");
     let (code, v) = r.json(&["guard", "secrets", "--all"]);
     assert_ne!(code, 0, "{v}");
     assert!(v.to_string().contains("notes.txt"), "{v}");
+    let note = v["not_scanned"].as_str().unwrap_or_default();
+    assert!(note.starts_with("1 attachment(s) not scanned") && note.contains("board.bin"), "{v}");
     r.write("spec.toml", &(r.read("spec.toml") + "\n[files]\nscan_max_bytes = 8\n"));
     let (code, v) = r.json(&["check", "--rule", "U2"]);
     assert_eq!(code, 0, "over scan_max_bytes the file is not read: {v}");
+    let (_, t) = r.text(&["check", "--rule", "U2"]);
+    assert!(t.contains("2 attachment(s) not scanned"), "the oversized text file is named too: {t}");
+}
+
+#[test]
+fn an_attachment_that_gains_a_secret_points_at_u2_not_at_attaching_it_again() {
+    let r = common::repo();
+    let (code, v) = r.json(&["new", "design", "--governs", "services/shop", "--title", "Board"]);
+    assert_eq!(code, 0, "{v}");
+    let id = v["id"].as_str().unwrap().to_string();
+    let dir = v["path"].as_str().unwrap().rsplit_once('/').unwrap().0.to_string();
+    r.write("notes.txt", "plain notes\n");
+    let (code, v) = r.json(&["attach", &id, "notes.txt", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    r.write(&format!("{dir}/notes.txt"), &format!("DSN: postgres://app:{}{}@db.acme.io/main\n", "s3cr", "Et-77x"));
+    let (code, t) = r.text(&["check"]);
+    assert_ne!(code, 0, "{t}");
+    let u2 = t.find("U2").unwrap_or(usize::MAX);
+    let e1 = t.find("E1").expect(&t);
+    assert!(u2 < e1, "the secret is listed before the changed hash: {t}");
+    assert!(!t.contains("spec attach"), "re-attaching the leaky file is not suggested: {t}");
+    assert!(t.trim_end().ends_with("next: spec explain U2"), "{t}");
 }
 
 #[test]

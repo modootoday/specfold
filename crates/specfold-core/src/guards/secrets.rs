@@ -146,6 +146,12 @@ pub fn all() -> &'static [SecretPattern] {
 /// entries kept in the repository, at most `max` bytes, and text (no NUL in the first 8 KiB).
 /// Stored files are not here; `spec attach` checks them before upload.
 pub fn scanned_attachments(root: &std::path::Path, d: &crate::model::Doc, max: u64) -> Vec<String> {
+    attachment_scan(root, d, max).0
+}
+
+/// The attachments the secrets check reads, and the ones it skips because they are over `max`
+/// bytes or binary. Missing files are in neither list; E2 reports them.
+pub fn attachment_scan(root: &std::path::Path, d: &crate::model::Doc, max: u64) -> (Vec<String>, Vec<String>) {
     let base = d.base_dir();
     let mut paths: Vec<String> = d.bundle_files.clone();
     for e in d.files().into_iter().filter(|e| e.store != "store") {
@@ -154,16 +160,41 @@ pub fn scanned_attachments(root: &std::path::Path, d: &crate::model::Doc, max: u
             paths.push(p);
         }
     }
-    paths.retain(|p| {
-        let full = root.join(p);
-        let Ok(meta) = std::fs::metadata(&full) else { return false };
-        if !meta.is_file() || meta.len() > max {
-            return false;
+    let (mut read, mut skipped) = (vec![], vec![]);
+    for p in paths {
+        let full = root.join(&p);
+        let Ok(meta) = std::fs::metadata(&full) else { continue };
+        if !meta.is_file() {
+            continue;
         }
-        let Ok(bytes) = std::fs::read(&full) else { return false };
-        !bytes[..bytes.len().min(8192)].contains(&0)
-    });
-    paths
+        if meta.len() > max {
+            skipped.push(p);
+            continue;
+        }
+        let Ok(bytes) = std::fs::read(&full) else { continue };
+        if bytes[..bytes.len().min(8192)].contains(&0) {
+            skipped.push(p);
+        } else {
+            read.push(p);
+        }
+    }
+    (read, skipped)
+}
+
+/// One line naming attachments the secrets check did not read, or None when it read them all.
+pub fn skipped_note(skipped: &[String]) -> Option<String> {
+    if skipped.is_empty() {
+        return None;
+    }
+    let mut names: Vec<&str> = skipped.iter().map(String::as_str).take(5).collect();
+    let more = skipped.len().saturating_sub(5);
+    let more = if more > 0 { format!(" (+{more} more)") } else { String::new() };
+    names.sort_unstable();
+    Some(format!(
+        "{} attachment(s) not scanned for secrets (over [files] scan_max_bytes or binary): {}{more}; raise [files] scan_max_bytes in spec.toml to read larger text files",
+        skipped.len(),
+        names.join(", ")
+    ))
 }
 
 #[cfg(test)]
