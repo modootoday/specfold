@@ -142,7 +142,7 @@ pub struct AttachArgs {
     /// Subdirectory inside the bundle.
     #[arg(long, default_value = "")]
     pub into: String,
-    /// Keep in the store regardless of size.
+    /// Keep in the store regardless of size; the store is [files.store] in spec.toml (kind = "dir" with path, or kind = "command" with put/get).
     #[arg(long, conflicts_with = "repo")]
     pub store: bool,
     /// Keep in the repository (refused over the size limit).
@@ -151,7 +151,7 @@ pub struct AttachArgs {
     /// Copy, upload and register (otherwise a preview).
     #[arg(long)]
     pub write: bool,
-    /// Upload even though this guard flags a file bound for the store (repeatable).
+    /// Upload even though this guard flags a file bound for the store (repeatable; `secrets` is the built-in check).
     #[arg(long = "allow-hit", value_name = "GUARD")]
     pub allow_hit: Vec<String>,
 }
