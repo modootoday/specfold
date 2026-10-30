@@ -68,6 +68,10 @@ fn upgrade(g: &Global, a: &InitArgs) -> Result<Output> {
         }
     };
     let text = std::fs::read_to_string(&path)?;
+    // C170: a file from a newer version is refused as `spec check` refuses it.
+    if let Some(n) = upgrade::schema_of(&text).filter(|n| *n > defaults::schema()) {
+        return Err(specfold_core::config::reader::newer_schema(&path, n));
+    }
     let (new, changes) = upgrade::plan(&text, upgrade::RENAMED);
     let mut o =
         Output::new("init").unpaged().field("path", path.display().to_string()).field("changes", changes.clone());

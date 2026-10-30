@@ -23,6 +23,12 @@ pub fn renamed<'a>(table: &str, key: &str, rows: &'a [Rename]) -> Option<&'a Ren
     rows.iter().find(|r| r.table == table && r.from == key)
 }
 
+/// `[spec] schema` as TOML reads it, when the file parses.
+pub fn schema_of(text: &str) -> Option<u32> {
+    let v: toml::Value = toml::from_str(text).ok()?;
+    u32::try_from(v.get("spec")?.get("schema")?.as_integer()?).ok()
+}
+
 /// The table a `[table]` or `[[table]]` header line names; C169: a trailing `# comment` is
 /// not part of it, as TOML reads it.
 fn header(t: &str) -> Option<String> {

@@ -47,12 +47,7 @@ impl Config {
             }
         };
         if raw.spec.schema > defaults::schema() {
-            bail!(
-                "{}: schema {} was written by a newer specfold (this version reads {}); install the latest spec",
-                path.display(),
-                raw.spec.schema,
-                defaults::schema()
-            );
+            return Err(newer_schema(path, raw.spec.schema));
         }
         if raw.spec.schema != defaults::schema() {
             bail!(
@@ -104,6 +99,16 @@ impl Config {
     pub fn expand_path(&self, p: &str) -> PathBuf {
         paths::expand(&self.root, p)
     }
+}
+
+/// The refusal for a spec.toml whose schema is newer than this binary reads; `spec check` and
+/// `spec init --upgrade` (C170) both give it.
+pub fn newer_schema(path: &Path, schema: u32) -> anyhow::Error {
+    anyhow::anyhow!(
+        "{}: schema {schema} was written by a newer specfold (this version reads {}); install the latest spec",
+        path.display(),
+        defaults::schema()
+    )
 }
 
 #[cfg(test)]
