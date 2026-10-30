@@ -184,7 +184,7 @@ pub fn resolve(c: &Corpus, g: &Graph, o: &Occurrence) -> Link {
         raw: o.raw.clone(),
         label: o.label.clone(),
         target_id: None,
-        anchor: r.anchor.clone(),
+        anchor: r.anchor,
         remote: None,
         resolved_path: None,
         title: None,

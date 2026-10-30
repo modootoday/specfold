@@ -19,7 +19,7 @@ pub fn run(g: &Global, a: &ShowArgs) -> Result<Output> {
     let body = split.body;
     let mut o = Output::new("show")
         .unpaged()
-        .field("remote", remote.clone())
+        .field("remote", remote)
         .field("id", d.id.to_string())
         .field("path", d.path.clone())
         .field("frontmatter", d.fm().cloned().map(Value::Object).unwrap_or(Value::Null))

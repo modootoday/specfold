@@ -12,7 +12,7 @@ pub fn run(g: &Global, a: &RefArgs) -> Result<Output> {
     let shown = remote.as_ref().map_or(d.id.to_string(), |r| format!("{r}:{}", d.id));
     Ok(Output::new("resolve")
         .unpaged()
-        .field("remote", remote.clone())
+        .field("remote", remote)
         .field("id", d.id.to_string())
         .field("path", d.path.clone())
         .field("status", d.status())

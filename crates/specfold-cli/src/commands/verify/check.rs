@@ -43,11 +43,6 @@ fn failing(list: &[Finding], fail_on: &[String]) -> usize {
     list.iter().filter(|f| f.severity == Severity::Error).filter(counts).count()
 }
 
-/// What `spec check <FILE>` lists for one file, baseline applied: the language server's source.
-pub fn file_findings(g: &Global, rel: &str) -> Result<Vec<Finding>> {
-    Ok(all_findings(g)?.into_iter().filter(|f| f.path == rel).collect())
-}
-
 /// Every finding of a full check (no commands, no network), with the baseline applied.
 pub fn all_findings(g: &Global) -> Result<Vec<Finding>> {
     let s = session::open(g)?;
