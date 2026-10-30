@@ -547,3 +547,36 @@ fn c183_a_write_over_uncommitted_edits_keeps_a_copy_the_undo_restores() {
     let (_, v) = r.json(&["edit", &clean, "--append", "--text", "x", "--write"]);
     assert!(v["undo"].as_str().unwrap().starts_with("git stash push"), "a clean file keeps the stash: {v}");
 }
+
+#[test]
+fn c187_writes_in_one_second_never_share_or_overwrite_a_trash_folder() {
+    let r = common::repo();
+    let id = r.new_doc("adr", "services/shop", "Use files");
+    r.commit("docs");
+    let (_, s) = r.json(&["show", &id]);
+    let p = s["path"].as_str().unwrap().to_string();
+    r.write(&p, &(r.read(&p) + "\nmy own line\n"));
+    let mine = r.read(&p);
+    // Folders already taken for the next few seconds: the write must pick another name.
+    let out = std::process::Command::new("date").args(["-u", "+%s"]).output().unwrap();
+    let now: i64 = String::from_utf8_lossy(&out.stdout).trim().parse().unwrap();
+    for t in now..now + 5 {
+        let o =
+            std::process::Command::new("date").args(["-u", "-d", &format!("@{t}"), "+%Y%m%d%H%M%S"]).output().unwrap();
+        r.write(&format!(".specfold/trash/{}/keep.txt", String::from_utf8_lossy(&o.stdout).trim()), "old");
+    }
+    let undo = |text: &str| {
+        let (code, v) = r.json(&["edit", &id, "--append", "--text", text, "--write"]);
+        assert_eq!(code, 0, "{v}");
+        v["undo"].as_str().unwrap().to_string()
+    };
+    let (first, second) = (undo("one"), undo("two"));
+    assert_ne!(first, second, "each write has its own folder");
+    let bin = first.trim_start_matches("cp -Rp ").trim_end_matches("/. .");
+    assert!(bin.contains('-'), "{bin}");
+    assert_eq!(r.read(&format!("{bin}/{p}")), mine, "the first copy still holds the user's line");
+    for d in std::fs::read_dir(r.path().join(".specfold/trash")).unwrap() {
+        let k = d.unwrap().path().join("keep.txt");
+        assert!(!k.exists() || std::fs::read_to_string(&k).unwrap() == "old");
+    }
+}
