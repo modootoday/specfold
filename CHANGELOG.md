@@ -132,6 +132,8 @@ A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is 
 
 ### Fixed
 
+- `spec export markdown` looks up relation targets by id instead of scanning every document for
+  each one: 10,000 documents export in about 1 s instead of 4.8 s, with the same files.
 A write preview of a very large change no longer runs out of memory: hunks are computed only while the compared region stays under about four million line pairs, and a larger change is shown as one hunk; 30,000 replaced lines had aborted (C158).
 Preview hunk headers match `git diff -U0`: an empty side names the line before the change, a count of 1 is left out, and an insertion or deletion among repeated lines sits where git puts it; JSON `line` and `old_line` follow the same rule (C159).
 The pre-push snippet from `spec hook print` no longer fails on a branch without an upstream: it compares with the merge-base of the default branch (`origin/HEAD`), and when there is neither it prints a note and skips (C126).

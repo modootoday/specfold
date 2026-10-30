@@ -173,10 +173,9 @@ pub fn plan(c: &Corpus, g: &Graph, req: &NewDoc) -> Result<(Created, Plan)> {
     Ok((Created { id: id.to_string(), path, owner_reason: reason, slug_note }, plan))
 }
 
-/// `spec new --translation <lang> --from <source>`: a draft translation with its own key,
-/// placed where the `[translations]` layout pairs it (`<slug>-<lang>` beside the source, or the
-/// same slug under the `<lang>` owner for `layout = "dir"`), the source's body and chapters
-/// copied to translate, and lang, rel.translation_of and source_rev recorded.
+/// `spec new --translation <lang> --from <source>`: a draft with its own key where `[translations]`
+/// pairs it (`<slug>-<lang>` beside the source, or under the `<lang>` owner for `layout = "dir"`),
+/// with the source's body and chapters copied and lang, rel.translation_of, source_rev recorded.
 pub fn translation(c: &Corpus, g: &Graph, from: &str, lang: &str, title: Option<&str>) -> Result<(Created, Plan)> {
     use crate::config::types::TranslationLayout as L;
     if let Some((name, rest)) = crate::remotes::split(&c.cfg, from) {
