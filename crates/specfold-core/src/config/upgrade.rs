@@ -23,6 +23,15 @@ pub fn renamed<'a>(table: &str, key: &str, rows: &'a [Rename]) -> Option<&'a Ren
     rows.iter().find(|r| r.table == table && r.from == key)
 }
 
+/// The table a `[table]` or `[[table]]` header line names; C169: a trailing `# comment` is
+/// not part of it, as TOML reads it.
+fn header(t: &str) -> Option<String> {
+    let rest = t.strip_prefix('[')?;
+    let rest = rest.strip_prefix('[').unwrap_or(rest);
+    let (name, _) = rest.split_once(']')?;
+    Some(name.trim().to_string())
+}
+
 /// The upgraded text and one line per change; no changes means the file is current.
 pub fn plan(text: &str, rows: &[Rename]) -> (String, Vec<String>) {
     let mut out = String::with_capacity(text.len());
@@ -30,10 +39,8 @@ pub fn plan(text: &str, rows: &[Rename]) -> (String, Vec<String>) {
     let mut table = String::new();
     for (i, line) in text.split_inclusive('\n').enumerate() {
         let t = line.trim();
-        if t.starts_with('[') && !t.starts_with("[[") {
-            table = t.trim_matches(|c| c == '[' || c == ']').trim().to_string();
-        } else if t.starts_with("[[") {
-            table = t.trim_matches(|c| c == '[' || c == ']').trim().to_string();
+        if let Some(name) = header(t) {
+            table = name;
         }
         let key = t.split_once('=').map(|(k, _)| k.trim()).unwrap_or("");
         if table == "spec" && key == "schema" {
@@ -76,6 +83,9 @@ mod tests {
     fn raises_an_old_schema_but_never_lowers_a_newer_one() {
         assert_eq!(plan("[spec]\nschema = 0\n", RENAMED).0, "[spec]\nschema = 1\n");
         assert!(plan("[spec]\nschema = 7\n", RENAMED).1.is_empty());
+        // C169: a commented header is the same table, as for the reader.
+        assert_eq!(plan("[spec] # main\nschema = 0\n", RENAMED).0, "[spec] # main\nschema = 1\n");
+        assert_eq!(plan("[[guards]] # g\n[spec]  # s\nschema = 0 # old\n", RENAMED).1.len(), 1);
     }
 
     #[test]

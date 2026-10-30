@@ -123,3 +123,15 @@ fn doctor_says_when_there_is_no_spec_toml() {
     assert_eq!(code, 1, "{v}");
     assert_eq!(v["next"], "spec init --write", "{v}");
 }
+
+#[test]
+fn c169_init_upgrade_reads_a_commented_table_header() {
+    let r = common::repo();
+    let text = r.read("spec.toml").replacen("[spec]", "[spec] # main", 1).replacen("schema = 1", "schema = 0", 1);
+    r.write("spec.toml", &text);
+    assert_eq!(r.json(&["check"]).0, 2);
+    let (code, v) = r.json(&["init", "--upgrade", "--write"]);
+    assert_eq!((code, &v["written"]), (0, &serde_json::json!(true)), "{v}");
+    assert!(r.read("spec.toml").contains("[spec] # main\nschema = 1"));
+    assert_eq!(r.json(&["check"]).0, 0);
+}
