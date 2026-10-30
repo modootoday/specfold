@@ -3,6 +3,7 @@
 
 use super::super::types::{Item, Kind};
 use super::days_between;
+use crate::check::rules::support::quote;
 use crate::corpus::Corpus;
 use crate::workspace::vcs;
 
@@ -32,7 +33,10 @@ pub fn run(c: &Corpus, docs: &[usize], out: &mut Vec<Item>) {
                         list.len(),
                         list[0]
                     ),
-                    format!("git diff {pin}..HEAD -- {}  # then update the body and: {repin}", governs.join(" ")),
+                    format!(
+                        "git diff {pin}..HEAD -- {}  # then update the body and: {repin}",
+                        governs.iter().map(|g| quote(g)).collect::<Vec<_>>().join(" ")
+                    ),
                 ),
             };
             out.push(Item {
