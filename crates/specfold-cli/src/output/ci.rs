@@ -130,7 +130,7 @@ pub fn sarif(findings: &[Finding]) -> String {
         .iter()
         .zip(&prints)
         .map(|(f, print)| {
-            let mut physical = json!({"artifactLocation": {"uri": f.path, "uriBaseId": "%SRCROOT%"}});
+            let mut physical = json!({"artifactLocation": {"uri": uri(&f.path), "uriBaseId": "%SRCROOT%"}});
             if f.line > 0 {
                 physical["region"] = json!({"startLine": f.line});
             }
@@ -208,6 +208,20 @@ fn column_of(root: &Path, path: &str, line: usize, from: &str) -> Option<usize> 
     let text = std::fs::read_to_string(root.join(path)).ok()?;
     let l = text.lines().nth(line.checked_sub(1)?)?;
     l.find(from).map(|b| b + 1)
+}
+
+/// C171: a SARIF uri is a URI reference, so each path segment is percent-encoded (a space is
+/// `%20`); the `/` between segments stays.
+fn uri(path: &str) -> String {
+    let mut out = String::with_capacity(path.len());
+    for b in path.bytes() {
+        if b.is_ascii_alphanumeric() || b"-._~/".contains(&b) {
+            out.push(char::from(b));
+        } else {
+            out.push_str(&format!("%{b:02X}"));
+        }
+    }
+    out
 }
 
 #[cfg(test)]
