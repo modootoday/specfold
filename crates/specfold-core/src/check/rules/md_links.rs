@@ -6,7 +6,7 @@ use super::support::skipped;
 use crate::check::context::Ctx;
 use crate::check::finding::Finding;
 use crate::check::rule::{Rule, RuleInfo};
-use crate::export::links::{MdLink, md_links};
+use crate::export::links::{MdLink, md_links, md_ref_defs};
 use crate::markdown::frontmatter::split;
 use std::collections::BTreeSet;
 
@@ -40,7 +40,7 @@ fn has_scheme(t: &str) -> bool {
 }
 
 fn decode(p: &str) -> String {
-    p.replace("%20", " ")
+    crate::markdown::link_dest::decode(p)
 }
 
 /// `a/b/../c` as `a/c`; None when it climbs out of the repository.
@@ -64,7 +64,8 @@ fn each_link(ctx: &Ctx, d: &crate::model::Doc, mut f: impl FnMut(&str, &str, usi
     for path in files {
         let Some(text) = ctx.current(path) else { continue };
         let sp = split(&text);
-        for l in md_links(sp.body) {
+        // C180: reference definitions (`[r]: path`) lead somewhere too.
+        for l in md_links(sp.body).into_iter().chain(md_ref_defs(sp.body)) {
             let line = sp.body_line + sp.body[..l.start].matches('\n').count();
             f(path, sp.body, line, &l);
         }
@@ -76,7 +77,7 @@ impl Rule for LocalLinks {
         &RuleInfo {
             id: "L8",
             title: "local Markdown links lead somewhere",
-            explain: "A plain Markdown link or image with a relative path ([text](../api.md), ![](diagram.png)) must name a file or directory that exists, and a #fragment must match a heading of the target Markdown file (or of this file for [text](#heading)): its GitHub slug (lower case, spaces to -, punctuation dropped, a repeated heading gets -1, -2) or an explicit {#anchor}. Renaming a heading or moving a file breaks such links silently. Links with a scheme (https:, mailto:) and document ids are not checked here (L1 checks ids; use a link checker such as lychee for URLs). Fix the path or fragment, or write [[id#anchor]] for another document. Targets matching a glob in [check] link_ignore (as written, or as the repository path) are skipped. Warns; turn it off with [check.severity] L8 = \"off\".",
+            explain: "A plain Markdown link, image or reference definition with a relative path ([text](../api.md), ![](diagram.png), [r]: ../api.md) must name a file or directory that exists, and a #fragment must match a heading of the target Markdown file (or of this file for [text](#heading)): its GitHub slug (lower case, spaces to -, punctuation dropped, a repeated heading gets -1, -2) or an explicit {#anchor}. Renaming a heading or moving a file breaks such links silently. Links with a scheme (https:, mailto:) and document ids are not checked here (L1 checks ids; use a link checker such as lychee for URLs). Fix the path or fragment, or write [[id#anchor]] for another document. Targets matching a glob in [check] link_ignore (as written, or as the repository path) are skipped. Warns; turn it off with [check.severity] L8 = \"off\".",
             on_commit: true,
         }
     }

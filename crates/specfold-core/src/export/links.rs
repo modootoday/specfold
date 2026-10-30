@@ -94,7 +94,7 @@ pub struct MdLink {
     pub target: String,
 }
 
-fn md_link_re() -> &'static regex::Regex {
+pub(crate) fn md_link_re() -> &'static regex::Regex {
     static R: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
     R.get_or_init(|| {
         regex::Regex::new(
@@ -119,8 +119,31 @@ pub fn md_links(body: &str) -> Vec<MdLink> {
     out
 }
 
+/// `[label]: target "title"`: a reference-style link definition (not a footnote `[^1]:`).
+pub(crate) fn md_ref_def_re() -> &'static regex::Regex {
+    static R: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
+    R.get_or_init(|| {
+        regex::Regex::new(r"^ {0,3}\[([^\]^\n][^\]\n]*)\]:[ \t]*(?:<([^<>\n]*)>|([^\s<>]+))")
+            .expect("static regex is valid")
+    })
+}
+
+/// Every reference-style link definition in `body`, outside code (C180).
+pub fn md_ref_defs(body: &str) -> Vec<MdLink> {
+    let mut out = Vec::new();
+    outside_code(body, md_ref_def_re(), |start, m| {
+        out.push(MdLink {
+            start: start + m.get(0).expect("capture group 0 always exists").start(),
+            image: false,
+            text: m[1].to_string(),
+            target: m.get(2).or(m.get(3)).map_or("", |g| g.as_str()).to_string(),
+        });
+    });
+    out
+}
+
 /// Calls `each(line_start, captures)` for every match of `re` outside fences and inline code.
-fn outside_code(body: &str, re: &regex::Regex, mut each: impl FnMut(usize, &regex::Captures)) {
+pub(crate) fn outside_code(body: &str, re: &regex::Regex, mut each: impl FnMut(usize, &regex::Captures)) {
     let mut fence = crate::markdown::Fence::default();
     let mut offset = 0;
     for line in body.split_inclusive('\n') {
