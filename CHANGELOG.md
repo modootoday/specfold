@@ -7,6 +7,23 @@ Release notes for each version are also on
 
 ### Added
 
+- Built-in secrets (`secrets = true` in a guard) now find connection strings with a password
+  (`scheme://user:password@host`, any scheme: postgres, mysql, mongodb, redis, amqp …) and
+  three-part JWTs. Not flagged: example and loopback hosts (`example.com|org|net`, `*.example`,
+  `*.test`, `*.invalid`, `localhost`, `127.*`, `::1`, `0.0.0.0`); placeholder passwords
+  (`${VAR}`, `$VAR`, `%VAR%`, `{{var}}`, `<var>`, one repeated character such as `xxxx`, words
+  such as `password` or `changeme`, a password equal to the user name such as
+  `postgres:postgres`, fewer than 4 characters); and the jwt.io sample token.
+- `spec attach` runs every guard that reads content (secrets, denied terms or patterns, denied
+  files) over files bound for the store before uploading; an error-level hit refuses, a warn
+  hit is shown, and `--allow-hit <guard>` lets one guard's hits through. Matched values are
+  never printed.
+- `spec export` runs the guards marked `public = true` over what leaves (the built-in tree, or
+  the source files of the documents a plugin receives) and writes nothing, nor calls the
+  plugin, on an error-level hit; `--no-guard` skips them.
+- `spec mcp` replaces built-in secret matches with `[redacted: <pattern>]` in tool results and
+  reports the count as `redacted`; `[mcp] redact = false` turns it off. `spec edit` and
+  `spec set` refuse text holding a redaction marker the document does not already hold.
 - `spec export markdown --target obsidian|mkdocs|docusaurus|github-wiki --out <dir>`: a
   built-in exporter that writes plain Markdown with each target's links, flattened
   frontmatter, a `.specfold-export.json` manifest, and a report of references written as text

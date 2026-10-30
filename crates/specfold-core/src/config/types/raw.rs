@@ -47,7 +47,28 @@ pub struct RawConfig {
     pub cites: CitesSection,
     #[serde(default)]
     pub translations: TranslationsSection,
+    #[serde(default)]
+    pub mcp: McpSection,
     /// Agent assets read beside the documents.
     #[serde(default)]
     pub assets: Vec<AssetRoot>,
+}
+
+/// How `spec mcp` hands text to agents.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct McpSection {
+    /// Replace built-in secret matches with `[redacted: <pattern>]` in tool results.
+    #[serde(default = "yes")]
+    pub redact: bool,
+}
+
+fn yes() -> bool {
+    true
+}
+
+impl Default for McpSection {
+    fn default() -> Self {
+        McpSection { redact: true }
+    }
 }

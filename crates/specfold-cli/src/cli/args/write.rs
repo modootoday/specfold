@@ -131,7 +131,7 @@ pub struct FixArgs {
 
 #[derive(Debug, Clone, Args)]
 #[command(
-    after_help = "Examples:\n  spec attach design:shop/20260101000000 boards/cart.webp --write\n  spec attach evidence:root/20260101000000 run.jsonl --store --write"
+    after_help = "Examples:\n  spec attach design:shop/20260101000000 boards/cart.webp --write\n  spec attach evidence:root/20260101000000 run.jsonl --store --write\n\nFiles bound for the store are read first by every guard that checks content (secrets, denied\nterms or patterns, denied files); an error-level hit refuses the upload. --allow-hit <guard>\nlets one guard's hits through."
 )]
 pub struct AttachArgs {
     /// An id, alias, path, or unique slug.
@@ -151,6 +151,9 @@ pub struct AttachArgs {
     /// Copy, upload and register (otherwise a preview).
     #[arg(long)]
     pub write: bool,
+    /// Upload even though this guard flags a file bound for the store (repeatable).
+    #[arg(long = "allow-hit", value_name = "GUARD")]
+    pub allow_hit: Vec<String>,
 }
 
 #[derive(Debug, Clone, Args)]

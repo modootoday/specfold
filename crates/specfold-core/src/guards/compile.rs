@@ -110,10 +110,8 @@ impl Compiled {
             }
         }
         if g.secrets {
-            for s in secrets::all() {
-                for m in s.re.find_iter(text).filter(|m| !self.allowed(m.as_str())) {
-                    out.push((line_of(&newlines, m.start()), format!("looks like a {}", s.name)));
-                }
+            for h in secrets::find(text).into_iter().filter(|h| !self.allowed(&text[h.start..h.end])) {
+                out.push((line_of(&newlines, h.start), format!("looks like a {}", h.name)));
             }
         }
         out.sort();

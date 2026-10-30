@@ -1,12 +1,41 @@
 //! `spec export`: the built-in Markdown tree, or the graph handed to an exporter plugin.
 
 use crate::cli::args::{global::Global, setup::ExportArgs};
+use crate::commands::outbound;
 use crate::output::{Code, Output};
 use crate::session;
 use anyhow::{Result, anyhow, bail};
 use serde_json::{Value, json};
 use specfold_core::export::{self, markdown, payload::Wants};
 use specfold_core::plugins::{self, payload, process};
+
+/// Runs the public guards over what is about to leave. Some(output) when they refuse; the hits
+/// that let it through are added to `o` either way.
+fn guard(
+    cfg: &specfold_core::Config,
+    a: &ExportArgs,
+    blobs: &[(String, Vec<u8>)],
+    o: Output,
+) -> Result<(Output, bool)> {
+    if a.no_guard {
+        return Ok((o.foot("public guards skipped (--no-guard)"), false));
+    }
+    let gate = outbound::gate(cfg, |g| g.public, blobs, &[])?;
+    let mut o = o.field("guard", gate.json());
+    for l in gate.lines() {
+        o = o.head(l);
+    }
+    if gate.refuses() {
+        let n = gate.hits.iter().filter(|(_, f, _)| f.severity == specfold_core::check::Severity::Error).count();
+        return Ok((
+            o.head(format!("nothing exported: public guard {} found {n} hit(s)", gate.refusing().join(", ")))
+                .code(Code::Findings)
+                .next("spec guard --range all"),
+            true,
+        ));
+    }
+    Ok((o, false))
+}
 
 pub fn run(g: &Global, a: &ExportArgs) -> Result<Output> {
     if a.plugin == export::BUILT_IN {
@@ -39,13 +68,24 @@ pub fn run(g: &Global, a: &ExportArgs) -> Result<Output> {
         "docs": docs,
         "edges": export::payload::edges(&s.corpus, &s.graph, &only),
     });
+    let o = Output::new("export").unpaged().field("plugin", a.plugin.clone()).field("format", format.clone());
+    // The plugin gets each document's text, so the guard reads the files it comes from.
+    let root = &s.corpus.cfg.root;
+    let mut blobs = vec![];
+    for &i in &only {
+        let d = &s.corpus.docs[i];
+        for path in std::iter::once(&d.path).chain(&d.chapters) {
+            if let Ok(bytes) = std::fs::read(root.join(path)) {
+                blobs.push((path.clone(), bytes));
+            }
+        }
+    }
+    let (o, refused) = guard(&s.corpus.cfg, a, &blobs, o)?;
+    if refused {
+        return Ok(o);
+    }
     let result: Value = process::call(&s.corpus.cfg, &p.def, "export.run", params)?;
-    Ok(Output::new("export")
-        .unpaged()
-        .field("plugin", a.plugin.clone())
-        .field("format", format.clone())
-        .field("result", result)
-        .head(format!("exported with {} ({format})", a.plugin)))
+    Ok(o.field("result", result).head(format!("exported with {} ({format})", a.plugin)))
 }
 
 fn built_in(g: &Global, a: &ExportArgs) -> Result<Output> {
@@ -82,6 +122,11 @@ fn built_in(g: &Global, a: &ExportArgs) -> Result<Output> {
             .head(format!("nothing written: {n} reference(s) lead nowhere in the tree"))
             .code(Code::Findings)
             .next("spec check --rule L1"));
+    }
+    let blobs: Vec<(String, Vec<u8>)> = tree.files.iter().map(|(p, t)| (p.clone(), t.as_bytes().to_vec())).collect();
+    let (o, refused) = guard(&s.corpus.cfg, a, &blobs, o)?;
+    if refused {
+        return Ok(o);
     }
     markdown::write(out, &tree, target, &previous)?;
     let mut o = o.head(format!(

@@ -43,6 +43,9 @@ pub fn run(g: &Global, a: &EditArgs) -> Result<Output> {
             t
         }
     };
+    let cells: String = a.cell.join("\n");
+    let path = &s.corpus.docs[idx].path;
+    crate::commands::outbound::refuse_redacted(&s.corpus.cfg.root, path, &format!("{text}\n{cells}"))?;
     let mode = if a.append { Mode::Append } else { Mode::Replace };
     let row = match &a.row {
         None => None,

@@ -24,6 +24,10 @@ A store is a directory, or a command you already trust (rclone, aws, gsutil, wra
 contains no network code and never handles credentials. `[files] inline_max_bytes` sets the
 limit for the repository.
 
+Before a file goes to the store, every guard that reads content (secrets, denied terms or
+patterns, denied files) checks it. An error-level hit refuses the upload and names the guard;
+`--allow-hit <guard>` lets that guard's hits through. Only the first 64 MiB of a file is read.
+
 ## Rules
 
 - **P2**: every attachment is registered.

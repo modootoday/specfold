@@ -58,6 +58,38 @@ pub fn run(cfg: &Config, names: &[String], range: Option<&GuardRange>) -> Result
     Ok(out)
 }
 
+/// Runs the guards `pick` selects over content about to leave the repository (an upload to the
+/// file store, an export), as (label, bytes) pairs. Each guard checks the content with its own
+/// settings, whatever its paths; deny_files and path patterns read the label. Baselines do not
+/// apply: a known hit is still leaving.
+/// Each finding comes with the name of the guard that raised it.
+pub fn scan_blobs(
+    cfg: &Config,
+    pick: impl Fn(&GuardDef) -> bool,
+    blobs: &[(String, Vec<u8>)],
+) -> Result<Vec<(String, Finding)>> {
+    let mut out = vec![];
+    for g in cfg.raw.guards.iter().filter(|g| pick(g)) {
+        let c = compile::compile(cfg, g)?;
+        prove::prove(g, &c)?;
+        for (label, bytes) in blobs {
+            out.extend(scan::scan_blob(g, &c, label, bytes.clone()).into_iter().map(|f| (g.name.clone(), f)));
+        }
+    }
+    Ok(out)
+}
+
+/// Guards that read content for secrets or denied text, the ones an upload must pass.
+pub fn reads_content(g: &GuardDef) -> bool {
+    g.secrets
+        || !g.deny_terms.is_empty()
+        || g.deny_terms_file.is_some()
+        || g.deny_terms_env.is_some()
+        || !g.deny_regex.is_empty()
+        || !g.deny_path_regex.is_empty()
+        || !g.deny_files.is_empty()
+}
+
 /// Measures each named guard over the whole tree and writes its baseline file.
 pub fn write_baselines(cfg: &Config, names: &[String]) -> Result<Vec<(String, String, usize)>> {
     let mut written = vec![];
