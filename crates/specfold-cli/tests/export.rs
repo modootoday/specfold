@@ -482,3 +482,15 @@ fn c104_an_out_outside_the_repository_is_listed_not_git_statused() {
     assert_eq!(code, 0, "{v}");
     assert_eq!(v["next"], "git status --short -- vault", "inside, git status still applies: {v}");
 }
+
+#[test]
+fn c166_refused_export_preview_next_stays_a_preview() {
+    let r = corpus();
+    let (code, v) = r.json(&["export", "markdown", "--out", "f", "--dry-run"]);
+    assert_eq!(code, 2, "{v}");
+    let next = v["next"].as_str().unwrap().to_string();
+    assert!(next.contains("--target") && next.contains("--dry-run"), "{v}");
+    let args: Vec<&str> = next.split(' ').skip(1).collect();
+    assert_eq!(r.json(&args).0, 0);
+    assert!(!r.path().join("f").exists(), "following the next wrote f/");
+}
