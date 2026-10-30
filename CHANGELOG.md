@@ -11,6 +11,8 @@ What an existing command does differs from 0.3.0; check scripts and CI that call
 
 `spec check --write-baseline` with `--rule` or `--skip` is refused with exit 2: a baseline is recorded from a full run only (C181).
 
+Two or more `[[guards]]` with the same `baseline` file are refused when the config loads (exit 2, naming both guards): each guard's `--write-baseline` used to overwrite the other's entries (C184).
+
 `-C <dir>` now resolves relative path arguments against `<dir>`, and `next` commands include `-C <dir>`.
 
 Write previews show an update's changed lines as unified-diff hunks (`@@ -old,n +new,m @@`): changes with an unchanged line between them, such as the refreshed `updated:` line and an edited section, are separate hunks instead of one block. In `--json`, update items carry `hunks` (each with `line`, `old_line`, `before`, `after`) in place of the top-level `before` and `after`; `line` is still the first changed line.
