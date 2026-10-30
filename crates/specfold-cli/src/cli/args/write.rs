@@ -279,6 +279,9 @@ pub struct SyncArgs {
     /// Also remove files in a copy that its source does not have.
     #[arg(long)]
     pub prune: bool,
+    /// Overwrite a file that has no sign specfold wrote it (CLI-4).
+    #[arg(long)]
+    pub force: bool,
     /// Apply the copies (otherwise a preview).
     #[arg(long)]
     pub write: bool,

@@ -62,7 +62,7 @@ pub enum Cmd {
     Attach(write::AttachArgs),
     /// Download a document's stored attachments, verified by hash.
     #[command(after_help = "Examples:\n  spec fetch evidence:services/shop/20261030021100")]
-    Fetch(read::RefArgs),
+    Fetch(read::FetchArgs),
     /// A document's attachments and where each is kept.
     #[command(after_help = "Examples:\n  spec files evidence:services/shop/20261030021100")]
     Files(read::RefArgs),

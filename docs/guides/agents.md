@@ -59,7 +59,8 @@ path = ".claude/skills"
 copy_of = ".agents/skills"
 ```
 
-`spec sync assets` previews the copies; `--write` applies them, only inside roots with
+`spec sync assets` previews the copies; `--write` applies them (a copy file edited by hand, one that
+is no version its source has had, is overwritten only with `--force`), only inside roots with
 `copy_of`. Files the source lacks stay unless `--prune` (with `--yes`, since it deletes). `spec audit --kind drift` names copies
 that differ.
 

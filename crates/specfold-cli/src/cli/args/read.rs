@@ -67,6 +67,15 @@ pub struct ShowArgs {
 }
 
 #[derive(Debug, Clone, Args)]
+pub struct FetchArgs {
+    /// An id, alias, path, or unique slug.
+    pub doc: String,
+    /// Overwrite a file that has no sign specfold wrote it (CLI-4).
+    #[arg(long)]
+    pub force: bool,
+}
+
+#[derive(Debug, Clone, Args)]
 pub struct RefArgs {
     /// An id, alias, path, or unique slug.
     pub doc: String,

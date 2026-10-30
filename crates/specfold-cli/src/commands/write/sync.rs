@@ -11,7 +11,7 @@ use specfold_core::assets::sync;
 pub fn run(g: &Global, a: &SyncArgs) -> Result<Output> {
     let s = session::open(g)?;
     let cfg = &s.corpus.cfg;
-    let (pairs, plan) = sync::plan(cfg, a.prune)?;
+    let (pairs, plan, unowned) = sync::plan(cfg, a.prune)?;
     let mut o = Output::new("sync").field("roots", pairs.len()).field("changes", plan.changes.len());
     if pairs.is_empty() {
         let found: Vec<&str> =
@@ -39,6 +39,22 @@ pub fn run(g: &Global, a: &SyncArgs) -> Result<Output> {
     if a.write && removes && !a.yes {
         let o = o.head("--prune deletes files: nothing was written; add --yes to confirm");
         return preview::finish(o, &plan, &cfg.root, false, "spec sync assets --prune --write --yes");
+    }
+    // CLI-4: overwriting a file that is not a past version of its source needs --force.
+    if !unowned.is_empty() && !a.force {
+        o = o.field("unowned", json!(unowned)).head(format!(
+            "{} copy file(s) differ from every version of their source and would be overwritten{}: {}; add --force to overwrite",
+            unowned.len(),
+            if a.write { ", so nothing was written" } else { "" },
+            unowned.join(", ")
+        ));
+        if a.write {
+            let mut rerun = String::from("spec sync assets --write --force");
+            if a.prune {
+                rerun.push_str(" --prune --yes");
+            }
+            return preview::finish(o, &plan, &cfg.root, false, &rerun);
+        }
     }
     let rerun = if a.prune { "spec sync assets --prune --write --yes" } else { "spec sync assets --write" };
     let (o, go) = preview::bound(o, preview::files(&plan), cfg.raw.write.max_files, a.write, a.yes);
