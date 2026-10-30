@@ -22,6 +22,7 @@ mod sections;
 mod translations;
 pub use lifecycle::{is_date, overdue_exceptions};
 pub use schema::unknown_key;
+mod md_links;
 pub(crate) mod support;
 mod values;
 mod visibility;
@@ -46,6 +47,8 @@ pub fn catalog() -> Vec<Box<dyn Rule>> {
         Box::new(links::RelationsResolve),
         Box::new(links::AnchorsUnique),
         Box::new(links::GovernsExists),
+        Box::new(md_links::LocalLinks),
+        Box::new(md_links::ImageAlt),
         Box::new(cites::CitesOutside),
         Box::new(lifecycle::SupersedePairs),
         Box::new(lifecycle::ForwardOnly),
