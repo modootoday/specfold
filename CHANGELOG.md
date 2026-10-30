@@ -134,6 +134,7 @@ A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is 
 
 ### Fixed
 
+- `spec new` with an option it does not have (`--tier local`, `--bogus x`) now points at `spec help new` instead of a next that repeats the same error (C178).
 - `spec export markdown --dry-run` (and the replace refusal) now print a next that keeps `--banner`, `--local` and `--fail-on`, so following it writes what was previewed; `--no-guard` is still left for you to type (C177).
 - Next steps and fix commands shell-quote every path and id through one function, so `spec context` and `audit` gap suggestions run as printed for paths with spaces, quotes, or non-ASCII names.
 - Audit: `--kind stale` shell-quotes governed paths in its `git diff` next step.

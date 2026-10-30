@@ -454,3 +454,21 @@ fn c168_fix_write_with_nothing_to_fix_is_no_change() {
     assert_eq!(code, 0, "{text}");
     assert!(text.contains("no change") && !text.contains("undo:") && !text.contains("written"), "{text}");
 }
+
+#[test]
+fn c178_new_with_an_unknown_option_points_at_help_not_the_same_error() {
+    let r = common::repo();
+    for bad in [["--tier", "local"], ["--bogus", "x"]] {
+        let mut args = vec!["new", "sot"];
+        args.extend(bad);
+        args.extend(["--governs", "src/x", "--title", "T", "--write"]);
+        let (code, v) = r.json(&args);
+        assert_eq!(code, 2, "{v}");
+        let next = v["next"].as_str().unwrap_or_default();
+        assert!(!next.contains(bad[0]), "the rejected option is not carried over: {v}");
+        assert_eq!(next, "spec help new", "{v}");
+    }
+    // A known option still carries over (C165).
+    let (_, v) = r.json(&["new", "adr", "--write"]);
+    assert!(v["next"].as_str().unwrap().contains("--write"), "{v}");
+}
