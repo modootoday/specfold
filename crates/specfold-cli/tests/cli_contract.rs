@@ -558,3 +558,43 @@ fn cli16_the_v1_envelope_keeps_its_fields() {
         assert!(v.get(k).is_some(), "spec.check.v1 lost {k}: {v}");
     }
 }
+
+fn git_status(r: &common::Repo) -> String {
+    let out = std::process::Command::new("git").args(["status", "--porcelain"]).current_dir(r.path()).output().unwrap();
+    String::from_utf8_lossy(&out.stdout).into_owned()
+}
+
+/// SD5: a preview reports the same refusal as the write it previews, on the same files, and the
+/// refused write leaves the tree as it was. Keys that only say what happened are left out.
+fn same_refusal(r: &common::Repo, preview: &[&str], write: &[&str]) {
+    let before = git_status(r);
+    let (pc, p) = r.json(preview);
+    let (wc, w) = r.json(write);
+    assert_eq!(pc, 0, "a preview is not refused: {p}");
+    assert_eq!(wc, 4, "the write is refused: {w}");
+    assert_ne!(w["written"], true, "{w}");
+    assert_eq!(git_status(r), before, "a refused write changes nothing");
+    let facts = |v: &Value| {
+        let mut m = v.as_object().cloned().unwrap_or_default();
+        for k in ["written", "next", "undo", "exit", "ok"] {
+            m.remove(k);
+        }
+        m
+    };
+    assert_eq!(facts(&p), facts(&w), "preview {preview:?} and write {write:?} disagree");
+}
+
+#[test]
+fn sd5_previews_and_writes_refuse_alike() {
+    let (r, sot, _) = populated();
+    let plan = r.new_doc("plan", "services/shop", "Checkout");
+    assert_eq!(r.json(&["set", &plan, "status=active", "--write"]).0, 0);
+    let (_, d) = r.json(&["show", &plan]);
+    let path = d["path"].as_str().unwrap().to_string();
+    r.write(&path, &(r.read(&path) + "\n- [ ] payment\n"));
+    let toml = r.read("spec.toml");
+    r.write("spec.toml", &format!("{toml}[write]\nmax_files = 1\n"));
+    r.commit("bound");
+    same_refusal(&r, &["mv", &sot, "--slug", "basket"], &["mv", &sot, "--slug", "basket", "--write"]);
+    same_refusal(&r, &["set", &plan, "status=archived", "--dry-run"], &["set", &plan, "status=archived", "--write"]);
+}

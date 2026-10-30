@@ -42,7 +42,10 @@ const CONFIG_HELP: &[(&str, &str)] = &[
         "Agent assets read beside the documents: kind skill, rule, agent or instructions; a directory or glob (rules A1, A2; spec assets). copy_of names a source directory this root copies; only spec sync assets writes such a root, previewing until --write and deleting only with --prune.",
     ),
     ("[[plugins]]", "External programs speaking specfold.plugin.v1: rules, importers, exporters, audits, events."),
-    ("[audit]", "Thresholds for stale, stalled and draft documents, and open-item markers."),
+    (
+        "[audit]",
+        "Thresholds for stale, stalled and draft documents, open-item markers, and the types whose anchors must be cited (coverage).",
+    ),
     (
         "[check] baseline, strict, severity, extra_keys, count_paths",
         "A committed file of known findings so only new ones fail (spec check --write-baseline), paths that never get a baseline, per-rule levels (error, warn, off), and frontmatter keys every type may carry (rule S1; `review_*` allows a prefix), and Markdown files outside documents whose spec:count markers are checked (rule N1; `README.md`, `docs/**/*.md`).",

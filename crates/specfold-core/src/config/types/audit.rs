@@ -18,6 +18,10 @@ pub struct AuditSection {
     /// Text that marks unfinished work inside documents.
     #[serde(default = "defaults::open_item_patterns")]
     pub open_item_patterns: Vec<String>,
+    /// Types whose anchors (`{#ANCHOR}`) must each be cited by another document
+    /// (`[[<id>#ANCHOR]]`); `spec audit --kind coverage` lists the uncited ones. Empty: off.
+    #[serde(default)]
+    pub coverage_types: Vec<String>,
 }
 
 impl Default for AuditSection {
@@ -27,6 +31,7 @@ impl Default for AuditSection {
             stalled_days: defaults::stalled_days(),
             draft_days: defaults::draft_days(),
             open_item_patterns: defaults::open_item_patterns(),
+            coverage_types: vec![],
         }
     }
 }
