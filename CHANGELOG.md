@@ -133,6 +133,7 @@ A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is 
   `gateway`), not only when most of the title is lost.
 
 ### Fixed
+- `spec mv` rewrites reference definitions, angle-bracket and percent-encoded relative links too, and no longer touches links inside code (C180).
 - `spec import --apply --write` now rewrites reference definitions, angle-bracket links and percent-encoded links (keeping the encoding), still skipping code; L8 also checks reference definitions (C180).
 
 - `spec show <id> --body` cut by `--max-bytes` now continues with `spec show <id> --section …` instead of putting the body text where the id goes (C179).

@@ -472,3 +472,26 @@ fn c178_new_with_an_unknown_option_points_at_help_not_the_same_error() {
     let (_, v) = r.json(&["new", "adr", "--write"]);
     assert!(v["next"].as_str().unwrap().contains("--write"), "{v}");
 }
+
+#[test]
+fn c180_mv_rewrites_reference_angle_and_encoded_links_but_not_code() {
+    let r = common::repo();
+    let a = r.new_doc("sot", "services/shop", "Cart");
+    let b = r.new_doc("sot", "services/shop", "Pay");
+    let (_, s) = r.json(&["show", &b]);
+    let pb = s["path"].as_str().unwrap().to_string();
+    let text = r.read(&pb);
+    r.write(
+        &pb,
+        &format!(
+            "{text}\n[x][c] [a](<cart.sot.md#verification>) [e](cart%2Esot.md)\n\n[c]: ./cart.sot.md \"Cart\"\n\n`[k](cart.sot.md)`\n"
+        ),
+    );
+    r.commit("links");
+    let (code, v) = r.json(&["mv", &a, "--slug", "basket", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    let t = r.read(&pb);
+    assert!(t.contains("[c]: basket.sot.md \"Cart\""), "{t}");
+    assert!(t.contains("[a](<basket.sot.md#verification>)") && t.contains("[e](basket.sot.md)"), "{t}");
+    assert_eq!(t.matches("cart.sot.md").count(), 1, "only the code span keeps the old name: {t}");
+}
