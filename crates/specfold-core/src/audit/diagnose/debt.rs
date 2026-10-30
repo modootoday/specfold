@@ -16,7 +16,7 @@ pub fn run(c: &Corpus, g: &Graph, docs: &[usize], out: &mut Vec<Item>) {
                 path: d.path.clone(),
                 line: 1,
                 detail: format!("{alias_cites} references by alias"),
-                next: Some(format!("spec fix --rule L1 --write {}", d.path)),
+                next: Some(format!("spec fix --rule L1 --write {}", crate::shell::word(&d.path))),
             });
         }
         let skipped = d.list_field("check_skip");

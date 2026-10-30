@@ -99,7 +99,7 @@ impl Rule for VerifyDeclared {
             if expects && d.list_field("verify").is_empty() {
                 out.push(
                     Finding::warn("X2", &d.path, 1, format!("{} is active but declares no verify command", d.id))
-                        .fix_cmd(format!("spec set {} verify=manual", d.id)),
+                        .fix_cmd(format!("spec set {} verify=manual", crate::shell::word(&d.id))),
                 );
             }
         }

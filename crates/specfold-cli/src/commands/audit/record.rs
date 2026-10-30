@@ -16,5 +16,6 @@ pub fn run(s: &Session, a: &AuditArgs, body: String) -> Result<Output> {
         return Ok(o.head(format!("would record {}  {}", created.id, created.path)).next("add --write to record"));
     }
     plan.apply(&s.corpus.cfg.root)?;
-    Ok(o.head(format!("recorded {}  {}", created.id, created.path)).next(format!("spec show {}", created.id)))
+    Ok(o.head(format!("recorded {}  {}", created.id, created.path))
+        .next(format!("spec show {}", specfold_core::shell::word(&created.id))))
 }

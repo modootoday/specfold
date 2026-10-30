@@ -39,11 +39,14 @@ pub fn run(g: &Global, a: &ContextArgs) -> Result<Output> {
     if o.items.is_empty() {
         o = o.foot("no document governs these paths");
         let p = a.paths.first().cloned().unwrap_or_default();
-        return Ok(o.next(format!("spec new sot --governs {p} --title '…'")));
+        return Ok(o.next(format!("spec new sot --governs {} --title '…'", specfold_core::shell::word(&p))));
     }
     // C172: only a sot has a `rule` section; any other type is shown whole.
     let id = first.unwrap_or_default();
-    let next =
-        if id.starts_with("sot:") { format!("spec show {id} --section rule") } else { format!("spec show {id}") };
+    let next = if id.starts_with("sot:") {
+        format!("spec show {} --section rule", specfold_core::shell::word(&id))
+    } else {
+        format!("spec show {}", specfold_core::shell::word(&id))
+    };
     Ok(o.next(next))
 }

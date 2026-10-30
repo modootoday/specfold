@@ -57,7 +57,7 @@ impl Rule for RequiredByStatus {
                     )
                     .fix_cmd(format!(
                         "spec set {} {}",
-                        d.id,
+                        crate::shell::word(&d.id),
                         missing.iter().map(|k| format!("{k}=…")).collect::<Vec<_>>().join(" ")
                     )),
                 );

@@ -22,7 +22,7 @@ pub fn run(c: &Corpus, docs: &[usize], out: &mut Vec<Item>) {
             // Commits to documents are not changes to the code they describe, and the pin's own
             // commit would otherwise always count.
             let docs = vec![format!("**/{}/**", c.cfg.spec_dir()), format!("{}/**", c.cfg.spec_dir())];
-            let repin = format!("spec set {} verified_at=HEAD", d.id);
+            let repin = format!("spec set {} verified_at=HEAD", crate::shell::word(&d.id));
             let (detail, next) = match vcs::commits_since(&c.cfg.root, &pin, &governs, &docs) {
                 // No diff can start from a pin git does not know; re-pinning is the only step.
                 None => (format!("verified_at {pin} is not a commit in this repository"), repin),
@@ -59,7 +59,11 @@ pub fn run(c: &Corpus, docs: &[usize], out: &mut Vec<Item>) {
                 path: d.path.clone(),
                 line: 1,
                 detail: format!("governed code changed {code}, {gap} days after the document ({updated})"),
-                next: Some(format!("spec show {} && spec log {}", d.id, d.id)),
+                next: Some(format!(
+                    "spec show {} && spec log {}",
+                    crate::shell::word(&d.id),
+                    crate::shell::word(&d.id)
+                )),
             });
         }
     }

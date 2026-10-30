@@ -46,7 +46,7 @@ impl Rule for TranslationsCurrent {
                     && let Some((rid, now)) =
                         translation::source_ref(c, i).and_then(|r| crate::remotes::rev(&c.cfg, &r))
                 {
-                    let fix = format!("spec set {} --source-rev", d.id);
+                    let fix = format!("spec set {} --source-rev", crate::shell::word(&d.id));
                     let line = key_line(ctx, &d.path, KEY);
                     match d.str_field(KEY) {
                         None => out.push(
@@ -104,7 +104,7 @@ impl Rule for TranslationsCurrent {
                 ));
             }
             let line = key_line(ctx, &d.path, KEY);
-            let fix = format!("spec set {} --source-rev", d.id);
+            let fix = format!("spec set {} --source-rev", crate::shell::word(&d.id));
             if targets.len() > 1 {
                 out.push(Finding::warn(
                     "R1",

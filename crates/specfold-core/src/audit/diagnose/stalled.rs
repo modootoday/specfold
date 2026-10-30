@@ -28,7 +28,7 @@ pub fn run(c: &Corpus, docs: &[usize], out: &mut Vec<Item>) {
                 next: Some(format!(
                     "{}   # or record progress and spec set {} updated=today",
                     super::archive(c, i),
-                    d.id
+                    crate::shell::word(&d.id)
                 )),
             });
         }

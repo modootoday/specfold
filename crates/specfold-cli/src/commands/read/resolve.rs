@@ -17,5 +17,5 @@ pub fn run(g: &Global, a: &RefArgs) -> Result<Output> {
         .field("path", d.path.clone())
         .field("status", d.status())
         .head(format!("{shown}  {}", d.path))
-        .next(format!("spec show {shown}")))
+        .next(format!("spec show {}", specfold_core::shell::word(&shown))))
 }

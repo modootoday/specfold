@@ -525,9 +525,7 @@ fn doc_row(c: &Corpus, map: &ImportMap, u: &Unit, taken: &mut BTreeSet<String>, 
     let alnum = named.chars().filter(|c| c.is_alphanumeric() && !c.is_ascii_digit()).count();
     let ascii = named.chars().filter(|c| c.is_ascii_alphabetic()).count();
     if alnum > 0 && ascii * 2 < alnum {
-        notes.push(format!(
-            "the name is mostly non-ASCII, so the slug is '{slug}' (the title stays); to rename: spec mv {id} --slug <slug> --write"
-        ));
+        notes.push(format!("the name is mostly non-ASCII, so the slug is '{slug}' (the title stays); to rename: spec mv {} --slug <slug> --write", crate::shell::word(&id)));
     }
     let content = format!("{}{}", frontmatter::render(&crate::markdown::frontmatter::edit::ordered(fm)), body);
     crate::authoring::forbid::refuse(c, &main, crate::authoring::forbid::NO_LOCAL_HINT)?;

@@ -71,7 +71,7 @@ pub fn run(g: &Global, a: &ImportArgs) -> Result<Output> {
         return Ok(o
             .field("written", false)
             .foot("no source documents matched the map; nothing was written")
-            .next(format!("spec import --map {}", map_path.display())));
+            .next(format!("spec import --map {}", specfold_core::shell::word(map_path.display()))));
     }
     if unresolved > 0 && !a.force {
         // C155: a row still marked ! is not imported half-decided.
@@ -79,13 +79,19 @@ pub fn run(g: &Global, a: &ImportArgs) -> Result<Output> {
             "{unresolved} row(s) marked ! still need a decision: nothing was written; settle them, or add --force"
         ));
         let o = before_write(&s, &p, o, &map_path.display().to_string());
-        return Ok(o.next(format!("spec import --map {} --apply --write --force", map_path.display())));
+        return Ok(o.next(format!(
+            "spec import --map {} --apply --write --force",
+            specfold_core::shell::word(map_path.display())
+        )));
     }
     // C138: the alias table counts toward [write] max_files too.
     let n = super::preview::files(&p.plan) + alias_writes(&s, &p);
     let (o, go) = super::preview::bound(o, n, s.corpus.cfg.raw.write.max_files, true, a.yes);
     if !go {
-        return Ok(o.next(format!("spec import --map {} --apply --write --yes", map_path.display())));
+        return Ok(o.next(format!(
+            "spec import --map {} --apply --write --yes",
+            specfold_core::shell::word(map_path.display())
+        )));
     }
     let root = &s.corpus.cfg.root;
     let table_existed = root.join(&alias_file).exists();
@@ -170,7 +176,7 @@ fn before_write(s: &session::Session, p: &import::ImportPlan, o: Output, map: &s
     if other > 0 {
         return o
             .foot(format!("{other} line(s) marked ! need a decision; edit {map} or the sources, then plan again"))
-            .next(format!("spec import --map {map}"));
+            .next(format!("spec import --map {}", specfold_core::shell::word(map)));
     }
     if s.corpus.cfg.raw.aliases.file.is_none() {
         let toml = std::fs::read_to_string(s.corpus.cfg.root.join("spec.toml")).unwrap_or_default();
@@ -181,7 +187,7 @@ fn before_write(s: &session::Session, p: &import::ImportPlan, o: Output, map: &s
             o.next("printf '\\n[aliases]\\nfile = \".spec/_aliases.tsv\"\\n' >> spec.toml")
         };
     }
-    o.next(format!("spec import --map {map} --apply --write"))
+    o.next(format!("spec import --map {} --apply --write", specfold_core::shell::word(map)))
 }
 
 /// 1 when applying would create or change the alias table, else 0.

@@ -106,7 +106,7 @@ pub fn run(g: &Global, a: &GraphArgs) -> Result<Output> {
                     let mut l = vec![format!("{} documents, {} edges", c.docs.len(), s.graph.edges.len())];
                     l.extend(tree(&s, a.depth, glyphs(a.ascii)));
                     return Ok(l.into_iter().fold(o, |o, x| o.head(x)).next(match c.docs.first() {
-                        Some(d) => format!("spec graph impact {}", d.id),
+                        Some(d) => format!("spec graph impact {}", specfold_core::shell::word(&d.id)),
                         None => "spec graph".into(),
                     }));
                 }
@@ -155,7 +155,7 @@ pub fn run(g: &Global, a: &GraphArgs) -> Result<Output> {
                 );
             }
             Ok(o.head(format!("documents that reach {} (relation, distance):", id(idx)))
-                .next(format!("spec show {} --rel", id(idx))))
+                .next(format!("spec show {} --rel", specfold_core::shell::word(id(idx)))))
         }
         (Some("chain"), Some(t)) => {
             let idx = session::resolve(&s, t)?;
@@ -170,7 +170,7 @@ pub fn run(g: &Global, a: &GraphArgs) -> Result<Output> {
                 );
             }
             let last = id(*chain.last().unwrap_or(&idx));
-            Ok(o.field("current", last.clone()).next(format!("spec show {last}")))
+            Ok(o.field("current", last.clone()).next(format!("spec show {}", specfold_core::shell::word(&last))))
         }
         (Some("governs"), Some(t)) => {
             let rel = session::repo_path(&s, t);
@@ -180,7 +180,7 @@ pub fn run(g: &Global, a: &GraphArgs) -> Result<Output> {
                     format!("{:<36} {}", id(gv.idx), gv.pattern),
                 );
             }
-            Ok(o.next(format!("spec context {rel}")))
+            Ok(o.next(format!("spec context {}", specfold_core::shell::word(&rel))))
         }
         (Some("consumers"), Some(t)) => {
             use specfold_core::remotes::{self, Remote};
@@ -223,7 +223,9 @@ pub fn run(g: &Global, a: &GraphArgs) -> Result<Output> {
             if count > 0 {
                 o = o.foot("repo '.' is this repository");
             }
-            Ok(o.field("target", shown.clone()).field("searched", scope).next(format!("spec show {shown}")))
+            Ok(o.field("target", shown.clone())
+                .field("searched", scope)
+                .next(format!("spec show {}", specfold_core::shell::word(&shown))))
         }
         (Some(q), _) if !["impact", "chain", "governs", "consumers"].contains(&q) => {
             let whole = match q {

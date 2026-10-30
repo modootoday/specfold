@@ -86,13 +86,13 @@ pub fn run(g: &Global, a: &FixArgs) -> Result<Output> {
         rerun.push_str(" --staged");
     }
     for r in &a.rules {
-        rerun.push_str(&format!(" --rule {}", session::shell_word(r)));
+        rerun.push_str(&format!(" --rule {}", specfold_core::shell::quote(r)));
     }
     if let Some(id) = &a.pick {
-        rerun.push_str(&format!(" --pick {}", session::shell_word(id)));
+        rerun.push_str(&format!(" --pick {}", specfold_core::shell::quote(id)));
     }
     for t in &a.targets {
-        rerun.push_str(&format!(" {}", session::shell_word(t)));
+        rerun.push_str(&format!(" {}", specfold_core::shell::quote(t)));
     }
     let max = s.corpus.cfg.raw.write.max_files;
     let (o, written) = if a.write && plan.changes.is_empty() {

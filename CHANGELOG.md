@@ -134,6 +134,7 @@ A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is 
 
 ### Fixed
 
+- Next steps and fix commands shell-quote every path and id through one function, so `spec context` and `audit` gap suggestions run as printed for paths with spaces, quotes, or non-ASCII names.
 - Audit: `--kind stale` shell-quotes governed paths in its `git diff` next step.
 - Audit: `--kind stale` suggests only `spec set <id> verified_at=HEAD` when `verified_at` is not a commit, instead of a `git diff` that cannot run.
 - Help: `show` and `edit` examples name sections new documents have (`rule`, `Steps`).

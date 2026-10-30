@@ -121,7 +121,7 @@ fn documents_named(s: &session::Session, files: &[String], stdin: Option<&str>) 
             }
             let stem = std::path::Path::new(f).file_stem().map(|x| x.to_string_lossy().to_string()).unwrap_or_default();
             let stem = stem.split('.').next().unwrap_or(&stem).to_string();
-            bail!("{f}: no such file; next: spec find {}", session::shell_word(&stem));
+            bail!("{f}: no such file; next: spec find {}", specfold_core::shell::quote(&stem));
         }
         if !known {
             bail!(

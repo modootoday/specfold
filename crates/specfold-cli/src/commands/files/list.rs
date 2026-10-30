@@ -20,5 +20,5 @@ pub fn run(g: &Global, a: &RefArgs) -> Result<Output> {
             format!("{:<5} {:>10}  {}{note}", f.store, f.bytes, f.path),
         );
     }
-    Ok(o.next(format!("spec fetch {}", d.id)))
+    Ok(o.next(format!("spec fetch {}", specfold_core::shell::word(&d.id))))
 }

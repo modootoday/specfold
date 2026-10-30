@@ -50,7 +50,11 @@ pub fn run(g: &Global, a: &ShowArgs) -> Result<Output> {
                 rest.len(),
                 rest.join(" | ")
             ));
-            cont = Some(format!("spec show {shown} --section '{}'", first.replace('\'', "")));
+            cont = Some(format!(
+                "spec show {} --section '{}'",
+                specfold_core::shell::word(&shown),
+                first.replace('\'', "")
+            ));
         }
     } else {
         let outline = sections::outline(body);
@@ -127,11 +131,15 @@ pub fn run(g: &Global, a: &ShowArgs) -> Result<Output> {
     let next = if let Some(c) = cont {
         c
     } else if a.tasks && done < total {
-        format!("spec show {shown} --body   # finish the open items, then spec set {} updated=today", d.id)
+        format!(
+            "spec show {} --body   # finish the open items, then spec set {} updated=today",
+            specfold_core::shell::word(&shown),
+            specfold_core::shell::word(&d.id)
+        )
     } else if a.section.is_some() || a.body {
-        format!("spec graph impact {}", d.id)
+        format!("spec graph impact {}", specfold_core::shell::word(&d.id))
     } else {
-        format!("spec show {shown} --section <heading>")
+        format!("spec show {} --section <heading>", specfold_core::shell::word(&shown))
     };
     Ok(o.next(next))
 }

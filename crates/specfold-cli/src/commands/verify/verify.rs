@@ -30,6 +30,6 @@ pub fn run(g: &Global, a: &VerifyArgs) -> Result<Output> {
             .and_then(|p| s.corpus.docs.iter().find(|d| d.path == p))
             .map(|d| d.id.to_string())
             .unwrap_or_default();
-        o.code(Code::Findings).next(format!("spec show {} --section verification", session::shell_word(&id)))
+        o.code(Code::Findings).next(format!("spec show {} --section verification", specfold_core::shell::quote(&id)))
     })
 }
