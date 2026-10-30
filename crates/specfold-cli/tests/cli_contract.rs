@@ -1229,3 +1229,16 @@ fn c132_c148_c152_c153_filters_that_match_nothing_by_typo_are_refused() {
     assert_eq!(r.json(&["log", "--since", "2024-02-29"]).0, 0);
     assert_eq!(r.json(&["check", "--rule", "S1"]).0, 0);
 }
+
+#[test]
+fn c156_a_bad_asset_slug_next_replaces_the_slug() {
+    let r = common::repo();
+    let (code, v) = r.json(&["new", "skill", "--title", "x", "--slug", "Bad Slug", "--write"]);
+    assert_eq!(code, 2, "{v}");
+    let next = v["next"].as_str().unwrap_or_default();
+    assert_eq!(next.matches("--slug").count(), 1, "{v}");
+    assert!(!next.contains("Bad Slug"), "{v}");
+    let args: Vec<&str> = next.split(" ").skip(1).filter(|a| *a != "--json").collect();
+    let (code, v) = r.json(&args);
+    assert_eq!(code, 0, "{v}");
+}
