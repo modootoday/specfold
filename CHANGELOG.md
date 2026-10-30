@@ -134,6 +134,7 @@ A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is 
 
 ### Fixed
 
+- `spec context`: the next names `--section rule` only for a sot; other types get `spec show <id>`.
 - `spec check --format sarif`: `artifactLocation.uri` percent-encodes each path segment (a space is `%20`).
 - `spec init --upgrade`: a spec.toml from a newer version is refused with the same message and exit code as `spec check`, not reported as current.
 - `spec init --upgrade`: a table header with a trailing comment (`[spec] # main`) is read as TOML reads it, so an old schema under it is raised as `spec check` asks.

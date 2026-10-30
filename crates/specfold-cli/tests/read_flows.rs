@@ -273,3 +273,20 @@ fn a_slug_id_resolves_in_links_and_find() {
     let (_, v) = r.json(&["find", "no-such-words", "--type", "plan"]);
     assert_eq!(v["next"], "spec find --all no-such-words --type plan", "{v}");
 }
+
+#[test]
+fn c172_context_next_names_a_section_only_for_a_sot() {
+    let r = common::repo();
+    r.write("services/shop/main.rs", "fn main() {}\n");
+    let adr = r.new_doc("adr", "services/shop", "Use files");
+    assert_eq!(r.json(&["set", &adr, "status=active", "--write"]).0, 0);
+    let (code, v) = r.json(&["context", "services/shop/main.rs"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["next"], format!("spec show {adr}"), "{v}");
+    let sot = r.new_doc("sot", "services/shop", "Cart");
+    assert_eq!(r.json(&["set", &sot, "status=active", "--write"]).0, 0);
+    let (_, v) = r.json(&["context", "services/shop/main.rs"]);
+    let next = v["next"].as_str().unwrap().to_string();
+    let words: Vec<&str> = next.split(' ').skip(1).collect();
+    assert_eq!(r.json(&words).0, 0, "{next}");
+}

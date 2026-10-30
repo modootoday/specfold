@@ -41,6 +41,9 @@ pub fn run(g: &Global, a: &ContextArgs) -> Result<Output> {
         let p = a.paths.first().cloned().unwrap_or_default();
         return Ok(o.next(format!("spec new sot --governs {p} --title '…'")));
     }
-    let next = format!("spec show {} --section rule", first.unwrap_or_default());
+    // C172: only a sot has a `rule` section; any other type is shown whole.
+    let id = first.unwrap_or_default();
+    let next =
+        if id.starts_with("sot:") { format!("spec show {id} --section rule") } else { format!("spec show {id}") };
     Ok(o.next(next))
 }
