@@ -5,14 +5,14 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone, Args)]
 #[command(
-    after_help = "Examples:\n  spec new adr --governs services/shop/src/db --title \"Use Postgres for orders\"\n  spec new adr --from adr:shop/20250101000000 --title \"Move orders to a queue\"\n  spec new plan --governs services/shop --title \"Checkout v2\" --local\n\nTimestamp keys and the created/updated dates are UTC."
+    after_help = "Examples:\n  spec new adr --governs services/shop/src/db --title \"Use Postgres for orders\"\n  spec new adr --from adr:shop/20250101000000 --title \"Move orders to a queue\"\n  spec new plan --governs services/shop --title \"Checkout v2\" --local\n  spec new --translation ko --from guide:shop/setup\n\nTimestamp keys and the created/updated dates are UTC."
 )]
 pub struct NewArgs {
-    /// The document type (spec schema lists them).
-    #[arg(id = "type", value_name = "TYPE")]
-    pub ty: String,
+    /// The document type (spec schema lists them); with --translation, the source's.
+    #[arg(id = "type", value_name = "TYPE", required_unless_present = "translation")]
+    pub ty: Option<String>,
     /// One-line title; also the source of the slug. Also accepted as the second argument.
-    #[arg(long, required_unless_present = "title_text")]
+    #[arg(long, required_unless_present_any = ["title_text", "translation"])]
     pub title: Option<String>,
     /// The title, as `spec new adr "Use files"`.
     #[arg(id = "title_text", value_name = "TITLE", conflicts_with = "title")]
@@ -26,9 +26,14 @@ pub struct NewArgs {
     /// For slug-keyed types: the slug (defaults to the title).
     #[arg(long)]
     pub slug: Option<String>,
-    /// Supersede this document; its status becomes superseded.
+    /// Supersede this document; its status becomes superseded. With --translation: the
+    /// document to translate.
     #[arg(long)]
     pub from: Option<String>,
+    /// Start a translation into this language of the --from document: its body copied, lang,
+    /// rel.translation_of and source_rev recorded, placed by the [translations] layout.
+    #[arg(long, value_name = "LANG", requires = "from", conflicts_with_all = ["governs", "owner", "slug", "local", "bundle"])]
+    pub translation: Option<String>,
     /// Create in the git-ignored local directory.
     #[arg(long)]
     pub local: bool,
@@ -89,7 +94,7 @@ pub struct MvArgs {
 
 #[derive(Debug, Clone, Args)]
 #[command(
-    after_help = "Examples:\n  spec fix --staged --write\n  spec fix --rule L1 --write services/shop/.spec/plan/x.plan.md\n  spec fix --rule L1 --pick adr:root/20260412083000 --write services/shop/.spec/plan/x.plan.md:41"
+    after_help = "Examples:\n  spec fix --staged --write\n  spec fix --rule L1 --write services/shop/.spec/plan/x.plan.md\n  spec fix --rule L1 --pick adr:root/20260412083000 --write services/shop/.spec/plan/x.plan.md:41\n  spec fix --translations --write"
 )]
 pub struct FixArgs {
     /// Limit to files or `path:line` locations.
@@ -103,6 +108,10 @@ pub struct FixArgs {
     /// For an ambiguous reference: the id to use.
     #[arg(long)]
     pub pick: Option<String>,
+    /// Write rel.translation_of and lang into translations paired only by the
+    /// `[translations]` layout.
+    #[arg(long, conflicts_with_all = ["rule", "pick", "staged"])]
+    pub translations: bool,
     /// Apply the fixes (otherwise a preview).
     #[arg(long)]
     pub write: bool,

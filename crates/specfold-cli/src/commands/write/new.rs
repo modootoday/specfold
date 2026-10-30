@@ -13,12 +13,16 @@ use specfold_core::model::stamp::slugify;
 
 pub fn run(g: &Global, a: &NewArgs) -> Result<Output> {
     let s = session::open(g)?;
-    if let Some(kind) = asset_kind(&s, &a.ty) {
+    if let Some(lang) = &a.translation {
+        return translation(&s, a, lang);
+    }
+    let ty = a.ty.clone().unwrap_or_default();
+    if let Some(kind) = asset_kind(&s, &ty) {
         return asset(&s, a, kind);
     }
     let governs: Vec<String> = a.governs.iter().map(|p| session::repo_path(&s, p)).collect();
     let req = NewDoc {
-        ty: a.ty.clone(),
+        ty: ty.clone(),
         title: a.title().to_string(),
         governs,
         owner: a.owner.clone(),
@@ -48,7 +52,7 @@ pub fn run(g: &Global, a: &NewArgs) -> Result<Output> {
         .docs
         .iter()
         .filter(|d| {
-            d.id.ty == a.ty && d.str_field("title").is_some_and(|t| t.trim().eq_ignore_ascii_case(a.title().trim()))
+            d.id.ty == ty && d.str_field("title").is_some_and(|t| t.trim().eq_ignore_ascii_case(a.title().trim()))
         })
         .map(|d| d.id.to_string())
         .collect();
@@ -72,6 +76,28 @@ pub fn run(g: &Global, a: &NewArgs) -> Result<Output> {
         (None, true) => o,
         (None, false) => o.next(format!("spec show {}", created.id)),
     })
+}
+
+/// `spec new --translation <lang> --from <source>`.
+fn translation(s: &session::Session, a: &NewArgs, lang: &str) -> Result<Output> {
+    let from = a.from.as_deref().unwrap_or_default();
+    let title = a.title.as_deref().or(a.title_text.as_deref());
+    let (created, plan) = new::translation(&s.corpus, &s.graph, from, lang, title)?;
+    if let Some(ty) = &a.ty
+        && !created.id.starts_with(&format!("{ty}:"))
+    {
+        bail!("--from {from} is not a {ty}; leave out the type to translate it as it is");
+    }
+    let o = Output::new("new")
+        .unpaged()
+        .field("id", created.id.clone())
+        .field("path", created.path.clone())
+        .field("owner_reason", created.owner_reason.clone())
+        .head(format!("{} {}  {}", if a.dry_run { "would create" } else { "created" }, created.id, created.path))
+        .head(created.owner_reason.clone())
+        .head("the body is the source's: translate it; source_rev already records the source it was copied from");
+    let o = preview::finish(o, &plan, &s.corpus.cfg.root, !a.dry_run, "rerun without --dry-run")?;
+    Ok(if a.dry_run { o } else { o.next(format!("spec show {}", created.id)) })
 }
 
 /// The local directory is meant to stay out of git; the first local document makes sure it does,

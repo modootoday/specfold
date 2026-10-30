@@ -65,5 +65,6 @@ pub fn catalog() -> Vec<Box<dyn Rule>> {
         Box::new(counts::CountsMatch),
         Box::new(hidden::HiddenChars),
         Box::new(translations::TranslationsCurrent),
+        Box::new(translations::TranslationsPlaced),
     ]
 }

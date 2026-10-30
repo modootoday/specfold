@@ -22,5 +22,5 @@ pub use owners::{OwnerKind, OwnersSection};
 pub use plugins::PluginDef;
 pub use public::PublicSection;
 pub use raw::RawConfig;
-pub use rules::{AliasSection, CheckSection, CitesSection, ForbidSection};
+pub use rules::{AliasSection, CheckSection, CitesSection, ForbidSection, TranslationLayout, TranslationsSection};
 pub use verify::VerifySection;

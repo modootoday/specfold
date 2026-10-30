@@ -17,6 +17,15 @@ fn split_target(t: &str) -> (String, Option<usize>) {
 
 pub fn run(g: &Global, a: &FixArgs) -> Result<Output> {
     let s = session::open(g)?;
+    if a.translations {
+        let (plan, n) = fix::translation_pairs(&s.corpus)?;
+        let o = Output::new("fix")
+            .field("fixable", n)
+            .field("remaining", 0)
+            .head(format!("{n} translation(s) paired by the layout get rel.translation_of and lang"));
+        let o = preview::finish(o, &plan, &s.corpus.cfg.root, a.write, "spec fix --translations --write")?;
+        return Ok(if a.write { o.next("spec check") } else { o });
+    }
     let range = if a.staged { Range::Staged } else { Range::All };
     let sel = Selection { only: a.rules.clone(), skip: vec![] };
     let report = check::run(&s.corpus, &s.graph, range, &Options::default(), &sel)?;

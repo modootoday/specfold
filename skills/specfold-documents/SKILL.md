@@ -89,6 +89,11 @@ spec set guide:shop/setup-ko --source-rev      # after the text matches the sour
 
 When the source changes, R1 warns; update the translation, then run `--source-rev` again.
 
+To start one, `spec new --translation ko --from guide:shop/setup` copies the source body and
+records all three. With `[translations] layout` in spec.toml, a translation in its place
+(`setup-ko` beside the source, or under a `ko` owner for `layout = "dir"`) is paired without
+frontmatter; `spec fix --translations --write` writes the pair down.
+
 ## Move, attach, look up
 
 ```sh
