@@ -104,6 +104,7 @@ pub fn run(g: &Global, a: &ImportArgs) -> Result<Output> {
         content: String::new(),
         created: !table_existed,
     });
+    let saved = super::preview::keep_untracked(&p.plan, root)?;
     p.plan.apply(root)?;
     let table_path = s.corpus.cfg.root.join(&alias_file);
     let existing = std::fs::read_to_string(&table_path).unwrap_or_default();
@@ -116,7 +117,7 @@ pub fn run(g: &Global, a: &ImportArgs) -> Result<Output> {
             st.put(&s.corpus.cfg.root.join(path), sha).with_context(|| format!("uploading {path}"))?;
         }
     }
-    let undo = super::preview::undo(&with_table, root, None);
+    let undo = super::preview::undo(&with_table, root, saved.as_deref());
     Ok(o.field("undo", undo.clone())
         .foot(format!("{} change(s) written", p.plan.changes.len() + 1))
         .foot(format!("undo: {undo}"))

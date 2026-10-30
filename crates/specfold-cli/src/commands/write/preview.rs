@@ -125,17 +125,19 @@ pub const TRASH: &str = ".specfold/trash";
 
 /// C122: git cannot give back a document it never had, so before a move of an untracked file a
 /// copy goes to the trash directory, and the undo copies it back (content included).
-fn keep_untracked(plan: &Plan, root: &Path) -> Result<Option<String>> {
+pub fn keep_untracked(plan: &Plan, root: &Path) -> Result<Option<String>> {
     let tracked: std::collections::HashSet<String> =
         specfold_core::workspace::vcs::tracked(root, &[]).unwrap_or_default().into_iter().collect();
     let bin = format!("{TRASH}/{}", specfold_core::model::stamp::now_stamp());
     let mut any = false;
     for c in &plan.changes {
-        if let Change::Move { from, to } = c
-            && !to.starts_with(&format!("{TRASH}/"))
-            && !tracked.contains(from)
-            && root.join(from).is_file()
-        {
+        let from = match c {
+            Change::Move { from, to } if !to.starts_with(&format!("{TRASH}/")) => from,
+            // C123: an import removes its sources; one never committed has no other copy.
+            Change::Remove { path } => path,
+            _ => continue,
+        };
+        if !tracked.contains(from) && root.join(from).is_file() {
             let dst = root.join(&bin).join(from);
             std::fs::create_dir_all(dst.parent().expect("a file path has a parent"))?;
             std::fs::copy(root.join(from), dst)?;
@@ -155,8 +157,10 @@ pub fn undo(plan: &Plan, root: &Path, saved: Option<&str>) -> String {
     let mut paths: Vec<String> = vec![];
     let mut trash: Vec<String> = vec![];
     let mut back: Vec<(String, String)> = vec![];
+    let mut lost = false;
     for c in &plan.changes {
         match c {
+            Change::Remove { path } if !tracked.contains(path) => lost = true,
             Change::Write { path, .. } | Change::Remove { path } => paths.push(path.clone()),
             Change::Move { to, .. } if to.starts_with(&format!("{TRASH}/")) => {
                 // .specfold/trash/<stamp>/<path>: restoring the stamp directory puts every file back.
@@ -182,7 +186,7 @@ pub fn undo(plan: &Plan, root: &Path, saved: Option<&str>) -> String {
     for (to, _) in back.iter().filter(|_| saved.is_some()) {
         parts.push(format!("rm -f -- {}", w(to)));
     }
-    if let Some(bin) = saved.filter(|_| !back.is_empty()) {
+    if let Some(bin) = saved.filter(|_| !back.is_empty() || lost) {
         parts.push(format!("cp -Rp {}/. .", w(bin)));
     }
     for (to, from) in back.iter().filter(|_| saved.is_none()) {
