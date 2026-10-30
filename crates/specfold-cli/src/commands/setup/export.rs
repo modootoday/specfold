@@ -52,12 +52,15 @@ fn guard(
     Ok((o, false))
 }
 
-/// The files the exported documents come from (main file and chapters), as guard blobs.
+/// The files the exported documents come from (main file and chapters) and their repository
+/// text attachments up to [files] scan_max_bytes (the set rule U2 reads), as guard blobs.
 fn source_blobs(c: &specfold_core::corpus::Corpus, only: &[usize]) -> Vec<(String, Vec<u8>)> {
     let mut blobs = vec![];
+    let max = c.cfg.raw.files.scan_max_bytes;
     for &i in only {
         let d = &c.docs[i];
-        for path in std::iter::once(&d.path).chain(&d.chapters) {
+        let attachments = specfold_core::guards::secrets::scanned_attachments(&c.cfg.root, d, max);
+        for path in std::iter::once(&d.path).chain(&d.chapters).chain(&attachments) {
             if let Ok(bytes) = std::fs::read(c.cfg.root.join(path)) {
                 blobs.push((path.clone(), bytes));
             }

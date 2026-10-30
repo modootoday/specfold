@@ -47,7 +47,9 @@ exits 1 instead.
 
 Before anything is written or a plugin is called, the built-in secrets check and every guard
 with `public = true` read what is leaving: the built-in tree, or the source files of the
-documents a plugin receives. The secrets check runs even when no guard is configured. An
+documents a plugin receives. The secrets check runs even when no guard is configured, and also
+reads the exported documents' text attachments kept in the repository (up to `[files]
+scan_max_bytes`, binary files skipped). An
 error-level hit writes nothing and exits 1; warn-level hits are listed. `--no-guard` skips the
 check and the guards. Matched values are never printed.
 

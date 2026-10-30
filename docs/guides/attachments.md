@@ -56,7 +56,8 @@ Only the first 64 MiB of a file is read.
 After that, rule U2 (in `spec check` and the commit hook) and `spec guard secrets` keep reading
 the text files kept in the repository, so a secret added or left there later is an error in a
 committed document and a warning in a local one. Files over `[files] scan_max_bytes` (1 MiB by
-default) and binary files are not read; stored files were checked before upload.
+default) and binary files are not read; stored files were checked before upload. `spec export`
+reads the same files for the documents it exports, and refuses the export on a hit.
 
 ## Rules
 

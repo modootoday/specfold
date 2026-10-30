@@ -67,6 +67,7 @@ absent remote directory is skipped.
 | **T3** | sealed documents keep their body |
 | **T4** | an edited body moves its updated date |
 | **T5** | exceptions are reviewed by their date |
+| **D1** | changed code moves its governing document (staged and ranged runs only; a warning) |
 
 A document that departs from another on purpose names it with `rel.exception_of` and sets
 `review_by: YYYY-MM-DD`. T5 warns when `review_by` is missing or not a date, and once the date has
@@ -82,6 +83,11 @@ T5 is a warning by default. To fail the check on an overdue exception, raise it 
 [check.severity]
 T5 = "error"
 ```
+
+D1 runs only with `--staged` or `--changed`. Each changed file that is not a document is matched
+against the explicit `rel.governs` of active, committed documents; a document whose code changed
+must change in the same range, or be named by a `change` note that does. Otherwise D1 warns with
+the changed paths. Documents that govern only through their owner directory are not asked.
 
 ## Visibility
 
