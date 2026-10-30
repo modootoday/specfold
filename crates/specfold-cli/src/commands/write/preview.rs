@@ -59,8 +59,9 @@ pub fn finish(mut o: Output, plan: &Plan, root: &Path, write: bool, rerun: &str)
         o = o.item(item, text);
     }
     if write {
+        let saved = keep_untracked(plan, root)?;
         plan.apply(root)?;
-        let undo = undo(plan, root);
+        let undo = undo(plan, root, saved.as_deref());
         Ok(o.field("written", true)
             .field("undo", undo.clone())
             .foot(format!("{} change(s) written", plan.changes.len()))
@@ -122,7 +123,29 @@ pub fn finish_bounded(
 /// A file moved here instead of deleted comes back with a copy, since git may never have had it.
 pub const TRASH: &str = ".specfold/trash";
 
-pub fn undo(plan: &Plan, root: &Path) -> String {
+/// C122: git cannot give back a document it never had, so before a move of an untracked file a
+/// copy goes to the trash directory, and the undo copies it back (content included).
+fn keep_untracked(plan: &Plan, root: &Path) -> Result<Option<String>> {
+    let tracked: std::collections::HashSet<String> =
+        specfold_core::workspace::vcs::tracked(root, &[]).unwrap_or_default().into_iter().collect();
+    let bin = format!("{TRASH}/{}", specfold_core::model::stamp::now_stamp());
+    let mut any = false;
+    for c in &plan.changes {
+        if let Change::Move { from, to } = c
+            && !to.starts_with(&format!("{TRASH}/"))
+            && !tracked.contains(from)
+            && root.join(from).is_file()
+        {
+            let dst = root.join(&bin).join(from);
+            std::fs::create_dir_all(dst.parent().expect("a file path has a parent"))?;
+            std::fs::copy(root.join(from), dst)?;
+            any = true;
+        }
+    }
+    Ok(any.then_some(bin))
+}
+
+pub fn undo(plan: &Plan, root: &Path, saved: Option<&str>) -> String {
     // C122: git knows only tracked paths and files on disk; a path that is neither (the old end
     // of a move of a document not yet committed) would make the stash fail, so that move is
     // taken back with a plain `mv` instead.
@@ -156,7 +179,13 @@ pub fn undo(plan: &Plan, root: &Path) -> String {
     trash.dedup();
     let w = crate::session::shell_word;
     let mut parts = vec![];
-    for (to, from) in &back {
+    for (to, _) in back.iter().filter(|_| saved.is_some()) {
+        parts.push(format!("rm -f -- {}", w(to)));
+    }
+    if let Some(bin) = saved.filter(|_| !back.is_empty()) {
+        parts.push(format!("cp -Rp {}/. .", w(bin)));
+    }
+    for (to, from) in back.iter().filter(|_| saved.is_none()) {
         if let Some(dir) = Path::new(from).parent().filter(|d| !d.as_os_str().is_empty()) {
             parts.push(format!("mkdir -p {}", w(&dir.to_string_lossy())));
         }

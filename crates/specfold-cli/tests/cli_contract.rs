@@ -704,6 +704,8 @@ fn c122_mv_undo_restores_committed_and_uncommitted_documents() {
         let (_, d) = r.json(&["show", &id]);
         let path = d["path"].as_str().unwrap().to_string();
         let text = r.read(&path);
+        // A second later the move bumps `updated`, so the undo must bring the old text back.
+        std::thread::sleep(std::time::Duration::from_millis(1100));
         let (code, v) = r.json(&["mv", &id, "--slug", "use-plain-files", "--write"]);
         assert_eq!(code, 0, "{v}");
         let undo = v["undo"].as_str().unwrap().to_string();
