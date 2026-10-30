@@ -126,3 +126,22 @@ fn a_pinned_remote_document_warns_when_it_changes() {
     let (code, v) = app.json(&["check", "--rule", "L7"]);
     assert_eq!(code, 1, "{v}");
 }
+
+#[test]
+fn consumers_of_a_shared_document_are_listed_from_either_side() {
+    let (shared, app, doc) = linked();
+    let me = app.new_doc("guide", "services/shop", "Relies on the shared setup");
+    assert_eq!(app.json(&["set", &me, "--pin", &format!("org:{doc}")]).0, 0);
+    let (code, v) = app.json(&["graph", "consumers", &format!("org:{doc}")]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["items"][0]["repo"], ".", "{v}");
+    assert_eq!(v["items"][0]["id"], me.as_str(), "{v}");
+    assert_eq!(v["items"][0]["via"], "pins", "{v}");
+    let cfg = shared.read("spec.toml");
+    shared.write("spec.toml", &format!("{cfg}[remotes.apps]\npath = \"{}\"\n", app.path().to_string_lossy()));
+    let (code, v) = shared.json(&["graph", "consumers", &doc]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["items"][0]["repo"], "apps", "{v}");
+    assert_eq!(v["items"].as_array().unwrap().len(), 1, "{v}");
+    assert_ne!(app.json(&["graph", "consumers", "ci:guide:a/b"]).0, 0);
+}

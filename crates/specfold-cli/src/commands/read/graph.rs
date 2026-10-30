@@ -182,7 +182,31 @@ pub fn run(g: &Global, a: &GraphArgs) -> Result<Output> {
             }
             Ok(o.next(format!("spec context {rel}")))
         }
-        (Some(q), _) if !["impact", "chain", "governs"].contains(&q) => {
+        (Some("consumers"), Some(t)) => {
+            use specfold_core::remotes::{self, Remote};
+            let (shown, file) = match remotes::resolve(&c.cfg, t) {
+                Remote::Local => {
+                    let idx = session::resolve(&s, t)?;
+                    (id(idx), c.cfg.root.join(&c.docs[idx].path))
+                }
+                Remote::Found { name, id, file, .. } => (format!("{name}:{id}"), file),
+                Remote::Absent { name, path } => {
+                    bail!("the remote {name} is not on disk ({}); next: spec doctor", path.display())
+                }
+                Remote::Missing { name, id } | Remote::MissingAnchor { name, id, .. } => {
+                    bail!("the remote {name} has no document {id}; next: spec doctor")
+                }
+                Remote::Ambiguous { name, ids } => bail!("{t} is ambiguous in the remote {name}: {}", ids.join(", ")),
+            };
+            for u in remotes::consumers(&c.cfg, c, &file) {
+                o = o.item(
+                    json!({"repo": u.repo, "id": u.id, "path": u.path, "via": u.via}),
+                    format!("{:<12} {:<36} {}", u.repo, u.id, u.via),
+                );
+            }
+            Ok(o.field("target", shown.clone()).next(format!("spec show {shown}")))
+        }
+        (Some(q), _) if !["impact", "chain", "governs", "consumers"].contains(&q) => {
             let whole = match q {
                 "tree" => "spec graph".to_string(),
                 "ascii" => "spec graph --ascii".to_string(),
@@ -190,7 +214,9 @@ pub fn run(g: &Global, a: &GraphArgs) -> Result<Output> {
                 "json" => "spec graph --json".to_string(),
                 _ => "spec graph impact <id>".to_string(),
             };
-            bail!("unknown query '{q}' (impact, chain, governs; the whole graph takes no query); next: {whole}")
+            bail!(
+                "unknown query '{q}' (impact, chain, governs, consumers; the whole graph takes no query); next: {whole}"
+            )
         }
         (Some(q), None) => {
             let example = if q == "governs" {

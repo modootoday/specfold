@@ -125,6 +125,56 @@ pub fn rev(cfg: &Config, text: &str) -> Option<(String, String)> {
         _ => None,
     }
 }
+/// A document in this repository or a remote that names another repository's document.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Consumer {
+    /// `.` for this repository, else the remote's name.
+    pub repo: String,
+    pub id: String,
+    pub path: String,
+    /// `rel.<kind>` or `pins`.
+    pub via: String,
+}
+
+/// The documents, here and in every remote on disk, whose relations or pins name the document at
+/// `target` (an absolute file path) through one of their own remotes. Only frontmatter is read;
+/// a remote's own remotes are resolved from directories already on disk, never fetched.
+pub fn consumers(cfg: &Config, here: &Corpus, target: &std::path::Path) -> Vec<Consumer> {
+    let canon = |p: &std::path::Path| std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
+    let target = canon(target);
+    let mut repos: Vec<(String, Arc<Loaded>)> = vec![];
+    for name in cfg.raw.remotes.keys() {
+        if let Some(l) = load(cfg, name) {
+            repos.push((name.clone(), l));
+        }
+    }
+    let mut out = vec![];
+    let mut scan = |repo: &str, c: &Corpus| {
+        for d in &c.docs {
+            let mut refs: Vec<(String, String)> =
+                d.rel().into_iter().flat_map(|(k, vs)| vs.into_iter().map(move |v| (format!("rel.{k}"), v))).collect();
+            if let Some(serde_json::Value::Object(m)) = d.fm().and_then(|m| m.get("pins")) {
+                refs.extend(m.keys().map(|k| ("pins".to_string(), k.clone())));
+            }
+            for (via, v) in refs {
+                if let Remote::Found { file, .. } = resolve(&c.cfg, &v)
+                    && canon(&file) == target
+                {
+                    let u = Consumer { repo: repo.to_string(), id: d.id.to_string(), path: d.path.clone(), via };
+                    if !out.contains(&u) {
+                        out.push(u);
+                    }
+                }
+            }
+        }
+    };
+    scan(".", here);
+    for (name, l) in &repos {
+        scan(name, &l.corpus);
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

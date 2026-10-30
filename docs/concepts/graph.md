@@ -51,10 +51,14 @@ graph LR
 $ spec context services/shop/src/cart/total.rs
 $ spec graph impact sot:shop/cart-totals
 $ spec graph chain adr:root/20261029190946
+$ spec graph consumers org:adr:root/20261030000000
 ```
 
 `spec context` lists the documents to read before changing a path. `impact` lists what reaches a
-document, with the relation and distance. `chain` shows a supersede chain in both directions.
+document, with the relation and distance. `chain` shows a supersede chain in both directions. `consumers` lists the documents, in this
+repository and in each `[remotes]` directory on disk, whose relations or pins name a document
+through a remote. In a shared repository, list the consuming repositories as remotes and run it
+before changing a shared decision; `--json` feeds a dashboard. Nothing is fetched.
 
 ## Draw it in a terminal
 

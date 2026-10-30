@@ -82,7 +82,8 @@ repository listed under `[remotes.<name>]` in spec.toml is `<name>:<id>` (`[[org
 read it with `spec show <name>:<id>`, and change it in that repository, not from here.
 A translation may name such a source, and `[[<name>:<id>]]` in READMEs and code comments is
 checked too. `spec doctor` shows which remotes are on disk. When this document relies on the exact
-text of a remote one, pin it: `spec set <id> --pin <name>:<id>`; L7 warns when it changes.
+text of a remote one, pin it: `spec set <id> --pin <name>:<id>`; L7 warns when it changes. Before changing a shared document, `spec graph consumers <id>` lists who
+relies on it in the remotes on disk.
 
 An exception to a rule or decision is its own document: `rel.exception_of` names what it departs
 from, and `review_by: YYYY-MM-DD` says when to look again. Keep a personal or temporary one in
