@@ -93,7 +93,14 @@ impl Plan {
             if let Change::Write { path, content, .. } = c {
                 let dst = root.join(path);
                 ensure_parent(&dst)?;
-                std::fs::write(&dst, content).with_context(|| format!("cannot write {path}"))?;
+                // C154: a file kept with CRLF line endings stays CRLF throughout.
+                let crlf = std::fs::read(&dst).map(|b| b.windows(2).any(|w| w == b"\r\n")).unwrap_or(false);
+                let text = if crlf {
+                    std::borrow::Cow::Owned(content.replace("\r\n", "\n").replace('\n', "\r\n"))
+                } else {
+                    std::borrow::Cow::Borrowed(content.as_str())
+                };
+                std::fs::write(&dst, text.as_bytes()).with_context(|| format!("cannot write {path}"))?;
             }
         }
         for c in &self.changes {

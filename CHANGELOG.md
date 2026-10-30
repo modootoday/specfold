@@ -9,6 +9,8 @@ Release notes for each version are also on
 
 What an existing command does differs from 0.3.0; check scripts and CI that call these.
 
+- An id held by two files (I1, e.g. a `.spec/` and a `.spec.local/` copy) is refused (exit 2) by every command that takes a document, listing both paths; name one by its path. `spec doctor`'s fix names the path (C139).
+- `spec edit --section`/`--new-section` refuses (exit 2) text holding a heading at the section's level or above, which would start or duplicate a section; deeper headings and fenced code are fine (C125).
 - `spec import --apply --write` refuses (exit 4) while rows marked `!` still need a decision, lists them and suggests `--force`; the new `--force` imports anyway. Previews are unchanged (C155).
 - `spec attach --into` refuses (exit 2) an absolute folder or one with `..`; it used to write outside the bundle (C142).
 - `spec new skill|rule|agent` refuses (exit 2) a title with no ASCII words unless `--slug` is given, and a `--slug` that is not kebab-case (C147).
@@ -122,6 +124,9 @@ What an existing command does differs from 0.3.0; check scripts and CI that call
 
 ### Fixed
 
+- Writes keep a file's CRLF line endings instead of mixing in LF (C154).
+- `spec mv` rewrites relative Markdown links to the moved file (fragment kept), and its next includes L8 (C137).
+- `spec audit --record` cites findings as `[[id]]` so the record passes L2, and audit records are no longer reported as orphans (C136).
 - `spec attach` previews and refusals keep `--into` in their next (C143).
 - Code fences close only with the same character and at least the same length, so a ```` fence holding ``` lines or a `~~~` fence is read alike by every command (C135).
 - `spec import` counts the alias table toward `[write] max_files` (C138).

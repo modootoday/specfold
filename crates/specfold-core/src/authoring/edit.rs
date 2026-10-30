@@ -94,6 +94,7 @@ pub fn plan(c: &Corpus, idx: usize, e: &Edit) -> Result<Outcome> {
             }
             None => (lines.len(), 2),
         };
+        refuse_headings(new_text, level)?;
         let mut prefix: Vec<String> = lines[..at].iter().map(|s| s.to_string()).collect();
         while prefix.last().is_some_and(|l| l.trim().is_empty()) {
             prefix.pop();
@@ -126,6 +127,7 @@ pub fn plan(c: &Corpus, idx: usize, e: &Edit) -> Result<Outcome> {
                 let have = sections::names(split.body);
                 bail!("no section '{name}' (sections: {}); to add it: --new-section {name:?}", have.join(" | "));
             };
+            refuse_headings(new_text, lines[start].trim_start().chars().take_while(|c| *c == '#').count())?;
             // Trailing blank lines separate sections; keep them outside the edited content.
             let mut last = end;
             while last > start + 1 && lines[last - 1].trim().is_empty() {
@@ -167,4 +169,25 @@ pub fn plan(c: &Corpus, idx: usize, e: &Edit) -> Result<Outcome> {
         plan.write(&d.path, rewritten, false);
     }
     Ok(Outcome { plan, target, before, after })
+}
+
+/// C125: section text may hold sub-headings, but a heading at the section's level or above would
+/// start another section (and could duplicate one).
+fn refuse_headings(text: &str, level: usize) -> Result<()> {
+    let mut fence = crate::markdown::Fence::default();
+    for line in text.lines() {
+        let t = line.trim_start();
+        if fence.step(t) || fence.inside() {
+            continue;
+        }
+        let hashes = t.chars().take_while(|c| *c == '#').count();
+        if hashes >= 1 && hashes <= level && t[hashes..].starts_with(' ') {
+            bail!(
+                "the text holds the heading '{}', which would start a new section; add it with --new-section, or use a deeper heading ({})",
+                t.trim(),
+                "#".repeat(level + 1)
+            );
+        }
+    }
+    Ok(())
 }

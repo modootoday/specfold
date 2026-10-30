@@ -103,6 +103,11 @@ pub fn shell_word(s: &str) -> String {
 
 /// Resolves a reference to one document: id, alias, path, or a unique slug.
 pub fn resolve(s: &Session, text: &str) -> Result<usize> {
+    // C139: two files holding one id (I1) must not be picked silently; the path names one.
+    let same: Vec<&str> = s.corpus.docs.iter().filter(|d| d.id.to_string() == text).map(|d| d.path.as_str()).collect();
+    if same.len() > 1 {
+        bail!("'{text}' is held by {} files: {}; name one by its path", same.len(), same.join(", "));
+    }
     let rel = repo_path(s, text);
     for candidate in [text.to_string(), rel] {
         match s.graph.resolve(&candidate) {

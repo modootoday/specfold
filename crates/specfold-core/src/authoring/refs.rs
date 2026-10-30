@@ -42,6 +42,64 @@ pub fn rewrite_rel(map: &mut Map<String, Value>, old: &str, new: &str) -> bool {
     changed
 }
 
+/// `a/./b/../c` as `a/c`; `None` when it climbs above the root.
+fn normalize(path: &str) -> Option<String> {
+    let mut out: Vec<&str> = vec![];
+    for part in path.split('/') {
+        match part {
+            "" | "." => {}
+            ".." => {
+                out.pop()?;
+            }
+            p => out.push(p),
+        }
+    }
+    Some(out.join("/"))
+}
+
+/// The path of `to` written relative to the folder holding `from`.
+fn relative(from: &str, to: &str) -> String {
+    let base: Vec<&str> =
+        from.rsplit_once('/').map(|x| x.0).unwrap_or("").split('/').filter(|p| !p.is_empty()).collect();
+    let target: Vec<&str> = to.split('/').collect();
+    let common = base.iter().zip(&target).take_while(|(a, b)| a == b).count();
+    let mut parts: Vec<&str> = vec![".."; base.len() - common];
+    parts.extend(&target[common..]);
+    parts.join("/")
+}
+
+/// Rewrites `[text](rel/path#frag)` links in `file` that point at `old` so they point at `new`.
+pub fn rewrite_relative_links(body: &str, file: &str, old: &str, new: &str) -> String {
+    let dir = file.rsplit_once('/').map(|x| x.0).unwrap_or("");
+    let mut out = String::with_capacity(body.len());
+    let mut rest = body;
+    while let Some(i) = rest.find("](") {
+        out.push_str(&rest[..i + 2]);
+        rest = &rest[i + 2..];
+        let Some(end) = rest.find(')') else { break };
+        let link = &rest[..end];
+        let (target, frag) = match link.split_once('#') {
+            Some((t, f)) => (t, Some(f)),
+            None => (link, None),
+        };
+        let local = !target.is_empty() && !target.contains("://") && !target.starts_with('/') && !target.contains(' ');
+        let joined = if dir.is_empty() { target.to_string() } else { format!("{dir}/{target}") };
+        if local && normalize(&joined).as_deref() == Some(old) {
+            out.push_str(&relative(file, new));
+            if let Some(f) = frag {
+                out.push('#');
+                out.push_str(f);
+            }
+        } else {
+            out.push_str(link);
+        }
+        out.push(')');
+        rest = &rest[end + 1..];
+    }
+    out.push_str(rest);
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

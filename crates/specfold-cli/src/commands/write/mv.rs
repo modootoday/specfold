@@ -75,7 +75,7 @@ pub fn run(g: &Global, a: &MvArgs) -> Result<Output> {
     } else if cited > 0 {
         o.foot(format!("{cited} line(s) outside the documents cite the old path; fix them after the move"))
     } else if written {
-        o.next(format!("spec check --rule L1 --rule P1 --rule S2  # then: spec show {}", moved.to))
+        o.next(format!("spec check --rule L1 --rule P1 --rule S2 --rule L8  # then: spec show {}", moved.to))
     } else {
         o
     })

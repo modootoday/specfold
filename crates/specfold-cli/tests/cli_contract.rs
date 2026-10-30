@@ -946,3 +946,105 @@ fn c155_import_write_refuses_rows_that_need_a_decision() {
     assert_eq!(code, 0, "{v}");
     assert!(!r.path().join("docs/adr/0001-use-files.md").exists(), "{v}");
 }
+
+fn doc_path(r: &common::Repo, id: &str) -> String {
+    let (_, d) = r.json(&["show", id]);
+    d["path"].as_str().unwrap().to_string()
+}
+
+#[test]
+fn c154_writes_keep_crlf_line_endings() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    let path = doc_path(&r, &id);
+    let crlf = r.read(&path).replace('\n', "\r\n");
+    r.write(&path, &crlf);
+    r.commit("crlf");
+    assert_eq!(r.json(&["set", &id, "tags+=x", "--write"]).0, 0);
+    assert_eq!(r.json(&["edit", &id, "--section", "Rule", "--text", "New rule.", "--write"]).0, 0);
+    let text = r.read(&path);
+    assert!(text.contains("New rule.") && text.contains("x"), "{text}");
+    assert_eq!(text.matches('\n').count(), text.matches("\r\n").count(), "only CRLF: {text:?}");
+}
+
+#[test]
+fn c139_an_id_held_by_two_files_is_refused() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    let path = doc_path(&r, &id);
+    let owner = id.split(':').nth(1).unwrap().split('/').next().unwrap();
+    let local = format!(".spec.local/{owner}/sot/cart.sot.md");
+    r.write(&local, &r.read(&path));
+    r.write(".gitignore", ".spec.local/\n");
+    r.commit("dup");
+    let (code, v) = r.json(&["mv", &id, "--slug", "cart-local", "--write"]);
+    assert_eq!(code, 2, "{v}");
+    assert!(v.to_string().contains(&local), "{v}");
+    assert!(r.path().join(&path).exists());
+    let (_, v) = r.json(&["doctor"]);
+    assert!(v.to_string().contains(&format!("spec mv {local}")), "{v}");
+}
+
+#[test]
+fn c137_mv_rewrites_relative_markdown_links() {
+    let r = common::repo();
+    let a = r.new_doc("sot", "services/shop", "Cart");
+    let b = r.new_doc("sot", "services/shop", "Pay");
+    let pb = doc_path(&r, &b);
+    let text = r.read(&pb);
+    r.write(
+        &pb,
+        &format!(
+            "{text}\nSee [cart](cart.sot.md) and [v](./cart.sot.md#verification) and [w](https://x.io/cart.sot.md).\n"
+        ),
+    );
+    r.commit("links");
+    let (code, v) = r.json(&["mv", &a, "--slug", "basket", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    assert!(v["next"].to_string().contains("L8"), "{v}");
+    let t = r.read(&pb);
+    assert!(t.contains("[cart](basket.sot.md)") && t.contains("[v](basket.sot.md#verification)"), "{t}");
+    assert!(t.contains("https://x.io/cart.sot.md"), "{t}");
+    let (_, v) = r.json(&["check", "--rule", "L8"]);
+    assert!(!v.to_string().contains("cart.sot.md"), "{v}");
+}
+
+#[test]
+fn c136_audit_record_passes_check_and_is_no_orphan() {
+    let r = common::repo();
+    for t in ["Loose one", "Loose two"] {
+        let id = r.new_doc("sot", "services/shop", t);
+        let p = doc_path(&r, &id);
+        let text = r.read(&p).replace("governs:\n  - services/shop\n", "").replace("governs: [services/shop]\n", "");
+        r.write(&p, &text);
+        r.json(&["set", &id, "rel.governs-=services/shop", "status=active", "--write"]);
+    }
+    r.commit("loose");
+    let (code, v) = r.json(&["audit", "--record", "--title", "four", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    r.commit("record");
+    let (_, v) = r.json(&["check", "--rule", "L2"]);
+    assert_eq!(v["errors"], 0, "{v}");
+    let (_, v) = r.json(&["list", "--type", "audit"]);
+    let rec = v["items"][0]["path"].as_str().unwrap_or_default().to_string();
+    assert!(r.read(&rec).contains("[[sot:"), "{v}");
+    let (_, v) = r.json(&["audit"]);
+    assert!(!v.to_string().contains("\"subject\":\"audit:"), "{v}");
+}
+
+#[test]
+fn c125_section_text_may_not_start_another_section() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    for args in [
+        &["edit", &id, "--section", "Rule", "--text", "x\n## Why\ndup", "--write"][..],
+        &["edit", &id, "--new-section", "Risks", "--text", "- r\n# Top\n", "--write"],
+    ] {
+        let (code, v) = r.json(args);
+        assert_eq!(code, 2, "{args:?}: {v}");
+    }
+    assert_eq!(
+        r.json(&["edit", &id, "--section", "Rule", "--text", "x\n### Detail\n```\n## not a heading\n```", "--write"]).0,
+        0
+    );
+}
