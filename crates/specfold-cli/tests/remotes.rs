@@ -168,3 +168,11 @@ fn pins_are_removed_with_unpin_and_pin_errors_name_the_case() {
     let p = app.json(&["resolve", &me]).1["path"].as_str().unwrap().to_string();
     assert!(!app.read(&p).contains("pins"), "{}", app.read(&p));
 }
+
+#[test]
+fn a_translation_cannot_start_from_a_remote_source() {
+    let (_shared, app, doc) = linked();
+    let (code, v) = app.json(&["new", "--translation", "ko", "--from", &format!("org:{doc}")]);
+    assert_ne!(code, 0, "{v}");
+    assert!(v.to_string().contains("never copies from"), "{v}");
+}

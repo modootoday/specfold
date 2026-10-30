@@ -105,7 +105,8 @@ The frontmatter then holds `lang: ko`, `rel: {translation_of: [guide:shop/setup]
 original, never another translation; one translation per language per source.
 
 To start one, `spec new --translation ko --from guide:shop/setup` copies the source body and
-records all three. With `[translations] layout` in spec.toml, a translation in its place
+records all three. The source must be local; for a document in a remote, copy it here first
+or translate it in its own repository. With `[translations] layout` in spec.toml, a translation in its place
 (`setup-ko` beside the source, or under a `ko` owner for `layout = "dir"`) is paired without
 frontmatter; `spec fix --translations --write` writes the pair down.
 

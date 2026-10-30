@@ -45,9 +45,11 @@ A reference or relation written `<name>:<id>` names a document in another reposi
 under `[remotes.<name>]`. L1 and L3 check it when that directory is on disk, with the same type
 rules as local targets, and skip it when the directory is absent, so a CI job without that
 checkout does not fail. `spec show <name>:<id>` reads it; nothing writes there.
-L6 checks `[[<name>:<id>]]` in files listed under `[cites]` the same way. A translation may name a
-remote source (`rel.translation_of: [org:guide:root/setup]`); R1 compares its `source_rev` with
-the remote body, and `spec set <id> --source-rev` records it. `spec doctor` lists every remote,
+L6 checks `[[<name>:<id>]]` in files listed under `[cites]` the same way. For checking only, a
+translation may name a remote source (`rel.translation_of: [org:guide:root/setup]`); R1 compares
+its `source_rev` with the remote body, and `spec set <id> --source-rev` records it. `spec new
+--translation` does not start from a remote source, because nothing is copied out of a remote:
+copy the document into this repository first, or translate it in its own repository. `spec doctor` lists every remote,
 its directory and whether it is present.
 
 A document can pin a remote document by content when it depends on that exact text:
@@ -155,7 +157,7 @@ source_rev: sha256:3f2a9c0b1d4e
 
 A translation can also be paired by place, without frontmatter, when `spec.toml` sets `[translations] layout`. With `layout = "suffix"`, `guide:shop/setup-ko` is the `ko` translation of `guide:shop/setup`: same type and spec directory, slug ending in `-<lang>`. With `layout = "dir"`, the translation has the source's slug under an owner in a `<lang>` directory of the source's owner, for example `services/shop/ko/.spec/guide/setup.guide.md`; that directory must be an owner (`[[owners.kinds]] pattern = "services/*/ko"`). `<lang>` is one of `languages`. Timestamp-keyed translations keep their own timestamp and are paired by slug. `rel.translation_of` and `lang` in frontmatter win over the layout. R2 reports a document placed as a translation with no source, or more than one, in the matching place; `rel.translation_of` that names another document than the layout; and `lang` that differs from the language of its place. R2 warns; `strict = true` makes it an error. `spec fix --translations` previews writing `rel.translation_of` and `lang` into every pair the layout infers, and `--write` applies it.
 
-`spec new --translation <lang> --from <id>` starts a translation: it takes the source's type, gets its own key, is placed by the layout (`<slug>-<lang>` beside the source without one), copies the source body (and the chapters and files of a bundle), and records `lang`, `rel.translation_of` and `source_rev`. It starts as `draft` where the type has that status.
+`spec new --translation <lang> --from <id>` starts a translation: it takes the source's type, gets its own key, is placed by the layout (`<slug>-<lang>` beside the source without one), copies the source body (and the chapters and files of a bundle), and records `lang`, `rel.translation_of` and `source_rev`. It starts as `draft` where the type has that status. The tag in the name is lower case (`setup-pt-br`); `lang` keeps the BCP 47 form (`pt-BR`). A source that is itself a translation is refused with the original's id.
 
 ## Numbers
 

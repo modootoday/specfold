@@ -164,7 +164,18 @@ pub fn plan(c: &Corpus, g: &Graph, req: &NewDoc) -> Result<(Created, Plan)> {
 /// copied to translate, and lang, rel.translation_of and source_rev recorded.
 pub fn translation(c: &Corpus, g: &Graph, from: &str, lang: &str, title: Option<&str>) -> Result<(Created, Plan)> {
     use crate::config::types::TranslationLayout as L;
+    if let Some((name, rest)) = crate::remotes::split(&c.cfg, from) {
+        bail!(
+            "--from {from} is in the remote {name}, which specfold reads but never copies from; copy {rest} into this repository first (or translate it in that repository), then: spec new --translation {lang} --from <the local id>. A local translation may still name a remote source in rel.translation_of; R1 tracks it"
+        );
+    }
     let Resolution::Doc { idx, .. } = g.resolve(from) else { bail!("--from {from} names no single document") };
+    if let Some(orig) = crate::translation::source_ref(c, idx) {
+        bail!(
+            "--from {} is itself a translation of {orig}; translate the original instead: spec new --translation {lang} --from {orig}",
+            c.docs[idx].id
+        );
+    }
     if crate::translation::lang_problem(lang).is_some() {
         bail!("--translation '{lang}' is not a language tag like ko or pt-br");
     }
@@ -185,7 +196,8 @@ pub fn translation(c: &Corpus, g: &Graph, from: &str, lang: &str, title: Option<
             })?;
             (o, src.slug.clone())
         }
-        _ => (src_owner, format!("{}-{lang}", src.slug)),
+        // The tag keeps its BCP 47 case in `lang`; in a slug it is lower case (`setup-pt-br`).
+        _ => (src_owner, format!("{}-{}", src.slug, lang.to_ascii_lowercase())),
     };
     let mut key = match ty.key {
         KeyKind::Slug => slug.clone(),
