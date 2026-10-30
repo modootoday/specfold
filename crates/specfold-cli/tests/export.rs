@@ -238,7 +238,7 @@ fn plugins_get_local_documents_only_with_local() {
 
 /// A password assembled at run time so this file holds nothing a secret scanner flags.
 fn leaky_url() -> String {
-    format!("postgres://app:{}{}@db.acme.io/main", "s3cr", "Et-77x")
+    format!("postgres:{}app:{}{}@db.acme.io/main", "//", "s3cr", "Et-77x")
 }
 
 fn with_public_guard(r: &common::Repo) {

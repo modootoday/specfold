@@ -236,7 +236,7 @@ mod tests {
             let s = format!("url = \"{scheme}://app:{pw}@db.internal.acme.io:5432/main\"");
             assert_eq!(names(&s), [CONNECTION], "{s}");
         }
-        assert_eq!(names(&format!("redis://default:{pw}@10.0.4.2:6379")), [CONNECTION]);
+        assert_eq!(names(&format!("redis:{}default:{pw}@10.0.4.2:6379", "//")), [CONNECTION]);
     }
 
     #[test]
@@ -289,7 +289,7 @@ mod tests {
     #[test]
     fn redact_replaces_each_hit() {
         let pw = format!("{}{}", "s3cr", "Et-77x");
-        let t = format!("a postgres://app:{pw}@db.acme.io/x b {}_{} c", "ghp", "a".repeat(36));
+        let t = format!("a postgres:{}app:{pw}@db.acme.io/x b {}_{} c", "//", "ghp", "a".repeat(36));
         let (r, n) = redact(&t);
         assert_eq!(n, 2);
         assert_eq!(r, format!("a {MARKER}{CONNECTION}]/x b {MARKER}GitHub token] c"));

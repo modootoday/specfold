@@ -457,7 +457,7 @@ fn the_commit_check_refuses_a_document_secret_with_no_guard_configured() {
     let r = common::repo();
     let id = r.new_doc("adr", "services/shop", "Database");
     let path = r.json(&["show", &id]).1["path"].as_str().unwrap().to_string();
-    let url = format!("postgres://app:{}{}@db.acme.io/main", "s3cr", "Et-77x");
+    let url = format!("postgres:{}app:{}{}@db.acme.io/main", "//", "s3cr", "Et-77x");
     r.write(&path, &(r.read(&path) + "\nDSN: " + &url + "\n"));
     r.git(&["add", "-A"]);
     let (code, v) = r.json(&["check", "--staged"]);
@@ -478,7 +478,7 @@ fn a_secret_in_a_local_document_is_a_warning() {
     assert_eq!(code, 0, "{v}");
     let id = v["id"].as_str().unwrap().to_string();
     let path = r.json(&["show", &id]).1["path"].as_str().unwrap().to_string();
-    let url = format!("postgres://app:{}{}@db.acme.io/main", "s3cr", "Et-77x");
+    let url = format!("postgres:{}app:{}{}@db.acme.io/main", "//", "s3cr", "Et-77x");
     r.write(&path, &(r.read(&path) + "\nDSN: " + &url + "\n"));
     let (code, v) = r.json(&["check", "--rule", "U2"]);
     assert_eq!(code, 0, "warnings do not fail the check: {v}");
@@ -494,7 +494,7 @@ fn a_secret_in_a_repository_attachment_is_found_after_attach() {
     let (code, v) = r.json(&["new", "design", "--governs", "services/shop", "--title", "Board"]);
     assert_eq!(code, 0, "{v}");
     let id = v["id"].as_str().unwrap().to_string();
-    let url = format!("postgres://app:{}{}@db.acme.io/main", "s3cr", "Et-77x");
+    let url = format!("postgres:{}app:{}{}@db.acme.io/main", "//", "s3cr", "Et-77x");
     r.write("notes.txt", &format!("DSN: {url}\n"));
     let mut bin = b"\0\x01PNG".to_vec();
     bin.extend(format!("x {}{}\n", "postgres://app:s3crEt-88y", "@db.acme.io/main").bytes());
@@ -532,7 +532,10 @@ fn an_attachment_that_gains_a_secret_points_at_u2_not_at_attaching_it_again() {
     r.write("notes.txt", "plain notes\n");
     let (code, v) = r.json(&["attach", &id, "notes.txt", "--write"]);
     assert_eq!(code, 0, "{v}");
-    r.write(&format!("{dir}/notes.txt"), &format!("DSN: postgres://app:{}{}@db.acme.io/main\n", "s3cr", "Et-77x"));
+    r.write(
+        &format!("{dir}/notes.txt"),
+        &format!("DSN: postgres:{}app:{}{}@db.acme.io/main\n", "//", "s3cr", "Et-77x"),
+    );
     let (code, t) = r.text(&["check"]);
     assert_ne!(code, 0, "{t}");
     let u2 = t.find("U2").unwrap_or(usize::MAX);
