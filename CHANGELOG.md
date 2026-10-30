@@ -5,24 +5,19 @@ Release notes for each version are also on
 
 ## Unreleased
 
+### Behavior changes
+
+What an existing command does differs from 0.3.0; check scripts and CI that call these.
+
 - `spec sync --prune --write --yes` no longer deletes: each pruned file moves to `.specfold/trash/<stamp>/` (ignored by git), and the undo line copies it back (`cp -Rp .specfold/trash/<stamp>/. .`), so a file never committed can be restored. The undo of a sync or copy lists only the files written, not their sources; a successful sync ends with `next: git status --short` (C100, C101, C106).
 - `spec check --write-baseline` without `[check] baseline` says what to add to spec.toml before previewing, with `next: spec explain config` (C102). `--dry-run` is accepted (and does nothing) on every command guarded by `--yes` or `--write`: check, guard, import and export (C103). An export whose `--out` is outside the repository suggests `ls <out>` instead of `git status` (C104).
 - `spec new` warns about the 0.4 `--write` change only when it wrote something; an invalid spec.toml points to `spec explain config` (C106).
-- New rule S8 (warning): a field that `require_when` requires for the current status must hold a usable value — not a placeholder (`[types.<t>] placeholders`, default `TBD`, `Pending`, `TODO`, `?`), of the kind declared in `fields = { approvers = "people", resolution = "url", review_by = "date", decision = "link" }`, and not shared within a `distinct = [["authors", "approvers"]]` group. `fields` as a list works as before.
 - Overwrites need ownership or `--force` (CLI-4): `spec sync assets --write` overwrites a copy file only when its content is a version its source has had (git history or now); a hand-edited copy needs `--force`. `spec fetch` leaves a different existing file alone and fetches nothing unless `--force`. `init` upgrades and `export` are unchanged.
 - Bulk writes are bounded (CLI-7): `[write] max_files = 50` (0 = no bound). When `spec mv`, `fix`, `sync` or `import` would change more files, the preview says how many and `--write` alone writes nothing; narrow the scope or add `--yes` (new on mv, fix and import).
 - One meaning per shared flag (CLI-11): `spec guard --tree` (was `--all`), `spec find --body` (was `--text`), `spec init --owner-kind` (was `--owner`). The old names keep working as hidden aliases with a stderr warning; help JSON lists them under each flag's `deprecated_aliases`.
 - `spec --help` and `spec help` list the 12 core commands (context, find, show, graph, new, set, edit, check, guard, fix, explain, init); `spec --help --all` / `spec help --all` list every command. `spec help --json`, `--markdown`, `--llms` and MCP still describe every command; JSON adds `core`.
-- `spec help --json` marks each command's `deprecated_aliases` (`name`, `use`, `since`). A deprecated name keeps running the new command and warns on stderr (none yet).
 - `spec set` without `--write` still writes in 0.3 but warns on stderr. **From 0.4, `set` (like `new`) previews unless `--write`.**
-- `spec set ID key=` with an empty value deletes the key (an emptied `rel` is removed too).
-- D1 also counts staged deletes and the old paths of renames (`p (removed)`). Its fix is a runnable `spec new change ... --depends-on ID --write`; `spec explain D1` points to `spec check --staged --rule D1`. A staged/changed run without documents says so in its summary.
-- `spec new --depends-on ID` (repeatable) writes `rel.depends_on`.
-- `spec export` reports attachments it did not scan for secrets (`not_scanned`); binary files no longer get the `scan_max_bytes` hint. Success `next` is `git status --short -- <out>`.
 - `spec guard --write-baseline` without `--yes` previews the hit counts it would record.
-
-### Changed
-
 - CLI conventions CLI-1–CLI-16 (AGENTS.md, `tests/cli_contract.rs`). Actions that delete,
   overwrite or send files out now need `--yes` besides their write flag; without it they write
   nothing and `next` shows the command with `--yes`: `spec sync assets --prune --write`,
@@ -33,6 +28,12 @@ Release notes for each version are also on
 
 ### Added
 
+- New rule S8 (warning): a field that `require_when` requires for the current status must hold a usable value — not a placeholder (`[types.<t>] placeholders`, default `TBD`, `Pending`, `TODO`, `?`), of the kind declared in `fields = { approvers = "people", resolution = "url", review_by = "date", decision = "link" }`, and not shared within a `distinct = [["authors", "approvers"]]` group. `fields` as a list works as before.
+- `spec help --json` marks each command's `deprecated_aliases` (`name`, `use`, `since`). A deprecated name keeps running the new command and warns on stderr (none yet).
+- `spec set ID key=` with an empty value deletes the key (an emptied `rel` is removed too).
+- D1 also counts staged deletes and the old paths of renames (`p (removed)`). Its fix is a runnable `spec new change ... --depends-on ID --write`; `spec explain D1` points to `spec check --staged --rule D1`. A staged/changed run without documents says so in its summary.
+- `spec new --depends-on ID` (repeatable) writes `rel.depends_on`.
+- `spec export` reports attachments it did not scan for secrets (`not_scanned`); binary files no longer get the `scan_max_bytes` hint. Success `next` is `git status --short -- <out>`.
 - `--dry-run` on every write command (`edit`, `mv`, `fix`, `init`, `attach`, `sync`, `audit`;
   `import --plan` takes it as an alias; `new` and `set` keep theirs).
 - `spec help --json` gives each command a `risk`: read, write, destructive or external. MCP tools
