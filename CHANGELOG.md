@@ -130,6 +130,7 @@ A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is 
 
 ### Fixed
 
+A refused `--slug` (e.g. `spec new skill --slug 'Bad Slug'`) is replaced in the suggested rerun instead of given twice (C156).
 A failing `spec verify` suggests `spec show` with the failing document's id instead of a literal `<id>` (C129).
 `spec log` suggests `spec show` with a real id, and no next when nothing was listed (C149).
 `spec graph --format box` writes a cycle note on one line with ids only (C131).

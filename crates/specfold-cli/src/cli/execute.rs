@@ -215,8 +215,24 @@ fn split_next(msg: &str, argv: &[String]) -> (String, Option<String>) {
         && flag.split(' ').count() <= 2
         && flag.split(' ').nth(1).is_none_or(|v| !v.starts_with('-'))
     {
-        let mut cmd: Vec<String> =
-            std::iter::once("spec".to_string()).chain(argv.iter().skip(1).map(|a| quote(a))).collect();
+        // C156: a flag already on the line is replaced, not given twice.
+        let name = flag.split(' ').next().unwrap_or(flag);
+        let valued = flag.contains(' ');
+        let mut kept = vec![];
+        let mut it = argv.iter().skip(1);
+        while let Some(a) = it.next() {
+            if a == name {
+                if valued {
+                    it.next();
+                }
+                continue;
+            }
+            if a.starts_with(&format!("{name}=")) {
+                continue;
+            }
+            kept.push(quote(a));
+        }
+        let mut cmd: Vec<String> = std::iter::once("spec".to_string()).chain(kept).collect();
         cmd.extend(flag.split(' ').map(str::to_string));
         return (m.to_string(), Some(cmd.join(" ")));
     }
