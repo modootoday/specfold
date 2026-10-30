@@ -204,3 +204,50 @@ fn plugins_get_local_documents_only_with_local() {
     assert_eq!(r.json(&["export", "plain"]).0, 0);
     assert_eq!(sent_docs(&plain).len(), 2);
 }
+
+/// A password assembled at run time so this file holds nothing a secret scanner flags.
+fn leaky_url() -> String {
+    format!("postgres://app:{}{}@db.acme.io/main", "s3cr", "Et-77x")
+}
+
+fn with_public_guard(r: &common::Repo) {
+    let mut toml = r.read("spec.toml");
+    toml.push_str(
+        "[[guards]]\nname = \"public\"\npublic = true\nsecrets = true\nrange = \"all\"\nfail_if_empty = false\n",
+    );
+    r.write("spec.toml", &toml);
+}
+
+#[test]
+fn the_public_guard_stops_an_export_that_holds_a_secret() {
+    let r = corpus();
+    with_public_guard(&r);
+    let (code, v) = r.json(&["export", "markdown", "--target", "mkdocs", "--out", "site"]);
+    assert_eq!(code, 0, "a clean corpus exports: {v}");
+    let path = "services/shop/.spec/sot/checkout.sot.md";
+    r.write(path, &(CHECKOUT.to_string() + "\nDSN: " + &leaky_url() + "\n"));
+    let (code, v) = r.json(&["export", "markdown", "--target", "mkdocs", "--out", "site2"]);
+    assert_eq!(code, 1, "{v}");
+    assert!(!r.path().join("site2").exists(), "nothing is written");
+    let s = v.to_string();
+    assert!(s.contains("connection string") && !s.contains("Et-77x"), "{s}");
+    let (code, v) = r.json(&["export", "markdown", "--target", "mkdocs", "--out", "site2", "--no-guard"]);
+    assert_eq!(code, 0, "{v}");
+}
+
+#[cfg(unix)]
+#[test]
+fn the_public_guard_runs_before_a_plugin_is_called() {
+    let r = corpus();
+    with_public_guard(&r);
+    let seen = plugin(&r, "rich", "[\"body\"]");
+    let path = "services/shop/.spec/sot/checkout.sot.md";
+    r.write(path, &(CHECKOUT.to_string() + "\nDSN: " + &leaky_url() + "\n"));
+    let (code, v) = r.json(&["export", "rich"]);
+    assert_eq!(code, 1, "{v}");
+    assert!(!seen.exists(), "the plugin never saw the payload");
+    r.write(path, &(CHECKOUT.to_string() + "\nDSN: postgres://app:${DB_PASSWORD}@db.acme.io/main\n"));
+    let (code, v) = r.json(&["export", "rich"]);
+    assert_eq!(code, 0, "a placeholder passes: {v}");
+    assert!(seen.exists());
+}

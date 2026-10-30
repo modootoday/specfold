@@ -41,6 +41,7 @@ description: The spec.toml tables and what each one controls.
 | `[audit]` | thresholds for stale, stalled and draft documents |
 | `[verify]` | deadline, parallel jobs and shell for `spec verify` |
 | `[cites]` | files outside documents whose citations rule L6 checks |
+| `[mcp]` | `redact`: hide secrets in what `spec mcp` returns (on by default) |
 
 ## Example
 

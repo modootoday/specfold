@@ -52,6 +52,10 @@ const CONFIG_HELP: &[(&str, &str)] = &[
         "How spec verify runs commands: the default deadline, parallel workers, regexes for heavy commands run one at a time, paths whose change runs every check, and the shell (sh unless set, bash for bash syntax).",
     ),
     (
+        "[mcp] redact",
+        "Whether spec mcp replaces built-in secret matches (the guard secrets list) with [redacted: <pattern>] in tool results; on unless set to false.",
+    ),
+    (
         "[cites] paths, exclude, history",
         "Files outside documents (code, READMEs, agent instructions) whose citations rule L6 checks, and regexes for history lines it leaves alone.",
     ),

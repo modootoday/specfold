@@ -13,6 +13,11 @@ pub fn run(g: &Global, a: &SetArgs) -> Result<Output> {
     let idx = session::resolve(&s, &a.doc)?;
     let mut assigns = a.assignments.iter().map(|x| Assign::parse(x)).collect::<Result<Vec<_>>>()?;
     let mut shown = a.assignments.clone();
+    crate::commands::outbound::refuse_redacted(
+        &s.corpus.cfg.root,
+        &s.corpus.docs[idx].path,
+        &a.assignments.join("\n"),
+    )?;
     if a.source_rev {
         let d = &s.corpus.docs[idx];
         let remote =

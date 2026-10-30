@@ -63,7 +63,14 @@ fn scan_file(cfg: &Config, g: &GuardDef, c: &Compiled, range: &Resolved, path: &
     for m in c.path_hits(path) {
         out.push(hit(g, path, 1, m));
     }
-    let Some(mut bytes) = read(&cfg.root, &range.source, path) else { return out };
+    let Some(bytes) = read(&cfg.root, &range.source, path) else { return out };
+    out.extend(scan_bytes(g, c, path, bytes));
+    out
+}
+
+/// What the content of one file trips: its size, its compression and its text.
+pub fn scan_bytes(g: &GuardDef, c: &Compiled, path: &str, mut bytes: Vec<u8>) -> Vec<Finding> {
+    let mut out = vec![];
     if let Some(max) = g.max_file_bytes
         && bytes.len() as u64 > max
     {
@@ -78,6 +85,19 @@ fn scan_file(cfg: &Config, g: &GuardDef, c: &Compiled, range: &Resolved, path: &
     if let Some(text) = as_text(g, &bytes) {
         scan_text(g, c, path, &text, &mut out);
     }
+    out
+}
+
+/// What a file outside the tree trips under its label: its presence, its label and its content.
+pub fn scan_blob(g: &GuardDef, c: &Compiled, label: &str, bytes: Vec<u8>) -> Vec<Finding> {
+    let mut out = vec![];
+    if c.denies_file(label) {
+        out.push(hit(g, label, 1, "this file may not be here".into()));
+    }
+    for m in c.path_hits(label) {
+        out.push(hit(g, label, 1, m));
+    }
+    out.extend(scan_bytes(g, c, label, bytes));
     out
 }
 

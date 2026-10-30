@@ -39,6 +39,13 @@ A reference that does not resolve, names a remote, or names a document left out 
 is written as plain text and listed in the output. `--fail-on unresolved` writes nothing and
 exits 1 instead.
 
+## Public guards
+
+Before anything is written or a plugin is called, every guard with `public = true` reads what
+is leaving: the built-in tree, or the source files of the documents a plugin receives. An
+error-level hit writes nothing and exits 1; warn-level hits are listed. `--no-guard` skips the
+guards. Matched values are never printed.
+
 ## The output directory
 
 `--out` must be missing, empty, or an earlier export. Each export writes

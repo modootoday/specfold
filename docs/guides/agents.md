@@ -28,6 +28,11 @@ $ spec help --json
 instruction file. `spec mcp` serves every command as an MCP tool over stdio. `spec help --json`
 describes every command, argument, example and output schema.
 
+`spec mcp` replaces built-in secrets (keys, tokens, connection strings with a password, JWTs)
+with `[redacted: <pattern>]` and reports the count as `redacted`. `spec edit` and `spec set`
+refuse text that carries such a marker, so a redacted value is never written back.
+`[mcp] redact = false` turns redaction off.
+
 ## Agent assets
 
 Skills, rules, subagents and instruction files (`AGENTS.md`, `CLAUDE.md`) are declared in

@@ -17,6 +17,45 @@ fn fail(id: &Value, code: i64, message: &str) -> Value {
     json!({"jsonrpc": "2.0", "id": id, "error": {"code": code, "message": message}})
 }
 
+/// Whether `[mcp] redact` is on for the repository around the working directory (on unless set off).
+fn redacting() -> bool {
+    std::env::current_dir().ok().and_then(|d| specfold_core::Config::discover(&d).ok()).is_none_or(|c| c.raw.mcp.redact)
+}
+
+/// Replaces built-in secret matches in every string of the JSON result and reports the count as
+/// `redacted`, so the agent knows text was removed.
+fn redact(text: String) -> String {
+    if !redacting() {
+        return text;
+    }
+    let Ok(mut v) = serde_json::from_str::<Value>(&text) else {
+        return specfold_core::guards::secrets::redact(&text).0;
+    };
+    let n = walk(&mut v);
+    if n == 0 {
+        return text;
+    }
+    if let Some(o) = v.as_object_mut() {
+        o.insert("redacted".into(), json!(n));
+    }
+    serde_json::to_string_pretty(&v).unwrap_or(text)
+}
+
+fn walk(v: &mut Value) -> usize {
+    match v {
+        Value::String(s) => {
+            let (r, n) = specfold_core::guards::secrets::redact(s);
+            if n > 0 {
+                *s = r;
+            }
+            n
+        }
+        Value::Array(a) => a.iter_mut().map(walk).sum(),
+        Value::Object(o) => o.values_mut().map(walk).sum(),
+        _ => 0,
+    }
+}
+
 fn call(params: &Value) -> Value {
     let name = params.get("name").and_then(Value::as_str).unwrap_or("");
     let empty = serde_json::Map::new();
@@ -24,7 +63,7 @@ fn call(params: &Value) -> Value {
     match tools::argv(name, args) {
         Ok(argv) => {
             let ex = execute(argv);
-            let text = render(&ex.output, Format::Json, &ex.page);
+            let text = redact(render(&ex.output, Format::Json, &ex.page));
             json!({"content": [{"type": "text", "text": text}], "isError": matches!(ex.output.code, Code::Usage | Code::Env)})
         }
         Err(e) => json!({"content": [{"type": "text", "text": e}], "isError": true}),
