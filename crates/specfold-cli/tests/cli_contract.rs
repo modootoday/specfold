@@ -1109,3 +1109,123 @@ fn c141_an_unknown_guard_range_is_refused_at_load() {
     assert_ne!(code, 0, "{v}");
     assert!(v.to_string().contains("stagde"), "{v}");
 }
+
+fn edit_front(r: &common::Repo, id: &str, from: &str, to: &str) {
+    let p = doc_path(r, id);
+    r.write(&p, &r.read(&p).replacen(from, to, 1));
+}
+
+#[test]
+fn c129_verify_failure_next_names_the_document() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    edit_front(&r, &id, "status: draft", "status: active\nverify:\n  - sh -c 'exit 3'");
+    r.commit("v");
+    let (code, v) = r.json(&["verify"]);
+    assert_eq!(code, 1, "{v}");
+    assert_eq!(v["next"], format!("spec show {id} --section verification"), "{v}");
+}
+
+#[test]
+fn c149_log_next_names_the_document() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    r.commit("c");
+    let (_, v) = r.json(&["log", &id]);
+    assert_eq!(v["next"], format!("spec show {id} --rel"), "{v}");
+    assert!(!v.to_string().contains("<id>"), "{v}");
+}
+
+#[test]
+fn c131_box_cycle_note_is_one_line_of_ids() {
+    let r = common::repo();
+    let a = r.new_doc("sot", "services/shop", "Aa");
+    let b = r.new_doc("sot", "services/shop", "Bb");
+    assert_eq!(r.json(&["set", &a, &format!("rel.depends_on+={b}")]).0, 0);
+    assert_eq!(r.json(&["set", &b, &format!("rel.depends_on+={a}")]).0, 0);
+    let (_, out) = r.text(&["graph", "--format", "box"]);
+    let line = out.lines().find(|l| l.contains("also:")).unwrap_or_else(|| panic!("{out}"));
+    assert!(line.contains("depends_on") && line.ends_with("(a cycle)"), "{out}");
+}
+
+#[test]
+fn c134_write_baseline_without_a_path_carries_an_error() {
+    let r = common::repo();
+    let (code, v) = r.json(&["check", "--write-baseline"]);
+    assert_eq!(code, 2, "{v}");
+    assert!(v["error"].as_str().unwrap().contains("baseline"), "{v}");
+}
+
+#[test]
+fn c144_lsp_messages_keep_real_line_breaks() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    let p = doc_path(&r, &id);
+    let doc = format!("{}\nSee [[sot:root/nope]].\n", r.read(&p));
+    let abs = r.path().canonicalize().unwrap();
+    let uri = format!("file://{}/{p}", abs.display());
+    let init = serde_json::json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"rootUri": format!("file://{}", abs.display())}});
+    let open = serde_json::json!({"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument": {"uri": uri, "text": doc}}});
+    let out = r.spec().arg("lsp").write_stdin(common::lsp_frames(&[init, open])).output().unwrap();
+    let all = common::lsp_replies(&out.stdout);
+    let msgs: Vec<String> = all
+        .iter()
+        .flat_map(|m| m["params"]["diagnostics"].as_array().cloned().unwrap_or_default())
+        .map(|d| d["message"].as_str().unwrap_or("").to_string())
+        .collect();
+    let m = msgs.iter().find(|m| m.contains("fix:")).unwrap_or_else(|| panic!("{msgs:?}"));
+    assert!(m.contains('\n') && !m.contains("\\u{000A}"), "{m}");
+}
+
+#[test]
+fn c145_c146_fix_next_keeps_the_pick_and_refuses_a_foreign_one() {
+    let r = common::repo();
+    let a = r.new_doc("adr", "services/shop", "First readme");
+    let b = r.new_doc("adr", "services/shop", "Second readme");
+    for id in [&a, &b] {
+        assert_eq!(r.json(&["set", id, "aliases+=README"]).0, 0);
+    }
+    let target = format!("{}:1", doc_path(&r, &a));
+    let (code, v) = r.json(&["fix", "--rule", "I2", "--pick", &a, &target]);
+    assert_eq!(code, 0, "{v}");
+    let next = v["next"].as_str().unwrap_or_default().to_string();
+    assert!(next.contains(&format!("--pick {a}")) && next.contains(&target), "{v}");
+    let (code, v) = r.json(&["fix", "--rule", "I2", "--pick", "adr:root/nope", "--write", &target]);
+    assert_eq!(code, 2, "{v}");
+    assert!(v.to_string().contains(&b), "{v}");
+}
+
+#[test]
+fn c133_new_usage_next_skips_option_values() {
+    let r = common::repo();
+    let (code, v) = r.json(&["new", "sot", "--governs", "services/shop"]);
+    assert_eq!(code, 2, "{v}");
+    let next = v["next"].as_str().unwrap_or_default();
+    assert!(next.starts_with("spec new sot --title ") && next.contains("--governs services/shop"), "{v}");
+    let (_, v) = r.json(&["new", "--title", "My doc"]);
+    assert_eq!(v["next"], "spec new adr --title 'My doc'", "{v}");
+}
+
+#[test]
+fn c132_c148_c152_c153_filters_that_match_nothing_by_typo_are_refused() {
+    let r = common::repo();
+    r.new_doc("sot", "services/shop", "Cart");
+    r.commit("c");
+    for args in [
+        &["check", "--rule", "ZZ9"][..],
+        &["check", "--rule", "s1"],
+        &["check", "--skip", "ZZ9"],
+        &["log", "--since", "bogus"],
+        &["log", "--since", "2026-02-30"],
+        &["log", "--since", "2026-1-5"],
+        &["log", "--since", "2026-01-01", "--type", "zzz"],
+        &["find", "--limit", "0"],
+        &["find", "--type", "zzz"],
+        &["find", "--status", "zzz"],
+    ] {
+        let (code, v) = r.json(args);
+        assert_eq!(code, 2, "{args:?}: {v}");
+    }
+    assert_eq!(r.json(&["log", "--since", "2024-02-29"]).0, 0);
+    assert_eq!(r.json(&["check", "--rule", "S1"]).0, 0);
+}

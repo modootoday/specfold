@@ -9,6 +9,10 @@ Release notes for each version are also on
 
 What an existing command does differs from 0.3.0; check scripts and CI that call these.
 
+`spec check --rule`/`--skip` refuse (rc 2) a rule id that does not exist, as `--fail-on` does; a lower-case id is pointed at its upper-case form (C132).
+`spec fix --pick` refuses (rc 2) an id that is not one of the finding's choices, listing them (C146).
+`spec log --since` must be a real `YYYY-MM-DD` date, and `spec log --type`, `spec find --type` and `spec find --status` must name a known type or status; others are refused with rc 2 (C148, C153).
+`--limit 0` is refused (rc 2); it showed nothing and its `--offset` hint pointed at itself (C152).
 `spec new --governs` and `spec context` refuse (rc 2) an empty path or one outside the repository, instead of recording it or suggesting `spec new --governs` for it (C130).
 A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is refused when `spec.toml` is loaded, naming the guard (C141).
 - An id held by two files (I1, e.g. a `.spec/` and a `.spec.local/` copy) is refused (exit 2) by every command that takes a document, listing both paths; name one by its path. `spec doctor`'s fix names the path (C139).
@@ -126,6 +130,13 @@ A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is 
 
 ### Fixed
 
+A failing `spec verify` suggests `spec show` with the failing document's id instead of a literal `<id>` (C129).
+`spec log` suggests `spec show` with a real id, and no next when nothing was listed (C149).
+`spec graph --format box` writes a cycle note on one line with ids only (C131).
+`spec check --write-baseline` without `[check] baseline` now carries the reason in JSON `error` (C134).
+LSP diagnostic messages keep a real line break before `fix:` instead of `\u{000A}` (C144).
+The `spec fix` preview's next keeps `--staged`, `--pick` and the targets, so following it writes what was previewed (C145).
+The usage-error next of `spec new` no longer takes option values as type or title, and keeps `--title`/`--governs` (C133).
 A plugin that writes a lot to stderr no longer stalls until its timeout; stdout and stderr are read together and the error shows the last stderr line (C150).
 A plugin that leaves a background child holding its pipes now stops at its `timeout_ms`; `spec plugins` reports a bad action before starting any plugin (C151).
 - Writes keep a file's CRLF line endings instead of mixing in LF (C154).

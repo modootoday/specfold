@@ -12,7 +12,7 @@ pub struct Global {
     #[arg(long, global = true, conflicts_with = "json")]
     pub jsonl: bool,
     /// Items per page for list output.
-    #[arg(long, global = true, default_value_t = 30)]
+    #[arg(long, global = true, default_value_t = 30, value_parser = positive)]
     pub limit: usize,
     /// Size budget in bytes for the items of list output: whole items are kept while they fit
     /// (at least one), the rest are left for --offset. Each item counts as rendered.
@@ -27,4 +27,13 @@ pub struct Global {
     /// Leave out the git-ignored local documents.
     #[arg(long, global = true)]
     pub no_local: bool,
+}
+
+/// C152: `--limit 0` would show nothing and point at itself; a page holds at least one item.
+fn positive(s: &str) -> Result<usize, String> {
+    match s.parse::<usize>() {
+        Ok(0) => Err("must be at least 1".into()),
+        Ok(n) => Ok(n),
+        Err(e) => Err(e.to_string()),
+    }
 }

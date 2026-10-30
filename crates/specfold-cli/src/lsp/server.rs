@@ -311,7 +311,7 @@ impl Server {
                     "severity": if f.severity == Severity::Error { 1 } else { 2 },
                     "code": f.rule,
                     "source": "spec",
-                    "message": visible(&ci::message(f)),
+                    "message": ci::message(f).split('\n').map(visible).collect::<Vec<_>>().join("\n"),
                 });
                 let mut data = json!({"line": f.line});
                 if let Some(Fix::Replace { line, from, to, .. }) = &f.fix {

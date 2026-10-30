@@ -245,14 +245,20 @@ fn usage_example(argv: &[String], kind: clap::error::ErrorKind, rendered: &str, 
         ("new", ErrorKind::UnknownArgument | ErrorKind::MissingRequiredArgument)
             if !argv.iter().any(|a| a == "--translation" || a.starts_with("--translation=")) =>
         {
-            let words: Vec<&String> = argv[pos + 1..].iter().filter(|a| !a.starts_with('-')).collect();
+            // C133: an option's value is not a positional word; --title and --governs carry over.
+            let (words, opts) = split_new_args(&argv[pos + 1..]);
             let ty = words.first().map(|t| t.as_str()).unwrap_or("adr");
-            let title = if words.len() > 1 {
-                words[1..].iter().map(|w| w.as_str()).collect::<Vec<_>>().join(" ")
-            } else {
-                "Use one payment provider".to_string()
+            let given = opts.iter().find(|(k, _)| k == "--title").map(|(_, v)| v.clone());
+            let title = match given {
+                Some(t) => t,
+                None if words.len() > 1 => words[1..].join(" "),
+                None => "Use one payment provider".to_string(),
             };
-            Some(format!("spec new {} --title {}", quote(ty), quote(&title)))
+            let mut cmd = format!("spec new {} --title {}", quote(ty), quote(&title));
+            for (_, v) in opts.iter().filter(|(k, _)| k == "--governs") {
+                cmd.push_str(&format!(" --governs {}", quote(v)));
+            }
+            Some(cmd)
         }
         (_, ErrorKind::MissingRequiredArgument) if rendered.contains("<DOC>") && !rendered.contains("<DOC> <") => {
             let tasks = argv.iter().any(|a| a == "--tasks");
@@ -263,6 +269,36 @@ fn usage_example(argv: &[String], kind: clap::error::ErrorKind, rendered: &str, 
         }
         _ => None,
     }
+}
+
+/// The positional words and the (option, value) pairs of `spec new` arguments, using the
+/// command's own definition to tell value-taking options from switches.
+fn split_new_args(args: &[String]) -> (Vec<String>, Vec<(String, String)>) {
+    use clap::CommandFactory;
+    let cmd = Cli::command();
+    let new = cmd.find_subcommand("new");
+    let takes = |flag: &str| {
+        let long = flag.trim_start_matches('-');
+        let all = new.into_iter().flat_map(|c| c.get_arguments()).chain(cmd.get_arguments());
+        all.filter(|a| a.get_long() == Some(long) || (flag.len() == 2 && a.get_short() == flag.chars().nth(1)))
+            .any(|a| a.get_action().takes_values())
+    };
+    let (mut words, mut opts) = (vec![], vec![]);
+    let mut it = args.iter();
+    while let Some(a) = it.next() {
+        if let Some((k, v)) = a.split_once('=').filter(|_| a.starts_with("--")) {
+            opts.push((k.to_string(), v.to_string()));
+        } else if a.starts_with('-') && a.len() > 1 {
+            if takes(a)
+                && let Some(v) = it.next()
+            {
+                opts.push((a.clone(), v.clone()));
+            }
+        } else {
+            words.push(a.clone());
+        }
+    }
+    (words, opts)
 }
 
 /// `--format json` on a command whose formats are drawings: the same command with `--json`.
