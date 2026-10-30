@@ -25,6 +25,7 @@ description: The spec.toml tables and what each one controls.
 | table | controls |
 | --- | --- |
 | `[types.<name>]` | override, disable or add a type: key, statuses, fields, transitions, required sections |
+| `[types.<name>]` values (S8) | `fields = { approvers = "people", resolution = "url", review_by = "date", decision = "link" }` adds the keys and their kinds (a list still replaces the built-in keys); `placeholders = [...]` (default `TBD`, `Pending`, `TODO`, `?`); `distinct = [["authors", "approvers"]]`. Checked only where `require_when` requires the field |
 | `[forbid]` | retired layouts and identifiers (rule Z1) |
 | `[aliases]` | the frozen alias table written by `spec import` |
 | `[files]` | `inline_max_bytes`, `scan_max_bytes` (repository text attachments up to this size are read by rule U2; 1 MiB by default), and `[files.store]`: `kind = "dir"` with `path`, or `kind = "command"` with `put`/`get`/`exists` argv templates (see the example) |

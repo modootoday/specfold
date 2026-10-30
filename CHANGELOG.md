@@ -5,6 +5,7 @@ Release notes for each version are also on
 
 ## Unreleased
 
+- New rule S8 (warning): a field that `require_when` requires for the current status must hold a usable value — not a placeholder (`[types.<t>] placeholders`, default `TBD`, `Pending`, `TODO`, `?`), of the kind declared in `fields = { approvers = "people", resolution = "url", review_by = "date", decision = "link" }`, and not shared within a `distinct = [["authors", "approvers"]]` group. `fields` as a list works as before.
 - Overwrites need ownership or `--force` (CLI-4): `spec sync assets --write` overwrites a copy file only when its content is a version its source has had (git history or now); a hand-edited copy needs `--force`. `spec fetch` leaves a different existing file alone and fetches nothing unless `--force`. `init` upgrades and `export` are unchanged.
 - Bulk writes are bounded (CLI-7): `[write] max_files = 50` (0 = no bound). When `spec mv`, `fix`, `sync` or `import` would change more files, the preview says how many and `--write` alone writes nothing; narrow the scope or add `--yes` (new on mv, fix and import).
 - One meaning per shared flag (CLI-11): `spec guard --tree` (was `--all`), `spec find --body` (was `--text`), `spec init --owner-kind` (was `--owner`). The old names keep working as hidden aliases with a stderr warning; help JSON lists them under each flag's `deprecated_aliases`.

@@ -1,8 +1,17 @@
 //! The type registry: the built-in preset with a project's overrides applied.
 
-use super::doctype::{self, Form, KeyKind, TypeDef};
+use super::doctype::{self, FieldKind, Form, KeyKind, TypeDef};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+
+/// `fields` in a type table: a list of keys (replacing the built-in list), or a table of keys
+/// and value kinds (`{ approvers = "people" }`), which adds the keys and gives rule S8 their kinds.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(untagged)]
+pub enum FieldsDecl {
+    List(Vec<String>),
+    Kinds(BTreeMap<String, FieldKind>),
+}
 
 /// Overrides for one type from spec.toml.
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
@@ -15,11 +24,13 @@ pub struct TypeOverride {
     pub statuses: Option<Vec<String>>,
     pub initial: Option<String>,
     pub sealed: Option<bool>,
-    pub fields: Option<Vec<String>>,
+    pub fields: Option<FieldsDecl>,
     pub template: Option<String>,
     pub transitions: Option<BTreeMap<String, Vec<String>>>,
     pub require_when: Option<BTreeMap<String, Vec<String>>>,
     pub sections: Option<Vec<String>>,
+    pub placeholders: Option<Vec<String>>,
+    pub distinct: Option<Vec<Vec<String>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -46,8 +57,23 @@ fn apply(t: &mut TypeDef, o: &TypeOverride) {
     if let Some(v) = o.sealed {
         t.sealed = v;
     }
-    if let Some(v) = &o.fields {
-        t.fields = v.clone();
+    match &o.fields {
+        Some(FieldsDecl::List(v)) => t.fields = v.clone(),
+        Some(FieldsDecl::Kinds(m)) => {
+            for k in m.keys() {
+                if !t.fields.contains(k) && !k.starts_with("rel.") {
+                    t.fields.push(k.clone());
+                }
+            }
+            t.kinds = m.clone();
+        }
+        None => {}
+    }
+    if let Some(v) = &o.placeholders {
+        t.placeholders = v.clone();
+    }
+    if let Some(v) = &o.distinct {
+        t.distinct = v.clone();
     }
     if let Some(v) = &o.template {
         t.template = v.clone();
