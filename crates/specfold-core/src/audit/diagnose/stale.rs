@@ -21,13 +21,18 @@ pub fn run(c: &Corpus, docs: &[usize], out: &mut Vec<Item>) {
             // Commits to documents are not changes to the code they describe, and the pin's own
             // commit would otherwise always count.
             let docs = vec![format!("**/{}/**", c.cfg.spec_dir()), format!("{}/**", c.cfg.spec_dir())];
-            let detail = match vcs::commits_since(&c.cfg.root, &pin, &governs, &docs) {
-                None => format!("verified_at {pin} is not a commit in this repository"),
+            let repin = format!("spec set {} verified_at=HEAD", d.id);
+            let (detail, next) = match vcs::commits_since(&c.cfg.root, &pin, &governs, &docs) {
+                // No diff can start from a pin git does not know; re-pinning is the only step.
+                None => (format!("verified_at {pin} is not a commit in this repository"), repin),
                 Some(list) if list.is_empty() => continue,
-                Some(list) => format!(
-                    "governed code changed in {} commit(s) since verified_at {pin} (latest {})",
-                    list.len(),
-                    list[0]
+                Some(list) => (
+                    format!(
+                        "governed code changed in {} commit(s) since verified_at {pin} (latest {})",
+                        list.len(),
+                        list[0]
+                    ),
+                    format!("git diff {pin}..HEAD -- {}  # then update the body and: {repin}", governs.join(" ")),
                 ),
             };
             out.push(Item {
@@ -36,11 +41,7 @@ pub fn run(c: &Corpus, docs: &[usize], out: &mut Vec<Item>) {
                 path: d.path.clone(),
                 line: 1,
                 detail,
-                next: Some(format!(
-                    "git diff {pin}..HEAD -- {}  # then update the body and: spec set {} verified_at=HEAD",
-                    governs.join(" "),
-                    d.id
-                )),
+                next: Some(next),
             });
             continue;
         }

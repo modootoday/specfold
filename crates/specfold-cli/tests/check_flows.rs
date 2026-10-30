@@ -121,6 +121,8 @@ fn a_pinned_document_is_stale_after_any_commit_to_its_code() {
     assert_eq!(r.json(&["set", &id, "verified_at=0000000deadbeef"]).0, 0);
     let (_, v) = r.json(&["audit", "--kind", "stale"]);
     assert!(v.to_string().contains("is not a commit in this repository"), "{v}");
+    let item = v["items"].as_array().unwrap().iter().find(|i| i["kind"] == "stale").cloned().unwrap();
+    assert_eq!(item["next"], format!("spec set {id} verified_at=HEAD"), "C174: no diff from an unknown pin: {v}");
 }
 
 #[test]
