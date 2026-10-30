@@ -21,6 +21,8 @@ fn open_tasks(root: &std::path::Path, files: &[&str]) -> usize {
 
 pub fn run(g: &Global, a: &FindArgs) -> Result<Output> {
     let s = session::open(g)?;
+    session::known_types(&s, &a.types)?;
+    session::known_statuses(&s, &a.statuses)?;
     let q = Query {
         words: a.words.clone(),
         types: a.types.clone(),

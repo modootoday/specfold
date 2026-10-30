@@ -48,6 +48,19 @@ pub fn run(g: &Global, a: &FixArgs) -> Result<Output> {
     let pick = match &a.pick {
         Some(id) => {
             let [(path, Some(line))] = targets.as_slice() else { bail!("--pick needs exactly one path:line target") };
+            // C146: a pick must be one of the choices the finding offers.
+            let offered: Vec<&String> = findings
+                .iter()
+                .filter(|f| &f.path == path && (f.line == *line || f.rule == "I2"))
+                .flat_map(|f| f.candidates.iter())
+                .collect();
+            if !offered.contains(&id) {
+                if offered.is_empty() {
+                    bail!("{path}:{line} has no finding with choices to pick from; see spec check {path}");
+                }
+                let list: Vec<&str> = offered.iter().map(|s| s.as_str()).collect();
+                bail!("'{id}' is not a choice at {path}:{line}; pick one of: {}", list.join(", "));
+            }
             Some(Pick { id: id.clone(), path: path.clone(), line: *line })
         }
         None => None,
@@ -63,9 +76,19 @@ pub fn run(g: &Global, a: &FixArgs) -> Result<Output> {
     for f in findings.iter().filter(|f| f.message.contains(specfold_core::corpus::overlay::UTF8)) {
         o = o.head(format!("{}:{}: {}", f.path, f.line, f.message));
     }
+    // C145: the rerun repeats the scope it previewed: staged, rules, pick and targets.
     let mut rerun = String::from("spec fix --write");
+    if a.staged {
+        rerun.push_str(" --staged");
+    }
     for r in &a.rules {
-        rerun.push_str(&format!(" --rule {r}"));
+        rerun.push_str(&format!(" --rule {}", session::shell_word(r)));
+    }
+    if let Some(id) = &a.pick {
+        rerun.push_str(&format!(" --pick {}", session::shell_word(id)));
+    }
+    for t in &a.targets {
+        rerun.push_str(&format!(" {}", session::shell_word(t)));
     }
     let max = s.corpus.cfg.raw.write.max_files;
     let (o, written) = preview::finish_bounded(o, &plan, &s.corpus.cfg.root, max, a.write, a.yes, &rerun)?;

@@ -62,6 +62,17 @@ impl Config {
                 defaults::schema()
             );
         }
+        // C141: one guard with a mistyped range would stop every `spec guard` run later.
+        for g in &raw.guards {
+            if !matches!(g.range.as_str(), "staged" | "push" | "all") && !g.range.contains("..") {
+                bail!(
+                    "{}: guard '{}' has range = \"{}\"; use \"staged\", \"push\", \"all\" or a git range such as \"origin/main..HEAD\" (spec explain config)",
+                    path.display(),
+                    g.name,
+                    g.range
+                );
+            }
+        }
         let root = path.parent().unwrap_or(Path::new(".")).to_path_buf();
         Ok(Self::from_raw(root, raw, false))
     }

@@ -946,3 +946,286 @@ fn c155_import_write_refuses_rows_that_need_a_decision() {
     assert_eq!(code, 0, "{v}");
     assert!(!r.path().join("docs/adr/0001-use-files.md").exists(), "{v}");
 }
+
+fn doc_path(r: &common::Repo, id: &str) -> String {
+    let (_, d) = r.json(&["show", id]);
+    d["path"].as_str().unwrap().to_string()
+}
+
+#[test]
+fn c154_writes_keep_crlf_line_endings() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    let path = doc_path(&r, &id);
+    let crlf = r.read(&path).replace('\n', "\r\n");
+    r.write(&path, &crlf);
+    r.commit("crlf");
+    assert_eq!(r.json(&["set", &id, "tags+=x", "--write"]).0, 0);
+    assert_eq!(r.json(&["edit", &id, "--section", "Rule", "--text", "New rule.", "--write"]).0, 0);
+    let text = r.read(&path);
+    assert!(text.contains("New rule.") && text.contains("x"), "{text}");
+    assert_eq!(text.matches('\n').count(), text.matches("\r\n").count(), "only CRLF: {text:?}");
+}
+
+#[test]
+fn c139_an_id_held_by_two_files_is_refused() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    let path = doc_path(&r, &id);
+    let owner = id.split(':').nth(1).unwrap().split('/').next().unwrap();
+    let local = format!(".spec.local/{owner}/sot/cart.sot.md");
+    r.write(&local, &r.read(&path));
+    r.write(".gitignore", ".spec.local/\n");
+    r.commit("dup");
+    let (code, v) = r.json(&["mv", &id, "--slug", "cart-local", "--write"]);
+    assert_eq!(code, 2, "{v}");
+    assert!(v.to_string().contains(&local), "{v}");
+    assert!(r.path().join(&path).exists());
+    let (_, v) = r.json(&["doctor"]);
+    assert!(v.to_string().contains(&format!("spec mv {local}")), "{v}");
+}
+
+#[test]
+fn c137_mv_rewrites_relative_markdown_links() {
+    let r = common::repo();
+    let a = r.new_doc("sot", "services/shop", "Cart");
+    let b = r.new_doc("sot", "services/shop", "Pay");
+    let pb = doc_path(&r, &b);
+    let text = r.read(&pb);
+    r.write(
+        &pb,
+        &format!(
+            "{text}\nSee [cart](cart.sot.md) and [v](./cart.sot.md#verification) and [w](https://x.io/cart.sot.md).\n"
+        ),
+    );
+    r.commit("links");
+    let (code, v) = r.json(&["mv", &a, "--slug", "basket", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    assert!(v["next"].to_string().contains("L8"), "{v}");
+    let t = r.read(&pb);
+    assert!(t.contains("[cart](basket.sot.md)") && t.contains("[v](basket.sot.md#verification)"), "{t}");
+    assert!(t.contains("https://x.io/cart.sot.md"), "{t}");
+    let (_, v) = r.json(&["check", "--rule", "L8"]);
+    assert!(!v.to_string().contains("cart.sot.md"), "{v}");
+}
+
+#[test]
+fn c136_audit_record_passes_check_and_is_no_orphan() {
+    let r = common::repo();
+    for t in ["Loose one", "Loose two"] {
+        let id = r.new_doc("sot", "services/shop", t);
+        let p = doc_path(&r, &id);
+        let text = r.read(&p).replace("governs:\n  - services/shop\n", "").replace("governs: [services/shop]\n", "");
+        r.write(&p, &text);
+        r.json(&["set", &id, "rel.governs-=services/shop", "status=active", "--write"]);
+    }
+    r.commit("loose");
+    let (code, v) = r.json(&["audit", "--record", "--title", "four", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    r.commit("record");
+    let (_, v) = r.json(&["check", "--rule", "L2"]);
+    assert_eq!(v["errors"], 0, "{v}");
+    let (_, v) = r.json(&["list", "--type", "audit"]);
+    let rec = v["items"][0]["path"].as_str().unwrap_or_default().to_string();
+    assert!(r.read(&rec).contains("[[sot:"), "{v}");
+    let (_, v) = r.json(&["audit"]);
+    assert!(!v.to_string().contains("\"subject\":\"audit:"), "{v}");
+}
+
+#[test]
+fn c125_section_text_may_not_start_another_section() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    for args in [
+        &["edit", &id, "--section", "Rule", "--text", "x\n## Why\ndup", "--write"][..],
+        &["edit", &id, "--new-section", "Risks", "--text", "- r\n# Top\n", "--write"],
+    ] {
+        let (code, v) = r.json(args);
+        assert_eq!(code, 2, "{args:?}: {v}");
+    }
+    assert_eq!(
+        r.json(&["edit", &id, "--section", "Rule", "--text", "x\n### Detail\n```\n## not a heading\n```", "--write"]).0,
+        0
+    );
+}
+
+#[cfg(unix)]
+fn add_plugin(r: &common::Repo, name: &str, body: &str, timeout_ms: u64) {
+    r.write(&format!("{name}.sh"), body);
+    let script = r.path().join(format!("{name}.sh"));
+    let mut toml = r.read("spec.toml");
+    toml.push_str(&format!(
+        "[[plugins]]\nname = \"{name}\"\ncmd = [\"sh\", \"{}\"]\ntimeout_ms = {timeout_ms}\n",
+        script.display()
+    ));
+    r.write("spec.toml", &toml);
+}
+
+#[cfg(unix)]
+#[test]
+fn c150_a_plugin_writing_much_stderr_does_not_hang() {
+    let r = common::repo();
+    let describe = "read -r req\nhead -c 200000 /dev/zero | tr '\\0' x >&2\necho '{\"protocol\":\"specfold.plugin.v1\",\"name\":\"noisy\",\"wants\":[],\"provides\":{\"exporters\":[\"noisy\"]}}'\n";
+    add_plugin(&r, "noisy", describe, 5000);
+    let t = std::time::Instant::now();
+    let (code, v) = r.json(&["plugins"]);
+    assert!(t.elapsed().as_secs() < 5, "{v}");
+    assert_eq!(code, 0, "{v}");
+}
+
+#[cfg(unix)]
+#[test]
+fn c151_a_plugin_leaving_a_background_child_meets_its_deadline() {
+    let r = common::repo();
+    add_plugin(&r, "bg", "read -r req\nsleep 30 &\nsleep 30\n", 500);
+    let t = std::time::Instant::now();
+    let _ = r.json(&["plugins"]);
+    assert!(t.elapsed().as_secs() < 10);
+    let t = std::time::Instant::now();
+    let (code, v) = r.json(&["plugins", "frobnicate"]);
+    assert_eq!(code, 2, "{v}");
+    assert!(t.elapsed().as_secs() < 2, "usage errors come before plugins run");
+}
+
+#[test]
+fn c130_governs_paths_must_be_inside_the_repository() {
+    let r = common::repo();
+    for p in ["", "../elsewhere", "/tmp"] {
+        let (code, v) = r.json(&["new", "sot", "--governs", p, "--title", "X", "--write"]);
+        assert_eq!(code, 2, "{p}: {v}");
+        let (code, v) = r.json(&["context", p]);
+        assert_eq!(code, 2, "{p}: {v}");
+        assert!(!v.to_string().contains("spec new --governs"), "{v}");
+    }
+}
+
+#[test]
+fn c141_an_unknown_guard_range_is_refused_at_load() {
+    let r = common::repo();
+    let mut toml = r.read("spec.toml");
+    toml.push_str("[[guards]]\nname = \"g\"\nrange = \"stagde\"\ndeny_terms = [\"x\"]\n");
+    r.write("spec.toml", &toml);
+    let (code, v) = r.json(&["doctor"]);
+    assert_ne!(code, 0, "{v}");
+    assert!(v.to_string().contains("stagde"), "{v}");
+}
+
+fn edit_front(r: &common::Repo, id: &str, from: &str, to: &str) {
+    let p = doc_path(r, id);
+    r.write(&p, &r.read(&p).replacen(from, to, 1));
+}
+
+#[test]
+fn c129_verify_failure_next_names_the_document() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    edit_front(&r, &id, "status: draft", "status: active\nverify:\n  - sh -c 'exit 3'");
+    r.commit("v");
+    let (code, v) = r.json(&["verify"]);
+    assert_eq!(code, 1, "{v}");
+    assert_eq!(v["next"], format!("spec show {id} --section verification"), "{v}");
+}
+
+#[test]
+fn c149_log_next_names_the_document() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    r.commit("c");
+    let (_, v) = r.json(&["log", &id]);
+    assert_eq!(v["next"], format!("spec show {id} --rel"), "{v}");
+    assert!(!v.to_string().contains("<id>"), "{v}");
+}
+
+#[test]
+fn c131_box_cycle_note_is_one_line_of_ids() {
+    let r = common::repo();
+    let a = r.new_doc("sot", "services/shop", "Aa");
+    let b = r.new_doc("sot", "services/shop", "Bb");
+    assert_eq!(r.json(&["set", &a, &format!("rel.depends_on+={b}")]).0, 0);
+    assert_eq!(r.json(&["set", &b, &format!("rel.depends_on+={a}")]).0, 0);
+    let (_, out) = r.text(&["graph", "--format", "box"]);
+    let line = out.lines().find(|l| l.contains("also:")).unwrap_or_else(|| panic!("{out}"));
+    assert!(line.contains("depends_on") && line.ends_with("(a cycle)"), "{out}");
+}
+
+#[test]
+fn c134_write_baseline_without_a_path_carries_an_error() {
+    let r = common::repo();
+    let (code, v) = r.json(&["check", "--write-baseline"]);
+    assert_eq!(code, 2, "{v}");
+    assert!(v["error"].as_str().unwrap().contains("baseline"), "{v}");
+}
+
+#[test]
+fn c144_lsp_messages_keep_real_line_breaks() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    let p = doc_path(&r, &id);
+    let doc = format!("{}\nSee [[sot:root/nope]].\n", r.read(&p));
+    let abs = r.path().canonicalize().unwrap();
+    let uri = format!("file://{}/{p}", abs.display());
+    let init = serde_json::json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"rootUri": format!("file://{}", abs.display())}});
+    let open = serde_json::json!({"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument": {"uri": uri, "text": doc}}});
+    let out = r.spec().arg("lsp").write_stdin(common::lsp_frames(&[init, open])).output().unwrap();
+    let all = common::lsp_replies(&out.stdout);
+    let msgs: Vec<String> = all
+        .iter()
+        .flat_map(|m| m["params"]["diagnostics"].as_array().cloned().unwrap_or_default())
+        .map(|d| d["message"].as_str().unwrap_or("").to_string())
+        .collect();
+    let m = msgs.iter().find(|m| m.contains("fix:")).unwrap_or_else(|| panic!("{msgs:?}"));
+    assert!(m.contains('\n') && !m.contains("\\u{000A}"), "{m}");
+}
+
+#[test]
+fn c145_c146_fix_next_keeps_the_pick_and_refuses_a_foreign_one() {
+    let r = common::repo();
+    let a = r.new_doc("adr", "services/shop", "First readme");
+    let b = r.new_doc("adr", "services/shop", "Second readme");
+    for id in [&a, &b] {
+        assert_eq!(r.json(&["set", id, "aliases+=README"]).0, 0);
+    }
+    let target = format!("{}:1", doc_path(&r, &a));
+    let (code, v) = r.json(&["fix", "--rule", "I2", "--pick", &a, &target]);
+    assert_eq!(code, 0, "{v}");
+    let next = v["next"].as_str().unwrap_or_default().to_string();
+    assert!(next.contains(&format!("--pick {a}")) && next.contains(&target), "{v}");
+    let (code, v) = r.json(&["fix", "--rule", "I2", "--pick", "adr:root/nope", "--write", &target]);
+    assert_eq!(code, 2, "{v}");
+    assert!(v.to_string().contains(&b), "{v}");
+}
+
+#[test]
+fn c133_new_usage_next_skips_option_values() {
+    let r = common::repo();
+    let (code, v) = r.json(&["new", "sot", "--governs", "services/shop"]);
+    assert_eq!(code, 2, "{v}");
+    let next = v["next"].as_str().unwrap_or_default();
+    assert!(next.starts_with("spec new sot --title ") && next.contains("--governs services/shop"), "{v}");
+    let (_, v) = r.json(&["new", "--title", "My doc"]);
+    assert_eq!(v["next"], "spec new adr --title 'My doc'", "{v}");
+}
+
+#[test]
+fn c132_c148_c152_c153_filters_that_match_nothing_by_typo_are_refused() {
+    let r = common::repo();
+    r.new_doc("sot", "services/shop", "Cart");
+    r.commit("c");
+    for args in [
+        &["check", "--rule", "ZZ9"][..],
+        &["check", "--rule", "s1"],
+        &["check", "--skip", "ZZ9"],
+        &["log", "--since", "bogus"],
+        &["log", "--since", "2026-02-30"],
+        &["log", "--since", "2026-1-5"],
+        &["log", "--since", "2026-01-01", "--type", "zzz"],
+        &["find", "--limit", "0"],
+        &["find", "--type", "zzz"],
+        &["find", "--status", "zzz"],
+    ] {
+        let (code, v) = r.json(args);
+        assert_eq!(code, 2, "{args:?}: {v}");
+    }
+    assert_eq!(r.json(&["log", "--since", "2024-02-29"]).0, 0);
+    assert_eq!(r.json(&["check", "--rule", "S1"]).0, 0);
+}

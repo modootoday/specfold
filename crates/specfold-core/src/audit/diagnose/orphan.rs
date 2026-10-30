@@ -7,6 +7,10 @@ use crate::graph::Graph;
 pub fn run(c: &Corpus, g: &Graph, docs: &[usize], out: &mut Vec<Item>) {
     for &i in docs {
         let d = &c.docs[i];
+        // C136: an audit record is a dated snapshot, not something that should govern code.
+        if d.id.ty == "audit" {
+            continue;
+        }
         if d.status().as_deref() != Some("active") || !d.rel().get("governs").is_none_or(Vec::is_empty) {
             continue;
         }

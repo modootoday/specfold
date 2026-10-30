@@ -9,6 +9,14 @@ Release notes for each version are also on
 
 What an existing command does differs from 0.3.0; check scripts and CI that call these.
 
+`spec check --rule`/`--skip` refuse (rc 2) a rule id that does not exist, as `--fail-on` does; a lower-case id is pointed at its upper-case form (C132).
+`spec fix --pick` refuses (rc 2) an id that is not one of the finding's choices, listing them (C146).
+`spec log --since` must be a real `YYYY-MM-DD` date, and `spec log --type`, `spec find --type` and `spec find --status` must name a known type or status; others are refused with rc 2 (C148, C153).
+`--limit 0` is refused (rc 2); it showed nothing and its `--offset` hint pointed at itself (C152).
+`spec new --governs` and `spec context` refuse (rc 2) an empty path or one outside the repository, instead of recording it or suggesting `spec new --governs` for it (C130).
+A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is refused when `spec.toml` is loaded, naming the guard (C141).
+- An id held by two files (I1, e.g. a `.spec/` and a `.spec.local/` copy) is refused (exit 2) by every command that takes a document, listing both paths; name one by its path. `spec doctor`'s fix names the path (C139).
+- `spec edit --section`/`--new-section` refuses (exit 2) text holding a heading at the section's level or above, which would start or duplicate a section; deeper headings and fenced code are fine (C125).
 - `spec import --apply --write` refuses (exit 4) while rows marked `!` still need a decision, lists them and suggests `--force`; the new `--force` imports anyway. Previews are unchanged (C155).
 - `spec attach --into` refuses (exit 2) an absolute folder or one with `..`; it used to write outside the bundle (C142).
 - `spec new skill|rule|agent` refuses (exit 2) a title with no ASCII words unless `--slug` is given, and a `--slug` that is not kebab-case (C147).
@@ -122,6 +130,18 @@ What an existing command does differs from 0.3.0; check scripts and CI that call
 
 ### Fixed
 
+A failing `spec verify` suggests `spec show` with the failing document's id instead of a literal `<id>` (C129).
+`spec log` suggests `spec show` with a real id, and no next when nothing was listed (C149).
+`spec graph --format box` writes a cycle note on one line with ids only (C131).
+`spec check --write-baseline` without `[check] baseline` now carries the reason in JSON `error` (C134).
+LSP diagnostic messages keep a real line break before `fix:` instead of `\u{000A}` (C144).
+The `spec fix` preview's next keeps `--staged`, `--pick` and the targets, so following it writes what was previewed (C145).
+The usage-error next of `spec new` no longer takes option values as type or title, and keeps `--title`/`--governs` (C133).
+A plugin that writes a lot to stderr no longer stalls until its timeout; stdout and stderr are read together and the error shows the last stderr line (C150).
+A plugin that leaves a background child holding its pipes now stops at its `timeout_ms`; `spec plugins` reports a bad action before starting any plugin (C151).
+- Writes keep a file's CRLF line endings instead of mixing in LF (C154).
+- `spec mv` rewrites relative Markdown links to the moved file (fragment kept), and its next includes L8 (C137).
+- `spec audit --record` cites findings as `[[id]]` so the record passes L2, and audit records are no longer reported as orphans (C136).
 - `spec attach` previews and refusals keep `--into` in their next (C143).
 - Code fences close only with the same character and at least the same length, so a ```` fence holding ``` lines or a `~~~` fence is read alike by every command (C135).
 - `spec import` counts the alias table toward `[write] max_files` (C138).

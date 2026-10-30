@@ -54,7 +54,13 @@ pub fn render(diag: &Diagnosis) -> Result<Output> {
 pub fn as_markdown(diag: &Diagnosis) -> String {
     let mut body = String::from("## Diagnosis\n\n");
     for i in &diag.items {
-        body.push_str(&format!("- {:?} {} ({}:{}): {}\n", i.kind, i.subject, i.path, i.line, i.detail));
+        // C136: a plain path to a document is an L2 error in the record itself; cite the id.
+        let looks_like_id = i.subject.contains(':') && i.subject.contains('/') && !i.subject.contains(' ');
+        if looks_like_id {
+            body.push_str(&format!("- {:?} [[{}]]: {}\n", i.kind, i.subject, i.detail));
+        } else {
+            body.push_str(&format!("- {:?} {} (`{}:{}`): {}\n", i.kind, i.subject, i.path, i.line, i.detail));
+        }
     }
     body
 }

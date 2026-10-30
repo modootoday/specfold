@@ -19,6 +19,22 @@ fn check_fail_on(names: &[String]) -> Result<()> {
     Ok(())
 }
 
+/// C132: `--rule`/`--skip` name rules that exist, so a typo cannot turn a check into a pass.
+pub(crate) fn check_rule_names(flag: &str, names: &[String]) -> Result<()> {
+    let known: Vec<&str> = check::rules::catalog().iter().map(|r| r.info().id).collect();
+    for n in names {
+        if !n.starts_with("x.") && !known.contains(&n.as_str()) {
+            let hint = if known.contains(&n.to_uppercase().as_str()) {
+                format!("; rule ids are upper case: {flag} {}", n.to_uppercase())
+            } else {
+                String::new()
+            };
+            bail!("{flag} {n}: no such rule (spec explain lists them){hint}");
+        }
+    }
+    Ok(())
+}
+
 fn failing(list: &[Finding], fail_on: &[String]) -> usize {
     if fail_on.iter().any(|r| r == "none") {
         return 0;
@@ -125,6 +141,8 @@ fn documents_named(s: &session::Session, files: &[String], stdin: Option<&str>) 
 pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
     let started = Instant::now();
     check_fail_on(&a.fail_on)?;
+    check_rule_names("--rule", &a.rules)?;
+    check_rule_names("--skip", &a.skip)?;
     if let Some(p) = &a.stdin_path {
         let abs = absolute(std::path::Path::new(p));
         let mut text = String::new();
@@ -149,11 +167,14 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
     if a.write_baseline {
         // C102: without a baseline path there is nothing to preview; say what to set first.
         if s.corpus.cfg.raw.check.baseline.is_none() {
-            return Ok(Output::new("check")
-                .code(crate::output::Code::Usage)
-                .field("written", false)
-                .head("--write-baseline needs a file to write: add `[check]` with `baseline = \".spec-baseline.json\"` to spec.toml")
-                .next("spec explain config"));
+            // C134: JSON carries the reason as `error`, like every other rc 2.
+            return Ok(Output::error(
+                "check",
+                crate::output::Code::Usage,
+                "--write-baseline needs a file to write: add `[check]` with `baseline = \".spec-baseline.json\"` to spec.toml",
+                Some("spec explain config".into()),
+            )
+            .field("written", false));
         }
         let b = baseline::measure(&s.corpus, &report.findings)?;
         let total: usize = b.counts.values().sum();

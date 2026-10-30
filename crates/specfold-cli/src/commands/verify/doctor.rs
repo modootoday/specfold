@@ -93,12 +93,12 @@ pub fn run(g: &Global) -> Result<Output> {
             by_id.entry(d.id.to_string()).or_default().push(&d.path);
         }
         for (id, paths) in by_id.iter().filter(|(_, p)| p.len() > 1) {
-            let fix = if paths.iter().any(|p| p.contains(".spec.local/")) {
-                "keep one: delete the local copy, or spec mv the local one to a new slug"
-            } else {
-                "keep one, or spec mv one of them to a new slug"
+            // C139: the id names both files, so the fix names one by its path.
+            let fix = match paths.iter().find(|p| p.contains(".spec.local/")) {
+                Some(local) => format!("keep one: delete the local copy, or spec mv {local} --slug <new-slug> --write"),
+                None => format!("keep one, or spec mv {} --slug <new-slug> --write", paths[paths.len() - 1]),
             };
-            o = add(o, "duplicate", paths[0], format!("{id} is also defined in {}", paths[1..].join(", ")), fix);
+            o = add(o, "duplicate", paths[0], format!("{id} is also defined in {}", paths[1..].join(", ")), &fix);
         }
         // A move that stopped halfway leaves references to the old id while a document of the
         // same type and key lives under another owner.

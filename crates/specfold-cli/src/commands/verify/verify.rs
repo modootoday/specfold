@@ -24,6 +24,12 @@ pub fn run(g: &Global, a: &VerifyArgs) -> Result<Output> {
     Ok(if errors == 0 {
         o.foot("every verify command passed")
     } else {
-        o.code(Code::Findings).next("spec show <id> --section verification")
+        // C129: name the first failing document rather than a placeholder.
+        let first = list.iter().find(|f| f.severity == specfold_core::check::Severity::Error).map(|f| f.path.clone());
+        let id = first
+            .and_then(|p| s.corpus.docs.iter().find(|d| d.path == p))
+            .map(|d| d.id.to_string())
+            .unwrap_or_default();
+        o.code(Code::Findings).next(format!("spec show {} --section verification", session::shell_word(&id)))
     })
 }

@@ -9,6 +9,16 @@ use specfold_core::plugins;
 
 pub fn run(g: &Global, a: &PluginsArgs) -> Result<Output> {
     let cfg = session::config(g)?;
+    // C151: a usage error is reported before any plugin runs.
+    match (a.action.as_deref(), &a.name) {
+        (None, _) => {}
+        (Some("describe" | "test"), Some(n)) => {
+            if !cfg.raw.plugins.iter().any(|p| &p.name == n) {
+                bail!("no plugin named '{n}'");
+            }
+        }
+        (Some(act), _) => bail!("usage: spec plugins [describe|test <name>] (got '{act}')"),
+    }
     let loaded = plugins::load(&cfg);
     let selected: Vec<_> = match (a.action.as_deref(), &a.name) {
         (None, _) => loaded.iter().collect(),

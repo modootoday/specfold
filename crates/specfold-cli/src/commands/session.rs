@@ -92,6 +92,59 @@ pub fn repo_path(s: &Session, p: &str) -> String {
     }
 }
 
+/// C130: a path a document can govern: inside the repository, below its root.
+pub fn governed_path(s: &Session, p: &str) -> Result<String> {
+    let rel = repo_path(s, p);
+    if p.trim().is_empty() || rel.is_empty() || rel.starts_with('/') || rel.split('/').any(|c| c == "..") {
+        bail!("'{p}' is not a path inside the repository; give a file or folder below {}", s.corpus.cfg.root.display());
+    }
+    Ok(rel)
+}
+
+/// C148/C153: a filter value no document can have is a typo, not an empty result.
+pub fn known_types(s: &Session, given: &[String]) -> Result<()> {
+    let names = s.corpus.cfg.registry.names();
+    if let Some(t) = given.iter().find(|t| !names.contains(&t.as_str())) {
+        bail!("unknown type '{t}' (have: {})", names.join(", "));
+    }
+    Ok(())
+}
+
+/// See [`known_types`]: every status some type allows.
+pub fn known_statuses(s: &Session, given: &[String]) -> Result<()> {
+    let reg = &s.corpus.cfg.registry;
+    let mut all: Vec<&str> =
+        reg.names().iter().filter_map(|n| reg.get(n)).flat_map(|t| t.statuses.iter().map(|x| x.as_str())).collect();
+    all.sort();
+    all.dedup();
+    if let Some(v) = given.iter().find(|v| !all.contains(&v.as_str())) {
+        bail!("unknown status '{v}' (have: {})", all.join(", "));
+    }
+    Ok(())
+}
+
+/// C148: a real calendar date written YYYY-MM-DD.
+pub fn check_date(flag: &str, d: &str) -> Result<()> {
+    let p: Vec<&str> = d.split('-').collect();
+    let ok = match p.as_slice() {
+        [y, m, dd] if y.len() == 4 && m.len() == 2 && dd.len() == 2 => {
+            match (y.parse::<u32>(), m.parse::<u32>(), dd.parse::<u32>()) {
+                (Ok(y), Ok(m), Ok(dd)) => {
+                    let leap = (y % 4 == 0 && y % 100 != 0) || y % 400 == 0;
+                    let days = [31, if leap { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+                    (1..=12).contains(&m) && dd >= 1 && dd <= days[m as usize - 1]
+                }
+                _ => false,
+            }
+        }
+        _ => false,
+    };
+    if !ok {
+        bail!("{flag} {d}: not a date; write it as YYYY-MM-DD, e.g. 2026-01-05");
+    }
+    Ok(())
+}
+
 /// A word quoted for a shell when it needs to be.
 pub fn shell_word(s: &str) -> String {
     if !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric() || "-_./:#@".contains(c)) {
@@ -103,6 +156,11 @@ pub fn shell_word(s: &str) -> String {
 
 /// Resolves a reference to one document: id, alias, path, or a unique slug.
 pub fn resolve(s: &Session, text: &str) -> Result<usize> {
+    // C139: two files holding one id (I1) must not be picked silently; the path names one.
+    let same: Vec<&str> = s.corpus.docs.iter().filter(|d| d.id.to_string() == text).map(|d| d.path.as_str()).collect();
+    if same.len() > 1 {
+        bail!("'{text}' is held by {} files: {}; name one by its path", same.len(), same.join(", "));
+    }
     let rel = repo_path(s, text);
     for candidate in [text.to_string(), rel] {
         match s.graph.resolve(&candidate) {

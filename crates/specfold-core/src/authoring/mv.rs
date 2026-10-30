@@ -83,6 +83,8 @@ pub fn plan(c: &Corpus, idx: usize, req: &Move) -> Result<(Moved, Plan)> {
                         body = body.replace(&cite.item, &format!("[[{new_s}]]"));
                     }
                 }
+                // C137: relative Markdown links to the moved file follow it, fragment kept.
+                body = refs::rewrite_relative_links(&body, file, &d.path, &new_main);
             }
             let is_main = file == &other.path;
             if is_main {

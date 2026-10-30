@@ -228,7 +228,7 @@ pub fn draw(
         lines.push(legend.join(", "));
     }
     for (f, t, k) in &back {
-        lines.push(format!("also: {} {k} {} (a cycle)", labels[*f], labels[*t]));
+        lines.push(format!("also: {} {k} {} (a cycle)", first_line(&labels[*f]), first_line(&labels[*t])));
     }
     Ok(Drawing { lines, width })
 }
@@ -254,6 +254,11 @@ fn junction(m: u8, ascii: bool) -> char {
         x if x == U | D | L => '┤',
         _ => '┼',
     }
+}
+
+/// C131: a box label is the id over the status; a one-line note wants only the id.
+fn first_line(label: &str) -> &str {
+    label.lines().next().unwrap_or(label)
 }
 
 #[cfg(test)]
