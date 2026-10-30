@@ -40,6 +40,21 @@ impl Gate {
             .collect()
     }
 
+    /// Adds the built-in secrets check over `blobs`, skipping lines a guard already reported.
+    /// `warn_only` keeps the hits from refusing (files that stay in the repository).
+    pub fn add_builtin(&mut self, blobs: &[(String, Vec<u8>)], allow: &[String], warn_only: bool) {
+        for (g, mut f) in guards::builtin_secrets(blobs) {
+            if self.hits.iter().any(|(_, h, _)| h.path == f.path && h.line == f.line) {
+                continue;
+            }
+            if warn_only {
+                f.severity = Severity::Warn;
+            }
+            let allowed = allow.contains(&g);
+            self.hits.push((g, f, allowed));
+        }
+    }
+
     /// The guards whose unallowed error hits refuse, for the override hint.
     pub fn refusing(&self) -> Vec<String> {
         let mut v: Vec<String> = self
@@ -65,8 +80,10 @@ pub fn gate(
     allow: &[String],
 ) -> Result<Gate> {
     for a in allow {
-        if !cfg.raw.guards.iter().any(|g| &g.name == a) {
-            let have: Vec<&str> = cfg.raw.guards.iter().map(|g| g.name.as_str()).collect();
+        // `secrets` also names the built-in check, which needs no configured guard.
+        if a != "secrets" && !cfg.raw.guards.iter().any(|g| &g.name == a) {
+            let mut have: Vec<&str> = cfg.raw.guards.iter().map(|g| g.name.as_str()).collect();
+            have.push("secrets");
             bail!("no guard named '{a}' (have: {})", have.join(", "));
         }
     }
@@ -92,6 +109,6 @@ pub fn refuse_redacted(root: &std::path::Path, doc_path: &str, text: &str) -> Re
         return Ok(());
     }
     bail!(
-        "the text holds '{marker}…]', which spec mcp puts in place of a secret; writing it would replace the real value. Edit that line in the file itself, or leave it out of the change"
+        "the text holds '{marker}…]', which spec mcp puts in place of a secret; writing it would replace the real value. Edit that line in the file itself, or leave it out of the change; to add new text without resending the redacted line, use spec edit <id> --append (or --section <name>); next: spec help edit"
     )
 }

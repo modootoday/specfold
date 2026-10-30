@@ -24,14 +24,65 @@ pub fn run(g: &Global, a: &GuardArgs) -> Result<Output> {
     } else {
         a.range.as_deref().map(GuardRange::parse)
     };
-    let list = guards::run(&cfg, &a.names, range.as_ref())?;
+    // `secrets` is the built-in check `spec export` and U2 run, unless a guard takes that name.
+    let configured = |n: &str| cfg.raw.guards.iter().any(|g| g.name == n);
+    let asked_builtin = a.names.iter().any(|n| n == BUILTIN && !configured(n));
+    let names: Vec<String> = a.names.iter().filter(|n| *n != BUILTIN || configured(n)).cloned().collect();
+    let builtin = asked_builtin || (a.names.is_empty() && !cfg.raw.guards.iter().any(|g| g.secrets));
+    let mut list = if names.is_empty() && asked_builtin { vec![] } else { guards::run(&cfg, &names, range.as_ref())? };
+    if builtin {
+        for f in builtin_hits(g, range.as_ref())? {
+            if !list.iter().any(|x| x.path == f.path && x.line == f.line) {
+                list.push(f);
+            }
+        }
+    }
     let (errors, warnings) = findings::counts(&list);
     let o = findings::push_all(Output::new("guard").field("errors", errors).field("warnings", warnings), &list);
-    let names = if a.names.is_empty() {
-        cfg.raw.guards.iter().map(|g| g.name.clone()).collect::<Vec<_>>().join(", ")
-    } else {
-        a.names.join(", ")
-    };
+    let mut shown: Vec<String> =
+        if a.names.is_empty() { cfg.raw.guards.iter().map(|g| g.name.clone()).collect() } else { names.clone() };
+    if builtin {
+        shown.push("secrets (built-in)".into());
+    }
+    let names = shown.join(", ");
     let o = o.foot(format!("guards {names}: {errors} error(s), {warnings} warning(s)"));
-    Ok(if errors > 0 { o.code(Code::Findings).next("spec explain U1") } else { o })
+    Ok(if errors > 0 {
+        o.code(Code::Findings).next(if list.iter().all(|f| f.rule == "U2") {
+            "spec explain U2"
+        } else {
+            "spec explain U1"
+        })
+    } else {
+        o
+    })
+}
+
+const BUILTIN: &str = "secrets";
+
+/// The built-in secret check over document files in the range (the whole tree without one).
+fn builtin_hits(g: &Global, range: Option<&GuardRange>) -> Result<Vec<specfold_core::check::Finding>> {
+    let s = session::open(g)?;
+    let root = &s.corpus.cfg.root;
+    let docs: Vec<String> =
+        s.corpus.docs.iter().flat_map(|d| std::iter::once(d.path.clone()).chain(d.chapters.iter().cloned())).collect();
+    let blobs: Vec<(String, Vec<u8>)> = match range {
+        None | Some(GuardRange::All) => {
+            docs.into_iter().filter_map(|p| Some((p.clone(), std::fs::read(root.join(&p)).ok()?))).collect()
+        }
+        Some(r) => {
+            let res = guards::range::resolve(root, r, &[])?;
+            res.files
+                .into_iter()
+                .filter(|f| docs.contains(f))
+                .filter_map(|p| Some((p.clone(), guards::range::read(root, &res.source, &p)?)))
+                .collect()
+        }
+    };
+    Ok(guards::builtin_secrets(&blobs)
+        .into_iter()
+        .map(|(_, mut f)| {
+            f.rule = "U2".into();
+            f
+        })
+        .collect())
 }

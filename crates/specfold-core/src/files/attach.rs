@@ -120,7 +120,7 @@ pub fn apply(c: &Corpus, doc: &Doc, plan: &Plan) -> Result<()> {
             list.push(json!({"path": f.path, "sha256": f.sha256, "bytes": f.bytes, "store": f.store}));
         }
         m.insert("files".into(), Value::Array(list));
-        m.insert("updated".into(), Value::String(crate::model::stamp::today()));
+        m.insert("updated".into(), Value::String(crate::model::stamp::now_value()));
     })?;
     std::fs::write(root.join(&main), new)?;
     Ok(())

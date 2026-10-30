@@ -252,3 +252,24 @@ fn show_names_the_sections_when_one_is_missing() {
     assert!(s.contains("Nope") && s.contains("sections: "), "{s}");
     assert!(!s.contains("sections: Payment rollout"), "the title is not a section: {s}");
 }
+
+#[test]
+fn a_slug_id_resolves_in_links_and_find() {
+    let r = common::repo();
+    let id = r.new_doc("plan", "services/shop", "Payment rollout");
+    let (head, _) = id.rsplit_once('/').unwrap();
+    let slug_id = format!("{head}/payment-rollout");
+    let (code, v) = r.json(&["find", &slug_id]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["next"], format!("spec show {id}"), "{v}");
+    let other = r.new_doc("adr", "services/shop", "Payments");
+    let path = r.json(&["show", &other]).1["path"].as_str().unwrap().to_string();
+    r.write(&path, &(r.read(&path) + &format!("\nSee [[{slug_id}]].\n")));
+    let (_, v) = r.json(&["check", "--rule", "L1"]);
+    let s = v.to_string();
+    assert!(s.contains("by its slug") && !s.contains("names no document"), "{s}");
+    assert_eq!(r.json(&["fix", "--rule", "L1", "--write"]).0, 0);
+    assert!(r.read(&path).contains(&format!("[[{id}]]")), "rewritten to the canonical id");
+    let (_, v) = r.json(&["find", "no-such-words", "--type", "plan"]);
+    assert_eq!(v["next"], "spec find --all no-such-words --type plan", "{v}");
+}

@@ -7,6 +7,16 @@ Release notes for each version are also on
 
 ### Added
 
+- Rule U2 runs the built-in secrets check (the one `spec export` always applies) over every
+  document file, so the commit hook (`spec check --staged`) refuses what export would refuse.
+  `spec guard secrets` runs it over any range, and `spec guard` with no secrets guard configured
+  includes it. A configured `secrets = true` guard keeps reporting through U1 instead.
+- `spec attach` runs the built-in secrets check on every file, with no `[[guards]]` needed: a hit
+  refuses a store upload (`--allow-hit secrets` lets it through) and warns for a repository file.
+- A slug id (`plan:root/payment-rollout` for a timestamp-keyed plan) resolves in `[[…]]`
+  references, Markdown links, export and `spec find`; L1 suggests the canonical id.
+- The attachments guide, the config reference and `spec help attach` show a `[files.store]` example.
+
 - Built-in secrets (`secrets = true` in a guard) now find connection strings with a password
   (`scheme://user:password@host`, any scheme: postgres, mysql, mongodb, redis, amqp …) and
   three-part JWTs. Not flagged: example and loopback hosts (`example.com|org|net`, `*.example`,
@@ -46,6 +56,14 @@ Release notes for each version are also on
 - `spec help lsp` takes `--dir` and points to the editor setup guide.
 - `spec new` warns when the slug leaves out words in another script ("결제 비교 Gateway" gives
   `gateway`), not only when most of the title is lost.
+
+### Fixed
+
+- `spec export` secret refusals name the source document file and line (not the exported copy)
+  and suggest `spec guard secrets`.
+- `spec find` with no current match suggests the same search with `--all`, runnable as written.
+- `spec attach` writes `updated` as an RFC 3339 timestamp, like `spec new` and `spec set`.
+- Refusing text that holds the mcp redaction marker now suggests `spec edit <id> --append`.
 
 ### Changed
 

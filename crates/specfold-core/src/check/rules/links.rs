@@ -49,8 +49,13 @@ impl Rule for LinksResolve {
                         if let Some(a) = anchor {
                             id = format!("{id}#{a}");
                         }
+                        let how = if ctx.graph.by_slug.contains_key(RefText::parse(&l.item).target.as_str()) {
+                            "names by its slug"
+                        } else {
+                            "is an alias of"
+                        };
                         out.push(
-                            Finding::warn("L1", &l.path, l.line, format!("[[{}]] is an alias of {id}", l.item))
+                            Finding::warn("L1", &l.path, l.line, format!("[[{}]] {how} {id}", l.item))
                                 .fix_replace(format!("[[{}]]", l.item), format!("[[{id}]]")),
                         );
                     }
@@ -129,11 +134,20 @@ fn md_id_links(ctx: &Ctx, d: &crate::model::Doc, out: &mut Vec<Finding>) {
                 continue;
             }
             let line = text[..o.span.0].matches('\n').count() + 1;
-            let wiki = match &o.label {
-                Some(l) => format!("[[{}|{l}]]", o.target),
-                None => format!("[[{}]]", o.target),
+            let resolved = ctx.graph.resolve(&o.target);
+            // A slug id or alias is written as the canonical id, so the fix needs no second pass.
+            let target = match &resolved {
+                Resolution::Doc { idx, anchor, .. } => {
+                    let id = ctx.corpus.docs[*idx].id.to_string();
+                    anchor.as_ref().map_or(id.clone(), |a| format!("{id}#{a}"))
+                }
+                _ => o.target.clone(),
             };
-            let f = match ctx.graph.resolve(&o.target) {
+            let wiki = match &o.label {
+                Some(l) => format!("[[{target}|{l}]]"),
+                None => format!("[[{target}]]"),
+            };
+            let f = match resolved {
                 Resolution::Doc { .. } => Finding::warn(
                     "L1",
                     path,

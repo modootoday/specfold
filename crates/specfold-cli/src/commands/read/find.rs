@@ -61,7 +61,20 @@ pub fn run(g: &Global, a: &FindArgs) -> Result<Output> {
         Some(h) if a.open_tasks => o.next(format!("spec show {} --tasks", h.id)),
         Some(h) => o.next(format!("spec show {}", h.id)),
         None if a.open_tasks => o.foot("no document has open task items"),
-        None if !a.all => o.foot("nothing current matches").next("spec find --all ..."),
+        None if !a.all => {
+            // The same search with --all, so the next line runs as written.
+            let mut cmd = vec!["spec find --all".to_string()];
+            cmd.extend(a.words.iter().map(|w| session::shell_word(w)));
+            for (flag, list) in
+                [("--type", &a.types), ("--owner", &a.owners), ("--status", &a.statuses), ("--tag", &a.tags)]
+            {
+                cmd.extend(list.iter().map(|v| format!("{flag} {}", session::shell_word(v))));
+            }
+            if a.text {
+                cmd.push("--text".into());
+            }
+            o.foot("nothing current matches").next(cmd.join(" "))
+        }
         None => o.foot("nothing matches"),
     })
 }

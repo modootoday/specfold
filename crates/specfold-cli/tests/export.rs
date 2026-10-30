@@ -251,7 +251,14 @@ fn the_built_in_secrets_check_runs_with_no_guard_configured() {
     assert!(!r.path().join("site").exists(), "nothing is written");
     let s = v.to_string();
     assert!(s.contains("built-in check") && !s.contains("Et-77x"), "{s}");
-    assert_eq!(v["next"], "spec help export", "{v}");
+    assert_eq!(v["next"], "spec guard secrets", "{v}");
+    // The hit names the source file and its line, not the exported copy.
+    let line = r.read(path).lines().position(|l| l.starts_with("DSN:")).unwrap() + 1;
+    assert_eq!(v["guard"][0]["path"], path, "{v}");
+    assert_eq!(v["guard"][0]["line"], line, "{v}");
+    let (code, g) = r.json(&["guard", "secrets"]);
+    assert_eq!(code, 1, "spec guard secrets agrees with export: {g}");
+    assert!(g.to_string().contains(path), "{g}");
     let (_, t) = r.text(&["export", "markdown", "--target", "mkdocs", "--out", "site"]);
     assert!(t.contains("pass --no-guard"), "{t}");
     let (code, v) = r.json(&["export", "markdown", "--target", "mkdocs", "--out", "site", "--no-guard"]);

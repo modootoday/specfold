@@ -24,9 +24,34 @@ A store is a directory, or a command you already trust (rclone, aws, gsutil, wra
 contains no network code and never handles credentials. `[files] inline_max_bytes` sets the
 limit for the repository.
 
-Before a file goes to the store, every guard that reads content (secrets, denied terms or
-patterns, denied files) checks it. An error-level hit refuses the upload and names the guard;
-`--allow-hit <guard>` lets that guard's hits through. Only the first 64 MiB of a file is read.
+A directory store:
+
+```toml
+[files]
+inline_max_bytes = 1048576   # larger files go to the store
+
+[files.store]
+kind = "dir"
+path = "~/specfold-store"    # `~` is expanded
+```
+
+A command store runs argv templates; `{src}` and `{dst}` are local paths, `{key}` is the object
+key. `exists` is optional and succeeds (exit 0) when the object is there:
+
+```toml
+[files.store]
+kind = "command"
+put = ["rclone", "copyto", "{src}", "remote:bucket/{key}"]
+get = ["rclone", "copyto", "remote:bucket/{key}", "{dst}"]
+exists = ["rclone", "lsf", "remote:bucket/{key}"]
+```
+
+Every attached file is read by the built-in secrets check, the one `spec export` and rule U2
+run. Before a file goes to the store, every guard that reads content (secrets, denied terms or
+patterns, denied files) checks it as well. An error-level hit refuses the upload and names the
+guard; `--allow-hit <guard>` lets that guard's hits through (`--allow-hit secrets` for the
+built-in check). A secret in a file that stays in the repository is a warning. Only the first
+64 MiB of a file is read.
 
 ## Rules
 

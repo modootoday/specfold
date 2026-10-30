@@ -37,6 +37,8 @@ pub struct Graph {
     pub by_id: HashMap<String, usize>,
     pub by_path: HashMap<String, usize>,
     pub by_alias: HashMap<String, Vec<usize>>,
+    /// Slug ids (`plan:root/payment-rollout`), resolved like aliases.
+    pub by_slug: HashMap<String, Vec<usize>>,
     pub anchors: Vec<HashSet<String>>,
     pub edges: Vec<Edge>,
     pub outgoing: Vec<Vec<usize>>,

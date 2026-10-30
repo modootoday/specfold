@@ -16,8 +16,9 @@ fn passes_filters(d: &Doc, q: &Query) -> bool {
 fn score_meta(d: &Doc, words: &[String]) -> Option<u32> {
     let id = d.id.to_string().to_lowercase();
     let aliases: Vec<String> = d.list_field("aliases").iter().map(|a| a.to_lowercase()).collect();
+    let slug_id = d.slug_id().unwrap_or_default();
     let hay = format!(
-        "{id} {} {} {} {}",
+        "{id} {slug_id} {} {} {} {}",
         d.title.clone().unwrap_or_default().to_lowercase(),
         d.slug,
         aliases.join(" "),
@@ -30,7 +31,7 @@ fn score_meta(d: &Doc, words: &[String]) -> Option<u32> {
         return None;
     }
     let joined = words.join(" ");
-    Some(if id == joined || aliases.contains(&joined) { 100 } else { 10 + words.len() as u32 })
+    Some(if id == joined || slug_id == joined || aliases.contains(&joined) { 100 } else { 10 + words.len() as u32 })
 }
 
 fn body_excerpt(c: &Corpus, d: &Doc, words: &[String]) -> Option<String> {
