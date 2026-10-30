@@ -139,8 +139,15 @@ pub fn run(g: &Global, a: &ExportArgs) -> Result<Output> {
 /// C166: the flags the user gave that shape the run (preview, output, content), so a next
 /// command from a refused preview stays a preview. `--json` is left out, as in every next.
 fn kept_flags(a: &ExportArgs) -> String {
+    let dry = if a.dry_run { " --dry-run" } else { "" };
+    format!("{}{dry}", content_flags(a))
+}
+
+/// The flags that change what an export writes (C177); never --dry-run, and never --no-guard,
+/// which the user types themselves.
+fn content_flags(a: &ExportArgs) -> String {
     let mut f = String::new();
-    for (on, flag) in [(a.local, " --local"), (a.banner, " --banner"), (a.dry_run, " --dry-run")] {
+    for (on, flag) in [(a.local, " --local"), (a.banner, " --banner")] {
         if on {
             f.push_str(flag);
         }
@@ -243,7 +250,8 @@ fn built_in(g: &Global, a: &ExportArgs) -> Result<Output> {
             o = o.foot(format!("write  {p}"));
         }
         let yes = if previous.is_empty() { "" } else { " --yes" };
-        return Ok(o.next(format!("spec export markdown --target {} --out {again}{yes}", target.name())));
+        let content = content_flags(a);
+        return Ok(o.next(format!("spec export markdown --target {} --out {again}{content}{yes}", target.name())));
     }
     if !previous.is_empty() && !a.yes {
         return Ok(o
@@ -255,7 +263,7 @@ fn built_in(g: &Global, a: &ExportArgs) -> Result<Output> {
                 out.display(),
                 previous.len()
             ))
-            .next(format!("spec export markdown --target {} --out {again} --yes", target.name())));
+            .next(format!("spec export markdown --target {} --out {again}{} --yes", target.name(), content_flags(a))));
     }
     markdown::write(&out_path, &tree, target, &previous)?;
     let mut o = o.head(format!(

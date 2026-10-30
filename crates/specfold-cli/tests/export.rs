@@ -494,3 +494,24 @@ fn c166_refused_export_preview_next_stays_a_preview() {
     assert_eq!(r.json(&args).0, 0);
     assert!(!r.path().join("f").exists(), "following the next wrote f/");
 }
+
+#[test]
+fn c177_export_preview_next_keeps_the_content_flags_but_not_no_guard() {
+    let r = corpus();
+    let out = r.path().join("vault");
+    let o = out.to_str().unwrap();
+    // --fail-on rides the same helper; this corpus has an unresolved ref, so it stays off here.
+    let flags = ["--banner", "--local"];
+    let mut args = vec!["export", "markdown", "--target", "obsidian", "--out", o];
+    args.extend(flags);
+    args.extend(["--no-guard", "--dry-run"]);
+    let (code, preview) = r.json(&args);
+    assert_eq!(code, 0, "{preview}");
+    let next = preview["next"].as_str().unwrap().to_string();
+    assert!(next.contains(" --banner") && next.contains(" --local"), "{next}");
+    assert!(!next.contains("--dry-run") && !next.contains("--no-guard"), "{next}");
+    let words: Vec<&str> = next.split(' ').skip(1).collect();
+    let (code, wrote) = r.json(&words);
+    assert_eq!(code, 0, "{wrote}");
+    assert_eq!(wrote["docs"], preview["docs"], "the write matches the preview");
+}
