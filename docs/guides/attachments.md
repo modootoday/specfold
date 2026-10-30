@@ -18,6 +18,9 @@ $ spec files <id>
 $ spec fetch <id>
 ```
 
+`spec fetch` never replaces a file that is already there with other content; it names the file
+and fetches nothing, unless you add `--force`.
+
 ## Stores
 
 A store is a directory, or a command you already trust (rclone, aws, gsutil, wrangler). specfold

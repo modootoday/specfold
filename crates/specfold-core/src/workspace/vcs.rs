@@ -15,4 +15,4 @@ pub use history::{CommitText, Revision, commits, commits_since, history, last_ch
 pub use refs::{head, is_ancestor_of_head, upstream};
 pub use repo::{git_root, is_repo};
 pub use submodules::{Side, submodule_changes};
-pub use tracked::{committed, tracked};
+pub use tracked::{blob_id, committed, past_blobs, tracked};

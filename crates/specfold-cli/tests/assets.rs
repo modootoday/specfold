@@ -164,7 +164,11 @@ fn sync_assets_previews_then_copies_only_into_declared_copy_roots() {
     assert_eq!(v["changes"], 2, "{v}");
     assert!(r.read(".claude/skills/pdf-tools/SKILL.md").contains("Old."), "a preview writes nothing");
 
-    let (code, v) = r.json(&["sync", "assets", "--write"]);
+    let (_, v) = r.json(&["sync", "assets", "--write"]);
+    assert_eq!(v["written"], false, "the old copy was never a version of its source (CLI-4): {v}");
+    assert_eq!(v["unowned"][0], ".claude/skills/pdf-tools/SKILL.md", "{v}");
+    assert!(v["next"].as_str().unwrap().contains("--force"), "{v}");
+    let (code, v) = r.json(&["sync", "assets", "--write", "--force"]);
     assert_eq!((code, v["written"].clone()), (0, serde_json::json!(true)), "{v}");
     assert_eq!(r.read(".claude/skills/pdf-tools/SKILL.md"), skill);
     assert_eq!(r.read(".claude/skills/pdf-tools/scripts/run.sh"), "echo pdf\n");

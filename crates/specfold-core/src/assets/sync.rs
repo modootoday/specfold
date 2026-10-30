@@ -43,10 +43,13 @@ pub fn pairs(cfg: &Config) -> Result<Vec<Pair>> {
     Ok(out)
 }
 
-/// The changes that make every copy root equal to its source.
-pub fn plan(cfg: &Config, prune: bool) -> Result<(Vec<Pair>, Plan)> {
+/// The changes that make every copy root equal to its source, and the copies among them that
+/// would overwrite a file with no sign sync wrote it (CLI-4): an existing copy is sync's own when
+/// its content is a version its source has had (in git history or now).
+pub fn plan(cfg: &Config, prune: bool) -> Result<(Vec<Pair>, Plan, Vec<String>)> {
     let pairs = pairs(cfg)?;
     let mut plan = Plan::default();
+    let mut unowned = vec![];
     for p in &pairs {
         let src = files(&cfg.root, &p.source)?;
         for rel in &src {
@@ -54,6 +57,9 @@ pub fn plan(cfg: &Config, prune: bool) -> Result<(Vec<Pair>, Plan)> {
             no_links(&cfg.root, &to)?;
             let same = std::fs::read(cfg.root.join(&from)).ok() == std::fs::read(cfg.root.join(&to)).ok();
             if !same {
+                if cfg.root.join(&to).is_file() && !owned(&cfg.root, &from, &to) {
+                    unowned.push(to.clone());
+                }
                 plan.changes.push(Change::Copy { from, to });
             }
         }
@@ -63,7 +69,14 @@ pub fn plan(cfg: &Config, prune: bool) -> Result<(Vec<Pair>, Plan)> {
             }
         }
     }
-    Ok((pairs, plan))
+    Ok((pairs, plan, unowned))
+}
+
+/// Whether the copy at `to` holds a version of `from`: what sync wrote and nobody changed since.
+fn owned(root: &Path, from: &str, to: &str) -> bool {
+    use crate::workspace::vcs;
+    let Some(id) = vcs::blob_id(root, to) else { return false };
+    vcs::past_blobs(root, from).contains(&id)
 }
 
 /// A relative path inside the repository: no root, no `..`, no glob, not the repository itself.

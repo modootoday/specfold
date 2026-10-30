@@ -290,8 +290,32 @@ fn cli3_destructive_needs_yes_off_tty() {
 }
 
 #[test]
-#[ignore = "CLI-4 not implemented: overwrite checks ownership only for export (manifest); --force is not a flag yet"]
-fn cli4_overwrite_needs_ownership_or_force() {}
+fn cli4_overwrite_needs_ownership_or_force() {
+    let r = common::repo();
+    let base = r.read("spec.toml");
+    r.write(
+        "spec.toml",
+        &format!("{base}[[assets]]\nkind = \"skill\"\npath = \".claude/skills\"\ncopy_of = \".agents/skills\"\n"),
+    );
+    let skill = |d: &str| format!("---\nname: db\ndescription: {d}\n---\n");
+    r.write(".agents/skills/db/SKILL.md", &skill("One."));
+    r.commit("source");
+    let (code, v) = r.json(&["sync", "assets", "--write"]);
+    assert_eq!((code, v["written"].clone()), (0, serde_json::json!(true)), "a new copy needs no --force: {v}");
+    r.commit("copy");
+    // The copy holds a past version of its source: sync's own, overwritten without --force.
+    r.write(".agents/skills/db/SKILL.md", &skill("Two."));
+    let (_, v) = r.json(&["sync", "assets", "--write"]);
+    assert_eq!(v["written"], true, "{v}");
+    // Someone edited the copy by hand: no version of the source matches, so --force is needed.
+    r.write(".claude/skills/db/SKILL.md", &skill("Hand edit."));
+    let (_, v) = r.json(&["sync", "assets", "--write"]);
+    assert_eq!(v["written"], false, "{v}");
+    assert!(r.read(".claude/skills/db/SKILL.md").contains("Hand edit."));
+    let (_, v) = r.json(&["sync", "assets", "--write", "--force"]);
+    assert_eq!(v["written"], true, "{v}");
+    assert!(r.read(".claude/skills/db/SKILL.md").contains("Two."));
+}
 
 #[test]
 fn cli5_writes_list_changes_and_an_undo() {
@@ -370,6 +394,7 @@ const SHARED: &[(&str, &str)] = &[
     ("write", "apply, otherwise preview"),
     ("write-baseline", "record current hits as the baseline"),
     ("yes", "confirm a destructive or external action"),
+    ("force", "overwrite a file with no sign specfold wrote it"),
 ];
 
 /// CLI-11 known splits; empty since guard --tree, find --body and init --owner-kind (0.3).
