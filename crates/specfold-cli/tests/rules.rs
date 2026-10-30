@@ -415,3 +415,26 @@ fn c109_c110_c111_c112_set_lists_statuses_and_nexts() {
     let (_, d) = r.json(&["show", &id]);
     assert_eq!(d["frontmatter"]["approvers"], serde_json::json!(["kim", "lee"]), "C109: {d}");
 }
+
+#[test]
+fn sd3_coverage_lists_anchors_no_other_document_cites() {
+    let r = common::repo();
+    let sot = r.new_doc("sot", "services/shop", "Login");
+    let (_, d) = r.json(&["show", &sot]);
+    let path = d["path"].as_str().unwrap().to_string();
+    r.write(&path, &(r.read(&path) + "\n## Password login {#fr-001}\n\n## Magic link {#fr-002}\n"));
+    assert_eq!(r.json(&["set", &sot, "status=active", "--write"]).0, 0);
+    let plan = r.new_doc("plan", "services/shop", "Login work");
+    let (_, p) = r.json(&["show", &plan]);
+    let ppath = p["path"].as_str().unwrap().to_string();
+    r.write(&ppath, &(r.read(&ppath) + &format!("\n- [ ] build [[{sot}#fr-001]]\n")));
+    r.commit("docs");
+    // Off by default: plain sots get no noise.
+    let (_, v) = r.json(&["audit", "--kind", "coverage"]);
+    assert!(v["items"].as_array().is_none_or(|a| a.is_empty()), "{v}");
+    r.write("spec.toml", &(r.read("spec.toml") + "[audit]\ncoverage_types = [\"sot\"]\n"));
+    let (_, v) = r.json(&["audit", "--kind", "coverage"]);
+    let items = v["items"].as_array().unwrap();
+    assert_eq!(items.len(), 1, "{v}");
+    assert!(items[0]["detail"].as_str().unwrap().contains("#fr-002"), "{v}");
+}

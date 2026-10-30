@@ -39,7 +39,7 @@ description: The spec.toml tables and what each one controls.
 | `[[guards]]` | named checks over files and commit messages (rule U1) |
 | `[[plugins]]` | external programs speaking `specfold.plugin.v1` |
 | `[translations]` | translations paired by place: `layout`, `languages`, `source_lang`, `strict` (rule R2) |
-| `[audit]` | thresholds for stale, stalled and draft documents |
+| `[audit]` | thresholds for stale, stalled and draft documents; `coverage_types` lists types whose `{#ANCHOR}` headings must each be cited (`spec audit --kind coverage`) |
 | `[verify]` | deadline, parallel jobs and shell for `spec verify` |
 | `[cites]` | files outside documents whose citations rule L6 checks |
 | `[write]` | `max_files`: mv, fix, sync and import need `--yes` to write more files than this at once (default 50; 0 = no bound) |

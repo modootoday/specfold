@@ -34,6 +34,7 @@ What an existing command does differs from 0.3.0; check scripts and CI that call
 
 ### Added
 
+- `spec audit --kind coverage`: with `[audit] coverage_types = ["sot"]`, lists each `{#ANCHOR}` heading of a current document of those types that no other document cites as `[[<id>#ANCHOR]]`. Off by default.
 - Import keeps who decided: MADR `decision-makers`/`deciders`, `consulted`, `informed` and MADR 2/Log4brains `* Deciders:` body lines become `decision_makers`, `consulted` and `informed` lists, now declared `adr` fields (no S1 warning).
 - `[check] link_ignore`: globs of link targets rule L8 skips.
 - A config warning when `require_when` names a status the type does not have.

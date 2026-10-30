@@ -17,6 +17,8 @@ pub enum Kind {
     Finished,
     /// Markers of unfinished work inside a document.
     OpenItem,
+    /// An anchor of a coverage type that no other document cites.
+    Coverage,
     /// An exception (rel.exception_of) past its review_by date.
     Exception,
     /// Leftover compatibility: alias citations, skipped rules.
