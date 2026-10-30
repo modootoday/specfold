@@ -307,3 +307,88 @@ fn a_markdown_link_to_an_id_is_warned_about_and_rewritten_on_export() {
     assert!(page.contains("[the tax rule](../adr/cart-totals.md)"), "{page}");
     assert!(page.contains("[gone](adr:shop/1999)"), "left as written: {page}");
 }
+
+#[cfg(unix)]
+#[test]
+fn the_built_in_check_stops_a_plugin_with_no_guard_until_no_guard_is_passed() {
+    let r = corpus();
+    let seen = plugin(&r, "rich", "[\"body\"]");
+    let path = "services/shop/.spec/sot/checkout.sot.md";
+    r.write(path, &(CHECKOUT.to_string() + "\nDSN: " + &leaky_url() + "\n"));
+    let (code, v) = r.json(&["export", "rich"]);
+    assert_eq!(code, 1, "{v}");
+    assert!(!seen.exists(), "the plugin never saw the payload");
+    let (code, v) = r.json(&["export", "rich", "--no-guard"]);
+    assert_eq!(code, 0, "{v}");
+    assert!(std::fs::read_to_string(&seen).unwrap().contains("Et-77x"), "--no-guard sends the body as written");
+}
+
+#[test]
+fn a_warn_level_public_guard_lists_its_hit_and_exports() {
+    let r = corpus();
+    with_public_guard(&r);
+    r.write("spec.toml", &(r.read("spec.toml") + "level = \"warn\"\n"));
+    let path = "services/shop/.spec/sot/checkout.sot.md";
+    r.write(path, &(CHECKOUT.to_string() + "\nDSN: " + &leaky_url() + "\n"));
+    let (code, v) = r.json(&["export", "markdown", "--target", "mkdocs", "--out", "site"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["guard"][0]["level"], "warn", "{v}");
+    assert!(!v.to_string().contains("Et-77x"), "{v}");
+    assert!(r.path().join("site/shop/sot/checkout.md").exists());
+}
+
+#[test]
+fn an_unknown_target_and_a_missing_out_name_a_real_next_command() {
+    let r = corpus();
+    let (code, v) = r.json(&["export", "markdown", "--target", "nope", "--out", "x"]);
+    assert_ne!(code, 0);
+    let err = v["error"].as_str().unwrap_or_default();
+    assert!(err.contains("nope") && err.contains("obsidian") && err.contains("mkdocs"), "{v}");
+    assert!(v["next"].as_str().unwrap_or_default().starts_with("spec "), "{v}");
+    let (code, v) = r.json(&["export", "markdown", "--target", "mkdocs"]);
+    assert_ne!(code, 0);
+    assert!(v.to_string().contains("--out"), "{v}");
+    assert!(v["next"].as_str().unwrap_or_default().starts_with("spec "), "{v}");
+}
+
+fn with_md_links() -> common::Repo {
+    let r = common::repo();
+    let a = CHECKOUT
+        .replace(
+            "The decision is [[adr:shop/20260101000000]]; see also [[sot:shop/nowhere]].",
+            "The decision is [the tax rule](adr:shop/20260101000000); `[code](adr:shop/20260101000000)` stays.",
+        )
+        .replace("Notes: [[adr:shop/20260102000000]].", "Notes.");
+    r.write("services/shop/.spec/sot/checkout.sot.md", &a);
+    r.write("services/shop/.spec/adr/20260101000000-cart-totals.adr.md", TOTALS);
+    r
+}
+
+#[test]
+fn fix_rewrites_a_markdown_link_to_an_id_as_a_wiki_link() {
+    let r = with_md_links();
+    let (code, v) = r.json(&["fix", "--rule", "L1", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    let text = r.read("services/shop/.spec/sot/checkout.sot.md");
+    assert!(text.contains("[[adr:shop/20260101000000|the tax rule]]"), "{text}");
+    assert!(text.contains("`[code](adr:shop/20260101000000)`"), "code is left alone: {text}");
+    let (_, v) = r.json(&["check"]);
+    assert!(!v.to_string().contains("is a Markdown link to a document"), "{v}");
+}
+
+#[test]
+fn a_markdown_link_to_an_id_inside_code_is_not_warned_about() {
+    let r = with_md_links();
+    let (_, v) = r.json(&["check"]);
+    let s = v.to_string();
+    assert_eq!(s.matches("is a Markdown link to a document").count(), 1, "{s}");
+}
+
+#[test]
+fn obsidian_turns_a_markdown_link_to_an_id_into_a_wiki_link() {
+    let r = with_md_links();
+    let (code, v) = r.json(&["export", "markdown", "--target", "obsidian", "--out", "vault"]);
+    assert_eq!(code, 0, "{v}");
+    let page = r.read("vault/shop/sot/checkout.md");
+    assert!(page.contains("[[shop/adr/cart-totals|the tax rule]]"), "{page}");
+}
