@@ -3,7 +3,7 @@
 use crate::cli::args::{Cli, Cmd};
 use crate::cli::dispatch::dispatch;
 use crate::output::{Code, Format, Output, Page};
-use clap::Parser;
+use clap::FromArgMatches;
 
 pub struct Executed {
     pub output: Output,
@@ -36,9 +36,37 @@ fn help_hint(name: &Option<String>) -> String {
     }
 }
 
+/// CLI-12: `--all` before any command (`spec --help --all`) lists every command; it is taken
+/// out so clap does not read it as an unknown flag.
+fn top_level_all(argv: Vec<String>) -> (Vec<String>, bool) {
+    let before_cmd: Vec<&String> = argv.iter().skip(1).take_while(|a| a.starts_with('-')).collect();
+    if !before_cmd.iter().any(|a| *a == "--all") {
+        return (argv, false);
+    }
+    let mut seen = false;
+    let out = argv
+        .into_iter()
+        .enumerate()
+        .filter(|(i, a)| {
+            let drop = !seen && *i > 0 && a == "--all";
+            seen |= drop;
+            !drop
+        })
+        .map(|(_, a)| a)
+        .collect();
+    (out, true)
+}
+
 pub fn execute(argv: Vec<String>) -> Executed {
     let page = Page { limit: 30, offset: 0, max_bytes: None };
-    let cli = match Cli::try_parse_from(&argv) {
+    let (argv, warning) = crate::cli::describe::undeprecate(&argv, crate::cli::describe::DEPRECATED);
+    if let Some(w) = warning {
+        eprintln!("{w}");
+    }
+    let (argv, all) = top_level_all(argv);
+    let parsed =
+        crate::cli::describe::parser_command(all).try_get_matches_from(&argv).and_then(|m| Cli::from_arg_matches(&m));
+    let cli = match parsed {
         Ok(c) => c,
         Err(e) => {
             let wants_json = argv.iter().any(|a| a == "--json");

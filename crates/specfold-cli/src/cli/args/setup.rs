@@ -26,6 +26,9 @@ pub struct HelpArgs {
     /// Print llms.txt: the description and every command, linked to the reference.
     #[arg(long, conflicts_with = "markdown")]
     pub llms: bool,
+    /// List every command, not only the core ones (--json, --markdown and --llms always do).
+    #[arg(long)]
+    pub all: bool,
 }
 
 #[derive(Debug, Clone, Args)]
