@@ -5,6 +5,8 @@ Release notes for each version are also on
 
 ## Unreleased
 
+- `spec --help` and `spec help` list the 12 core commands (context, find, show, graph, new, set, edit, check, guard, fix, explain, init); `spec --help --all` / `spec help --all` list every command. `spec help --json`, `--markdown`, `--llms` and MCP still describe every command; JSON adds `core`.
+- `spec help --json` marks each command's `deprecated_aliases` (`name`, `use`, `since`). A deprecated name keeps running the new command and warns on stderr (none yet).
 - `spec set` without `--write` still writes in 0.3 but warns on stderr. **From 0.4, `set` (like `new`) previews unless `--write`.**
 - `spec set ID key=` with an empty value deletes the key (an emptied `rel` is removed too).
 - D1 also counts staged deletes and the old paths of renames (`p (removed)`). Its fix is a runnable `spec new change ... --depends-on ID --write`; `spec explain D1` points to `spec check --staged --rule D1`. A staged/changed run without documents says so in its summary.

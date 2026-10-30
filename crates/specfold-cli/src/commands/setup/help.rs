@@ -6,7 +6,7 @@ use crate::output::Output;
 use anyhow::{Result, bail};
 use serde_json::to_value;
 
-pub fn run(_g: &Global, a: &HelpArgs) -> Result<Output> {
+pub fn run(g: &Global, a: &HelpArgs) -> Result<Output> {
     let all = describe::commands();
     let picked: Vec<_> = match &a.command {
         Some(name) => {
@@ -18,8 +18,11 @@ pub fn run(_g: &Global, a: &HelpArgs) -> Result<Output> {
             }
             c
         }
+        // CLI-12: the text list is the core commands; data outputs and --all keep every one.
+        None if !a.all && !a.markdown && !a.llms && !g.json && !g.jsonl => all.into_iter().filter(|c| c.core).collect(),
         None => all,
     };
+    let hidden = describe::commands().len() - picked.len();
     if a.llms {
         return Ok(llms(&picked));
     }
@@ -61,6 +64,9 @@ pub fn run(_g: &Global, a: &HelpArgs) -> Result<Output> {
         }
         _ => "spec help <command>".to_string(),
     };
+    if a.command.is_none() && hidden > 0 {
+        o = o.foot(format!("{hidden} more commands: spec help --all"));
+    }
     Ok(o.next(next))
 }
 

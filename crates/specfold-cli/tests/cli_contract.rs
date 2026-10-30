@@ -330,14 +330,97 @@ fn cli9_no_color() {
     }
 }
 
-#[test]
-#[ignore = "CLI-11 not implemented: no registry of shared flag meanings yet"]
-fn cli11_shared_flags_have_one_meaning() {}
+/// CLI-11: every long flag used by more than one command, with its one meaning. A flag whose
+/// commands disagree is listed in SPLIT with the reason; adding a new shared flag means adding
+/// it here, which is the review point.
+const SHARED: &[(&str, &str)] = &[
+    ("all", "widen the default selection"),
+    ("changed", "since this revision"),
+    ("dry-run", "preview, write nothing"),
+    ("fail-on", "what makes the run exit 1"),
+    ("for", "the target tool"),
+    ("format", "output format"),
+    ("from", "the input to start from"),
+    ("kind", "only these kinds"),
+    ("local", "the git-ignored local directory"),
+    ("owner", "owner"),
+    ("rule", "only these rules"),
+    ("section", "one section by heading or anchor"),
+    ("slug", "the slug"),
+    ("staged", "only the index"),
+    ("text", "text"),
+    ("title", "the title"),
+    ("translations", "translation pairs"),
+    ("type", "only these document types"),
+    ("write", "apply, otherwise preview"),
+    ("write-baseline", "record current hits as the baseline"),
+    ("yes", "confirm a destructive or external action"),
+];
+
+/// CLI-11 known splits, kept until a hidden-alias rename (CLI-13) is decided.
+const SPLIT: &[(&str, &str)] = &[
+    ("text", "find --text is a switch (search bodies), edit --text takes the new text"),
+    ("owner", "init --owner takes owner-kind templates, the others an owner id"),
+    ("all", "guard --all scans the working tree, find/context --all include inactive documents"),
+];
 
 #[test]
-#[ignore = "CLI-12 not implemented: default help lists every command; --all is not a flag yet"]
-fn cli12_default_help_is_short() {}
+fn cli11_shared_flags_have_one_meaning() {
+    let r = common::repo();
+    let (_, v) = r.json(&["help"]);
+    let mut uses: std::collections::BTreeMap<String, Vec<(String, String)>> = Default::default();
+    for c in v["items"].as_array().unwrap() {
+        for a in c["args"].as_array().unwrap() {
+            if let Some(l) = a["long"].as_str() {
+                let entry = (c["name"].as_str().unwrap().to_string(), a["kind"].as_str().unwrap().to_string());
+                uses.entry(l.to_string()).or_default().push(entry);
+            }
+        }
+    }
+    for (flag, cmds) in uses.iter().filter(|(_, c)| c.len() > 1) {
+        assert!(SHARED.iter().any(|(f, _)| f == flag), "--{flag} is shared by {cmds:?}: add its meaning to SHARED");
+        let kinds: std::collections::BTreeSet<_> = cmds.iter().map(|(_, k)| k.trim_end_matches("[]")).collect();
+        assert!(
+            kinds.len() == 1 || SPLIT.iter().any(|(f, _)| f == flag),
+            "--{flag} is a switch in one command and takes a value in another: {cmds:?}"
+        );
+    }
+    for (f, _) in SHARED {
+        assert!(uses.get(*f).is_some_and(|c| c.len() > 1), "--{f} is no longer shared: drop it from SHARED");
+    }
+}
 
 #[test]
-#[ignore = "CLI-13 not implemented: help JSON has no deprecated marker yet"]
-fn cli13_deprecated_aliases_warn() {}
+fn cli12_default_help_is_short() {
+    let r = common::repo();
+    let (code, short) = r.text(&["--help"]);
+    assert_eq!(code, 0, "{short}");
+    let listed = |t: &str| t.lines().skip_while(|l| *l != "Commands:").skip(1).take_while(|l| !l.is_empty()).count();
+    assert_eq!(listed(&short), 12, "{short}");
+    assert!(short.contains("spec --help --all") && !short.contains("  lsp "), "{short}");
+    let (_, full) = r.text(&["--help", "--all"]);
+    assert!(listed(&full) > 12 && full.contains("  lsp "), "{full}");
+    let (_, t) = r.text(&["help"]);
+    assert_eq!(t.lines().filter(|l| !l.is_empty() && !l.starts_with(' ')).count(), 12 + 2, "{t}");
+    assert!(t.contains("more commands: spec help --all"), "{t}");
+    let (_, t) = r.text(&["help", "--all"]);
+    assert!(t.contains("lsp ") && !t.contains("more commands"), "{t}");
+    let (_, v) = r.json(&["help"]);
+    let items = v["items"].as_array().unwrap();
+    assert!(items.iter().any(|c| c["name"] == "lsp" && c["core"] == false), "JSON lists every command");
+    assert_eq!(items.iter().filter(|c| c["core"] == true).count(), 12);
+    let (code, t) = r.text(&["census", "--help"]);
+    assert_eq!(code, 0, "a command left out of the short help still runs: {t}");
+}
+
+#[test]
+fn cli13_deprecated_aliases_are_marked_in_help_json() {
+    let r = common::repo();
+    let (_, v) = r.json(&["help"]);
+    for c in v["items"].as_array().unwrap() {
+        let d = c["deprecated_aliases"].as_array().unwrap_or_else(|| panic!("{c}"));
+        for a in d {
+            assert!(a["name"].is_string() && a["use"] == c["name"] && a["since"].is_string(), "{a}");
+        }
+    }
+}
