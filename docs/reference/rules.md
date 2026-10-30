@@ -57,6 +57,13 @@ its directory and whether it is present.
 | **T2** | status only moves forward |
 | **T3** | sealed documents keep their body |
 | **T4** | an edited body moves its updated date |
+| **T5** | exceptions are reviewed by their date |
+
+A document that departs from another on purpose names it with `rel.exception_of` and sets
+`review_by: YYYY-MM-DD`. T5 warns when `review_by` is missing or not a date, and once the date has
+passed (UTC). Renew it with `spec set <id> review_by=<date>`, or archive the exception when the rule
+is kept again. Archived, superseded and rejected exceptions are not checked. A local exception
+lives in `.spec.local`, so it stays out of the shared repository.
 
 ## Visibility
 

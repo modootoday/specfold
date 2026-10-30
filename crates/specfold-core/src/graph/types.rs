@@ -4,7 +4,8 @@ use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 
 /// Relation kinds that point at other documents (`governs` points at code paths instead).
-pub const DOC_RELATIONS: &[&str] = &["supersedes", "implements", "evidence", "depends_on", "translation_of"];
+pub const DOC_RELATIONS: &[&str] =
+    &["supersedes", "implements", "evidence", "depends_on", "translation_of", "exception_of"];
 pub const MENTIONS: &str = "mentions";
 
 #[derive(Debug, Clone, Serialize)]
