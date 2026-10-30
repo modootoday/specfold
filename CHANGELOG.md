@@ -134,6 +134,7 @@ A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is 
 
 ### Fixed
 
+- Audit: `--kind stale` shell-quotes governed paths in its `git diff` next step.
 - Audit: `--kind stale` suggests only `spec set <id> verified_at=HEAD` when `verified_at` is not a commit, instead of a `git diff` that cannot run.
 - Help: `show` and `edit` examples name sections new documents have (`rule`, `Steps`).
 - `spec context`: the next names `--section rule` only for a sot; other types get `spec show <id>`.

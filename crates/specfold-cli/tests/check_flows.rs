@@ -643,3 +643,17 @@ fn set_with_an_empty_value_deletes_the_key() {
     assert!(String::from_utf8_lossy(&out.stderr).contains("from 0.4 it previews unless --write"));
     assert!(!r.read(&path).contains("affects"), "{}", r.read(&path));
 }
+
+#[test]
+fn c175_stale_diff_next_quotes_the_governed_paths() {
+    let r = common::repo();
+    let id = r.new_doc("adr", "services/my shop", "Cart totals");
+    assert_eq!(r.json(&["set", &id, "status=active"]).0, 0);
+    assert_eq!(r.json(&["set", &id, "verified_at=HEAD"]).0, 0);
+    r.commit("pinned");
+    r.write("services/my shop/total.rs", "fn total() -> u32 { 0 }\n");
+    r.commit("change totals");
+    let (_, v) = r.json(&["audit", "--kind", "stale"]);
+    let item = v["items"].as_array().unwrap().iter().find(|i| i["kind"] == "stale").cloned().unwrap();
+    assert!(item["next"].as_str().unwrap().contains("-- 'services/my shop'"), "{v}");
+}
