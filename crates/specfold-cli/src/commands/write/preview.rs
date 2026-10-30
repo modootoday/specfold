@@ -305,7 +305,7 @@ pub fn undo(plan: &Plan, root: &Path, saved: Option<&str>) -> String {
     paths.dedup();
     trash.sort();
     trash.dedup();
-    let w = crate::session::shell_word;
+    let w = specfold_core::shell::quote;
     let mut parts = vec![];
     for (to, _) in back.iter().filter(|_| saved.is_some()) {
         parts.push(format!("rm -f -- {}", w(to)));

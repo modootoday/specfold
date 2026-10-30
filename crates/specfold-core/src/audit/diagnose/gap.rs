@@ -18,7 +18,7 @@ pub fn run(c: &Corpus, owners: &[String], out: &mut Vec<Item>) {
                 path: o.path.clone(),
                 line: 0,
                 detail: "has code but no active sot".into(),
-                next: Some(format!("spec new sot --governs {} --title '…'", o.path)),
+                next: Some(format!("spec new sot --governs {} --title '…'", crate::shell::word(&o.path))),
             });
         }
     }

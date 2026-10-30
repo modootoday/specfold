@@ -310,3 +310,39 @@ fn c173_help_example_sections_exist_in_new_documents() {
     }
     assert!(seen >= 3, "{seen}");
 }
+
+#[test]
+fn c176_context_next_for_an_ungoverned_path_runs_as_printed() {
+    let r = common::repo();
+    let bin = r.spec().get_program().to_string_lossy().into_owned();
+    for (n, path) in ["src/new dir", "src/it's", "src/새 폴더"].into_iter().enumerate() {
+        r.write(&format!("{path}/main.rs"), "fn main() {}\n");
+        let (_, v) = r.json(&["context", path]);
+        let next = v["next"].as_str().unwrap_or_default().to_string();
+        assert!(next.starts_with("spec new sot --governs "), "{v}");
+        // The shell must hand the path back as one argument, exactly as given.
+        let words = std::process::Command::new("sh")
+            .arg("-c")
+            .arg(format!("set -- {}; printf '%s\\n' \"$4\"", next.trim_start_matches("spec ")))
+            .output()
+            .unwrap();
+        assert_eq!(String::from_utf8_lossy(&words.stdout).trim_end(), path, "{next}");
+        let out = std::process::Command::new("sh")
+            .arg("-c")
+            // `'…'` is the placeholder the reader fills in.
+            .arg(format!(
+                "{} {}",
+                specfold_core::shell::quote(&bin),
+                next.trim_start_matches("spec ").replace("'…'", &format!("Totals{n}"))
+            ))
+            .current_dir(r.path())
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "{next}: {}{}",
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr)
+        );
+    }
+}

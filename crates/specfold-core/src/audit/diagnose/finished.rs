@@ -26,11 +26,11 @@ pub fn run(c: &Corpus, docs: &[usize], out: &mut Vec<Item>) {
         let (detail, next) = match status.as_str() {
             "active" if done == total => (
                 format!("all {total} tasks are done but the plan is still active"),
-                format!("spec set {} status=archived   # or add the work that is left", d.id),
+                format!("spec set {} status=archived   # or add the work that is left", crate::shell::word(&d.id)),
             ),
             "archived" if done < total => (
                 format!("archived with {} of {total} tasks still open", total - done),
-                format!("spec show {} --tasks   # tick them, or note why they were dropped", d.id),
+                format!("spec show {} --tasks   # tick them, or note why they were dropped", crate::shell::word(&d.id)),
             ),
             _ => continue,
         };

@@ -60,17 +60,17 @@ pub fn run(g: &Global, a: &FindArgs) -> Result<Output> {
         o = o.item(v, text);
     }
     Ok(match hits.first() {
-        Some(h) if a.open_tasks => o.next(format!("spec show {} --tasks", h.id)),
-        Some(h) => o.next(format!("spec show {}", h.id)),
+        Some(h) if a.open_tasks => o.next(format!("spec show {} --tasks", specfold_core::shell::word(&h.id))),
+        Some(h) => o.next(format!("spec show {}", specfold_core::shell::word(&h.id))),
         None if a.open_tasks => o.foot("no document has open task items"),
         None if !a.all => {
             // The same search with --all, so the next line runs as written.
             let mut cmd = vec!["spec find --all".to_string()];
-            cmd.extend(a.words.iter().map(|w| session::shell_word(w)));
+            cmd.extend(a.words.iter().map(|w| specfold_core::shell::quote(w)));
             for (flag, list) in
                 [("--type", &a.types), ("--owner", &a.owners), ("--status", &a.statuses), ("--tag", &a.tags)]
             {
-                cmd.extend(list.iter().map(|v| format!("{flag} {}", session::shell_word(v))));
+                cmd.extend(list.iter().map(|v| format!("{flag} {}", specfold_core::shell::quote(v))));
             }
             if a.body {
                 cmd.push("--body".into());

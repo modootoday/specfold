@@ -71,7 +71,7 @@ impl Rule for LinksResolve {
                             )
                             .fix_cmd(format!(
                                 "spec fix --rule L1 --pick {} --write {}:{}",
-                                c[0],
+                                crate::shell::word(&c[0]),
                                 quote(&l.path),
                                 l.line
                             ))

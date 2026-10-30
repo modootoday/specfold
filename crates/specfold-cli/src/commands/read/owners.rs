@@ -31,7 +31,7 @@ pub fn run(g: &Global, a: &OwnersArgs) -> Result<Output> {
         .find(|i| i.json["docs"].as_u64() > Some(0))
         .and_then(|i| i.json["id"].as_str().map(str::to_string));
     Ok(match pick {
-        Some(id) => o.next(format!("spec find --owner {id}")),
+        Some(id) => o.next(format!("spec find --owner {}", specfold_core::shell::word(&id))),
         None => o,
     })
 }

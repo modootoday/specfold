@@ -15,5 +15,5 @@ pub fn run(g: &Global, a: &FetchArgs) -> Result<Output> {
     for f in &got {
         o = o.item(to_value(f)?, format!("{:<8} {}", f.state, f.path));
     }
-    Ok(o.next(format!("spec files {}", s.corpus.docs[idx].id)))
+    Ok(o.next(format!("spec files {}", specfold_core::shell::word(&s.corpus.docs[idx].id))))
 }

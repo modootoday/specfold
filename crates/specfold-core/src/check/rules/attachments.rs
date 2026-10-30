@@ -37,7 +37,7 @@ impl Rule for Registered {
                 }
                 out.push(Finding::error("P2", f, 1, format!("not listed in {}'s files", d.id)).fix_cmd(format!(
                     "spec attach {} {} --write",
-                    d.id,
+                    crate::shell::word(&d.id),
                     quote(f)
                 )));
             }
@@ -82,7 +82,11 @@ impl Rule for SizeLimit {
                             1,
                             format!("{} bytes is over the {limit}-byte repository limit", meta.len()),
                         )
-                        .fix_cmd(format!("spec attach {} {} --store --write", d.id, quote(f))),
+                        .fix_cmd(format!(
+                            "spec attach {} {} --store --write",
+                            crate::shell::word(&d.id),
+                            quote(f)
+                        )),
                     );
                 }
             }
@@ -143,7 +147,11 @@ impl Rule for HashesMatch {
                         .fix_cmd("spec explain U2")
                     } else {
                         Finding::error("E1", &d.path, 1, format!("{} changed since it was attached", e.path)).fix_cmd(
-                            format!("spec attach {} {} --write", d.id, quote(&format!("{}/{}", d.base_dir(), e.path))),
+                            format!(
+                                "spec attach {} {} --write",
+                                crate::shell::word(&d.id),
+                                quote(&format!("{}/{}", d.base_dir(), e.path))
+                            ),
                         )
                     };
                     out.push(f);

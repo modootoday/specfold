@@ -45,11 +45,12 @@ pub(super) fn archive(c: &Corpus, i: usize) -> String {
         0
     };
     if open == 0 {
-        format!("spec set {} status=archived", d.id)
+        format!("spec set {} status=archived", crate::shell::word(&d.id))
     } else {
         format!(
             "spec show {} --tasks   # {open} open task(s): tick or drop them, or archive anyway: spec set {} status=archived --write --force",
-            d.id, d.id
+            crate::shell::word(&d.id),
+            crate::shell::word(&d.id)
         )
     }
 }

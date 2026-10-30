@@ -67,8 +67,9 @@ impl Rule for GovernedCodeDrift {
                     format!("{named} changed under {}'s governs, but the document and its change notes did not", d.id),
                 )
                 .fix_cmd(format!(
-                    "spec new change --title 'Code change under {}' --depends-on {} --write",
-                    d.id.owner, d.id
+                    "spec new change --title {} --depends-on {} --write",
+                    crate::shell::quote(&format!("Code change under {}", d.id.owner)),
+                    crate::shell::word(&d.id)
                 )),
             );
         }

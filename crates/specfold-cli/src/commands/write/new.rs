@@ -89,10 +89,12 @@ fn create(g: &Global, a: &NewArgs) -> Result<Output> {
     // A slug taken from a few ASCII letters of a mostly non-ASCII title rarely names the
     // document: the next step is to name it.
     Ok(match (&created.slug_note, a.dry_run) {
-        (Some(_), false) => o.next(format!("spec mv {} --slug <kebab-case-name> --write", created.id)),
+        (Some(_), false) => {
+            o.next(format!("spec mv {} --slug <kebab-case-name> --write", specfold_core::shell::word(&created.id)))
+        }
         (Some(_), true) => o.next("rerun with --slug <kebab-case-name>"),
         (None, true) => o,
-        (None, false) => o.next(format!("spec show {}", created.id)),
+        (None, false) => o.next(format!("spec show {}", specfold_core::shell::word(&created.id))),
     })
 }
 
@@ -115,7 +117,7 @@ fn translation(s: &session::Session, a: &NewArgs, lang: &str) -> Result<Output> 
         .head(created.owner_reason.clone())
         .head("the body is the source's: translate it; source_rev already records the source it was copied from");
     let o = preview::finish(o, &plan, &s.corpus.cfg.root, !a.dry_run, "rerun without --dry-run")?;
-    Ok(if a.dry_run { o } else { o.next(format!("spec show {}", created.id)) })
+    Ok(if a.dry_run { o } else { o.next(format!("spec show {}", specfold_core::shell::word(&created.id))) })
 }
 
 /// The local directory is meant to stay out of git; the first local document makes sure it does,

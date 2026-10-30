@@ -79,7 +79,8 @@ impl Rule for RequiredValues {
             let Some(required) = ty.require_when.get(&status) else { continue };
             let line = |k: &str| key_line(ctx, &d.path, k.strip_prefix("rel.").map(|_| "rel").unwrap_or(k));
             let warn = |k: &str, msg: String| {
-                Finding::warn("S8", &d.path, line(k), msg).fix_cmd(format!("spec set {} {k}=…", d.id))
+                Finding::warn("S8", &d.path, line(k), msg)
+                    .fix_cmd(format!("spec set {} {k}=…", crate::shell::word(&d.id)))
             };
             for k in required {
                 let Some(v) = get(fm, k) else { continue };

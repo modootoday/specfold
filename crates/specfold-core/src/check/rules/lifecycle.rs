@@ -106,7 +106,7 @@ impl Rule for SupersedePairs {
                         key_line(ctx, &d.path, "status"),
                         format!("superseded by {} but status is '{status}'", ctx.corpus.docs[successors[0]].id),
                     )
-                    .fix_cmd(format!("spec set {} status=superseded", d.id)),
+                    .fix_cmd(format!("spec set {} status=superseded", crate::shell::word(&d.id))),
                 );
             }
             if successors.is_empty() && status == "superseded" {
@@ -151,7 +151,11 @@ impl Rule for ForwardOnly {
                         key_line(ctx, &d.path, "status"),
                         format!("status moved back from '{before}' to '{now}'"),
                     )
-                    .fix_cmd(format!("spec new {} --from {} --title '…'", d.id.ty, d.id)),
+                    .fix_cmd(format!(
+                        "spec new {} --from {} --title '…'",
+                        d.id.ty,
+                        crate::shell::word(&d.id)
+                    )),
                 );
             }
         }
@@ -239,11 +243,15 @@ impl Rule for ExceptionsReviewed {
                         key_line(ctx, &d.path, "rel"),
                         "rel.exception_of names this document itself; name the rule or decision it departs from",
                     )
-                    .fix_cmd(format!("spec set {me} rel.exception_of-={me}")),
+                    .fix_cmd(format!(
+                        "spec set {} rel.exception_of-={}",
+                        crate::shell::word(&me),
+                        crate::shell::word(&me)
+                    )),
                 );
             }
             let line = key_line(ctx, &d.path, "review_by");
-            let fix = format!("spec set {} review_by=<YYYY-MM-DD>", d.id);
+            let fix = format!("spec set {} review_by=<YYYY-MM-DD>", crate::shell::word(&d.id));
             match d.str_field("review_by") {
                 None => out.push(
                     Finding::warn("T5", &d.path, 1, "an exception (rel.exception_of) needs review_by: YYYY-MM-DD")

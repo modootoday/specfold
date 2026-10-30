@@ -56,10 +56,10 @@ pub fn run(g: &Global, a: &MvArgs) -> Result<Output> {
         o = o.field("cited_paths", cited);
     }
     // C108: the rerun keeps every flag that shaped the move.
-    let mut rerun = format!("spec mv {}", session::shell_word(&a.doc));
+    let mut rerun = format!("spec mv {}", specfold_core::shell::quote(&a.doc));
     for (flag, v) in [("--owner", &a.owner), ("--slug", &a.slug), ("--tier", &a.tier)] {
         if let Some(v) = v {
-            rerun.push_str(&format!(" {flag} {}", session::shell_word(v)));
+            rerun.push_str(&format!(" {flag} {}", specfold_core::shell::quote(v)));
         }
     }
     if a.cited_paths {
@@ -72,7 +72,7 @@ pub fn run(g: &Global, a: &MvArgs) -> Result<Output> {
             .field("written", false)
             .field("changed", false)
             .foot("no change: the document is already at this id and path")
-            .next(format!("spec show {}", moved.to)));
+            .next(format!("spec show {}", specfold_core::shell::word(&moved.to))));
     }
     let max = s.corpus.cfg.raw.write.max_files;
     let (o, written) = preview::finish_bounded(o, &plan, &s.corpus.cfg.root, max, a.write, a.yes, &rerun)?;
@@ -83,7 +83,10 @@ pub fn run(g: &Global, a: &MvArgs) -> Result<Output> {
     } else if cited > 0 {
         o.foot(format!("{cited} line(s) outside the documents cite the old path; fix them after the move"))
     } else if written {
-        o.next(format!("spec check --rule L1 --rule P1 --rule S2 --rule L8  # then: spec show {}", moved.to))
+        o.next(format!(
+            "spec check --rule L1 --rule P1 --rule S2 --rule L8  # then: spec show {}",
+            specfold_core::shell::word(&moved.to)
+        ))
     } else {
         o
     })

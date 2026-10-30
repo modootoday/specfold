@@ -7,6 +7,7 @@ use crate::session;
 use anyhow::{Context, Result};
 use specfold_core::authoring::edit::{self, Edit, Mode};
 use specfold_core::markdown::tables::RowChange;
+use specfold_core::shell::quote;
 use std::io::Read;
 
 const SHOWN: usize = 40;
@@ -75,7 +76,7 @@ pub fn run(g: &Global, a: &EditArgs) -> Result<Output> {
             let msg = format!("{err:#}");
             // A missing section: the next step is the same edit adding it.
             if let (Some(sec), Some((head, _))) = (&a.section, msg.split_once("; to add it: --new-section")) {
-                let mut cmd = format!("spec edit {} --new-section {}", sh(&a.doc), sh(sec));
+                let mut cmd = format!("spec edit {} --new-section {}", quote(&a.doc), quote(sec));
                 cmd.push_str(&text_flag(a, false));
                 cmd.push_str(" --write");
                 anyhow::bail!("{head}; next: {cmd}");
@@ -102,21 +103,21 @@ pub fn run(g: &Global, a: &EditArgs) -> Result<Output> {
     if more > 0 {
         o = o.head(format!("  … {more} more line(s)"));
     }
-    let mut rerun = format!("spec edit {}", sh(&a.doc));
+    let mut rerun = format!("spec edit {}", quote(&a.doc));
     if let Some(sec) = &a.section {
-        rerun.push_str(&format!(" --section {}", sh(sec)));
+        rerun.push_str(&format!(" --section {}", quote(sec)));
     }
     if let Some(n) = &a.new_section {
-        rerun.push_str(&format!(" --new-section {}", sh(n)));
+        rerun.push_str(&format!(" --new-section {}", quote(n)));
     }
     if let Some(n) = &a.after {
-        rerun.push_str(&format!(" --after {}", sh(n)));
+        rerun.push_str(&format!(" --after {}", quote(n)));
     }
     if let Some(r) = &a.row {
-        rerun.push_str(&format!(" --row {}", sh(r)));
+        rerun.push_str(&format!(" --row {}", quote(r)));
     }
     for c in &a.cell {
-        rerun.push_str(&format!(" --cell {}", sh(c)));
+        rerun.push_str(&format!(" --cell {}", quote(c)));
     }
     if a.append {
         rerun.push_str(" --append");
@@ -124,28 +125,28 @@ pub fn run(g: &Global, a: &EditArgs) -> Result<Output> {
     rerun.push_str(&text_flag(a, cells_only));
     rerun.push_str(" --write");
     let o = preview::finish(o, &out.plan, &s.corpus.cfg.root, a.write, &rerun)?;
-    Ok(if a.write { o.next(format!("spec check  # then: spec show {id}")) } else { o })
+    Ok(if a.write { o.next(format!("spec check  # then: spec show {}", specfold_core::shell::word(&id))) } else { o })
 }
 
 /// Where the text came from, as flags for a command to paste.
 fn text_flag(a: &EditArgs, cells_only: bool) -> String {
     match (&a.text, &a.file) {
         _ if cells_only => String::new(),
-        (Some(t), _) => format!(" --text={}", sh(t)),
+        (Some(t), _) => format!(" --text={}", quote(t)),
         (None, Some(p)) if p.as_os_str() == "-" => " --file <saved-input>".into(),
         (None, None) => " --file <saved-input>".into(),
-        (None, Some(p)) => format!(" --file {}", sh(&p.display().to_string())),
+        (None, Some(p)) => format!(" --file {}", quote(&p.display().to_string())),
     }
 }
 
 /// The command as given, without its text, and `tail` appended.
 fn rerun_with(a: &EditArgs, tail: &str) -> String {
-    let mut c = format!("spec edit {}", sh(&a.doc));
+    let mut c = format!("spec edit {}", quote(&a.doc));
     for (flag, v) in
         [("--section", &a.section), ("--new-section", &a.new_section), ("--after", &a.after), ("--row", &a.row)]
     {
         if let Some(v) = v {
-            c.push_str(&format!(" {flag} {}", sh(v)));
+            c.push_str(&format!(" {flag} {}", quote(v)));
         }
     }
     if a.append {
@@ -155,20 +156,11 @@ fn rerun_with(a: &EditArgs, tail: &str) -> String {
     c
 }
 
-/// Quotes for a POSIX shell when needed, so the rerun hint can be pasted as is.
-fn sh(s: &str) -> String {
-    if !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric() || "-_./:@=+,".contains(c)) {
-        s.to_string()
-    } else {
-        format!("'{}'", s.replace('\'', "'\\''"))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     #[test]
     fn quotes_for_the_shell() {
-        assert_eq!(super::sh("adr:shop/1"), "adr:shop/1");
-        assert_eq!(super::sh("it's ok"), "'it'\\''s ok'");
+        assert_eq!(super::quote("adr:shop/1"), "adr:shop/1");
+        assert_eq!(super::quote("it's ok"), "'it'\\''s ok'");
     }
 }

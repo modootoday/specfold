@@ -4,6 +4,7 @@ use crate::cli::args::{Cli, Cmd};
 use crate::cli::dispatch::dispatch;
 use crate::output::{Code, Format, Output, Page};
 use clap::FromArgMatches;
+use specfold_core::shell::quote;
 
 pub struct Executed {
     pub output: Output,
@@ -170,7 +171,7 @@ pub fn execute(argv: Vec<String>) -> Executed {
 /// C161/C163: commands to paste work from where -C was typed: spec gets `-C <dir>`, git gets
 /// `git -C <dir>`, any other shell command `cd <dir> &&`.
 fn with_dir(o: &mut Output, dir: &std::path::Path) {
-    let w = crate::session::shell_word(&dir.display().to_string());
+    let w = specfold_core::shell::quote(&dir.display().to_string());
     o.next = o.next.as_deref().map(|n| dir_cmd(n, &w));
     if let Some(serde_json::Value::String(u)) = o.summary.get_mut("undo") {
         *u = dir_cmd(u, &w);
@@ -254,14 +255,6 @@ fn nearest_command(argv: &[String]) -> Option<String> {
     let first = argv.iter().skip(1).find(|a| !a.starts_with('-'))?;
     let names: Vec<String> = crate::cli::describe::commands().into_iter().map(|c| c.name).collect();
     crate::commands::setup::help::nearest(first, names.iter().map(|s| s.as_str())).map(str::to_string)
-}
-
-fn quote(a: &str) -> String {
-    if !a.is_empty() && a.chars().all(|c| c.is_ascii_alphanumeric() || "-_./:=@,+".contains(c)) {
-        a.to_string()
-    } else {
-        format!("'{}'", a.replace('\'', "'\\''"))
-    }
 }
 
 /// An error that names its own way out keeps it as the one next command: `; next: <cmd>` as is,

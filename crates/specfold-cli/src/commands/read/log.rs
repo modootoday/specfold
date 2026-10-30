@@ -36,7 +36,7 @@ pub fn run(g: &Global, a: &LogArgs) -> Result<Output> {
         }
     }
     Ok(match first {
-        Some(id) => o.next(format!("spec show {} --rel", session::shell_word(&id))),
+        Some(id) => o.next(format!("spec show {} --rel", specfold_core::shell::quote(&id))),
         None => o,
     })
 }

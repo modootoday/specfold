@@ -27,7 +27,7 @@ pub fn run(g: &Global, a: &AttachArgs) -> Result<Output> {
     let plan = attach::plan(&s.corpus, d, &files, &a.into, place)?;
     // C143: every next keeps --into, so it attaches where the preview showed.
     let into =
-        if a.into.is_empty() { String::new() } else { format!(" --into {}", crate::session::shell_word(&a.into)) };
+        if a.into.is_empty() { String::new() } else { format!(" --into {}", specfold_core::shell::quote(&a.into)) };
     let mut o = Output::new("attach").field("id", d.id.to_string());
     if let Some((from, to)) = &plan.to_bundle {
         o = o.head(format!("{from} becomes a bundle: {to}"));
@@ -58,14 +58,14 @@ pub fn run(g: &Global, a: &AttachArgs) -> Result<Output> {
         }
         if gate.refuses() {
             let refusing = gate.refusing();
-            let files: Vec<String> = a.files.iter().map(|p| p.display().to_string()).collect();
+            let files: Vec<String> = a.files.iter().map(|p| specfold_core::shell::word(p.display())).collect();
             let allow: Vec<String> = refusing.iter().map(|g| format!("--allow-hit {g}")).collect();
             return Ok(o
                 .code(Code::Findings)
                 .foot(format!("nothing uploaded: guard {} refuses a file bound for the store", refusing.join(", ")))
                 .next(format!(
                     "spec attach {} {}{}{into} --write --yes {}",
-                    a.doc,
+                    specfold_core::shell::word(&a.doc),
                     files.join(" "),
                     if a.store { " --store" } else { "" },
                     allow.join(" ")
@@ -75,28 +75,28 @@ pub fn run(g: &Global, a: &AttachArgs) -> Result<Output> {
     // Sending a file to the store leaves the repository: it needs --yes as well (CLI-3).
     let uploads = plan.files.iter().any(|f| f.store == "store");
     if a.write && uploads && !a.yes {
-        let files: Vec<String> = a.files.iter().map(|p| p.display().to_string()).collect();
+        let files: Vec<String> = a.files.iter().map(|p| specfold_core::shell::word(p.display())).collect();
         return Ok(o
             .code(crate::output::Code::Refused)
             .head("a file goes to the store, outside the repository: nothing was written; add --yes to confirm")
             .foot("preview only; nothing was written")
             .next(format!(
                 "spec attach {} {}{}{into} --write --yes",
-                a.doc,
+                specfold_core::shell::word(&a.doc),
                 files.join(" "),
                 if a.store { " --store" } else { "" }
             )));
     }
     if a.write {
         attach::apply(&s.corpus, d, &plan)?;
-        return Ok(o.foot("attached").next(format!("spec files {}", d.id)));
+        return Ok(o.foot("attached").next(format!("spec files {}", specfold_core::shell::word(&d.id))));
     }
-    let files: Vec<String> = a.files.iter().map(|p| p.display().to_string()).collect();
+    let files: Vec<String> = a.files.iter().map(|p| specfold_core::shell::word(p.display())).collect();
     let confirm = if uploads { " --yes" } else { "" };
     let store = format!("{}{into}", if a.store { " --store" } else { "" });
     Ok(o.foot("preview only; nothing was written").next(format!(
         "spec attach {} {}{store} --write{confirm}",
-        a.doc,
+        specfold_core::shell::word(&a.doc),
         files.join(" ")
     )))
 }

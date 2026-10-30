@@ -37,13 +37,7 @@ pub fn skipped(doc: &Doc, rule: &str) -> bool {
     doc.list_field("check_skip").iter().any(|r| r == rule)
 }
 
-pub fn quote(s: &str) -> String {
-    if s.chars().all(|c| c.is_ascii_alphanumeric() || "-_./:#@".contains(c)) {
-        s.to_string()
-    } else {
-        format!("'{}'", s.replace('\'', "'\\''"))
-    }
-}
+pub use crate::shell::quote;
 
 /// Edit distance between two strings, by characters.
 pub(super) fn distance(a: &str, b: &str) -> usize {

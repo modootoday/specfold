@@ -36,7 +36,7 @@ impl Rule for OwnerMatches {
                         1,
                         format!("belongs to {} ({}), not {}", decision.owner.id, decision.reason, current.id),
                     )
-                    .fix_cmd(format!("spec mv {} --write", d.id)),
+                    .fix_cmd(format!("spec mv {} --write", crate::shell::word(&d.id))),
                 );
             }
         }

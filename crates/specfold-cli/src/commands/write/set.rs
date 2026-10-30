@@ -113,7 +113,7 @@ pub fn run(g: &Global, a: &SetArgs) -> Result<Output> {
             .field("written", false)
             .field("changed", false)
             .foot("no change: the document already has these values")
-            .next(format!("spec show {id}")));
+            .next(format!("spec show {}", specfold_core::shell::word(&id))));
     }
     if !open.is_empty() && !a.force {
         let shown_open: Vec<String> = open.iter().take(5).map(|t| format!("open  {t}")).collect();
@@ -127,7 +127,9 @@ pub fn run(g: &Global, a: &SetArgs) -> Result<Output> {
                 if more > 0 { format!(" ({more} more not shown)") } else { String::new() }
             ))
             .next(format!(
-                "spec show {id} --tasks   # tick or drop them; or archive anyway: spec set {id} {} --write --force",
+                "spec show {} --tasks   # tick or drop them; or archive anyway: spec set {} {} --write --force",
+                specfold_core::shell::word(&id),
+                specfold_core::shell::word(&id),
                 a.assignments.join(" ")
             ));
         let o = shown_open.into_iter().fold(o, |o, l| o.foot(l));
@@ -156,7 +158,7 @@ pub fn run(g: &Global, a: &SetArgs) -> Result<Output> {
                 rules.push("T5");
             }
             let rules: Vec<String> = rules.iter().map(|r| format!("--rule {r}")).collect();
-            o.next(format!("spec check {}  # then: spec show {id}", rules.join(" ")))
+            o.next(format!("spec check {}  # then: spec show {}", rules.join(" "), specfold_core::shell::word(&id)))
         }
     })
 }

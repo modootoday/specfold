@@ -156,15 +156,6 @@ pub fn check_date(flag: &str, d: &str) -> Result<()> {
     Ok(())
 }
 
-/// A word quoted for a shell when it needs to be.
-pub fn shell_word(s: &str) -> String {
-    if !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric() || "-_./:#@".contains(c)) {
-        s.to_string()
-    } else {
-        format!("'{}'", s.replace('\'', "'\\''"))
-    }
-}
-
 /// Resolves a reference to one document: id, alias, path, or a unique slug.
 pub fn resolve(s: &Session, text: &str) -> Result<usize> {
     // C139: two files holding one id (I1) must not be picked silently; the path names one.
