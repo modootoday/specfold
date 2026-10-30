@@ -26,8 +26,9 @@ pub fn run(c: &Corpus, docs: &[usize], out: &mut Vec<Item>) {
                 line: 1,
                 detail: format!("{what} for {age} days (since {updated})"),
                 next: Some(format!(
-                    "spec set {} status=archived   # or record progress and spec set {} updated=today",
-                    d.id, d.id
+                    "{}   # or record progress and spec set {} updated=today",
+                    super::archive(c, i),
+                    d.id
                 )),
             });
         }

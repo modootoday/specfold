@@ -17,7 +17,7 @@ pub fn run(c: &Corpus, g: &Graph, docs: &[usize], out: &mut Vec<Item>) {
                 path: d.path.clone(),
                 line: 1,
                 detail: "active, governs no code, and no document cites it".into(),
-                next: Some(format!("spec set {} rel.governs+=<path>   # or: spec set {} status=archived", d.id, d.id)),
+                next: Some(format!("spec set {} rel.governs+=<path>   # or: {}", d.id, super::archive(c, i))),
             });
         }
     }

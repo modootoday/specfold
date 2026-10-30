@@ -397,3 +397,22 @@ fn a_missing_section_error_leaves_out_the_title() {
     let s = v.to_string();
     assert!(s.contains("sections: ") && !s.contains("sections: Payment rollout"), "{s}");
 }
+
+#[test]
+fn c117_a_set_that_changes_nothing_writes_nothing() {
+    let r = common::repo();
+    let id = r.new_doc("adr", "services/shop", "Use files");
+    r.commit("doc");
+    let (_, d) = r.json(&["show", &id]);
+    let path = d["path"].as_str().unwrap().to_string();
+    let before = r.read(&path);
+    let (code, v) = r.json(&["set", &id, "title=Use files", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(
+        (v["written"].clone(), v["changed"].clone()),
+        (serde_json::json!(false), serde_json::json!(false)),
+        "{v}"
+    );
+    assert!(v.get("undo").is_none(), "{v}");
+    assert_eq!(r.read(&path), before, "updated is not bumped");
+}

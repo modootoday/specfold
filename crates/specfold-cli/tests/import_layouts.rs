@@ -321,3 +321,11 @@ fn people_fields_from_madr_and_log4brains_survive_import() {
         assert!(!ck.to_string().contains("decision"), "{fixture}: {ck}");
     }
 }
+
+#[test]
+fn c118_madr2_plan_says_which_body_lines_repeat_frontmatter() {
+    let (code, v, _) = preset_plan("madr2", "madr");
+    assert_eq!(code, 0, "notes do not fail the plan: {v}");
+    let notes = v.to_string();
+    assert!(notes.contains("the body keeps") && notes.contains("'* Status:'"), "C118: {v}");
+}

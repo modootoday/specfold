@@ -156,6 +156,16 @@ pub fn people(fm: &mut serde_json::Map<String, serde_json::Value>, body: &str) {
     }
 }
 
+/// C118: `* Status:`-style bullets whose values import moved into frontmatter, still in the body.
+pub fn copied_bullets(body: &str) -> Vec<String> {
+    const LABELS: [&str; 6] = ["status", "date", "deciders", "decision-makers", "consulted", "informed"];
+    lines(body)
+        .into_iter()
+        .filter(|l| LABELS.iter().any(|n| bullet(l, n).is_some_and(|v| !v.is_empty())))
+        .map(|l| l.split_once(':').map_or(l, |x| x.0).to_string())
+        .collect()
+}
+
 fn split_people(v: &str) -> Vec<String> {
     let v = v.split("<!--").next().unwrap_or(v);
     v.split(',').map(|p| p.trim().trim_end_matches('.').trim().to_string()).filter(|p| !p.is_empty()).collect()

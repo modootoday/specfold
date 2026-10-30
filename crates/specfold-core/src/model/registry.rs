@@ -134,8 +134,11 @@ pub fn suspect_coverage(overrides: &BTreeMap<String, TypeOverride>, coverage: &[
         .iter()
         .filter(|c| !names.contains(&c.as_str()))
         .map(|c| {
+            let near = crate::check::rules::support::nearest(c, names.iter().copied())
+                .map(|n| format!("; did you mean '{n}'?"))
+                .unwrap_or_default();
             format!(
-                "[audit] coverage_types names type '{c}', which does not exist, so it is never checked; types: {}",
+                "[audit] coverage_types names type '{c}', which does not exist, so it is never checked{near} (types: {})",
                 names.join(", ")
             )
         })
