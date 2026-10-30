@@ -7,11 +7,20 @@ use crate::session;
 use anyhow::Result;
 use serde_json::json;
 use specfold_core::assets::sync;
+use specfold_core::authoring::Change;
 
 pub fn run(g: &Global, a: &SyncArgs) -> Result<Output> {
     let s = session::open(g)?;
     let cfg = &s.corpus.cfg;
-    let (pairs, plan, unowned) = sync::plan(cfg, a.prune)?;
+    let (pairs, mut plan, unowned) = sync::plan(cfg, a.prune)?;
+    // C100: a pruned file may never have been committed, so git cannot bring it back; it moves
+    // to a trash directory specfold owns, and the undo copies it back.
+    let bin = format!("{}/{}", preview::TRASH, specfold_core::model::stamp::now_stamp());
+    for c in plan.changes.iter_mut() {
+        if let Change::Remove { path } = c {
+            *c = Change::Move { from: path.clone(), to: format!("{bin}/{path}") };
+        }
+    }
     let mut o = Output::new("sync").field("roots", pairs.len()).field("changes", plan.changes.len());
     if pairs.is_empty() {
         let found: Vec<&str> =
@@ -35,7 +44,7 @@ pub fn run(g: &Global, a: &SyncArgs) -> Result<Output> {
         return Ok(o.field("written", false).foot("every copy matches its source").next("spec audit --kind drift"));
     }
     // Deleting files is destructive: --prune applies only with --yes as well (CLI-3).
-    let removes = plan.changes.iter().any(|c| matches!(c, specfold_core::authoring::Change::Remove { .. }));
+    let removes = plan.changes.iter().any(|c| matches!(c, Change::Move { .. }));
     if a.write && removes && !a.yes {
         let o = o.head("--prune deletes files: nothing was written; add --yes to confirm");
         return preview::finish(o, &plan, &cfg.root, false, "spec sync assets --prune --write --yes");
@@ -60,5 +69,19 @@ pub fn run(g: &Global, a: &SyncArgs) -> Result<Output> {
     let (o, go) = preview::bound(o, preview::files(&plan), cfg.raw.write.max_files, a.write, a.yes);
     let rerun =
         if o.summary.contains_key("bounded") && !a.prune { format!("{rerun} --yes") } else { rerun.to_string() };
-    preview::finish(o, &plan, &cfg.root, go, &rerun)
+    if go {
+        // The trash never shows up in git status or gets committed.
+        let ignore = cfg.root.join(".specfold/.gitignore");
+        if removes && !ignore.exists() {
+            std::fs::create_dir_all(cfg.root.join(".specfold"))?;
+            std::fs::write(ignore, "*\n")?;
+        }
+    }
+    let o = preview::finish(o, &plan, &cfg.root, go, &rerun)?;
+    Ok(if go {
+        let o = if removes { o.foot(format!("pruned files are kept in {bin}/ until you delete it")) } else { o };
+        o.next("git status --short")
+    } else {
+        o
+    })
 }

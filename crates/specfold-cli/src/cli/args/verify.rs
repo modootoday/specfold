@@ -66,6 +66,9 @@ pub struct CheckArgs {
     /// (`path:line:col: severity RULE: message`); text is the default.
     #[arg(long, default_value = "text", value_parser = ["text", "github", "sarif", "gitlab", "rdjson", "editor"])]
     pub format: String,
+    /// Preview only, writing nothing (the default without --write).
+    #[arg(long, conflicts_with = "yes")]
+    pub dry_run: bool,
 }
 
 #[derive(Debug, Clone, Args)]
@@ -100,6 +103,9 @@ pub struct GuardArgs {
     /// Confirm an action that deletes, overwrites, sends files out, or writes more than [write] max_files files (with its write flag).
     #[arg(long)]
     pub yes: bool,
+    /// Preview only, writing nothing (the default without --write).
+    #[arg(long, conflicts_with = "yes")]
+    pub dry_run: bool,
 }
 
 #[derive(Debug, Clone, Args)]

@@ -219,7 +219,9 @@ fn built_in(g: &Global, a: &ExportArgs) -> Result<Output> {
         o = o.foot(format!("{n} reference(s) written as plain text")).next("spec check --rule L1");
     } else {
         // Done: look at what changed in the output rather than exporting again.
-        o = o.next(format!("git status --short -- {again}"));
+        // C104: git sees only an --out inside the repository.
+        let inside = std::fs::canonicalize(out).ok().zip(std::fs::canonicalize(&s.corpus.cfg.root).ok()).is_some_and(|(o, r)| o.starts_with(r));
+        o = if inside { o.next(format!("git status --short -- {again}")) } else { o.next(format!("ls {again}")) };
     }
     Ok(o)
 }
