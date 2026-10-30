@@ -117,6 +117,9 @@ What an existing command does differs from 0.3.0; check scripts and CI that call
 
 ### Fixed
 
+- `spec set` with values the document already has writes nothing: it reports `no change`, exits 0, and neither bumps `updated` nor offers an undo.
+- `spec import` plans note body lines (`* Status:`, `* Deciders:`, `* Date:` …) that repeat values moved into frontmatter, and an H1 that keeps a number the title dropped.
+- `spec audit` suggests checking open tasks (or `--force`) before archiving an active plan that still has them; `spec check`'s summary counts spec.toml warnings (`+N in spec.toml`, field `config_warnings`); a mistyped `[audit] coverage_types` entry gets a did-you-mean, and `spec doctor` points at the type name to fix.
 - `spec mv` previews keep `--owner`, `--slug`, `--tier` and `--cited-paths` in the next command.
 - After `spec set` changes a status or a required field, the next check includes S6 and S8.
 - Nexts add `--force` (sync over a hand-edited copy) and `--yes` (fix over `max_files`); the S6

@@ -103,6 +103,14 @@ pub fn run(g: &Global, a: &SetArgs) -> Result<Output> {
     let unknown: Vec<String> =
         assigns.iter().filter_map(|x| specfold_core::check::rules::unknown_key(&s.corpus, &ty, &x.key)).collect();
     let o = Output::new("set").unpaged().field("id", id.clone()).head(format!("{id}: {}", shown.join(" ")));
+    if plan.changes.is_empty() {
+        // C117: already so; nothing written, no undo, `updated` untouched.
+        return Ok(o
+            .field("written", false)
+            .field("changed", false)
+            .foot("no change: the document already has these values")
+            .next(format!("spec show {id}")));
+    }
     if !open.is_empty() && !a.force {
         let shown_open: Vec<String> = open.iter().take(5).map(|t| format!("open  {t}")).collect();
         let more = open.len().saturating_sub(5);

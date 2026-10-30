@@ -30,6 +30,30 @@ pub(crate) fn days_between(from: &str, to: &str) -> Option<i64> {
     Some((b - a).whole_days())
 }
 
+/// The command that archives document `i`. A plan with open tasks is refused by `spec set`
+/// (C119), so its next shows the tasks first and `--force` as the way to archive anyway.
+pub(super) fn archive(c: &Corpus, i: usize) -> String {
+    use crate::markdown::{frontmatter, tasks};
+    let d = &c.docs[i];
+    let open: usize = if d.id.ty == "plan" {
+        std::iter::once(&d.path)
+            .chain(&d.chapters)
+            .filter_map(|f| std::fs::read_to_string(c.cfg.root.join(f)).ok())
+            .map(|t| tasks::list(frontmatter::split(&t).body).into_iter().filter(|t| !t.done).count())
+            .sum()
+    } else {
+        0
+    };
+    if open == 0 {
+        format!("spec set {} status=archived", d.id)
+    } else {
+        format!(
+            "spec show {} --tasks   # {open} open task(s): tick or drop them, or archive anyway: spec set {} status=archived --write --force",
+            d.id, d.id
+        )
+    }
+}
+
 pub fn run(c: &Corpus, g: &Graph, filter: &Filter) -> Diagnosis {
     let docs: Vec<usize> = (0..c.docs.len())
         .filter(|&i| filter.owners.is_empty() || filter.owners.contains(&c.docs[i].id.owner))

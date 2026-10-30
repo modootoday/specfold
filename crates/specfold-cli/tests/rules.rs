@@ -452,3 +452,25 @@ fn sd3_coverage_lists_anchors_no_other_document_cites() {
     assert_eq!(items.len(), 1, "{v}");
     assert!(items[0]["detail"].as_str().unwrap().contains("#fr-002"), "{v}");
 }
+
+#[test]
+fn c119_audit_archive_next_respects_open_tasks_and_config_warnings_are_counted() {
+    let r = common::repo();
+    let toml = r.read("spec.toml") + "[audit]\ncoverage_types = [\"plnn\"]\n";
+    r.write("spec.toml", &toml);
+    let plan = r.new_doc("plan", "services/shop", "Checkout");
+    let (sc, sv) = r.json(&["set", &plan, "status=active", "rel.governs-=services/shop", "--write"]);
+    assert_eq!(sc, 0, "{sv}");
+    let (_, d) = r.json(&["show", &plan]);
+    let path = d["path"].as_str().unwrap().to_string();
+    r.write(&path, &(r.read(&path) + "\n- [ ] payment\n"));
+    let (_, v) = r.json(&["audit", "--kind", "orphan"]);
+    let next = v["items"][0]["next"].as_str().unwrap_or_default().to_string();
+    assert!(next.contains("--tasks") && next.contains("--force"), "C119: {v}");
+    let out = r.spec().args(["check"]).output().unwrap();
+    assert!(String::from_utf8_lossy(&out.stderr).contains("did you mean 'plan'"), "C119");
+    let (_, t) = r.text(&["check"]);
+    assert!(t.contains("(+1 in spec.toml)"), "C119: {t}");
+    let (_, v) = r.json(&["doctor"]);
+    assert!(v.to_string().contains("correct the type name in [audit] coverage_types"), "{v}");
+}

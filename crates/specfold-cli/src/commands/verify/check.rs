@@ -197,9 +197,12 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
             }
         }
     }
+    // C119: config warnings (printed on stderr) count in the summary too.
+    let cfg_warns = session::config_warnings(&s.corpus.cfg).len();
     let mut o = Output::new("check")
         .field("errors", errors)
         .field("warnings", warnings)
+        .field("config_warnings", cfg_warns)
         .field("docs_checked", report.docs_checked)
         .field("docs_total", s.corpus.docs.len())
         .field("rules", report.rules_run.clone())
@@ -252,7 +255,9 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
     } else {
         format!("in {} of {} documents", report.docs_checked, s.corpus.docs.len())
     };
-    let o = o.foot(format!("{errors} error(s), {warnings} warning(s) {place}{held} · {:.2}s", ms as f64 / 1000.0));
+    let in_cfg = if cfg_warns > 0 { format!(" (+{cfg_warns} in spec.toml)") } else { String::new() };
+    let o =
+        o.foot(format!("{errors} error(s), {warnings} warning(s){in_cfg} {place}{held} · {:.2}s", ms as f64 / 1000.0));
     let mut o = excluded
         .iter()
         .fold(o, |o, (r, n)| o.foot(format!("{r}: {n} error(s) left out of the exit code by --fail-on")));

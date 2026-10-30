@@ -226,6 +226,20 @@ fn plan_with(c: &Corpus, idx: usize, assigns: &[Assign], successor_pending: bool
         assigns
     };
     let text = crate::corpus::overlay::read(&c.cfg.root.join(&d.path))?;
+    // C117: values that are already there change nothing, so nothing is written and `updated` stays.
+    let order = |m: &mut Map<String, Value>| {
+        let ordered = edit::ordered(std::mem::take(m));
+        *m = ordered;
+    };
+    let same = edit::rewrite(&text, |m| {
+        for a in assigns {
+            apply_one(m, a);
+        }
+        order(m);
+    })? == edit::rewrite(&text, order)?;
+    if same {
+        return Ok(Plan::default());
+    }
     let new = edit::rewrite(&text, |m| {
         for a in assigns {
             apply_one(m, a);
