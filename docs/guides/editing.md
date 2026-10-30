@@ -40,3 +40,32 @@ spec edit <id> --row "Login" --cell Status=done --write
 
 `spec mv <id> --slug <new>` moves a document and rewrites every reference to it. `spec fix`
 applies fixes that need no judgement; `spec fix --rule I2 --pick <id>` resolves a duplicate alias.
+
+## In an editor
+
+`spec lsp` serves the findings of `spec check` as diagnostics over the Language Server Protocol
+(stdio). It checks unsaved buffers, offers each `spec fix` replacement as a quick fix, and runs
+only the `--write` fix commands it offered. It finds the repository from the editor's root, or
+from `spec lsp --dir <path>`. Point any LSP client at it for Markdown files.
+
+Neovim (0.11 or later):
+
+```lua
+vim.lsp.config("specfold", { cmd = { "spec", "lsp" }, filetypes = { "markdown" }, root_markers = { "spec.toml", ".git" } })
+vim.lsp.enable("specfold")
+```
+
+Helix (`languages.toml`):
+
+```toml
+[language-server.specfold]
+command = "spec"
+args = ["lsp"]
+
+[[language]]
+name = "markdown"
+language-servers = ["marksman", "specfold"]
+```
+
+VS Code: specfold ships no extension; use a generic LSP client extension with the command
+`spec lsp` for Markdown files.
