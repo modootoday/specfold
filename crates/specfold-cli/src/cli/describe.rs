@@ -48,11 +48,24 @@ fn info(c: &clap::Command) -> CommandInfo {
         .get_after_help()
         .map(|h| h.to_string().lines().map(str::trim).filter(|l| l.starts_with("spec ")).map(str::to_string).collect())
         .unwrap_or_default();
+    let mut args: Vec<ArgInfo> =
+        c.get_arguments().filter(|a| !GLOBAL.contains(&a.get_id().as_str())).map(arg_info).collect();
+    // The server takes no arguments of its own, but the repository it serves is the global --dir.
+    if c.get_name() == "lsp" {
+        args.push(ArgInfo {
+            name: "dir".into(),
+            long: Some("dir".into()),
+            help: "The repository to serve (default: the editor's root folder)".into(),
+            required: false,
+            kind: "string".into(),
+            default: None,
+        });
+    }
     CommandInfo {
         name: c.get_name().to_string(),
         about: c.get_about().map(|s| s.to_string()).unwrap_or_default(),
         aliases: c.get_visible_aliases().map(str::to_string).collect(),
-        args: c.get_arguments().filter(|a| !GLOBAL.contains(&a.get_id().as_str())).map(arg_info).collect(),
+        args,
         examples,
         output: format!("spec.{}.v1", c.get_name()),
     }

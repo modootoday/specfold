@@ -187,3 +187,12 @@ fn edit_reads_piped_text_without_text_or_file() {
     let out = r.spec().args(["edit", &adr, "--section", "Decision"]).write_stdin("").output().unwrap();
     assert_ne!(out.status.code(), Some(0), "empty input is refused");
 }
+
+#[test]
+fn help_lsp_points_at_the_editor_guide_and_lists_dir() {
+    let r = common::repo();
+    let (code, t) = r.text(&["help", "lsp"]);
+    assert_eq!(code, 0, "{t}");
+    assert!(t.contains("  --dir "), "{t}");
+    assert!(t.trim_end().ends_with("next: https://specfold.build/guides/editing/#in-an-editor"), "{t}");
+}

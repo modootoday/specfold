@@ -48,6 +48,8 @@ pub fn run(_g: &Global, a: &HelpArgs) -> Result<Output> {
     }
     // One command: its first example is the concrete next step.
     let next = match (&a.command, picked.as_slice()) {
+        // `spec lsp` in a terminal only waits on stdin; the editor setup is the next step.
+        (Some(_), [one]) if one.name == "lsp" => EDITOR_GUIDE.to_string(),
         (Some(_), [one]) => one.examples.first().cloned().unwrap_or_else(|| format!("spec {} --help", one.name)),
         _ => "spec help <command>".to_string(),
     };
@@ -111,6 +113,9 @@ fn llms(cmds: &[describe::CommandInfo]) -> Output {
 fn cell(s: &str) -> String {
     s.trim_end_matches('.').replace('|', "\\|").replace('\n', " ")
 }
+
+/// Where `spec lsp` is wired into Neovim, Helix and VS Code.
+pub const EDITOR_GUIDE: &str = "https://specfold.build/guides/editing/#in-an-editor";
 
 /// One command's reference page: the table row's wording, then its arguments and examples.
 /// It opens with a blank line for the same reason the table does.
