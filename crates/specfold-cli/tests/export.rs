@@ -399,3 +399,21 @@ fn obsidian_turns_a_markdown_link_to_an_id_into_a_wiki_link() {
     let page = r.read("vault/shop/sot/checkout.md");
     assert!(page.contains("[[shop/adr/cart-totals|the tax rule]]"), "{page}");
 }
+
+#[test]
+fn a_markdown_link_to_a_slug_id_points_at_the_exported_page() {
+    let r = corpus();
+    r.write(
+        "services/shop/.spec/sot/refunds.sot.md",
+        "---\nid: sot:shop/refunds\ntitle: Refunds\nstatus: active\ncreated: 2026-01-01T00:00:00Z\nupdated: 2026-01-01T00:00:00Z\n---\n\n# Refunds\n\nTotals follow [the tax decision](adr:shop/cart-totals).\n",
+    );
+    let (_, v) = r.json(&["check", "--rule", "L1"]);
+    let s = v.to_string();
+    assert!(s.contains("[[adr:shop/20260101000000|the tax decision]]"), "L1 resolves the slug id: {s}");
+    assert!(!s.contains("cart-totals) is a Markdown link to a document id that names no document"), "{s}");
+    let (code, v) = r.json(&["export", "markdown", "--target", "mkdocs", "--out", "site"]);
+    assert_eq!(code, 0, "{v}");
+    let page = r.read("site/shop/sot/refunds.md");
+    assert!(page.contains("[the tax decision](../adr/cart-totals.md)"), "{page}");
+    assert!(!page.contains("adr:shop/cart-totals"), "{page}");
+}

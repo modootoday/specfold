@@ -50,8 +50,13 @@ Every attached file is read by the built-in secrets check, the one `spec export`
 run. Before a file goes to the store, every guard that reads content (secrets, denied terms or
 patterns, denied files) checks it as well. An error-level hit refuses the upload and names the
 guard; `--allow-hit <guard>` lets that guard's hits through (`--allow-hit secrets` for the
-built-in check). A secret in a file that stays in the repository is a warning. Only the first
-64 MiB of a file is read.
+built-in check). A secret in a file that stays in the repository is a warning at attach time.
+Only the first 64 MiB of a file is read.
+
+After that, rule U2 (in `spec check` and the commit hook) and `spec guard secrets` keep reading
+the text files kept in the repository, so a secret added or left there later is an error in a
+committed document and a warning in a local one. Files over `[files] scan_max_bytes` (1 MiB by
+default) and binary files are not read; stored files were checked before upload.
 
 ## Rules
 

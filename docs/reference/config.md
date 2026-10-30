@@ -27,7 +27,7 @@ description: The spec.toml tables and what each one controls.
 | `[types.<name>]` | override, disable or add a type: key, statuses, fields, transitions, required sections |
 | `[forbid]` | retired layouts and identifiers (rule Z1) |
 | `[aliases]` | the frozen alias table written by `spec import` |
-| `[files]` | `inline_max_bytes`, and `[files.store]`: `kind = "dir"` with `path`, or `kind = "command"` with `put`/`get`/`exists` argv templates (see the example) |
+| `[files]` | `inline_max_bytes`, `scan_max_bytes` (repository text attachments up to this size are read by rule U2; 1 MiB by default), and `[files.store]`: `kind = "dir"` with `path`, or `kind = "command"` with `put`/`get`/`exists` argv templates (see the example) |
 | `[[assets]]` | agent skills, rules, subagents and instruction files |
 
 ## Checks

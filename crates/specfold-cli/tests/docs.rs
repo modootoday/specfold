@@ -130,6 +130,15 @@ fn help_markdown_for_one_command_is_a_reference_page() {
     assert_eq!(code, 0, "{page}");
     assert!(page.starts_with("\n## `spec mv`\n"), "{page}");
     assert!(page.contains("| `--slug` |") && page.contains("```sh"), "{page}");
+    let (code, page) = r.text(&["help", "attach", "--markdown"]);
+    assert_eq!(code, 0, "{page}");
+    assert!(page.contains("```\n[files]\ninline_max_bytes"), "notes keep their config snippet: {page}");
+    let (code, text) = r.text(&["help", "attach"]);
+    assert_eq!(code, 0, "{text}");
+    assert!(text.contains("[files.store]") && text.contains("refuses the upload"), "{text}");
+    assert!(!text.contains("Examples:"), "{text}");
+    let (_, v) = r.json(&["help", "attach"]);
+    assert!(v.to_string().contains("\"notes\""), "{v}");
     let (code, v) = r.json(&["help", "mvv", "--markdown"]);
     assert_ne!(code, 0);
     assert!(v["error"].as_str().unwrap().contains("did you mean 'mv'"), "{v}");

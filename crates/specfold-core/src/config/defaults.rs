@@ -46,6 +46,10 @@ pub fn inline_max_bytes() -> u64 {
     262_144
 }
 
+pub fn scan_max_bytes() -> u64 {
+    1_048_576
+}
+
 pub fn guard_range() -> String {
     "staged".into()
 }

@@ -63,8 +63,17 @@ const BUILTIN: &str = "secrets";
 fn builtin_hits(g: &Global, range: Option<&GuardRange>) -> Result<Vec<specfold_core::check::Finding>> {
     let s = session::open(g)?;
     let root = &s.corpus.cfg.root;
-    let docs: Vec<String> =
-        s.corpus.docs.iter().flat_map(|d| std::iter::once(d.path.clone()).chain(d.chapters.iter().cloned())).collect();
+    // Each document's files: the main file, its chapters and its repository text attachments.
+    let max = s.corpus.cfg.raw.files.scan_max_bytes;
+    let own = |d: &specfold_core::model::Doc| -> Vec<String> {
+        std::iter::once(d.path.clone())
+            .chain(d.chapters.iter().cloned())
+            .chain(guards::secrets::scanned_attachments(root, d, max))
+            .collect()
+    };
+    let docs: Vec<String> = s.corpus.docs.iter().flat_map(own).collect();
+    let local: Vec<String> =
+        s.corpus.docs.iter().filter(|d| d.tier == specfold_core::model::Tier::Local).flat_map(own).collect();
     let blobs: Vec<(String, Vec<u8>)> = match range {
         None | Some(GuardRange::All) => {
             docs.into_iter().filter_map(|p| Some((p.clone(), std::fs::read(root.join(&p)).ok()?))).collect()
@@ -82,6 +91,10 @@ fn builtin_hits(g: &Global, range: Option<&GuardRange>) -> Result<Vec<specfold_c
         .into_iter()
         .map(|(_, mut f)| {
             f.rule = "U2".into();
+            // As in U2: a local document never leaves the machine, so its hit is a warning.
+            if local.contains(&f.path) {
+                f.severity = specfold_core::check::Severity::Warn;
+            }
             f
         })
         .collect())

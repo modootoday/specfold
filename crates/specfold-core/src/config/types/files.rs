@@ -9,12 +9,20 @@ pub struct FilesSection {
     /// Larger attachments go to the store.
     #[serde(default = "defaults::inline_max_bytes")]
     pub inline_max_bytes: u64,
+    /// Repository attachments up to this size are read by the secrets check (U2); larger and
+    /// binary files are not.
+    #[serde(default = "defaults::scan_max_bytes")]
+    pub scan_max_bytes: u64,
     pub store: Option<StoreDef>,
 }
 
 impl Default for FilesSection {
     fn default() -> Self {
-        FilesSection { inline_max_bytes: defaults::inline_max_bytes(), store: None }
+        FilesSection {
+            inline_max_bytes: defaults::inline_max_bytes(),
+            scan_max_bytes: defaults::scan_max_bytes(),
+            store: None,
+        }
     }
 }
 
