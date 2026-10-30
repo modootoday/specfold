@@ -15,6 +15,11 @@ fn split_target(t: &str) -> (String, Option<usize>) {
     }
 }
 
+/// C168: `--write` with nothing to fix, as `mv` and `set` (C164): nothing written, no undo line.
+fn no_change(o: Output) -> Output {
+    o.field("written", false).field("changed", false).foot("no change: nothing to fix")
+}
+
 pub fn run(g: &Global, a: &FixArgs) -> Result<Output> {
     // C167: the same check as `spec check --rule`, so a typo cannot read as nothing to fix.
     crate::commands::verify::check::check_rule_names("--rule", &a.rules)?;
@@ -26,15 +31,12 @@ pub fn run(g: &Global, a: &FixArgs) -> Result<Output> {
             .field("remaining", 0)
             .head(format!("{n} translation(s) paired by the layout get rel.translation_of and lang"));
         let max = s.corpus.cfg.raw.write.max_files;
-        let (o, written) = preview::finish_bounded(
-            o,
-            &plan,
-            &s.corpus.cfg.root,
-            max,
-            a.write,
-            a.yes,
-            "spec fix --translations --write",
-        )?;
+        let (o, written) = if a.write && plan.changes.is_empty() {
+            (no_change(o), false)
+        } else {
+            let rerun = "spec fix --translations --write";
+            preview::finish_bounded(o, &plan, &s.corpus.cfg.root, max, a.write, a.yes, rerun)?
+        };
         return Ok(if written { o.next("spec check") } else { o });
     }
     let range = if a.staged { Range::Staged } else { Range::All };
@@ -93,7 +95,11 @@ pub fn run(g: &Global, a: &FixArgs) -> Result<Output> {
         rerun.push_str(&format!(" {}", session::shell_word(t)));
     }
     let max = s.corpus.cfg.raw.write.max_files;
-    let (o, written) = preview::finish_bounded(o, &plan, &s.corpus.cfg.root, max, a.write, a.yes, &rerun)?;
+    let (o, written) = if a.write && plan.changes.is_empty() {
+        (no_change(o), false)
+    } else {
+        preview::finish_bounded(o, &plan, &s.corpus.cfg.root, max, a.write, a.yes, &rerun)?
+    };
     if o.summary.contains_key("bounded") {
         return Ok(o);
     }

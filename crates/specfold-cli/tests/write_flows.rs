@@ -442,3 +442,15 @@ fn c167_fix_refuses_an_unknown_or_lower_case_rule() {
     assert!(v["error"].as_str().unwrap().contains("upper case: --rule S1"), "{v}");
     assert_eq!(r.json(&["fix", "--rule", "S1"]).0, 0);
 }
+
+#[test]
+fn c168_fix_write_with_nothing_to_fix_is_no_change() {
+    let r = common::repo();
+    let (code, v) = r.json(&["fix", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["written"], false, "{v}");
+    assert!(v.get("undo").is_none_or(|u| u.as_str().is_some_and(|s| !s.is_empty())), "{v}");
+    let (code, text) = r.text(&["fix", "--write"]);
+    assert_eq!(code, 0, "{text}");
+    assert!(text.contains("no change") && !text.contains("undo:") && !text.contains("written"), "{text}");
+}
