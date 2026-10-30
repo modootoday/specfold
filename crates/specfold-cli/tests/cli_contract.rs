@@ -1442,3 +1442,24 @@ fn walk(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
     }
     out
 }
+
+/// C160: a title with a line break is refused by new and set (exit 2, nothing written).
+#[test]
+fn c160_titles_with_line_breaks_are_refused() {
+    let r = common::repo();
+    for t in ["a\nb", "a\rb"] {
+        let (code, v) = r.json(&["new", "sot", "--governs", "services/shop", "--title", t, "--write"]);
+        assert_eq!(code, 2, "{v}");
+        assert!(v["error"].as_str().unwrap().contains("line break"), "{v}");
+        assert!(v["next"].as_str().unwrap().starts_with("spec new sot --title"), "{v}");
+    }
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    r.commit("doc");
+    let (code, v) = r.json(&["set", &id, "title=a\nb", "--write"]);
+    assert_eq!(code, 2, "{v}");
+    assert!(v["next"].as_str().unwrap().starts_with(&format!("spec set {id} title=")), "{v}");
+    let (_, v) = r.json(&["show", &id]);
+    assert!(v.to_string().contains("Cart"), "{v}");
+    let st = std::process::Command::new("git").args(["status", "--porcelain"]).current_dir(r.path()).output().unwrap();
+    assert!(st.stdout.is_empty(), "{st:?}");
+}

@@ -132,6 +132,8 @@ A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is 
 
 ### Fixed
 
+- `spec new --title` and `spec set title=` refuse a title with a line break (exit 2, with a next
+  command to give it on one line); it split the body heading and one-row-per-document lists.
 - `spec export markdown` looks up relation targets by id instead of scanning every document for
   each one: 10,000 documents export in about 1 s instead of 4.8 s, with the same files.
 A write preview of a very large change no longer runs out of memory: hunks are computed only while the compared region stays under about four million line pairs, and a larger change is shown as one hunk; 30,000 replaced lines had aborted (C158).

@@ -18,6 +18,10 @@ pub fn run(g: &Global, a: &SetArgs) -> Result<Output> {
     let s = session::open(g)?;
     let idx = session::resolve(&s, &a.doc)?;
     let mut assigns = a.assignments.iter().map(|x| Assign::parse(x)).collect::<Result<Vec<_>>>()?;
+    if assigns.iter().any(|x| x.key == "title" && x.value.contains(['\n', '\r'])) {
+        let id = &s.corpus.docs[idx].id;
+        bail!("the title has a line break; give it on one line; next: spec set {id} title=\"<one-line title>\"");
+    }
     let mut shown = a.assignments.clone();
     crate::commands::outbound::refuse_redacted(
         &s.corpus.cfg.root,
