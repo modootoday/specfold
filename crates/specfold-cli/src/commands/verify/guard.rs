@@ -34,7 +34,7 @@ pub fn run(g: &Global, a: &GuardArgs) -> Result<Output> {
     }
     let range = if a.staged {
         Some(GuardRange::Staged)
-    } else if a.all {
+    } else if a.tree {
         Some(GuardRange::All)
     } else {
         a.range.as_deref().map(GuardRange::parse)

@@ -42,8 +42,8 @@ Each `--owner` is `pattern=id-template`; `{1}` is the first wildcard. Add `:mani
 directories with a package manifest count.
 
 ```sh
-spec init --owner 'apps/*={1}' --owner 'packages/*=pkg.{1}:manifest'           # preview
-spec init --owner 'apps/*={1}' --owner 'packages/*=pkg.{1}:manifest' --write   # write spec.toml
+spec init --owner-kind 'apps/*={1}' --owner-kind 'packages/*=pkg.{1}:manifest'           # preview
+spec init --owner-kind 'apps/*={1}' --owner-kind 'packages/*=pkg.{1}:manifest' --write   # write spec.toml
 spec owners                                                                     # confirm
 ```
 

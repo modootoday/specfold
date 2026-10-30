@@ -173,11 +173,11 @@ pub struct AttachArgs {
 
 #[derive(Debug, Clone, Args)]
 #[command(
-    after_help = "Examples:\n  spec init\n  spec init --owner 'services/*={1}' --owner 'libs/*=lib.{1}:manifest' --root ws\n  spec init --upgrade          # preview renamed keys and the schema number"
+    after_help = "Examples:\n  spec init\n  spec init --owner-kind 'services/*={1}' --owner-kind 'libs/*=lib.{1}:manifest' --root ws\n  spec init --upgrade          # preview renamed keys and the schema number"
 )]
 pub struct InitArgs {
-    /// Owner kinds as `pattern=id-template`, with `:manifest` to require a package manifest.
-    #[arg(long = "owner")]
+    /// Owner kinds as `pattern=id-template`, with `:manifest` to require a package manifest (old name: --owner).
+    #[arg(long = "owner-kind", alias = "owner")]
     pub owners: Vec<String>,
     /// Id of the repository root owner.
     #[arg(long, default_value = "root")]

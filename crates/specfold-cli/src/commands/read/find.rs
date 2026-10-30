@@ -28,7 +28,7 @@ pub fn run(g: &Global, a: &FindArgs) -> Result<Output> {
         statuses: a.statuses.clone(),
         tags: a.tags.clone(),
         all: a.all,
-        text: a.text,
+        text: a.body,
     };
     let mut hits = search::find(&s.corpus, &q);
     let mut open = Vec::new();
@@ -70,8 +70,8 @@ pub fn run(g: &Global, a: &FindArgs) -> Result<Output> {
             {
                 cmd.extend(list.iter().map(|v| format!("{flag} {}", session::shell_word(v))));
             }
-            if a.text {
-                cmd.push("--text".into());
+            if a.body {
+                cmd.push("--body".into());
             }
             o.foot("nothing current matches").next(cmd.join(" "))
         }

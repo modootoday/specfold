@@ -22,7 +22,7 @@ redirect_from: [/getting-started/]
 ## Run it
 
 ```console
-$ spec init --owner 'services/*={1}' --write
+$ spec init --owner-kind 'services/*={1}' --write
 $ spec new sot --governs services/shop/src/cart --title "Cart totals"
 $ spec context services/shop/src/cart/total.rs
 $ spec check

@@ -45,7 +45,7 @@ In a repository with apps under `services/`:
 
 <!-- spec:quickstart:begin -->
 ```console
-$ spec init --owner 'services/*={1}' --write
+$ spec init --owner-kind 'services/*={1}' --write
 written
 $ spec new sot --governs services/shop/src/cart --title "Cart totals"
 created sot:shop/cart-totals  services/shop/.spec/sot/cart-totals.sot.md

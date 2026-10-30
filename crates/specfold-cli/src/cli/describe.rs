@@ -16,6 +16,9 @@ pub struct ArgInfo {
     pub kind: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default: Option<String>,
+    /// CLI-13: old long names that still work, with a warning.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub deprecated_aliases: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -57,6 +60,40 @@ pub struct Deprecated {
 
 /// CLI-13: every deprecated command name. Empty while nothing has been renamed.
 pub const DEPRECATED: &[Deprecated] = &[];
+
+/// CLI-13: a renamed flag. clap keeps the old name as a hidden alias; it warns on stderr.
+#[derive(Debug, Clone, Copy)]
+pub struct DeprecatedFlag {
+    pub command: &'static str,
+    pub name: &'static str,
+    pub replacement: &'static str,
+    pub since: &'static str,
+}
+
+/// CLI-11/13: flags renamed so one long name keeps one meaning across commands.
+pub const DEPRECATED_FLAGS: &[DeprecatedFlag] = &[
+    DeprecatedFlag { command: "guard", name: "all", replacement: "tree", since: "0.3" },
+    DeprecatedFlag { command: "find", name: "text", replacement: "body", since: "0.3" },
+    DeprecatedFlag { command: "init", name: "owner", replacement: "owner-kind", since: "0.3" },
+];
+
+/// CLI-13: the warnings for deprecated flags used on this command line.
+pub fn flag_warnings(command: &str, argv: &[String]) -> Vec<String> {
+    DEPRECATED_FLAGS
+        .iter()
+        .filter(|d| d.command == command)
+        .filter(|d| {
+            let old = format!("--{}", d.name);
+            argv.iter().any(|a| *a == old || a.starts_with(&format!("{old}=")))
+        })
+        .map(|d| {
+            format!(
+                "warning: `spec {} --{}` is deprecated since {}; use --{}",
+                d.command, d.name, d.since, d.replacement
+            )
+        })
+        .collect()
+}
 
 /// CLI-13: argv with a deprecated command name (the first non-flag argument) replaced, and the
 /// warning to print. Only the command position is rewritten.
@@ -118,6 +155,13 @@ fn info(c: &clap::Command) -> CommandInfo {
     let notes = notes_of(&after);
     let mut args: Vec<ArgInfo> =
         c.get_arguments().filter(|a| !GLOBAL.contains(&a.get_id().as_str())).map(arg_info).collect();
+    for a in &mut args {
+        a.deprecated_aliases = DEPRECATED_FLAGS
+            .iter()
+            .filter(|d| d.command == c.get_name() && a.long.as_deref() == Some(d.replacement))
+            .map(|d| d.name.to_string())
+            .collect();
+    }
     // The server takes no arguments of its own, but the repository it serves is the global --dir.
     if c.get_name() == "lsp" {
         args.push(ArgInfo {
@@ -127,6 +171,7 @@ fn info(c: &clap::Command) -> CommandInfo {
             required: false,
             kind: "string".into(),
             default: None,
+            deprecated_aliases: vec![],
         });
     }
     CommandInfo {
@@ -157,6 +202,7 @@ fn arg_info(a: &clap::Arg) -> ArgInfo {
         required: a.is_required_set(),
         kind: kind.to_string(),
         default: a.get_default_values().first().map(|v| v.to_string_lossy().into_owned()).filter(|v| v != "false"),
+        deprecated_aliases: vec![],
     }
 }
 

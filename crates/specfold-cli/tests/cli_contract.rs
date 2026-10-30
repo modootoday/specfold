@@ -335,6 +335,7 @@ fn cli9_no_color() {
 /// it here, which is the review point.
 const SHARED: &[(&str, &str)] = &[
     ("all", "widen the default selection"),
+    ("body", "the document body"),
     ("changed", "since this revision"),
     ("dry-run", "preview, write nothing"),
     ("fail-on", "what makes the run exit 1"),
@@ -348,7 +349,6 @@ const SHARED: &[(&str, &str)] = &[
     ("section", "one section by heading or anchor"),
     ("slug", "the slug"),
     ("staged", "only the index"),
-    ("text", "text"),
     ("title", "the title"),
     ("translations", "translation pairs"),
     ("type", "only these document types"),
@@ -357,12 +357,8 @@ const SHARED: &[(&str, &str)] = &[
     ("yes", "confirm a destructive or external action"),
 ];
 
-/// CLI-11 known splits, kept until a hidden-alias rename (CLI-13) is decided.
-const SPLIT: &[(&str, &str)] = &[
-    ("text", "find --text is a switch (search bodies), edit --text takes the new text"),
-    ("owner", "init --owner takes owner-kind templates, the others an owner id"),
-    ("all", "guard --all scans the working tree, find/context --all include inactive documents"),
-];
+/// CLI-11 known splits; empty since guard --tree, find --body and init --owner-kind (0.3).
+const SPLIT: &[(&str, &str)] = &[];
 
 #[test]
 fn cli11_shared_flags_have_one_meaning() {
@@ -423,4 +419,18 @@ fn cli13_deprecated_aliases_are_marked_in_help_json() {
             assert!(a["name"].is_string() && a["use"] == c["name"] && a["since"].is_string(), "{a}");
         }
     }
+}
+
+#[test]
+fn cli13_renamed_flags_keep_their_old_name_with_a_warning() {
+    let r = common::repo();
+    let out = r.spec().args(["find", "blog", "--text"]).output().unwrap();
+    assert!(out.status.code().unwrap() < 2, "{}", String::from_utf8_lossy(&out.stderr));
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(err.contains("`spec find --text` is deprecated") && err.contains("use --body"), "{err}");
+    let out = r.spec().args(["find", "blog", "--body"]).output().unwrap();
+    assert!(String::from_utf8_lossy(&out.stderr).is_empty(), "the new name is quiet");
+    let (_, v) = r.json(&["help", "guard"]);
+    let tree = v["items"][0]["args"].as_array().unwrap().iter().find(|a| a["long"] == "tree").cloned().unwrap();
+    assert_eq!(tree["deprecated_aliases"], serde_json::json!(["all"]), "{tree}");
 }
