@@ -58,11 +58,9 @@ pub fn run(cfg: &Config, names: &[String], range: Option<&GuardRange>) -> Result
     Ok(out)
 }
 
-/// Runs the guards `pick` selects over content about to leave the repository (an upload to the
-/// file store, an export), as (label, bytes) pairs. Each guard checks the content with its own
-/// settings, whatever its paths; deny_files and path patterns read the label. Baselines do not
-/// apply: a known hit is still leaving.
-/// Each finding comes with the name of the guard that raised it.
+/// Runs the guards `pick` selects over (label, bytes) about to leave the repository, each with its
+/// own settings whatever its paths; deny_files and path patterns read the label. Baselines do not
+/// apply, a known hit is still leaving. Each finding names the guard that raised it.
 pub fn scan_blobs(
     cfg: &Config,
     pick: impl Fn(&GuardDef) -> bool,

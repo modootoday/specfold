@@ -26,12 +26,9 @@ impl Wants {
     }
 }
 
-/// The documents with what `w` asks for. Bodies are the text after the frontmatter; link spans
-/// are byte ranges in that text. Once the bodies sent so far pass `budget` bytes, the rest are
-/// given as `body_path` (the repository-relative file) for the plugin to read itself.
-///
-/// Only the documents in `only` are sent. A reference to a document left out is sent as
-/// unresolved (`reason: "not exported"`) so nothing about it reaches the plugin.
+/// The documents in `only` with what `w` asks for; link spans are byte ranges in the body. Past
+/// `budget` bytes, bodies go as `body_path` for the plugin to read. A reference to a document left
+/// out is sent unresolved (`reason: "not exported"`) so nothing about it reaches the plugin.
 pub fn docs(c: &Corpus, g: &Graph, w: Wants, budget: Option<usize>, only: &[usize]) -> Value {
     let mut used = 0usize;
     let root = c.cfg.root.clone();

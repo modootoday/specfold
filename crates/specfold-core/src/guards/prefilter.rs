@@ -5,10 +5,9 @@
 
 use regex::{Regex, RegexSet};
 
-/// Removes `(?=…)`, `(?!…)`, `(?<=…)` and `(?<!…)` groups and the word boundaries `\b`, `\B`.
-/// The result matches a superset of the original, or None when it still does not compile
-/// (backreferences, for example). Without Unicode word boundaries the `regex` crate keeps its
-/// DFA on non-ASCII text instead of falling back to a slower engine.
+/// Drops lookaround groups and `\b`, `\B`: a superset of the original, or None when it still does
+/// not compile (backreferences). Without Unicode word boundaries the `regex` crate keeps its DFA
+/// on non-ASCII text instead of falling back to a slower engine.
 pub fn relax(pattern: &str) -> Option<String> {
     let chars: Vec<char> = pattern.chars().collect();
     let mut out = String::new();
