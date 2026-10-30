@@ -125,7 +125,7 @@ T5 = "error"
 | rule | checks that |
 | --- | --- |
 | **U1** | guards pass |
-| **U2** | documents hold no secrets (the built-in check `spec export` runs; `spec guard secrets`) |
+| **U2** | documents hold no secrets (the built-in check `spec export` runs; `spec guard secrets`), repository text attachments included; a warning in local documents |
 
 ## Agent assets
 

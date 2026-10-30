@@ -24,8 +24,8 @@ const CONFIG_HELP: &[(&str, &str)] = &[
         "Directories outside the repository (an agent's memory) whose citations are checked with --external.",
     ),
     (
-        "[files] inline_max_bytes, store",
-        "Size limit for attachments in the repository; the store for larger ones (dir or command).",
+        "[files] inline_max_bytes, scan_max_bytes, store",
+        "Size limit for attachments in the repository; the size up to which repository text attachments are read by the secrets check (U2, 1 MiB by default); the store for larger ones (dir or command).",
     ),
     (
         "[types.<name>]",

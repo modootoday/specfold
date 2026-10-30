@@ -142,6 +142,30 @@ pub fn all() -> &'static [SecretPattern] {
     })
 }
 
+/// A document's repository attachments that the secrets check reads: bundle files and `files`
+/// entries kept in the repository, at most `max` bytes, and text (no NUL in the first 8 KiB).
+/// Stored files are not here; `spec attach` checks them before upload.
+pub fn scanned_attachments(root: &std::path::Path, d: &crate::model::Doc, max: u64) -> Vec<String> {
+    let base = d.base_dir();
+    let mut paths: Vec<String> = d.bundle_files.clone();
+    for e in d.files().into_iter().filter(|e| e.store != "store") {
+        let p = if base.is_empty() { e.path } else { format!("{base}/{}", e.path) };
+        if !paths.contains(&p) {
+            paths.push(p);
+        }
+    }
+    paths.retain(|p| {
+        let full = root.join(p);
+        let Ok(meta) = std::fs::metadata(&full) else { return false };
+        if !meta.is_file() || meta.len() > max {
+            return false;
+        }
+        let Ok(bytes) = std::fs::read(&full) else { return false };
+        !bytes[..bytes.len().min(8192)].contains(&0)
+    });
+    paths
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

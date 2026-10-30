@@ -11,10 +11,19 @@ Release notes for each version are also on
   document file, so the commit hook (`spec check --staged`) refuses what export would refuse.
   `spec guard secrets` runs it over any range, and `spec guard` with no secrets guard configured
   includes it. A configured `secrets = true` guard keeps reporting through U1 instead.
+  Hits in local (git-ignored) documents are warnings; in committed documents, errors.
+  U2 also reads each document's text attachments kept in the repository (up to the new
+  `[files] scan_max_bytes`, 1 MiB by default; binary files are skipped), so a secret attached
+  with a warning keeps being reported by `spec check` and `spec guard secrets`.
+  U2 also reads each document's text attachments kept in the repository (up to the new
+  `[files] scan_max_bytes`, 1 MiB by default; binary files are skipped), so a secret attached
+  with a warning keeps being reported by `spec check` and `spec guard secrets`.
 - `spec attach` runs the built-in secrets check on every file, with no `[[guards]]` needed: a hit
   refuses a store upload (`--allow-hit secrets` lets it through) and warns for a repository file.
 - A slug id (`plan:root/payment-rollout` for a timestamp-keyed plan) resolves in `[[…]]`
   references, Markdown links, export and `spec find`; L1 suggests the canonical id.
+- `spec help <command>` shows the command's notes (limits, settings, what a refusal means)
+  after its arguments and examples; `--markdown` and `--json` (`notes`) carry them too.
 - The attachments guide, the config reference and `spec help attach` show a `[files.store]` example.
 
 - Built-in secrets (`secrets = true` in a guard) now find connection strings with a password

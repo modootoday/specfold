@@ -27,6 +27,9 @@ pub struct CommandInfo {
     pub aliases: Vec<String>,
     pub args: Vec<ArgInfo>,
     pub examples: Vec<String>,
+    /// The prose after the examples in `--help`: limits, settings, what a refusal means.
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub notes: String,
     /// The schema name of its --json output.
     pub output: String,
 }
@@ -44,10 +47,9 @@ pub fn global_args() -> Vec<ArgInfo> {
 }
 
 fn info(c: &clap::Command) -> CommandInfo {
-    let examples = c
-        .get_after_help()
-        .map(|h| h.to_string().lines().map(str::trim).filter(|l| l.starts_with("spec ")).map(str::to_string).collect())
-        .unwrap_or_default();
+    let after = c.get_after_help().map(|h| h.to_string()).unwrap_or_default();
+    let examples = after.lines().map(str::trim).filter(|l| l.starts_with("spec ")).map(str::to_string).collect();
+    let notes = notes_of(&after);
     let mut args: Vec<ArgInfo> =
         c.get_arguments().filter(|a| !GLOBAL.contains(&a.get_id().as_str())).map(arg_info).collect();
     // The server takes no arguments of its own, but the repository it serves is the global --dir.
@@ -67,6 +69,7 @@ fn info(c: &clap::Command) -> CommandInfo {
         aliases: c.get_visible_aliases().map(str::to_string).collect(),
         args,
         examples,
+        notes,
         output: format!("spec.{}.v1", c.get_name()),
     }
 }
@@ -86,4 +89,21 @@ fn arg_info(a: &clap::Arg) -> ArgInfo {
         kind: kind.to_string(),
         default: a.get_default_values().first().map(|v| v.to_string_lossy().into_owned()).filter(|v| v != "false"),
     }
+}
+
+/// Everything in an after_help text but the `Examples:` block (the heading and the lines up to
+/// the first blank one), with the blank lines around it trimmed.
+fn notes_of(after: &str) -> String {
+    let mut in_examples = false;
+    let mut kept = vec![];
+    for l in after.lines() {
+        if l.trim() == "Examples:" {
+            in_examples = true;
+        } else if in_examples && l.trim().is_empty() {
+            in_examples = false;
+        } else if !in_examples {
+            kept.push(l);
+        }
+    }
+    kept.join("\n").trim_matches('\n').to_string()
 }

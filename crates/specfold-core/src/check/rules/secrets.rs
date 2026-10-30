@@ -3,9 +3,10 @@
 
 use super::support::skipped;
 use crate::check::context::Ctx;
-use crate::check::finding::Finding;
+use crate::check::finding::{Finding, Severity};
 use crate::check::rule::{Rule, RuleInfo};
 use crate::guards;
+use crate::model::Tier;
 
 pub struct NoSecrets;
 
@@ -14,7 +15,7 @@ impl Rule for NoSecrets {
         &RuleInfo {
             id: "U2",
             title: "documents hold no secrets",
-            explain: "Every document file (the main file and its chapters) is scanned with the built-in secret formats that `spec export` always applies: private keys, cloud and token formats, and URLs with a password. No guard needs to be configured. The value is never printed. When a configured guard with secrets = true already runs as U1 in the same check, U2 stays quiet so a hit is reported once. Move the value to the environment or a secret store and write a placeholder instead; `spec guard secrets` runs the same check over any range.",
+            explain: "Every document file (the main file and its chapters) and every text attachment kept in the repository (up to [files] scan_max_bytes, 1 MiB by default; binary files are skipped) is scanned with the built-in secret formats that `spec export` always applies: private keys, cloud and token formats, and URLs with a password. No guard needs to be configured. Hits in committed documents are errors; in local (git-ignored) documents they are warnings, since those never leave the machine. The value is never printed. When a configured guard with secrets = true already runs as U1 in the same check, U2 stays quiet so a hit is reported once. Move the value to the environment or a secret store and write a placeholder instead; `spec guard secrets` runs the same check over any range.",
             on_commit: true,
         }
     }
@@ -28,12 +29,20 @@ impl Rule for NoSecrets {
             if !ctx.scope.covers(i) || skipped(d, "U2") {
                 continue;
             }
+            let attachments =
+                guards::secrets::scanned_attachments(&ctx.corpus.cfg.root, d, ctx.corpus.cfg.raw.files.scan_max_bytes);
             let blobs: Vec<(String, Vec<u8>)> = std::iter::once(&d.path)
                 .chain(&d.chapters)
+                .chain(&attachments)
                 .filter_map(|p| Some((p.clone(), ctx.current(p)?.into_bytes())))
                 .collect();
+            // A local document is git-ignored and never leaves the machine: a warning, not a block.
+            let local = d.tier == Tier::Local;
             for (_, mut f) in guards::builtin_secrets(&blobs) {
                 f.rule = "U2".into();
+                if local {
+                    f.severity = Severity::Warn;
+                }
                 out.push(f);
             }
         }

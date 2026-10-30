@@ -470,3 +470,46 @@ fn the_commit_check_refuses_a_document_secret_with_no_guard_configured() {
     let (code, v) = r.json(&["guard"]);
     assert_eq!(code, 1, "spec guard with no guards configured runs the built-in check: {v}");
 }
+
+#[test]
+fn a_secret_in_a_local_document_is_a_warning() {
+    let r = common::repo();
+    let (code, v) = r.json(&["new", "adr", "--governs", "services/shop", "--title", "Notes", "--local"]);
+    assert_eq!(code, 0, "{v}");
+    let id = v["id"].as_str().unwrap().to_string();
+    let path = r.json(&["show", &id]).1["path"].as_str().unwrap().to_string();
+    let url = format!("postgres://app:{}{}@db.acme.io/main", "s3cr", "Et-77x");
+    r.write(&path, &(r.read(&path) + "\nDSN: " + &url + "\n"));
+    let (code, v) = r.json(&["check", "--rule", "U2"]);
+    assert_eq!(code, 0, "warnings do not fail the check: {v}");
+    let s = v.to_string();
+    assert!(s.contains("\"U2\"") && s.contains("warn") && !s.contains("Et-77x"), "{s}");
+    let (code, v) = r.json(&["guard", "secrets"]);
+    assert_eq!(code, 0, "{v}");
+}
+
+#[test]
+fn a_secret_in_a_repository_attachment_is_found_after_attach() {
+    let r = common::repo();
+    let (code, v) = r.json(&["new", "design", "--governs", "services/shop", "--title", "Board"]);
+    assert_eq!(code, 0, "{v}");
+    let id = v["id"].as_str().unwrap().to_string();
+    let url = format!("postgres://app:{}{}@db.acme.io/main", "s3cr", "Et-77x");
+    r.write("notes.txt", &format!("DSN: {url}\n"));
+    let mut bin = b"\0\x01PNG".to_vec();
+    bin.extend(format!("x {}{}\n", "postgres://app:s3crEt-88y", "@db.acme.io/main").bytes());
+    std::fs::write(r.path().join("board.bin"), &bin).unwrap();
+    let (code, v) = r.json(&["attach", &id, "notes.txt", "board.bin", "--write"]);
+    assert_eq!(code, 0, "a repository file only warns at attach time: {v}");
+    let (code, v) = r.json(&["check", "--rule", "U2"]);
+    assert_ne!(code, 0, "the attachment is read by every later check: {v}");
+    let s = v.to_string();
+    assert!(s.contains("notes.txt") && !s.contains("Et-77x"), "{s}");
+    assert!(!s.contains("board.bin"), "binary files are skipped: {s}");
+    let (code, v) = r.json(&["guard", "secrets", "--all"]);
+    assert_ne!(code, 0, "{v}");
+    assert!(v.to_string().contains("notes.txt"), "{v}");
+    r.write("spec.toml", &(r.read("spec.toml") + "\n[files]\nscan_max_bytes = 8\n"));
+    let (code, v) = r.json(&["check", "--rule", "U2"]);
+    assert_eq!(code, 0, "over scan_max_bytes the file is not read: {v}");
+}

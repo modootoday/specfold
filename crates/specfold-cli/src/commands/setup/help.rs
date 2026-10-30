@@ -43,6 +43,12 @@ pub fn run(_g: &Global, a: &HelpArgs) -> Result<Output> {
             for e in &c.examples {
                 text.push_str(&format!("\n  e.g. {e}"));
             }
+            if !c.notes.is_empty() {
+                text.push('\n');
+                for l in c.notes.lines() {
+                    text.push_str(&format!("\n  {l}"));
+                }
+            }
         }
         o = o.item(to_value(c)?, text);
     }
@@ -141,7 +147,32 @@ fn reference(c: &describe::CommandInfo) -> Output {
         }
         o = o.head("```");
     }
+    for l in notes_markdown(&c.notes) {
+        o = o.head(l);
+    }
     o.item(to_value(c).unwrap_or_default(), String::new())
+}
+
+/// A command's notes as Markdown: prose paragraphs as written, indented lines (a config
+/// snippet) as a code block. Empty when there are none.
+pub fn notes_markdown(notes: &str) -> Vec<String> {
+    if notes.is_empty() {
+        return vec![];
+    }
+    let mut out = vec![String::new()];
+    let mut code = false;
+    for l in notes.lines() {
+        let indented = l.starts_with("  ");
+        if indented != code {
+            out.push("```".to_string());
+            code = indented;
+        }
+        out.push(if code { l[2..].to_string() } else { l.to_string() });
+    }
+    if code {
+        out.push("```".to_string());
+    }
+    out
 }
 
 /// The closest name by edit distance, if it is close enough to be a typo.
