@@ -1,0 +1,6 @@
+# Limits from AGENTS.md (CLI-18 onward). too_many_lines and cognitive_complexity are not on yet:
+# CONVENTION-BASELINE lists what exceeds them; the thresholds apply once they are.
+too-many-lines-threshold = 120
+cognitive-complexity-threshold = 30
+too-many-arguments-threshold = 7
+allow-panic-in-tests = true

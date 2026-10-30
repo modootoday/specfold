@@ -1,5 +1,8 @@
 //! The `spec` command line. Both binaries (`specfold` and `spec`) call [`main`].
 
+// Library code only: tests may panic (AGENTS.md).
+#![deny(clippy::panic)]
+
 pub mod cli;
 pub mod commands;
 pub mod lsp;

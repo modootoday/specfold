@@ -17,6 +17,22 @@
   hidden aliases for at least one minor release; a write a safeguard refused exits 4. New
   commands add a row to `tests/cli_contract.rs`.
   The conventions are numbered CLI-n so they do not clash with the contracts C1–C10 above.
+- **Code limits CLI-18–CLI-24.** Lints in `Cargo.toml` `[workspace.lints]`, the crate roots and
+  `clippy.toml` enforce what the code already meets; the rest is checked in review against a
+  baseline of existing exceptions, and new code adds none.
+  - CLI-18: a source file stays under 500 lines, a test file under 1600; past that, split it into
+    a directory.
+  - CLI-19: a function stays under 120 lines, cognitive complexity 30, at most 7 arguments.
+  - CLI-20: library code has no `unwrap()`; use `?` or `expect("why it holds")`. No `panic!`,
+    `todo!`, `unimplemented!` or `unsafe` (denied); tests may unwrap and panic.
+  - CLI-21: every file starts with a `//!` line; every public function, type, trait and constant
+    has a `///` line (fields and variants when they need it).
+  - CLI-22: test names are snake_case `behaviour_condition_result`, at most 80 characters, with a
+    finding prefix (`c161_`) when they guard one; no `test_` prefix.
+  - CLI-23: the core library prints nothing to stdout; output is the CLI's. The workspace keeps
+    at most 20 direct dependencies.
+  - CLI-24: errors are `anyhow` at the command boundary, read `what went wrong; next: <command>`,
+    and get their exit code in one place; usage errors exit 2.
 - **Dependencies are few and well known.** No network or TLS crates: stores and plugins are
   external commands. Add a dependency only with a reason in the pull request.
 - **Before a commit:** `cargo fmt`, `cargo clippy --all-targets -- -D warnings`, `cargo test`.
