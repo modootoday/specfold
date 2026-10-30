@@ -178,3 +178,29 @@ fn the_markdown_name_is_reserved() {
     let (code, v) = r.json(&["plugins"]);
     assert!(v.to_string().contains("reserved for the built-in exporter"), "{code} {v}");
 }
+
+#[cfg(unix)]
+#[test]
+fn plugins_get_local_documents_only_with_local() {
+    let r = corpus();
+    let seen = plugin(&r, "rich", "[\"body\",\"links\"]");
+    let scratch = "adr:shop/20260102000000";
+    assert_eq!(r.json(&["export", "rich"]).0, 0);
+    let raw = std::fs::read_to_string(&seen).unwrap();
+    let docs = sent_docs(&seen);
+    assert_eq!(docs.len(), 2, "the local document stays out");
+    assert!(!raw.contains("Scratch") && !raw.contains(".spec.local"), "nothing about it leaks: {raw}");
+    let checkout = docs.iter().find(|d| d["id"] == "sot:shop/checkout").unwrap();
+    let to_scratch = &checkout["links"][2];
+    assert_eq!(to_scratch["reason"], "not exported");
+    assert!(to_scratch["target_id"].is_null() && to_scratch["resolved_path"].is_null());
+    let v: Value = serde_json::from_str(&raw).unwrap();
+    assert!(v["params"]["edges"].as_array().unwrap().iter().all(|e| e["from"] != scratch && e["to"] != scratch));
+    assert_eq!(r.json(&["export", "rich", "--local"]).0, 0);
+    let docs = sent_docs(&seen);
+    assert_eq!(docs.len(), 3);
+    assert!(docs.iter().any(|d| d["id"] == scratch));
+    let plain = plugin(&r, "plain", "[]");
+    assert_eq!(r.json(&["export", "plain"]).0, 0);
+    assert_eq!(sent_docs(&plain).len(), 2);
+}

@@ -60,13 +60,19 @@ pub fn execute(argv: Vec<String>) -> Executed {
                     serve_mcp: false,
                 };
             }
-            let first = clap_message(&rendered);
+            let mut first = clap_message(&rendered);
+            let json_fix = (kind == clap::error::ErrorKind::InvalidValue).then(|| format_json(&argv)).flatten();
+            if json_fix.is_some() {
+                first.push_str("; JSON output is --json");
+            }
             // A mistyped subcommand: the nearest real one is the next command, but the error
             // keeps the generic schema rather than following the guess.
             let schema_name = name.clone();
             let name = name.or_else(|| nearest_command(&argv));
             let code = if display_only { Code::Ok } else { Code::Usage };
-            let next = usage_example(&argv, kind, &rendered, name.as_deref()).unwrap_or_else(|| help_hint(&name));
+            let next = json_fix
+                .or_else(|| usage_example(&argv, kind, &rendered, name.as_deref()))
+                .unwrap_or_else(|| help_hint(&name));
             let out = Output::error(schema_name.as_deref().unwrap_or("spec"), code, &first, Some(next));
             return Executed {
                 output: out,
@@ -217,4 +223,25 @@ fn usage_example(argv: &[String], kind: clap::error::ErrorKind, rendered: &str, 
         }
         _ => None,
     }
+}
+
+/// `--format json` on a command whose formats are drawings: the same command with `--json`.
+fn format_json(argv: &[String]) -> Option<String> {
+    let mut out = vec!["spec".to_string()];
+    let mut hit = false;
+    let mut it = argv.iter().skip(1).peekable();
+    while let Some(a) = it.next() {
+        if a == "--format" && it.peek().is_some_and(|v| v.as_str() == "json") {
+            it.next();
+            hit = true;
+            out.push("--json".into());
+        } else if a == "--format=json" {
+            hit = true;
+            out.push("--json".into());
+        } else if a == "--json" {
+        } else {
+            out.push(quote(a));
+        }
+    }
+    hit.then(|| out.join(" "))
 }

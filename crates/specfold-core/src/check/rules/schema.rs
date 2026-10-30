@@ -77,6 +77,13 @@ impl Rule for Frontmatter {
             if !ctx.scope.covers(i) {
                 continue;
             }
+            if let Some(e) = &d.frontmatter.error
+                && e.starts_with(crate::corpus::overlay::UTF8)
+            {
+                let line = crate::corpus::overlay::utf8_line(e).unwrap_or(1);
+                out.push(Finding::error("S1", &d.path, line, format!("file is {e}; save it as UTF-8")));
+                continue;
+            }
             if let Some(e) = &d.frontmatter.error {
                 out.push(Finding::error("S1", &d.path, 1, format!("frontmatter does not parse: {e}")));
                 continue;

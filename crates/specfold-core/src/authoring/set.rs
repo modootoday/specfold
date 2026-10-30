@@ -200,7 +200,7 @@ fn plan_with(c: &Corpus, idx: usize, assigns: &[Assign], successor_pending: bool
     } else {
         assigns
     };
-    let text = std::fs::read_to_string(c.cfg.root.join(&d.path))?;
+    let text = crate::corpus::overlay::read(&c.cfg.root.join(&d.path))?;
     let new = edit::rewrite(&text, |m| {
         for a in assigns {
             apply_one(m, a);

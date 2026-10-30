@@ -12,12 +12,7 @@ pub fn run(g: &Global, a: &ExportArgs) -> Result<Output> {
     if a.plugin == export::BUILT_IN {
         return built_in(g, a);
     }
-    for (set, flag) in [
-        (a.target.is_some(), "--target"),
-        (a.local, "--local"),
-        (a.banner, "--banner"),
-        (a.fail_on.is_some(), "--fail-on"),
-    ] {
+    for (set, flag) in [(a.target.is_some(), "--target"), (a.banner, "--banner"), (a.fail_on.is_some(), "--fail-on")] {
         if set {
             bail!("{flag} belongs to the built-in exporter: spec export markdown {flag} …");
         }
@@ -31,16 +26,18 @@ pub fn run(g: &Global, a: &ExportArgs) -> Result<Output> {
     }
     let format = a.format.clone().unwrap_or_else(|| d.provides.exporters[0].clone());
     let wants = Wants::from(&d.wants);
+    // Local documents stay out unless asked for, so private notes never reach a plugin.
+    let only = export::payload::visible(&s.corpus, a.local);
     let docs = if wants.any() {
-        export::payload::docs(&s.corpus, &s.graph, wants, g.max_bytes)
+        export::payload::docs(&s.corpus, &s.graph, wants, g.max_bytes, &only)
     } else {
-        payload::docs(&s.corpus, None)
+        payload::docs(&s.corpus, Some(&only))
     };
     let params = json!({
         "format": format,
         "out": a.out.as_ref().map(|p| p.display().to_string()),
         "docs": docs,
-        "edges": payload::edges(&s.corpus, &s.graph),
+        "edges": export::payload::edges(&s.corpus, &s.graph, &only),
     });
     let result: Value = process::call(&s.corpus.cfg, &p.def, "export.run", params)?;
     Ok(Output::new("export")

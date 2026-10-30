@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
 /// Bumped whenever the scan output changes shape.
-const FORMAT: &str = concat!("specfold-scan-1/", env!("CARGO_PKG_VERSION"));
+const FORMAT: &str = concat!("specfold-scan-2/", env!("CARGO_PKG_VERSION"));
 
 #[derive(Serialize, Deserialize)]
 struct Entry {
@@ -74,11 +74,8 @@ impl ScanCache {
                 _ => true,
             })
             .collect();
-        let rescanned: Vec<Option<FileScan>> = rels
-            .par_iter()
-            .zip(&fresh)
-            .map(|(rel, f)| f.then(|| scan(&super::overlay::read(&root.join(rel)).unwrap_or_default(), cite_re)))
-            .collect();
+        let rescanned: Vec<Option<FileScan>> =
+            rels.par_iter().zip(&fresh).map(|(rel, f)| f.then(|| scan_file(&root.join(rel), cite_re))).collect();
         let stale = self.stored.entries.len() != rels.len() || fresh.iter().any(|f| *f);
         self.dirty = stale;
         let mut old = std::mem::take(&mut self.stored.entries);
@@ -116,5 +113,21 @@ impl ScanCache {
         {
             let _ = std::fs::rename(&tmp, file);
         }
+    }
+}
+
+/// Scans one file. A file that is not UTF-8 is scanned with the bad bytes replaced, and its
+/// frontmatter carries the error so rule S1 names the line instead of a missing block.
+fn scan_file(path: &Path, cite_re: &Regex) -> FileScan {
+    match super::overlay::read(path) {
+        Ok(t) => scan(&t, cite_re),
+        Err(e) if e.kind() == std::io::ErrorKind::InvalidData => {
+            let bytes = std::fs::read(path).unwrap_or_default();
+            let at = std::str::from_utf8(&bytes).err().map_or(bytes.len(), |e| e.valid_up_to());
+            let mut s = scan(&String::from_utf8_lossy(&bytes), cite_re);
+            s.frontmatter.error = Some(super::overlay::utf8_message(&bytes[..at]));
+            s
+        }
+        Err(_) => scan("", cite_re),
     }
 }
