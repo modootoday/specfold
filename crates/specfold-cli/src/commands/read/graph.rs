@@ -12,226 +12,16 @@ use std::collections::{BTreeSet, VecDeque};
 pub fn run(g: &Global, a: &GraphArgs) -> Result<Output> {
     let s = session::open(g)?;
     let c = &s.corpus;
-    let id = |i: usize| c.docs[i].id.to_string();
-    let mut o = Output::new("graph");
+    let o = Output::new("graph");
     if a.query.is_some() && a.format != "tree" {
         bail!("--format {} draws the whole graph: spec graph --format {}", a.format, a.format);
     }
     match (a.query.as_deref(), a.target.as_deref()) {
-        (None, _) => {
-            o = o.field("nodes", json!(c.docs.iter().map(|d| json!({"id": d.id.to_string(), "type": d.id.ty, "owner": d.id.owner, "status": d.status(), "path": d.path, "governs": governs(&s, d)})).collect::<Vec<_>>()));
-            o = o.field(
-                "edges",
-                json!(
-                    s.graph
-                        .edges
-                        .iter()
-                        .map(|e| json!({"from": id(e.from), "to": id(e.to), "kind": e.kind, "anchor": e.anchor}))
-                        .collect::<Vec<_>>()
-                ),
-            );
-            let gov: Vec<_> = c
-                .docs
-                .iter()
-                .flat_map(|d| governs(&s, d).into_iter().map(move |p| json!({"from": d.id.to_string(), "path": p})))
-                .collect();
-            o = o.field("governs", json!(gov)).unpaged();
-            let named = if a.assets { asset_nodes(&s) } else { vec![] };
-            if a.assets {
-                o = o.field(
-                    "assets",
-                    json!(named.iter().map(|(k, n, p, d)| json!({"kind": k, "name": n, "path": p, "names": d.iter().map(|i| id(*i)).collect::<Vec<_>>()})).collect::<Vec<_>>()),
-                );
-                if matches!(a.format.as_str(), "tree" | "box") {
-                    for (k, _, p, d) in &named {
-                        o = o.foot(format!(
-                            "asset {k} {p}  names {}",
-                            d.iter().map(|i| id(*i)).collect::<Vec<_>>().join(", ")
-                        ));
-                    }
-                }
-            }
-            let lines = match a.format.as_str() {
-                "mermaid" => {
-                    let mut l = mermaid(&s);
-                    for (n, (k, _, p, d)) in named.iter().enumerate() {
-                        l.push(format!("  a{n}{{{{\"{} {}\"}}}}", k, esc_mermaid(p)));
-                        l.extend(d.iter().map(|i| format!("  a{n} -.->|names| d{i}")));
-                    }
-                    l
-                }
-                "dot" => {
-                    let mut l = dot(&s);
-                    let close = l.pop();
-                    for (k, _, p, d) in &named {
-                        l.push(format!("  \"{}\" [shape=note, label=\"{} {}\"];", esc_dot(p), k, esc_dot(p)));
-                        for i in d {
-                            l.push(format!(
-                                "  \"{}\" -> \"{}\" [label=\"names\", style=dotted];",
-                                esc_dot(p),
-                                esc_dot(&id(*i))
-                            ));
-                        }
-                    }
-                    l.extend(close);
-                    l
-                }
-                "box" => {
-                    let labels: Vec<String> =
-                        c.docs.iter().map(|d| format!("{}\n{}", d.id, d.status().unwrap_or_default())).collect();
-                    let edges: Vec<_> = s.graph.edges.iter().map(|e| (e.from, e.to, e.kind.clone())).collect();
-                    let columns = std::env::var("COLUMNS").ok().and_then(|v| v.parse().ok()).unwrap_or(100);
-                    let why = match graph_box::draw(&labels, &edges, a.depth, columns, use_ascii(a.ascii)) {
-                        Ok(d) => {
-                            o = o.field("diagram", d.lines.join("\n"));
-                            return Ok(d
-                                .lines
-                                .into_iter()
-                                .fold(o, |o, x| o.head(x))
-                                .next("spec graph  # the tree, with governs paths"));
-                        }
-                        Err(graph_box::Skip::TooMany(k)) => format!(
-                            "{k} documents is more than a box drawing holds ({}); add --depth N",
-                            graph_box::MAX_NODES
-                        ),
-                        Err(graph_box::Skip::TooWide { need, have }) => {
-                            format!("boxes need {need} columns, COLUMNS is {have}; add --depth N or widen the terminal")
-                        }
-                    };
-                    let mut l = vec![format!("{why}; showing the tree")];
-                    l.extend(tree(&s, a.depth, glyphs(a.ascii)));
-                    return Ok(l.into_iter().fold(o, |o, x| o.head(x)).next("spec graph --format mermaid"));
-                }
-                _ => {
-                    let mut l = vec![format!("{} documents, {} edges", c.docs.len(), s.graph.edges.len())];
-                    l.extend(tree(&s, a.depth, glyphs(a.ascii)));
-                    return Ok(l.into_iter().fold(o, |o, x| o.head(x)).next(match c.docs.first() {
-                        Some(d) => format!("spec graph impact {}", specfold_core::shell::word(&d.id)),
-                        None => "spec graph".into(),
-                    }));
-                }
-            };
-            o = o.field("diagram", lines.join("\n"));
-            Ok(lines.into_iter().fold(o, |o, x| o.head(x)))
-        }
-        (Some("impact"), Some(t)) => {
-            let idx = match session::resolve(&s, t) {
-                Ok(i) => i,
-                // A code path is not a document; governs answers which documents cover it.
-                Err(e) if !t.contains(':') && (t.contains('/') || c.cfg.root.join(t).exists()) => {
-                    bail!("{e}; next: spec graph governs {t}")
-                }
-                Err(e) => return Err(e),
-            };
-            let arrow = glyphs(a.ascii).arrow;
-            let reached = reach(&s, idx, a.depth);
-            // Agent assets that name the document or anything reaching it read it too, so a
-            // change can break them; they are not graph nodes, so they come after the documents.
-            let mut touched: Vec<usize> = vec![idx];
-            touched.extend(reached.iter().map(|r| r.idx));
-            let assets: Vec<Value> = specfold_core::assets::load(&c.cfg)
-                .iter()
-                .filter_map(|x| {
-                    let named = x.docs(&s.graph);
-                    let hit: Vec<String> = touched.iter().filter(|i| named.contains(i)).map(|i| id(*i)).collect();
-                    (!hit.is_empty())
-                        .then(|| json!({"kind": x.kind.as_str(), "name": x.name(), "path": x.path, "names": hit}))
-                })
-                .collect();
-            for x in &assets {
-                let names: Vec<&str> = x["names"]
-                    .as_array()
-                    .expect("graph nodes always carry a names array")
-                    .iter()
-                    .filter_map(|v| v.as_str())
-                    .collect();
-                o = o.foot(format!(
-                    "asset {} {}  names {}",
-                    x["kind"].as_str().unwrap_or(""),
-                    x["path"].as_str().unwrap_or(""),
-                    names.join(", ")
-                ));
-            }
-            o = o.field("assets", Value::Array(assets));
-            for r in reached {
-                o = o.item(
-                    json!({"id": id(r.idx), "depth": r.depth, "kind": r.kind, "via": id(r.via), "status": c.docs[r.idx].status()}),
-                    format!("{}{}  {} {arrow} {}  ({})", "  ".repeat(r.depth), id(r.idx), r.kind, id(r.via), r.depth),
-                );
-            }
-            Ok(o.head(format!("documents that reach {} (relation, distance):", id(idx)))
-                .next(format!("spec show {} --rel", specfold_core::shell::word(id(idx)))))
-        }
-        (Some("chain"), Some(t)) => {
-            let idx = session::resolve(&s, t)?;
-            let mut chain = older(&s, idx);
-            chain.reverse();
-            chain.extend(query::chain(&s.graph, idx));
-            for (n, i) in chain.iter().enumerate() {
-                let this = if *i == idx { "  (this)" } else { "" };
-                o = o.item(
-                    json!({"id": id(*i), "status": c.docs[*i].status(), "this": *i == idx}),
-                    format!("{}{}{this}", if n == 0 { "" } else { "superseded by " }, id(*i)),
-                );
-            }
-            let last = id(*chain.last().unwrap_or(&idx));
-            Ok(o.field("current", last.clone()).next(format!("spec show {}", specfold_core::shell::word(&last))))
-        }
-        (Some("governs"), Some(t)) => {
-            let rel = session::repo_path(&s, t);
-            for gv in query::governing(c, &rel) {
-                o = o.item(
-                    json!({"id": id(gv.idx), "pattern": gv.pattern, "status": c.docs[gv.idx].status()}),
-                    format!("{:<36} {}", id(gv.idx), gv.pattern),
-                );
-            }
-            Ok(o.next(format!("spec context {}", specfold_core::shell::word(&rel))))
-        }
-        (Some("consumers"), Some(t)) => {
-            use specfold_core::remotes::{self, Remote};
-            let (shown, file) = match remotes::resolve(&c.cfg, t) {
-                Remote::Local => {
-                    let idx = session::resolve(&s, t)?;
-                    (id(idx), c.cfg.root.join(&c.docs[idx].path))
-                }
-                Remote::Found { name, id, file, .. } => (format!("{name}:{id}"), file),
-                Remote::Absent { name, path } => {
-                    bail!("the remote {name} is not on disk ({}); next: spec doctor", path.display())
-                }
-                Remote::Missing { name, id } | Remote::MissingAnchor { name, id, .. } => {
-                    bail!("the remote {name} has no document {id}; next: spec doctor")
-                }
-                Remote::Ambiguous { name, ids } => bail!("{t} is ambiguous in the remote {name}: {}", ids.join(", ")),
-            };
-            let found = remotes::consumers(&c.cfg, c, &file);
-            let names: Vec<&String> = c.cfg.raw.remotes.keys().collect();
-            let scope = if names.is_empty() {
-                "this repository only; no [remotes] in spec.toml".to_string()
-            } else {
-                format!(
-                    "this repository and the remotes on disk: {}",
-                    names.iter().map(|n| n.as_str()).collect::<Vec<_>>().join(", ")
-                )
-            };
-            if !found.is_empty() {
-                o = o.head(format!("{:<12} {:<36} {}", "repo", "id", "via"));
-            }
-            let count = found.len();
-            for u in found {
-                o = o.item(
-                    json!({"repo": u.repo, "id": u.id, "path": u.path, "via": u.via}),
-                    format!("{:<12} {:<36} {}", u.repo, u.id, u.via),
-                );
-            }
-            let noun = if count == 1 { "consumer" } else { "consumers" };
-            o = o.foot(format!("{count} {noun} of {shown}; searched {scope}"));
-            if count > 0 {
-                o = o.foot("repo '.' is this repository");
-            }
-            Ok(o.field("target", shown.clone())
-                .field("searched", scope)
-                .next(format!("spec show {}", specfold_core::shell::word(&shown))))
-        }
+        (None, _) => whole(&s, a, o),
+        (Some("impact"), Some(t)) => impact(&s, a, t, o),
+        (Some("chain"), Some(t)) => chain(&s, t, o),
+        (Some("governs"), Some(t)) => governs_query(&s, t, o),
+        (Some("consumers"), Some(t)) => consumers(&s, t, o),
         (Some(q), _) if !["impact", "chain", "governs", "consumers"].contains(&q) => {
             let whole = match q {
                 "tree" => "spec graph".to_string(),
@@ -259,6 +49,235 @@ pub fn run(g: &Global, a: &GraphArgs) -> Result<Output> {
         }
         (Some(_), Some(_)) => unreachable!("every query is matched above"),
     }
+}
+
+/// The whole graph: a tree, box drawing, Mermaid or DOT.
+fn whole(s: &Session, a: &GraphArgs, mut o: Output) -> Result<Output> {
+    let c = &s.corpus;
+    let id = |i: usize| c.docs[i].id.to_string();
+    o = o.field("nodes", json!(c.docs.iter().map(|d| json!({"id": d.id.to_string(), "type": d.id.ty, "owner": d.id.owner, "status": d.status(), "path": d.path, "governs": governs(s, d)})).collect::<Vec<_>>()));
+    o = o.field(
+        "edges",
+        json!(
+            s.graph
+                .edges
+                .iter()
+                .map(|e| json!({"from": id(e.from), "to": id(e.to), "kind": e.kind, "anchor": e.anchor}))
+                .collect::<Vec<_>>()
+        ),
+    );
+    let gov: Vec<_> = c
+        .docs
+        .iter()
+        .flat_map(|d| governs(s, d).into_iter().map(move |p| json!({"from": d.id.to_string(), "path": p})))
+        .collect();
+    o = o.field("governs", json!(gov)).unpaged();
+    let named = if a.assets { asset_nodes(s) } else { vec![] };
+    if a.assets {
+        o = o.field(
+            "assets",
+            json!(named.iter().map(|(k, n, p, d)| json!({"kind": k, "name": n, "path": p, "names": d.iter().map(|i| id(*i)).collect::<Vec<_>>()})).collect::<Vec<_>>()),
+        );
+        if matches!(a.format.as_str(), "tree" | "box") {
+            for (k, _, p, d) in &named {
+                o = o.foot(format!("asset {k} {p}  names {}", d.iter().map(|i| id(*i)).collect::<Vec<_>>().join(", ")));
+            }
+        }
+    }
+    let lines = match a.format.as_str() {
+        "mermaid" => {
+            let mut l = mermaid(s);
+            for (n, (k, _, p, d)) in named.iter().enumerate() {
+                l.push(format!("  a{n}{{{{\"{} {}\"}}}}", k, esc_mermaid(p)));
+                l.extend(d.iter().map(|i| format!("  a{n} -.->|names| d{i}")));
+            }
+            l
+        }
+        "dot" => {
+            let mut l = dot(s);
+            let close = l.pop();
+            for (k, _, p, d) in &named {
+                l.push(format!("  \"{}\" [shape=note, label=\"{} {}\"];", esc_dot(p), k, esc_dot(p)));
+                for i in d {
+                    l.push(format!(
+                        "  \"{}\" -> \"{}\" [label=\"names\", style=dotted];",
+                        esc_dot(p),
+                        esc_dot(&id(*i))
+                    ));
+                }
+            }
+            l.extend(close);
+            l
+        }
+        "box" => {
+            let labels: Vec<String> =
+                c.docs.iter().map(|d| format!("{}\n{}", d.id, d.status().unwrap_or_default())).collect();
+            let edges: Vec<_> = s.graph.edges.iter().map(|e| (e.from, e.to, e.kind.clone())).collect();
+            let columns = std::env::var("COLUMNS").ok().and_then(|v| v.parse().ok()).unwrap_or(100);
+            let why = match graph_box::draw(&labels, &edges, a.depth, columns, use_ascii(a.ascii)) {
+                Ok(d) => {
+                    o = o.field("diagram", d.lines.join("\n"));
+                    return Ok(d
+                        .lines
+                        .into_iter()
+                        .fold(o, |o, x| o.head(x))
+                        .next("spec graph  # the tree, with governs paths"));
+                }
+                Err(graph_box::Skip::TooMany(k)) => {
+                    format!("{k} documents is more than a box drawing holds ({}); add --depth N", graph_box::MAX_NODES)
+                }
+                Err(graph_box::Skip::TooWide { need, have }) => {
+                    format!("boxes need {need} columns, COLUMNS is {have}; add --depth N or widen the terminal")
+                }
+            };
+            let mut l = vec![format!("{why}; showing the tree")];
+            l.extend(tree(s, a.depth, glyphs(a.ascii)));
+            return Ok(l.into_iter().fold(o, |o, x| o.head(x)).next("spec graph --format mermaid"));
+        }
+        _ => {
+            let mut l = vec![format!("{} documents, {} edges", c.docs.len(), s.graph.edges.len())];
+            l.extend(tree(s, a.depth, glyphs(a.ascii)));
+            return Ok(l.into_iter().fold(o, |o, x| o.head(x)).next(match c.docs.first() {
+                Some(d) => format!("spec graph impact {}", specfold_core::shell::word(&d.id)),
+                None => "spec graph".into(),
+            }));
+        }
+    };
+    o = o.field("diagram", lines.join("\n"));
+    Ok(lines.into_iter().fold(o, |o, x| o.head(x)))
+}
+
+/// `impact`: the documents that reach the target, and the agent assets that read them.
+fn impact(s: &Session, a: &GraphArgs, t: &str, mut o: Output) -> Result<Output> {
+    let c = &s.corpus;
+    let id = |i: usize| c.docs[i].id.to_string();
+    let idx = match session::resolve(s, t) {
+        Ok(i) => i,
+        // A code path is not a document; governs answers which documents cover it.
+        Err(e) if !t.contains(':') && (t.contains('/') || c.cfg.root.join(t).exists()) => {
+            bail!("{e}; next: spec graph governs {t}")
+        }
+        Err(e) => return Err(e),
+    };
+    let arrow = glyphs(a.ascii).arrow;
+    let reached = reach(s, idx, a.depth);
+    // Agent assets that name the document or anything reaching it read it too, so a
+    // change can break them; they are not graph nodes, so they come after the documents.
+    let mut touched: Vec<usize> = vec![idx];
+    touched.extend(reached.iter().map(|r| r.idx));
+    let assets: Vec<Value> = specfold_core::assets::load(&c.cfg)
+        .iter()
+        .filter_map(|x| {
+            let named = x.docs(&s.graph);
+            let hit: Vec<String> = touched.iter().filter(|i| named.contains(i)).map(|i| id(*i)).collect();
+            (!hit.is_empty()).then(|| json!({"kind": x.kind.as_str(), "name": x.name(), "path": x.path, "names": hit}))
+        })
+        .collect();
+    for x in &assets {
+        let names: Vec<&str> = x["names"]
+            .as_array()
+            .expect("graph nodes always carry a names array")
+            .iter()
+            .filter_map(|v| v.as_str())
+            .collect();
+        o = o.foot(format!(
+            "asset {} {}  names {}",
+            x["kind"].as_str().unwrap_or(""),
+            x["path"].as_str().unwrap_or(""),
+            names.join(", ")
+        ));
+    }
+    o = o.field("assets", Value::Array(assets));
+    for r in reached {
+        o = o.item(
+            json!({"id": id(r.idx), "depth": r.depth, "kind": r.kind, "via": id(r.via), "status": c.docs[r.idx].status()}),
+            format!("{}{}  {} {arrow} {}  ({})", "  ".repeat(r.depth), id(r.idx), r.kind, id(r.via), r.depth),
+        );
+    }
+    Ok(o.head(format!("documents that reach {} (relation, distance):", id(idx)))
+        .next(format!("spec show {} --rel", specfold_core::shell::word(id(idx)))))
+}
+
+/// `chain`: the supersede chain through the target.
+fn chain(s: &Session, t: &str, mut o: Output) -> Result<Output> {
+    let c = &s.corpus;
+    let id = |i: usize| c.docs[i].id.to_string();
+    let idx = session::resolve(s, t)?;
+    let mut chain = older(s, idx);
+    chain.reverse();
+    chain.extend(query::chain(&s.graph, idx));
+    for (n, i) in chain.iter().enumerate() {
+        let this = if *i == idx { "  (this)" } else { "" };
+        o = o.item(
+            json!({"id": id(*i), "status": c.docs[*i].status(), "this": *i == idx}),
+            format!("{}{}{this}", if n == 0 { "" } else { "superseded by " }, id(*i)),
+        );
+    }
+    let last = id(*chain.last().unwrap_or(&idx));
+    Ok(o.field("current", last.clone()).next(format!("spec show {}", specfold_core::shell::word(&last))))
+}
+
+/// `governs`: the documents that govern a path.
+fn governs_query(s: &Session, t: &str, mut o: Output) -> Result<Output> {
+    let c = &s.corpus;
+    let id = |i: usize| c.docs[i].id.to_string();
+    let rel = session::repo_path(s, t);
+    for gv in query::governing(c, &rel) {
+        o = o.item(
+            json!({"id": id(gv.idx), "pattern": gv.pattern, "status": c.docs[gv.idx].status()}),
+            format!("{:<36} {}", id(gv.idx), gv.pattern),
+        );
+    }
+    Ok(o.next(format!("spec context {}", specfold_core::shell::word(&rel))))
+}
+
+/// `consumers`: the documents here and in remotes that point at the target.
+fn consumers(s: &Session, t: &str, mut o: Output) -> Result<Output> {
+    let c = &s.corpus;
+    let id = |i: usize| c.docs[i].id.to_string();
+    use specfold_core::remotes::{self, Remote};
+    let (shown, file) = match remotes::resolve(&c.cfg, t) {
+        Remote::Local => {
+            let idx = session::resolve(s, t)?;
+            (id(idx), c.cfg.root.join(&c.docs[idx].path))
+        }
+        Remote::Found { name, id, file, .. } => (format!("{name}:{id}"), file),
+        Remote::Absent { name, path } => {
+            bail!("the remote {name} is not on disk ({}); next: spec doctor", path.display())
+        }
+        Remote::Missing { name, id } | Remote::MissingAnchor { name, id, .. } => {
+            bail!("the remote {name} has no document {id}; next: spec doctor")
+        }
+        Remote::Ambiguous { name, ids } => bail!("{t} is ambiguous in the remote {name}: {}", ids.join(", ")),
+    };
+    let found = remotes::consumers(&c.cfg, c, &file);
+    let names: Vec<&String> = c.cfg.raw.remotes.keys().collect();
+    let scope = if names.is_empty() {
+        "this repository only; no [remotes] in spec.toml".to_string()
+    } else {
+        format!(
+            "this repository and the remotes on disk: {}",
+            names.iter().map(|n| n.as_str()).collect::<Vec<_>>().join(", ")
+        )
+    };
+    if !found.is_empty() {
+        o = o.head(format!("{:<12} {:<36} {}", "repo", "id", "via"));
+    }
+    let count = found.len();
+    for u in found {
+        o = o.item(
+            json!({"repo": u.repo, "id": u.id, "path": u.path, "via": u.via}),
+            format!("{:<12} {:<36} {}", u.repo, u.id, u.via),
+        );
+    }
+    let noun = if count == 1 { "consumer" } else { "consumers" };
+    o = o.foot(format!("{count} {noun} of {shown}; searched {scope}"));
+    if count > 0 {
+        o = o.foot("repo '.' is this repository");
+    }
+    Ok(o.field("target", shown.clone())
+        .field("searched", scope)
+        .next(format!("spec show {}", specfold_core::shell::word(&shown))))
 }
 
 fn governs(_s: &Session, d: &specfold_core::model::Doc) -> Vec<String> {

@@ -33,23 +33,7 @@ pub fn run(g: &Global, a: &ImportArgs) -> Result<Output> {
             p.uploads.len()
         ));
     for r in &p.rows {
-        let mut text = format!("{:<8} {}\n         -> {} {}", r.kind, r.source, r.id, r.path);
-        if !r.status_from.is_empty() || !r.status_to.is_empty() {
-            text.push_str(&format!(
-                "  status {} -> {}",
-                if r.status_from.is_empty() { "(none)" } else { &r.status_from },
-                r.status_to
-            ));
-        }
-        if !r.owner_reason.is_empty() {
-            text.push_str(&format!("\n         owner: {}", r.owner_reason));
-        }
-        for n in &r.notes {
-            text.push_str(&format!("\n         note: {n}"));
-        }
-        for u in &r.unresolved {
-            text.push_str(&format!("\n         ! {u}"));
-        }
+        let text = row_text(r);
         o = o.item(to_value(r)?, text);
     }
     if !a.apply || !a.write || a.dry_run {
@@ -205,4 +189,26 @@ fn toml_key(k: &str) -> String {
     } else {
         format!("{k:?}")
     }
+}
+
+/// One plan row as the review text shows it.
+fn row_text(r: &import::Row) -> String {
+    let mut text = format!("{:<8} {}\n         -> {} {}", r.kind, r.source, r.id, r.path);
+    if !r.status_from.is_empty() || !r.status_to.is_empty() {
+        text.push_str(&format!(
+            "  status {} -> {}",
+            if r.status_from.is_empty() { "(none)" } else { &r.status_from },
+            r.status_to
+        ));
+    }
+    if !r.owner_reason.is_empty() {
+        text.push_str(&format!("\n         owner: {}", r.owner_reason));
+    }
+    for n in &r.notes {
+        text.push_str(&format!("\n         note: {n}"));
+    }
+    for u in &r.unresolved {
+        text.push_str(&format!("\n         ! {u}"));
+    }
+    text
 }

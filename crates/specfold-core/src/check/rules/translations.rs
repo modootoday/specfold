@@ -41,34 +41,7 @@ impl Rule for TranslationsCurrent {
             }
             let targets = d.rel().get(RELATION).cloned().unwrap_or_default();
             let Some(src) = translation::source_of(c, ctx.graph, i) else {
-                // A source in a remote repository: compare its body with source_rev.
-                if ctx.scope.covers(i)
-                    && let Some((rid, now)) =
-                        translation::source_ref(c, i).and_then(|r| crate::remotes::rev(&c.cfg, &r))
-                {
-                    let fix = format!("spec set {} --source-rev", crate::shell::word(&d.id));
-                    let line = key_line(ctx, &d.path, KEY);
-                    match d.str_field(KEY) {
-                        None => out.push(
-                            Finding::warn("R1", &d.path, 1, format!("translation of {rid} records no source_rev"))
-                                .fix_cmd(fix),
-                        ),
-                        Some(r) if translation::rev_problem(&r).is_some() => out.push(
-                            Finding::warn("R1", &d.path, line, translation::rev_problem(&r).unwrap_or_default())
-                                .fix_cmd(fix),
-                        ),
-                        Some(r) if r != now => out.push(
-                            Finding::warn(
-                                "R1",
-                                &d.path,
-                                line,
-                                format!("{rid} changed since source_rev {r}: update the translation"),
-                            )
-                            .fix_cmd(fix),
-                        ),
-                        Some(_) => {}
-                    }
-                }
+                check_remote(ctx, i, out);
                 continue;
             };
             if !(ctx.scope.covers(i) || ctx.scope.covers(src)) {
@@ -218,6 +191,37 @@ impl Rule for TranslationsPlaced {
                 )),
                 _ => {}
             }
+        }
+    }
+}
+
+/// R1 for a translation whose source is in a remote: compare the remote body with source_rev.
+fn check_remote(ctx: &Ctx, i: usize, out: &mut Vec<Finding>) {
+    let c = ctx.corpus;
+    let d = &c.docs[i];
+    // A source in a remote repository: compare its body with source_rev.
+    if ctx.scope.covers(i)
+        && let Some((rid, now)) = translation::source_ref(c, i).and_then(|r| crate::remotes::rev(&c.cfg, &r))
+    {
+        let fix = format!("spec set {} --source-rev", crate::shell::word(&d.id));
+        let line = key_line(ctx, &d.path, KEY);
+        match d.str_field(KEY) {
+            None => out.push(
+                Finding::warn("R1", &d.path, 1, format!("translation of {rid} records no source_rev")).fix_cmd(fix),
+            ),
+            Some(r) if translation::rev_problem(&r).is_some() => out.push(
+                Finding::warn("R1", &d.path, line, translation::rev_problem(&r).unwrap_or_default()).fix_cmd(fix),
+            ),
+            Some(r) if r != now => out.push(
+                Finding::warn(
+                    "R1",
+                    &d.path,
+                    line,
+                    format!("{rid} changed since source_rev {r}: update the translation"),
+                )
+                .fix_cmd(fix),
+            ),
+            Some(_) => {}
         }
     }
 }

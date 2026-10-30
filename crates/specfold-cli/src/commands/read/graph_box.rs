@@ -36,20 +36,7 @@ pub fn draw(
     ascii: bool,
 ) -> Result<Drawing, Skip> {
     let n = labels.len();
-    // Longest-path layers; n passes bound a cycle.
-    let mut layer = vec![0usize; n];
-    for _ in 0..n {
-        let mut moved = false;
-        for (f, t, _) in edges {
-            if layer[*t] < layer[*f] + 1 && layer[*f] + 1 < n {
-                layer[*t] = layer[*f] + 1;
-                moved = true;
-            }
-        }
-        if !moved {
-            break;
-        }
-    }
+    let layer = layers_of(n, edges);
     let keep: Vec<bool> = (0..n).map(|i| depth.is_none_or(|d| layer[i] <= d)).collect();
     let shown = keep.iter().filter(|k| **k).count();
     if shown > MAX_NODES {
@@ -66,39 +53,8 @@ pub fn draw(
 
     // Slots: real nodes, then a pass-through slot per layer an edge skips.
     // slot = (node or None, kind, ...); paths[e] = slot ids per layer from source to target.
-    let mut slots: Vec<(usize, Option<usize>)> = (0..n).filter(|i| keep[*i]).map(|i| (layer[i], Some(i))).collect();
-    let node_slot: BTreeMap<usize, usize> =
-        slots.iter().enumerate().filter_map(|(s, (_, i))| i.map(|i| (i, s))).collect();
-    let mut hops: Vec<(usize, usize, Option<String>)> = vec![]; // (from slot, to slot, label on the last hop)
-    for (f, t, k) in &forward {
-        let mut prev = node_slot[f];
-        for l in layer[*f] + 1..layer[*t] {
-            slots.push((l, None));
-            hops.push((prev, slots.len() - 1, None));
-            prev = slots.len() - 1;
-        }
-        hops.push((prev, node_slot[t], Some(k.clone())));
-    }
-    // Order each layer by the mean row of what feeds it, ids breaking ties.
-    let mut row = vec![0f64; slots.len()];
-    let mut cols: Vec<Vec<usize>> = vec![vec![]; layers];
-    for l in 0..layers {
-        let mut members: Vec<usize> = (0..slots.len()).filter(|s| slots[*s].0 == l).collect();
-        let key = |s: usize, row: &[f64]| {
-            let ins: Vec<f64> = hops.iter().filter(|h| h.1 == s).map(|h| row[h.0]).collect();
-            if ins.is_empty() { f64::MAX } else { ins.iter().sum::<f64>() / ins.len() as f64 }
-        };
-        members.sort_by(|a, b| {
-            key(*a, &row).partial_cmp(&key(*b, &row)).expect("barycenter keys are finite").then_with(|| {
-                let name = |s: usize| slots[s].1.map(|i| labels[i].clone()).unwrap_or_default();
-                name(*a).cmp(&name(*b))
-            })
-        });
-        for (r, s) in members.iter().enumerate() {
-            row[*s] = r as f64;
-        }
-        cols[l] = members;
-    }
+    let (slots, hops) = slots_of(&layer, &keep, &forward);
+    let (row, cols) = order(labels, &slots, &hops, layers);
 
     // Widths: one box width for all, each gap has a lane per source slot.
     let lanes: Vec<Vec<usize>> = (0..layers)
@@ -139,39 +95,11 @@ pub fn draw(
             mask[y][x] |= m;
         }
     };
-    let (h, v, tl, tr, bl, br, more, arrow) = if ascii {
-        ('-', '|', '+', '+', '+', '+', '~', '>')
-    } else {
-        ('─', '│', '┌', '┐', '└', '┘', '…', '▶')
-    };
+    let arrow = if ascii { '>' } else { '▶' };
     for (s, (l, node)) in slots.iter().enumerate() {
         let (x, y) = (x0[*l], mid(s));
         match node {
-            Some(i) => {
-                let inner = w - 4;
-                let fit = |t: &str| {
-                    if t.chars().count() > inner {
-                        t.chars().take(inner - 1).collect::<String>() + &more.to_string()
-                    } else {
-                        t.to_string()
-                    }
-                };
-                let mut text = labels[*i].lines();
-                let rows = [fit(text.next().unwrap_or("")), fit(text.next().unwrap_or(""))];
-                ch[y - 1][x] = tl;
-                ch[y - 1][x + w - 1] = tr;
-                ch[y + 2][x] = bl;
-                ch[y + 2][x + w - 1] = br;
-                for c in 1..w - 1 {
-                    ch[y - 1][x + c] = h;
-                    ch[y + 2][x + c] = h;
-                }
-                for (r, t) in rows.iter().enumerate() {
-                    for (c, k) in format!("{v} {t:<inner$} {v}").chars().enumerate() {
-                        ch[y + r][x + c] = k;
-                    }
-                }
-            }
+            Some(i) => draw_box(&mut ch, &labels[*i], x, y, w, ascii),
             None => line(&mut mask, y, x, x + w - 1),
         }
     }
@@ -231,6 +159,108 @@ pub fn draw(
         lines.push(format!("also: {} {k} {} (a cycle)", first_line(&labels[*f]), first_line(&labels[*t])));
     }
     Ok(Drawing { lines, width })
+}
+
+/// Slots: real nodes, then a pass-through slot per layer an edge skips; and the hops between them.
+fn slots_of(
+    layer: &[usize],
+    keep: &[bool],
+    forward: &[(usize, usize, String)],
+) -> (Vec<(usize, Option<usize>)>, Vec<Hop>) {
+    let mut slots: Vec<(usize, Option<usize>)> =
+        (0..layer.len()).filter(|i| keep[*i]).map(|i| (layer[i], Some(i))).collect();
+    let node_slot: BTreeMap<usize, usize> =
+        slots.iter().enumerate().filter_map(|(s, (_, i))| i.map(|i| (i, s))).collect();
+    let mut hops: Vec<(usize, usize, Option<String>)> = vec![]; // (from slot, to slot, label on the last hop)
+    for (f, t, k) in forward {
+        let mut prev = node_slot[f];
+        for l in layer[*f] + 1..layer[*t] {
+            slots.push((l, None));
+            hops.push((prev, slots.len() - 1, None));
+            prev = slots.len() - 1;
+        }
+        hops.push((prev, node_slot[t], Some(k.clone())));
+    }
+    (slots, hops)
+}
+
+/// Longest-path layers; n passes bound a cycle.
+fn layers_of(n: usize, edges: &[(usize, usize, String)]) -> Vec<usize> {
+    let mut layer = vec![0usize; n];
+    for _ in 0..n {
+        let mut moved = false;
+        for (f, t, _) in edges {
+            if layer[*t] < layer[*f] + 1 && layer[*f] + 1 < n {
+                layer[*t] = layer[*f] + 1;
+                moved = true;
+            }
+        }
+        if !moved {
+            break;
+        }
+    }
+    layer
+}
+
+/// An edge segment: (from slot, to slot, label on the last hop).
+type Hop = (usize, usize, Option<String>);
+
+/// Orders each layer by the mean row of what feeds it, ids breaking ties: (row per slot, slots per layer).
+fn order(
+    labels: &[String],
+    slots: &[(usize, Option<usize>)],
+    hops: &[Hop],
+    layers: usize,
+) -> (Vec<f64>, Vec<Vec<usize>>) {
+    let mut row = vec![0f64; slots.len()];
+    let mut cols: Vec<Vec<usize>> = vec![vec![]; layers];
+    for l in 0..layers {
+        let mut members: Vec<usize> = (0..slots.len()).filter(|s| slots[*s].0 == l).collect();
+        let key = |s: usize, row: &[f64]| {
+            let ins: Vec<f64> = hops.iter().filter(|h| h.1 == s).map(|h| row[h.0]).collect();
+            if ins.is_empty() { f64::MAX } else { ins.iter().sum::<f64>() / ins.len() as f64 }
+        };
+        members.sort_by(|a, b| {
+            key(*a, &row).partial_cmp(&key(*b, &row)).expect("barycenter keys are finite").then_with(|| {
+                let name = |s: usize| slots[s].1.map(|i| labels[i].clone()).unwrap_or_default();
+                name(*a).cmp(&name(*b))
+            })
+        });
+        for (r, s) in members.iter().enumerate() {
+            row[*s] = r as f64;
+        }
+        cols[l] = members;
+    }
+    (row, cols)
+}
+
+/// One node's box, its top-left corner one row above `y`.
+fn draw_box(ch: &mut [Vec<char>], label: &str, x: usize, y: usize, w: usize, ascii: bool) {
+    let (h, v, tl, tr, bl, br, more) =
+        if ascii { ('-', '|', '+', '+', '+', '+', '~') } else { ('─', '│', '┌', '┐', '└', '┘', '…') };
+    let inner = w - 4;
+    let fit = |t: &str| {
+        if t.chars().count() > inner {
+            t.chars().take(inner - 1).collect::<String>() + &more.to_string()
+        } else {
+            t.to_string()
+        }
+    };
+    let mut text = label.lines();
+    let rows = [fit(text.next().unwrap_or("")), fit(text.next().unwrap_or(""))];
+    ch[y - 1][x] = tl;
+    ch[y - 1][x + w - 1] = tr;
+    ch[y + 2][x] = bl;
+    ch[y + 2][x + w - 1] = br;
+    for c in 1..w - 1 {
+        ch[y - 1][x + c] = h;
+        ch[y + 2][x + c] = h;
+    }
+    for (r, t) in rows.iter().enumerate() {
+        for (c, k) in format!("{v} {t:<inner$} {v}").chars().enumerate() {
+            ch[y + r][x + c] = k;
+        }
+    }
 }
 
 fn junction(m: u8, ascii: bool) -> char {
