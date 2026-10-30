@@ -36,6 +36,11 @@ pub fn span(body: &str, name: &str) -> Option<(usize, usize)> {
     Some((start, end))
 }
 
+/// The section names an error lists when a name is not found: every heading but the H1 title.
+pub fn names(body: &str) -> Vec<String> {
+    outline(body).into_iter().filter(|(n, _)| *n > 1).map(|(_, t)| t).collect()
+}
+
 /// Heading outline: `(level, text)` for every heading.
 pub fn outline(body: &str) -> Vec<(usize, String)> {
     let mut fence = false;
@@ -65,6 +70,7 @@ mod tests {
         assert_eq!(extract(b, "R-1").unwrap(), "### Detail {#R-1}\nd");
         assert!(extract(b, "nope").is_none());
         assert_eq!(outline(b).len(), 4);
+        assert_eq!(names(b), ["Rule", "Detail {#R-1}", "Why"], "the H1 title is not a section");
         assert_eq!(span(b, "why"), Some((5, 7)));
         assert_eq!(span("## A\n```\n## not\n```\n## B\n", "a"), Some((0, 4)));
     }

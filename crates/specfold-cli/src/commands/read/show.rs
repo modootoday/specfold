@@ -34,7 +34,7 @@ pub fn run(g: &Global, a: &ShowArgs) -> Result<Output> {
                 .iter()
                 .find_map(|c| sections::extract(&std::fs::read_to_string(s.corpus.cfg.root.join(c)).ok()?, name))
         }) else {
-            let have: Vec<String> = sections::outline(body).into_iter().map(|(_, t)| t).collect();
+            let have = sections::names(body);
             bail!("no section '{name}' (sections: {})", have.join(" | "));
         };
         o = o.field("section", sec.clone()).foot(String::new()).foot(sec);

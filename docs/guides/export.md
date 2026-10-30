@@ -35,16 +35,21 @@ spec export markdown --target mkdocs --out docs/specs --banner
 
 ## References that lead nowhere
 
+A Markdown link whose target is a document id, `[the plan](plan:root/20261030020644)`, is
+rewritten like a reference when it resolves and left as written when it does not; `spec check`
+warns about both and suggests `[[id|text]]`.
+
 A reference that does not resolve, names a remote, or names a document left out of the export
 is written as plain text and listed in the output. `--fail-on unresolved` writes nothing and
 exits 1 instead.
 
-## Public guards
+## Secrets check and public guards
 
-Before anything is written or a plugin is called, every guard with `public = true` reads what
-is leaving: the built-in tree, or the source files of the documents a plugin receives. An
+Before anything is written or a plugin is called, the built-in secrets check and every guard
+with `public = true` read what is leaving: the built-in tree, or the source files of the
+documents a plugin receives. The secrets check runs even when no guard is configured. An
 error-level hit writes nothing and exits 1; warn-level hits are listed. `--no-guard` skips the
-guards. Matched values are never printed.
+check and the guards. Matched values are never printed.
 
 ## The output directory
 
@@ -52,6 +57,12 @@ guards. Matched values are never printed.
 `.specfold-export.json`, listing its files; the next export removes those files and keeps
 everything else (an `.obsidian/` folder, for example). Specfold refuses a directory that holds
 the repository or sits inside `.spec`, `.spec.local` or `.git`.
+
+Files are named after the slug. When two documents would get the same file name (compared
+without case), documents are taken in id order: the first keeps `payment-rollout.md`, the next
+gets `payment-rollout-2.md`, then `-3`. The names stay the same from one export to the next
+until a document with that slug is added, removed or renamed; `spec mv <id> --slug <new>` gives
+one a name of its own.
 
 ## Exporter plugins
 

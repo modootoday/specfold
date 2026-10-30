@@ -76,7 +76,8 @@ pub struct ExportArgs {
     /// markdown: `unresolved` fails, writing nothing, when a reference leads nowhere in the tree.
     #[arg(long)]
     pub fail_on: Option<String>,
-    /// Skip the guards marked `public = true`, which otherwise read everything before it leaves.
+    /// Skip the built-in secrets check and the guards marked `public = true`, which otherwise
+    /// read everything before it leaves.
     #[arg(long)]
     pub no_guard: bool,
 }

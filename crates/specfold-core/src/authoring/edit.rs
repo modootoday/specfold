@@ -61,7 +61,7 @@ pub fn plan(c: &Corpus, idx: usize, e: &Edit) -> Result<Outcome> {
         let (lo, hi, target) = match &e.section {
             Some(name) => {
                 let Some((start, end)) = sections::span(split.body, name) else {
-                    let have: Vec<String> = sections::outline(split.body).into_iter().map(|(_, t)| t).collect();
+                    let have = sections::names(split.body);
                     bail!("no section '{name}' (sections: {})", have.join(" | "));
                 };
                 (start + 1, end, format!("row '{}' in {}", ch.key, lines[start].trim()))
@@ -87,7 +87,7 @@ pub fn plan(c: &Corpus, idx: usize, e: &Edit) -> Result<Outcome> {
         let (at, level) = match &e.after {
             Some(name) => {
                 let Some((start, end)) = sections::span(split.body, name) else {
-                    let have: Vec<String> = sections::outline(split.body).into_iter().map(|(_, t)| t).collect();
+                    let have = sections::names(split.body);
                     bail!("no section '{name}' (sections: {})", have.join(" | "));
                 };
                 (end, lines[start].trim_start().chars().take_while(|c| *c == '#').count())
@@ -123,7 +123,7 @@ pub fn plan(c: &Corpus, idx: usize, e: &Edit) -> Result<Outcome> {
     let (target, before, body) = match &e.section {
         Some(name) => {
             let Some((start, end)) = sections::span(split.body, name) else {
-                let have: Vec<String> = sections::outline(split.body).into_iter().map(|(_, t)| t).collect();
+                let have = sections::names(split.body);
                 bail!("no section '{name}' (sections: {}); to add it: --new-section {name:?}", have.join(" | "));
             };
             // Trailing blank lines separate sections; keep them outside the edited content.
