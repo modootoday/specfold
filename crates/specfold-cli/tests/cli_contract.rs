@@ -304,8 +304,23 @@ fn cli5_writes_list_changes_and_an_undo() {
 }
 
 #[test]
-#[ignore = "CLI-7 not implemented: no bound on bulk writes yet"]
-fn cli7_bulk_writes_are_bounded() {}
+fn cli7_bulk_writes_are_bounded() {
+    let (r, sot, _) = populated();
+    let toml = r.read("spec.toml");
+    r.write("spec.toml", &format!("{toml}[write]\nmax_files = 1\n"));
+    r.commit("bound");
+    // A move touches two files: over the bound, --write alone writes nothing and says why.
+    let (_, v) = r.json(&["mv", &sot, "--slug", "basket", "--write"]);
+    assert_eq!(v["written"], false, "{v}");
+    assert_eq!(v["files"], 2, "{v}");
+    assert_eq!(v["max_files"], 1, "{v}");
+    assert!(v["next"].to_string().contains("--yes"), "{v}");
+    let (_, text) = r.text(&["mv", &sot, "--slug", "basket"]);
+    assert!(text.contains("over [write] max_files = 1"), "{text}");
+    let (code, v) = r.json(&["mv", &sot, "--slug", "basket", "--write", "--yes"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["written"], true, "{v}");
+}
 
 #[test]
 fn cli8_stdout_is_data_only() {

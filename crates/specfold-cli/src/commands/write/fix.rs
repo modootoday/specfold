@@ -23,8 +23,17 @@ pub fn run(g: &Global, a: &FixArgs) -> Result<Output> {
             .field("fixable", n)
             .field("remaining", 0)
             .head(format!("{n} translation(s) paired by the layout get rel.translation_of and lang"));
-        let o = preview::finish(o, &plan, &s.corpus.cfg.root, a.write, "spec fix --translations --write")?;
-        return Ok(if a.write { o.next("spec check") } else { o });
+        let max = s.corpus.cfg.raw.write.max_files;
+        let (o, written) = preview::finish_bounded(
+            o,
+            &plan,
+            &s.corpus.cfg.root,
+            max,
+            a.write,
+            a.yes,
+            "spec fix --translations --write",
+        )?;
+        return Ok(if written { o.next("spec check") } else { o });
     }
     let range = if a.staged { Range::Staged } else { Range::All };
     let sel = Selection { only: a.rules.clone(), skip: vec![] };
@@ -58,12 +67,16 @@ pub fn run(g: &Global, a: &FixArgs) -> Result<Output> {
     for r in &a.rules {
         rerun.push_str(&format!(" --rule {r}"));
     }
-    let o = preview::finish(o, &plan, &s.corpus.cfg.root, a.write, &rerun)?;
+    let max = s.corpus.cfg.raw.write.max_files;
+    let (o, written) = preview::finish_bounded(o, &plan, &s.corpus.cfg.root, max, a.write, a.yes, &rerun)?;
+    if o.summary.contains_key("bounded") {
+        return Ok(o);
+    }
     // With nothing to apply, `--write` would do nothing: point at the first finding left to
     // decide, or at a clean re-check.
     let undecided = (applied == 0).then(|| findings.first()).flatten();
     Ok(match undecided {
-        _ if a.write => o.next("spec check"),
+        _ if written => o.next("spec check"),
         Some(f) => o.next(format!("spec explain {}  # first decision: {}:{}", f.rule, f.path, f.line)),
         None if applied == 0 => o.next("spec check"),
         None => o,

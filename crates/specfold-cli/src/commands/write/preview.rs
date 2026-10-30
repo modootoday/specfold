@@ -70,6 +70,52 @@ pub fn finish(mut o: Output, plan: &Plan, root: &Path, write: bool, rerun: &str)
     }
 }
 
+/// The files a plan touches (both ends of a move or copy).
+pub fn files(plan: &Plan) -> usize {
+    let mut paths = std::collections::BTreeSet::new();
+    for c in &plan.changes {
+        match c {
+            Change::Write { path, .. } | Change::Remove { path } => {
+                paths.insert(path.clone());
+            }
+            Change::Move { from, to } | Change::Copy { from, to } => {
+                paths.insert(from.clone());
+                paths.insert(to.clone());
+            }
+        }
+    }
+    paths.len()
+}
+
+/// CLI-7: the output and whether `--write` may go ahead. Over `[write] max_files` (0: no bound),
+/// a write needs `--yes`; the preview says how many files and the next command adds `--yes`.
+pub fn bound(o: Output, n: usize, max: usize, write: bool, yes: bool) -> (Output, bool) {
+    if max == 0 || n <= max || yes {
+        return (o, write);
+    }
+    let o = o.field("files", n).field("max_files", max).field("bounded", true).head(format!(
+        "{n} files would change, over [write] max_files = {max}: {}narrow the scope or add --yes",
+        if write { "nothing was written; " } else { "" }
+    ));
+    (o, false)
+}
+
+/// `finish` with the CLI-7 bound: returns the output and whether the plan was written.
+pub fn finish_bounded(
+    o: Output,
+    plan: &Plan,
+    root: &Path,
+    max: usize,
+    write: bool,
+    yes: bool,
+    rerun: &str,
+) -> Result<(Output, bool)> {
+    let (o, go) = bound(o, files(plan), max, write, yes);
+    let over = o.summary.contains_key("bounded");
+    let rerun = if over { format!("{rerun} --yes") } else { rerun.to_string() };
+    Ok((finish(o, plan, root, go, &rerun)?, go))
+}
+
 /// CLI-5: a git command that takes back what a write changed, new files included; it keeps the
 /// changes in a stash, so the undo itself can be undone with `git stash pop`.
 pub fn undo(plan: &Plan) -> String {

@@ -55,12 +55,23 @@ pub fn run(g: &Global, a: &MvArgs) -> Result<Output> {
         }
         o = o.field("cited_paths", cited);
     }
-    let o = preview::finish(o, &plan, &s.corpus.cfg.root, a.write, &format!("spec mv {} --write", a.doc))?;
-    Ok(if cited > 0 && a.write {
+    let max = s.corpus.cfg.raw.write.max_files;
+    let (o, written) = preview::finish_bounded(
+        o,
+        &plan,
+        &s.corpus.cfg.root,
+        max,
+        a.write,
+        a.yes,
+        &format!("spec mv {} --write", a.doc),
+    )?;
+    Ok(if !written && o.summary.contains_key("bounded") {
+        o
+    } else if cited > 0 && written {
         o.next(format!("replace {old_path} with {} in the {cited} line(s) listed", moved.path))
     } else if cited > 0 {
         o.foot(format!("{cited} line(s) outside the documents cite the old path; fix them after the move"))
-    } else if a.write {
+    } else if written {
         o.next(format!("spec check --rule L1 --rule P1 --rule S2  # then: spec show {}", moved.to))
     } else {
         o
