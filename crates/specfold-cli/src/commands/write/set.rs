@@ -34,6 +34,14 @@ pub fn run(g: &Global, a: &SetArgs) -> Result<Output> {
             );
         }
     }
+    for target in &a.pin {
+        let Some((rid, rev)) = specfold_core::remotes::rev(&s.corpus.cfg, target) else {
+            bail!("{target} is not a document in a configured remote that is on disk (see spec doctor)");
+        };
+        let key = format!("pins.{rid}");
+        shown.push(format!("{key}={rev}"));
+        assigns.push(Assign { key, op: Op::Set, value: rev });
+    }
     for x in assigns.iter().filter(|x| matches!(x.op, Op::Set)) {
         let problem = match x.key.as_str() {
             "lang" => translation::lang_problem(&x.value),

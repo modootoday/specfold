@@ -39,6 +39,7 @@ description: Every rule spec check runs, grouped by family.
 | **L4** | anchors are unique within a document |
 | **L5** | governed paths exist |
 | **L6** | citations outside documents still resolve |
+| **L7** | pinned remote documents are unchanged |
 
 A reference or relation written `<name>:<id>` names a document in another repository listed
 under `[remotes.<name>]`. L1 and L3 check it when that directory is on disk, with the same type
@@ -48,6 +49,12 @@ L6 checks `[[<name>:<id>]]` in files listed under `[cites]` the same way. A tran
 remote source (`rel.translation_of: [org:guide:root/setup]`); R1 compares its `source_rev` with
 the remote body, and `spec set <id> --source-rev` records it. `spec doctor` lists every remote,
 its directory and whether it is present.
+
+A document can pin a remote document by content when it depends on that exact text:
+`spec set <id> --pin org:guide:root/setup` records `pins: {org:guide:root/setup: sha256:…}`, the
+same body hash as a translation's `source_rev`. L7 warns when the remote body has changed; review
+the change, then pin again. A pin of a document that does not exist there is an error, and an
+absent remote directory is skipped.
 
 ## Lifecycle
 

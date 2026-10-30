@@ -13,6 +13,7 @@ mod ids;
 mod lifecycle;
 mod links;
 mod machine_paths;
+mod pins;
 mod placement;
 mod schema;
 mod sections;
@@ -66,6 +67,7 @@ pub fn catalog() -> Vec<Box<dyn Rule>> {
         Box::new(hidden::HiddenChars),
         Box::new(translations::TranslationsCurrent),
         Box::new(lifecycle::ExceptionsReviewed),
+        Box::new(pins::PinsHold),
         Box::new(translations::TranslationsPlaced),
     ]
 }
