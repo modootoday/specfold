@@ -93,6 +93,26 @@ fn local_documents_only_with_local_and_reexport_replaces_its_own_files() {
 }
 
 #[test]
+fn c114_c115_dry_run_writes_nothing_and_previews_a_replacing_export() {
+    let r = corpus();
+    let out = r.path().join("vault");
+    let o = out.to_str().unwrap();
+    let (code, v) = r.json(&["export", "markdown", "--target", "obsidian", "--out", o, "--dry-run"]);
+    assert_eq!((code, v["written"].clone()), (0, serde_json::json!(false)), "C114: {v}");
+    assert!(!out.exists(), "C114: a dry run writes nothing");
+    assert!(v["files"].as_u64().unwrap() > 0, "{v}");
+    assert_eq!(r.json(&["export", "markdown", "--target", "obsidian", "--out", o]).0, 0);
+    let before = tree(&out);
+    let (code, v) = r.json(&["export", "markdown", "--target", "obsidian", "--out", o, "--dry-run"]);
+    assert_eq!(code, 0, "C115: previewing a replacing export is not refused: {v}");
+    assert!(!v["replaces"].as_array().unwrap().is_empty(), "{v}");
+    assert!(v["next"].as_str().unwrap().ends_with("--yes"), "{v}");
+    assert_eq!(tree(&out), before);
+    let (code, _) = r.json(&["export", "markdown", "--target", "obsidian", "--out", o, "--dry-run", "--yes"]);
+    assert_eq!(code, 2, "--dry-run --yes stays a usage error");
+}
+
+#[test]
 fn refuses_unsafe_output_and_fails_on_unresolved() {
     let r = corpus();
     r.write("notes/keep.md", "mine\n");

@@ -417,6 +417,20 @@ fn c109_c110_c111_c112_set_lists_statuses_and_nexts() {
 }
 
 #[test]
+fn c116_check_q_shows_config_warnings_and_coverage_types_are_checked() {
+    let r = common::repo();
+    let toml = r.read("spec.toml")
+        + "[audit]\ncoverage_types = [\"sots\"]\n[types.adr.require_when]\naccepted = [\"approvers\"]\n";
+    r.write("spec.toml", &toml);
+    let out = r.spec().args(["check", "-q"]).output().unwrap();
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(err.contains("status 'accepted'"), "C116: -q keeps config warnings: {err}");
+    assert!(err.contains("coverage_types names type 'sots'"), "an unknown coverage type is warned about: {err}");
+    let (_, v) = r.json(&["doctor"]);
+    assert!(v.to_string().contains("coverage_types names type 'sots'"), "{v}");
+}
+
+#[test]
 fn sd3_coverage_lists_anchors_no_other_document_cites() {
     let r = common::repo();
     let sot = r.new_doc("sot", "services/shop", "Login");

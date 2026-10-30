@@ -126,6 +126,22 @@ pub fn suspect_overrides(overrides: &BTreeMap<String, TypeOverride>) -> Vec<Stri
     out
 }
 
+/// `[audit] coverage_types` names that are no enabled type: coverage never looks at them.
+pub fn suspect_coverage(overrides: &BTreeMap<String, TypeOverride>, coverage: &[String]) -> Vec<String> {
+    let r = Registry::new(overrides);
+    let names: Vec<&str> = r.types.iter().map(|t| t.name.as_str()).collect();
+    coverage
+        .iter()
+        .filter(|c| !names.contains(&c.as_str()))
+        .map(|c| {
+            format!(
+                "[audit] coverage_types names type '{c}', which does not exist, so it is never checked; types: {}",
+                names.join(", ")
+            )
+        })
+        .collect()
+}
+
 impl Registry {
     pub fn new(overrides: &BTreeMap<String, TypeOverride>) -> Self {
         let mut types = doctype::builtin();

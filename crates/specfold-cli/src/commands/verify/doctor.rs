@@ -36,7 +36,7 @@ pub fn run(g: &Global) -> Result<Output> {
     if no_config {
         o = add(o, "config", "spec.toml", "no spec.toml here; spec runs on defaults".into(), "spec init --write");
     }
-    for w in specfold_core::model::registry::suspect_overrides(&cfg.raw.types) {
+    for w in session::config_warnings(&cfg) {
         o = add(o, "config", "spec.toml", w, "rename the table, or give the new type an `about`");
     }
     let mut files = vec![];
