@@ -41,11 +41,16 @@ description: Every rule spec check runs, grouped by family.
 | **L5** | governed paths exist |
 | **L6** | citations outside documents still resolve |
 | **L7** | pinned remote documents are unchanged |
+| **L8** | local Markdown links, images and `#fragments` lead somewhere (warn) |
+| **L9** | images have alt text (warn) |
 
 A reference or relation written `<name>:<id>` names a document in another repository listed
 under `[remotes.<name>]`. L1 and L3 check it when that directory is on disk, with the same type
 rules as local targets, and skip it when the directory is absent, so a CI job without that
 checkout does not fail. `spec show <name>:<id>` reads it; nothing writes there.
+L8 checks plain links offline: a relative path must exist and a `#fragment` must match a
+heading's GitHub slug (a repeat gets `-1`, `-2`) or a `{#anchor}` in the target file. URLs and
+ids are skipped.
 L6 checks `[[<name>:<id>]]` in files listed under `[cites]` the same way. For checking only, a
 translation may name a remote source (`rel.translation_of: [org:guide:root/setup]`); R1 compares
 its `source_rev` with the remote body, and `spec set <id> --source-rev` records it. `spec new

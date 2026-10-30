@@ -251,7 +251,13 @@ fn adr_tools_preset_reads_the_usual_spelling_links_records_and_rewrites_links() 
     let (_, k) = r.json(&["show", "0003"]);
     assert_eq!(k["frontmatter"]["title"], "한국어 결정", "{k}");
     let (code, c) = r.json(&["check"]);
-    assert_eq!((code, &c["errors"], &c["warnings"]), (0, &serde_json::json!(0), &serde_json::json!(0)), "{c}");
+    assert_eq!((code, &c["errors"]), (0, &serde_json::json!(0)), "{c}");
+    // The kept ../guide.md link no longer leads anywhere from the new folder: L8 says so.
+    assert_eq!(rules_of(&c), ["L8"], "{c}");
+}
+
+fn rules_of(c: &serde_json::Value) -> Vec<&str> {
+    c["items"].as_array().unwrap().iter().map(|f| f["rule"].as_str().unwrap()).collect()
 }
 
 #[test]

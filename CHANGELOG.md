@@ -28,6 +28,9 @@ What an existing command does differs from 0.3.0; check scripts and CI that call
 
 ### Added
 
+- Rules L8 and L9 (warn). L8 checks plain Markdown links and images offline: a relative path
+  must exist and a `#fragment` must match a heading's GitHub slug (repeats get `-1`, `-2`) or a
+  `{#anchor}` in the target file; URLs and ids are skipped. L9 flags an image without alt text.
 - New rule S8 (warning): a field that `require_when` requires for the current status must hold a usable value — not a placeholder (`[types.<t>] placeholders`, default `TBD`, `Pending`, `TODO`, `?`), of the kind declared in `fields = { approvers = "people", resolution = "url", review_by = "date", decision = "link" }`, and not shared within a `distinct = [["authors", "approvers"]]` group. `fields` as a list works as before.
 - `spec help --json` marks each command's `deprecated_aliases` (`name`, `use`, `since`). A deprecated name keeps running the new command and warns on stderr (none yet).
 - `spec set ID key=` with an empty value deletes the key (an emptied `rel` is removed too).

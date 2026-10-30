@@ -369,3 +369,19 @@ fn s8_a_required_field_needs_a_real_value_of_its_kind() {
     let (_, v) = r.json(&["check", "--rule", "S8", "--rule", "S1"]);
     assert!(rules_hit(&v).is_empty(), "declared kinds are known keys and the values pass: {v}");
 }
+
+#[test]
+fn l8_l9_local_links_fragments_and_alt_text() {
+    let r = common::repo();
+    let id = r.new_doc("adr", "services/shop", "Use files");
+    let p = path_of(&r, &id);
+    let dir = p.rsplit_once('/').unwrap().0.to_string();
+    r.write(&format!("{dir}/pic.png"), "png");
+    let body = "\n## Use files\n## Use files\n### Why {#why-1}\n\n[ok](#use-files-1) [ok](#why-1) ![Shown](pic.png) [web](https://x.invalid/a#b)\n[gone](missing.md) [frag](#nope) ![](pic.png)\n`[code](missing2.md)`\n";
+    r.write(&p, &(r.read(&p) + body));
+    let (_, v) = r.json(&["check", "--rule", "L8", "--rule", "L9"]);
+    let mut hit = rules_hit(&v);
+    hit.sort();
+    assert_eq!(hit, ["L8", "L8", "L9"], "{v}");
+    assert_eq!(v["errors"], 0, "both warn: {v}");
+}

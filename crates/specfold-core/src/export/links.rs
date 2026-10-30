@@ -83,6 +83,41 @@ pub fn md_id_occurrences(body: &str) -> Vec<Occurrence> {
     out
 }
 
+/// A plain Markdown link or image: `[text](target)` or `![alt](target "title")`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MdLink {
+    /// Byte offset in the body.
+    pub start: usize,
+    pub image: bool,
+    pub text: String,
+    pub target: String,
+}
+
+fn md_link_re() -> &'static regex::Regex {
+    static R: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
+    R.get_or_init(|| {
+        regex::Regex::new(
+            r#"(!?)\[([^\[\]\n]*)\]\(\s*(?:<([^<>\n]*)>|([^\s()<>]*))(?:\s+(?:"[^"\n]*"|'[^'\n]*'))?\s*\)"#,
+        )
+        .unwrap()
+    })
+}
+
+/// Every inline Markdown link and image in `body`, outside code.
+pub fn md_links(body: &str) -> Vec<MdLink> {
+    let mut out = Vec::new();
+    outside_code(body, md_link_re(), |start, m| {
+        let target = m.get(3).or(m.get(4)).map_or("", |g| g.as_str()).to_string();
+        out.push(MdLink {
+            start: start + m.get(0).unwrap().start(),
+            image: !m[1].is_empty(),
+            text: m[2].to_string(),
+            target,
+        });
+    });
+    out
+}
+
 /// Calls `each(line_start, captures)` for every match of `re` outside fences and inline code.
 fn outside_code(body: &str, re: &regex::Regex, mut each: impl FnMut(usize, &regex::Captures)) {
     let mut fence: Option<String> = None;
@@ -243,6 +278,14 @@ mod tests {
         assert_eq!(o[0].target, "a:b/c");
         assert_eq!(o[0].label.as_deref(), Some("the c"));
         assert_eq!(&body[o[1].span.0..o[1].span.1], "[[d:e#F]]");
+    }
+
+    #[test]
+    fn plain_links_and_images() {
+        let b = "See [a](x.md#Top) and ![](d.png \"t\"), `[no](code)`.\n```\n[no](fence)\n```\n![alt](<a b.png>)\n";
+        let l = md_links(b);
+        let t: Vec<(&str, bool, &str)> = l.iter().map(|x| (x.target.as_str(), x.image, x.text.as_str())).collect();
+        assert_eq!(t, [("x.md#Top", false, "a"), ("d.png", true, ""), ("a b.png", true, "alt")]);
     }
 
     #[test]
