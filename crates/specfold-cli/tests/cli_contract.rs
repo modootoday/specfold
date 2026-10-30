@@ -598,3 +598,38 @@ fn sd5_previews_and_writes_refuse_alike() {
     same_refusal(&r, &["mv", &sot, "--slug", "basket"], &["mv", &sot, "--slug", "basket", "--write"]);
     same_refusal(&r, &["set", &plan, "status=archived", "--dry-run"], &["set", &plan, "status=archived", "--write"]);
 }
+
+#[test]
+fn sd5_sync_export_and_attach_previews_refuse_alike() {
+    let r = common::repo();
+    let base = r.read("spec.toml");
+    let store = r.path().join("store");
+    std::fs::create_dir_all(&store).unwrap();
+    r.write(
+        "spec.toml",
+        &format!(
+            "{base}[[assets]]\nkind = \"skill\"\npath = \".agents/skills\"\n[[assets]]\nkind = \"skill\"\npath = \".claude/skills\"\ncopy_of = \".agents/skills\"\n[files.store]\nkind = \"dir\"\npath = \"{}\"\n",
+            store.display()
+        ),
+    );
+    r.write(".agents/skills/pdf/SKILL.md", "---\nname: pdf\ndescription: Read PDFs.\n---\n");
+    r.write(".claude/skills/pdf/SKILL.md", "---\nname: pdf\ndescription: Old.\n---\n");
+    let d = r.new_doc("design", "services/shop", "Runs");
+    r.write("run.log", "ok\n");
+    r.commit("fixtures");
+    // A copy that was never a version of its source (CLI-4).
+    same_refusal(&r, &["sync", "assets"], &["sync", "assets", "--write"]);
+    r.write(".claude/skills/pdf/SKILL.md", "---\nname: pdf\ndescription: Read PDFs.\n---\n");
+    r.write(".claude/skills/stale/SKILL.md", "---\nname: stale\ndescription: S.\n---\n");
+    r.commit("stale");
+    same_refusal(&r, &["sync", "assets", "--prune"], &["sync", "assets", "--prune", "--write"]);
+    same_refusal(&r, &["attach", &d, "run.log", "--store"], &["attach", &d, "run.log", "--store", "--write"]);
+    let out = r.path().join("vault");
+    let o = out.to_str().unwrap();
+    assert_eq!(r.json(&["export", "markdown", "--target", "obsidian", "--out", o]).0, 0);
+    same_refusal(
+        &r,
+        &["export", "markdown", "--target", "obsidian", "--out", o, "--dry-run"],
+        &["export", "markdown", "--target", "obsidian", "--out", o],
+    );
+}

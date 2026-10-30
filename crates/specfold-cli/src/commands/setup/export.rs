@@ -123,6 +123,15 @@ pub fn run(g: &Global, a: &ExportArgs) -> Result<Output> {
         (false, Some(note)) => o.field("not_scanned", note.clone()).foot(note),
         _ => o,
     };
+    // C114: a preview never runs the plugin, since the plugin is what sends.
+    if a.dry_run {
+        let n = docs.as_array().map_or(0, Vec::len);
+        return Ok(o
+            .field("written", false)
+            .field("docs", n)
+            .head(format!("would send {n} document(s) to {} ({format}): nothing was sent", a.plugin))
+            .next(format!("spec export {} --format {format}", a.plugin)));
+    }
     let result: Value = process::call(&s.corpus.cfg, &p.def, "export.run", params)?;
     Ok(o.field("result", result).head(format!("exported with {} ({format})", a.plugin)))
 }
@@ -197,10 +206,31 @@ fn built_in(g: &Global, a: &ExportArgs) -> Result<Output> {
     };
     // Replacing an earlier export overwrites files outside the repository: --yes confirms it (CLI-3).
     let again = session::shell_word(&out.display().to_string());
+    // C114/C115: a preview lists what would be written and replaced, writes nothing, exits 0.
+    if a.dry_run {
+        let mut o = o.field("written", false).field("replaces", json!(previous)).head(format!(
+            "would export {} document(s) for {} into {} ({} files){}: nothing was written",
+            tree.docs,
+            target.name(),
+            out.display(),
+            tree.files.len(),
+            if previous.is_empty() {
+                String::new()
+            } else {
+                format!(", replacing an earlier export ({} file(s))", previous.len())
+            }
+        ));
+        for p in tree.files.keys().take(20) {
+            o = o.foot(format!("write  {p}"));
+        }
+        let yes = if previous.is_empty() { "" } else { " --yes" };
+        return Ok(o.next(format!("spec export markdown --target {} --out {again}{yes}", target.name())));
+    }
     if !previous.is_empty() && !a.yes {
         return Ok(o
             .code(crate::output::Code::Refused)
             .field("written", false)
+            .field("replaces", json!(previous))
             .head(format!(
                 "{} holds an earlier export ({} file(s)) that this one replaces: nothing was written; add --yes to confirm",
                 out.display(),

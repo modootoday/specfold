@@ -438,14 +438,14 @@ fn machine_paths_in_undeclared_agent_files_are_reported_once() {
 fn a_type_table_that_looks_like_a_typo_is_warned_about() {
     let r = common::repo();
     r.write("spec.toml", "[types.adrs]\nsections = [\"Decision\"]\n");
-    // Other commands stay quiet about it; check shows it once, check -q not at all.
+    // Other commands stay quiet about it; check and check -q (C116) show it once.
     let out = r.spec().args(["list"]).output().unwrap();
     assert!(!String::from_utf8_lossy(&out.stderr).contains("[types.adr]"));
     let out = r.spec().args(["check"]).output().unwrap();
     let err = String::from_utf8_lossy(&out.stderr);
     assert_eq!(err.matches("did you mean [types.adr]").count(), 1, "{err}");
     let out = r.spec().args(["check", "-q"]).output().unwrap();
-    assert!(!String::from_utf8_lossy(&out.stderr).contains("[types.adr]"));
+    assert_eq!(String::from_utf8_lossy(&out.stderr).matches("did you mean [types.adr]").count(), 1);
     // doctor lists it once, as a finding.
     let out = r.spec().args(["doctor"]).output().unwrap();
     let all = format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));

@@ -131,9 +131,8 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
         std::io::Read::read_to_string(&mut std::io::stdin(), &mut text)?;
         specfold_core::corpus::overlay::set(abs, text);
     }
-    if !a.errors_only {
-        session::show_config_warnings();
-    }
+    // C116: config warnings are a line each and not findings, so -q shows them too.
+    session::show_config_warnings();
     let s = session::open(g)?;
     let files: Vec<String> = a.files.iter().chain(&a.stdin_path).cloned().collect();
     let only = documents_named(&s, &files, a.stdin_path.as_deref())?;

@@ -12,16 +12,23 @@ pub struct Session {
 }
 
 /// The configuration. `[types.<name>]` tables that look like typos are warned about on standard
-/// error only when a command asked for it (`spec check` without `-q`); doctor lists them as
+/// error only when a command asked for it (`spec check`, `-q` too); doctor lists them as
 /// findings, and every other command stays quiet about them.
 pub fn config(g: &Global) -> Result<Config> {
     let cfg = config_quiet(g)?;
     if !WARNED.swap(true, std::sync::atomic::Ordering::Relaxed) {
-        for w in specfold_core::model::registry::suspect_overrides(&cfg.raw.types) {
+        for w in config_warnings(&cfg) {
             eprintln!("warning: spec.toml: {w}");
         }
     }
     Ok(cfg)
+}
+
+/// Configuration that is valid but never does what it says: unknown types and statuses.
+pub fn config_warnings(cfg: &Config) -> Vec<String> {
+    let mut w = specfold_core::model::registry::suspect_overrides(&cfg.raw.types);
+    w.extend(specfold_core::model::registry::suspect_coverage(&cfg.raw.types, &cfg.raw.audit.coverage_types));
+    w
 }
 
 /// Set once the config warnings were shown, or while no command asked for them.
