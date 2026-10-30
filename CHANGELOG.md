@@ -9,6 +9,8 @@ Release notes for each version are also on
 
 What an existing command does differs from 0.3.0; check scripts and CI that call these.
 
+Write previews show an update's changed lines as unified-diff hunks (`@@ -old,n +new,m @@`): changes with an unchanged line between them, such as the refreshed `updated:` line and an edited section, are separate hunks instead of one block. In `--json`, update items carry `hunks` (each with `line`, `old_line`, `before`, `after`) in place of the top-level `before` and `after`; `line` is still the first changed line.
+`spec sync --prune` previews name the trash folder `.specfold/trash/<timestamp>/` instead of the current second, so a preview and the refusal of the same write agree; the write itself uses the second it runs in and prints the real path. The pruned-files note names `.specfold/trash/`.
 `spec check --rule`/`--skip` refuse (rc 2) a rule id that does not exist, as `--fail-on` does; a lower-case id is pointed at its upper-case form (C132).
 `spec fix --pick` refuses (rc 2) an id that is not one of the finding's choices, listing them (C146).
 `spec log --since` must be a real `YYYY-MM-DD` date, and `spec log --type`, `spec find --type` and `spec find --status` must name a known type or status; others are refused with rc 2 (C148, C153).
