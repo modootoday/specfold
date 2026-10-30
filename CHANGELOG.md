@@ -134,6 +134,7 @@ A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is 
 
 ### Fixed
 
+- C164: `spec mv` to the document's own id and path reports "no change" with `written: false` and no undo, as `set` does, instead of `0 change(s) written`.
 - C163: with `-C <dir>`, shell commands in `next:` and `undo:` run from where you typed them: git ones get `git -C <dir>`, others `cd <dir> &&`; check `fix:` hints get `spec -C <dir>`. Output without `-C` is unchanged.
 - C162: `new --title` and `set title=` also refuse U+0085, U+2028 and U+2029 (YAML 1.1 line breaks), as for `\n` and `\r`.
 - C161: with `-C <dir>`, relative path arguments (`attach` files, `edit --file`, `import --map`, `export --out`, `audit --from`) are read from `<dir>` instead of the shell's directory, and `next:` commands keep `-C <dir>`.
