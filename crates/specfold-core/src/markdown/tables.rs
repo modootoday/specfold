@@ -158,9 +158,34 @@ pub fn edit_row(lines: &[&str], lo: usize, hi: usize, ch: &RowChange) -> Result<
                 found.iter().flat_map(|t| &t.rows).filter_map(|&r| cells(lines[r])?.first().cloned()).collect();
             bail!("no row '{}' (rows: {}); --append adds it", ch.key, keys.join(" | "))
         }
-        many => bail!("'{}' names {} rows; name the section with --section", ch.key, many.len()),
+        many => {
+            let mut tables: Vec<usize> = many.iter().map(|(t, _)| t.end).collect();
+            tables.dedup();
+            Err(DuplicateRows {
+                key: ch.key.clone(),
+                rows: many.iter().map(|(_, r)| *r).collect(),
+                tables: tables.len(),
+            }
+            .into())
+        }
     }
 }
+
+/// More than one row has the key `--row` named; `rows` are 0-based line indexes in the edited text.
+#[derive(Debug)]
+pub struct DuplicateRows {
+    pub key: String,
+    pub rows: Vec<usize>,
+    pub tables: usize,
+}
+
+impl std::fmt::Display for DuplicateRows {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "'{}' names {} rows in {} table(s)", self.key, self.rows.len(), self.tables)
+    }
+}
+
+impl std::error::Error for DuplicateRows {}
 
 #[cfg(test)]
 mod tests {

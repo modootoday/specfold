@@ -114,6 +114,36 @@ pub fn plan(c: &Corpus, idx: usize, e: &Edit) -> Result<Outcome> {
     Ok(Outcome { plan, target, before, after })
 }
 
+/// Words a duplicate-key error: rows spread over tables outside a named section ask for
+/// --section; rows in one table (or a section already named) point at editing the whole section.
+fn duplicate_rows(e: anyhow::Error, d: &Doc, head: &str, lines: &[&str], section: Option<&str>) -> anyhow::Error {
+    let Some(dup) = e.downcast_ref::<tables::DuplicateRows>() else { return e };
+    let first = head.matches('\n').count() + 1;
+    let at: Vec<String> = dup.rows.iter().map(|r| (r + first).to_string()).collect();
+    let id = crate::shell::word(&d.id);
+    match section {
+        None if dup.tables > 1 => anyhow::anyhow!(
+            "'{}' names {} rows in {} tables (lines {}); name the section with --section; next: spec show {id}",
+            dup.key,
+            dup.rows.len(),
+            dup.tables,
+            at.join(", ")
+        ),
+        _ => {
+            let heading = || {
+                let above = dup.rows.first().map_or(0, |r| *r);
+                lines[..above].iter().rev().find(|l| l.starts_with('#')).map(|l| l.trim_start_matches('#').trim())
+            };
+            let s = crate::shell::word(section.or_else(heading).unwrap_or("<section>"));
+            anyhow::anyhow!(
+                "several rows have the key '{}' (lines {}); --row edits one row; next: spec edit {id} --section {s}",
+                dup.key,
+                at.join(", ")
+            )
+        }
+    }
+}
+
 /// `--row`: change one table row, in a section or anywhere in the body.
 fn plan_row(d: &Doc, head: &str, lines: &[&str], body: &str, section: Option<&str>, ch: &RowChange) -> Result<Outcome> {
     let (lo, hi, target) = match &section {
@@ -126,7 +156,8 @@ fn plan_row(d: &Doc, head: &str, lines: &[&str], body: &str, section: Option<&st
         }
         None => (0, lines.len(), format!("row '{}'", ch.key)),
     };
-    let (out, before, after) = tables::edit_row(lines, lo, hi, ch)?;
+    let (out, before, after) =
+        tables::edit_row(lines, lo, hi, ch).map_err(|e| duplicate_rows(e, d, head, lines, section))?;
     let body = out.join("\n") + "\n";
     let rewritten = edit::rewrite(&format!("{head}{body}"), |m| {
         m.insert("updated".into(), Value::String(stamp::now_value()));

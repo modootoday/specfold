@@ -495,3 +495,33 @@ fn c180_mv_rewrites_reference_angle_and_encoded_links_but_not_code() {
     assert!(t.contains("[a](<basket.sot.md#verification>)") && t.contains("[e](basket.sot.md)"), "{t}");
     assert_eq!(t.matches("cart.sot.md").count(), 1, "only the code span keeps the old name: {t}");
 }
+
+#[test]
+fn c182_duplicate_row_keys_point_at_the_section_or_at_naming_one() {
+    let r = common::repo();
+    let id = r.new_doc("adr", "services/shop", "Use files");
+    let (_, s) = r.json(&["show", &id]);
+    let p = s["path"].as_str().unwrap().to_string();
+    let table = "| Id | Status |\n|---|---|\n| A1 | next |\n| A1 | dup |\n";
+    r.write(
+        &p,
+        &format!(
+            "{}\n## Steps\n\n{table}\n## Other\n\n| Id | Status |\n|---|---|\n| B1 | x |\n| A2 | y |\n",
+            r.read(&p)
+        ),
+    );
+    let lines: Vec<usize> =
+        r.read(&p).lines().enumerate().filter(|(_, l)| l.starts_with("| A1")).map(|(i, _)| i + 1).collect();
+    for extra in [&["--section", "Steps"][..], &[][..]] {
+        let (code, v) = r.json(&[&["edit", id.as_str(), "--row", "A1", "--cell", "Status=done"][..], extra].concat());
+        assert_eq!(code, 2, "{v}");
+        let err = v["error"].as_str().unwrap();
+        assert!(err.contains(&format!("lines {}, {}", lines[0], lines[1])) && !err.contains("--section"), "{v}");
+        assert_eq!(v["next"], format!("spec edit {id} --section Steps"), "{v}");
+    }
+    // Spread over two sections: naming one is the way out.
+    r.write(&p, &r.read(&p).replace("| A2 | y |", "| A1 | y |"));
+    let (code, v) = r.json(&["edit", &id, "--row", "A1", "--cell", "Status=done"]);
+    assert_eq!(code, 2, "{v}");
+    assert!(v["error"].as_str().unwrap().contains("name the section with --section"), "{v}");
+}
