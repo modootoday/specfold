@@ -12,9 +12,9 @@ What an existing command does differs from 0.3.0; check scripts and CI that call
 `spec check --rule`/`--skip` refuse (rc 2) a rule id that does not exist, as `--fail-on` does; a lower-case id is pointed at its upper-case form (C132).
 `spec fix --pick` refuses (rc 2) an id that is not one of the finding's choices, listing them (C146).
 `spec log --since` must be a real `YYYY-MM-DD` date, and `spec log --type`, `spec find --type` and `spec find --status` must name a known type or status; others are refused with rc 2 (C148, C153).
-`--limit 0` is refused (rc 2); it showed nothing and its `--offset` hint pointed at itself (C152).
+`--limit 0` is refused (rc 2) by every command that takes `--limit`; it showed nothing and its `--offset` hint pointed at itself (C152).
 `spec new --governs` and `spec context` refuse (rc 2) an empty path or one outside the repository, instead of recording it or suggesting `spec new --governs` for it (C130).
-A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is refused when `spec.toml` is loaded, naming the guard (C141).
+A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is refused by every command that loads `spec.toml`, naming the guard; `spec doctor` reports it as a `config` finding (C141).
 - An id held by two files (I1, e.g. a `.spec/` and a `.spec.local/` copy) is refused (exit 2) by every command that takes a document, listing both paths; name one by its path. `spec doctor`'s fix names the path (C139).
 - `spec edit --section`/`--new-section` refuses (exit 2) text holding a heading at the section's level or above, which would start or duplicate a section; deeper headings and fenced code are fine (C125).
 - `spec import --apply --write` refuses (exit 4) while rows marked `!` still need a decision, lists them and suggests `--force`; the new `--force` imports anyway. Previews are unchanged (C155).
@@ -130,6 +130,8 @@ A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is 
 
 ### Fixed
 
+The pre-push snippet from `spec hook print` no longer fails on a branch without an upstream: it compares with the merge-base of the default branch (`origin/HEAD`), and when there is neither it prints a note and skips (C126).
+The `spec edit` preview diff on a CRLF document compares lines with their original endings, so it shows only the changed lines instead of the whole document (C157).
 A refused `--slug` (e.g. `spec new skill --slug 'Bad Slug'`) is replaced in the suggested rerun instead of given twice (C156).
 A failing `spec verify` suggests `spec show` with the failing document's id instead of a literal `<id>` (C129).
 `spec log` suggests `spec show` with a real id, and no next when nothing was listed (C149).
