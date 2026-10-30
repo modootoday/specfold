@@ -9,6 +9,7 @@ Release notes for each version are also on
 
 What an existing command does differs from 0.3.0; check scripts and CI that call these.
 
+- `spec set <plan> status=archived --write` refuses with exit 4 while the plan has open tasks and lists them; `--force` archives anyway, and `--dry-run` reports them with exit 0.
 - Exit code `4` (CLI-17): a write flag was given but a safeguard refused it, so nothing was
   written (`--write` over `[write] max_files`, `sync --prune` without `--yes`, a hand-edited
   copy without `--force`, `export` over an earlier export or `attach` to the store without
@@ -33,6 +34,7 @@ What an existing command does differs from 0.3.0; check scripts and CI that call
 
 ### Added
 
+- Import keeps who decided: MADR `decision-makers`/`deciders`, `consulted`, `informed` and MADR 2/Log4brains `* Deciders:` body lines become `decision_makers`, `consulted` and `informed` lists, now declared `adr` fields (no S1 warning).
 - `[check] link_ignore`: globs of link targets rule L8 skips.
 - A config warning when `require_when` names a status the type does not have.
 - Rules L8 and L9 (warn). L8 checks plain Markdown links and images offline: a relative path

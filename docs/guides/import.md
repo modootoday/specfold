@@ -13,7 +13,9 @@ redirect_from: [/import/]
 ## Steps
 
 1. **Start from a preset or write a map.** `spec import --preset adr-tools|madr|log4brains`
-   prints a starter map for those layouts; edit it for your templates and statuses.
+   prints a starter map for those layouts; edit it for your templates and statuses. People
+   fields survive into `adr` front matter as lists: `decision-makers`, `deciders` and
+   `* Deciders:` body lines become `decision_makers`, and `consulted`/`informed` keep their names.
 2. **Set the alias table.** Applying needs `[aliases] file` in `spec.toml`; old file names,
    numbers and links resolve through it.
 3. **Review the plan.** `spec import --map import.toml` changes nothing. Settle every line

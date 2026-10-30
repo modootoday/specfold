@@ -303,3 +303,21 @@ fn the_plan_names_the_status_line_and_the_alias_setting_before_writing() {
     assert_eq!(code, 0, "{v}");
     assert!(v["next"].to_string().contains("[aliases]"), "{v}");
 }
+
+#[test]
+fn people_fields_from_madr_and_log4brains_survive_import() {
+    for (fixture, preset) in [("madr4", "madr"), ("madr2", "madr"), ("log4brains", "log4brains")] {
+        let (_, _, r) = preset_plan(fixture, preset);
+        let (code, v) = r.json(&["import", "--map", "import.toml", "--apply", "--write"]);
+        assert_eq!(code, 0, "{fixture}: {v}");
+        let mut seen = 0;
+        for e in std::fs::read_dir(r.path().join(".spec/adr")).unwrap() {
+            let t = std::fs::read_to_string(e.unwrap().path()).unwrap();
+            assert!(!t.contains("decision-makers:"), "{fixture}: {t}");
+            seen += usize::from(t.contains("decision_makers: [team]"));
+        }
+        assert!(seen >= 1, "{fixture}: no decision_makers kept");
+        let (_, ck) = r.json(&["check", "--rule", "S1"]);
+        assert!(!ck.to_string().contains("decision"), "{fixture}: {ck}");
+    }
+}

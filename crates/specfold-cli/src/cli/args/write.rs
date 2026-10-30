@@ -79,6 +79,9 @@ pub struct SetArgs {
     /// Write the change. 0.3 also writes without it but warns; from 0.4 set previews unless --write.
     #[arg(long, conflicts_with = "dry_run")]
     pub write: bool,
+    /// Archive a plan although some of its tasks are still open.
+    #[arg(long)]
+    pub force: bool,
 }
 
 #[derive(Debug, Clone, Args)]

@@ -181,6 +181,28 @@ fn set_rejecting_a_status_names_the_allowed_ones_and_the_next_command() {
 }
 
 #[test]
+fn archiving_a_plan_with_open_tasks_is_refused_unless_forced() {
+    let r = common::repo();
+    let id = r.new_doc("plan", "services/shop", "Checkout");
+    assert_eq!(r.json(&["set", &id, "status=active", "--write"]).0, 0);
+    let (_, d) = r.json(&["show", &id]);
+    let path = d["path"].as_str().unwrap().to_string();
+    r.write(&path, &(r.read(&path) + "\n- [x] cart\n- [ ] payment\n"));
+    // An explicit preview reports the open task and exits 0.
+    let (code, v) = r.json(&["set", &id, "status=archived", "--dry-run"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["open_tasks"].as_array().unwrap().len(), 1, "{v}");
+    let (code, v) = r.json(&["set", &id, "status=archived", "--write"]);
+    assert_eq!(code, 4, "{v}");
+    assert!(v["open_tasks"][0].as_str().unwrap().ends_with(": payment"), "{v}");
+    assert!(v["next"].as_str().unwrap().contains("--force"), "{v}");
+    assert!(r.read(&path).contains("status: active"), "nothing written");
+    let (code, v) = r.json(&["set", &id, "status=archived", "--write", "--force"]);
+    assert_eq!(code, 0, "{v}");
+    assert!(r.read(&path).contains("status: archived"));
+}
+
+#[test]
 fn mv_refuses_a_forbidden_target_before_writing() {
     let r = common::repo();
     let id = r.new_doc("adr", "services/shop", "Use files");

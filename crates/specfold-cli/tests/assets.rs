@@ -14,7 +14,7 @@ fn audit_reports_a_plan_whose_tasks_and_status_disagree() {
     assert_eq!(r.json(&["edit", &id, "--text=## Steps\n\n- [x] build\n- [ ] ship\n", "--write"]).0, 0);
     let (_, v) = r.json(&["audit", "--kind", "finished"]);
     assert!(!v.to_string().contains("tasks are done"), "{v}");
-    assert_eq!(r.json(&["set", &id, "status=archived"]).0, 0);
+    assert_eq!(r.json(&["set", &id, "status=archived", "--force"]).0, 0);
     let (_, v) = r.json(&["audit", "--kind", "finished"]);
     assert!(v.to_string().contains("archived with 1 of 2 tasks still open"), "{v}");
 }
