@@ -38,7 +38,7 @@ pub enum Cmd {
         after_help = "Examples:\n  spec resolve sot:services/shop/cart-totals\n  spec resolve services/shop/.spec/sot/cart-totals.sot.md"
     )]
     Resolve(read::RefArgs),
-    /// Graph queries: impact, chain, governs; or the whole graph.
+    /// Graph queries: impact, chain, governs, consumers; or the whole graph.
     Graph(read::GraphArgs),
     /// Owners, their documents and where public owners store theirs.
     Owners(read::OwnersArgs),

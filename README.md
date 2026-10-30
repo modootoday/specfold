@@ -83,7 +83,7 @@ times and task items: [docs/concepts/index.md](docs/concepts/index.md).
 | `spec find` | Find documents by words, type, owner, status or tag (also `spec list`, `spec ls`) |
 | `spec show` | Frontmatter, outline, one section, or relations of a document |
 | `spec resolve` | Resolve an id, alias, path or slug to one document |
-| `spec graph` | Graph queries: impact, chain, governs; or the whole graph |
+| `spec graph` | Graph queries: impact, chain, governs, consumers; or the whole graph |
 | `spec owners` | Owners, their documents and where public owners store theirs |
 | `spec assets` | Agent skills, rules, subagents and instruction files declared under [[assets]] |
 | `spec log` | The history of a document's status and relations, from git |
