@@ -10,18 +10,20 @@ use serde_json::{Value, json};
 use specfold_core::markdown::{frontmatter, sections, tasks};
 
 pub fn run(g: &Global, a: &ShowArgs) -> Result<Output> {
-    let s = session::open(g)?;
-    let idx = session::resolve(&s, &a.doc)?;
+    let (s, doc, remote) = session::open_for(g, &a.doc)?;
+    let idx = session::resolve(&s, &doc)?;
     let d = &s.corpus.docs[idx];
+    let shown = remote.as_ref().map_or(d.id.to_string(), |r| format!("{r}:{}", d.id));
     let text = std::fs::read_to_string(s.corpus.cfg.root.join(&d.path))?;
     let split = frontmatter::split(&text);
     let body = split.body;
     let mut o = Output::new("show")
         .unpaged()
+        .field("remote", remote.clone())
         .field("id", d.id.to_string())
         .field("path", d.path.clone())
         .field("frontmatter", d.fm().cloned().map(Value::Object).unwrap_or(Value::Null))
-        .head(format!("{}  {}", d.id, d.path));
+        .head(format!("{shown}  {}", d.path));
     for (k, v) in d.fm().into_iter().flatten() {
         o = o.head(format!("  {k}: {}", if let Value::String(s) = v { s.clone() } else { v.to_string() }));
     }
@@ -48,7 +50,7 @@ pub fn run(g: &Global, a: &ShowArgs) -> Result<Output> {
                 rest.len(),
                 rest.join(" | ")
             ));
-            cont = Some(format!("spec show {} --section '{}'", d.id, first.replace('\'', "")));
+            cont = Some(format!("spec show {shown} --section '{}'", first.replace('\'', "")));
         }
     } else {
         let outline = sections::outline(body);
@@ -125,11 +127,11 @@ pub fn run(g: &Global, a: &ShowArgs) -> Result<Output> {
     let next = if let Some(c) = cont {
         c
     } else if a.tasks && done < total {
-        format!("spec show {} --body   # finish the open items, then spec set {} updated=today", d.id, d.id)
+        format!("spec show {shown} --body   # finish the open items, then spec set {} updated=today", d.id)
     } else if a.section.is_some() || a.body {
         format!("spec graph impact {}", d.id)
     } else {
-        format!("spec show {} --section <heading>", d.id)
+        format!("spec show {shown} --section <heading>")
     };
     Ok(o.next(next))
 }

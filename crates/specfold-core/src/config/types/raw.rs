@@ -2,7 +2,8 @@
 
 use super::{
     AliasSection, AssetRoot, AuditSection, CheckSection, CitesSection, ExternalRoot, FilesSection, ForbidSection,
-    GuardDef, LocalSection, OwnersSection, PluginDef, PublicSection, SpecSection, TranslationsSection, VerifySection,
+    GuardDef, LocalSection, OwnersSection, PluginDef, PublicSection, RemoteRoot, SpecSection, TranslationsSection,
+    VerifySection,
 };
 use crate::model::registry::TypeOverride;
 use serde::{Deserialize, Serialize};
@@ -21,6 +22,9 @@ pub struct RawConfig {
     pub local: LocalSection,
     #[serde(default)]
     pub external: BTreeMap<String, ExternalRoot>,
+    /// Other repositories whose documents are named as `<name>:<id>`.
+    #[serde(default)]
+    pub remotes: BTreeMap<String, RemoteRoot>,
     #[serde(default)]
     pub files: FilesSection,
     #[serde(default)]

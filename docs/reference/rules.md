@@ -40,6 +40,11 @@ description: Every rule spec check runs, grouped by family.
 | **L5** | governed paths exist |
 | **L6** | citations outside documents still resolve |
 
+A reference or relation written `<name>:<id>` names a document in another repository listed
+under `[remotes.<name>]`. L1 and L3 check it when that directory is on disk, with the same type
+rules as local targets, and skip it when the directory is absent, so a CI job without that
+checkout does not fail. `spec show <name>:<id>` reads it; nothing writes there.
+
 ## Lifecycle
 
 | rule | checks that |

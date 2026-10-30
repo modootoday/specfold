@@ -32,7 +32,7 @@ impl Rule for LinksResolve {
         &RuleInfo {
             id: "L1",
             title: "every [[reference]] resolves to one document",
-            explain: "Body references are written [[<id>]] or [[<id>#<anchor>]]. A reference that names nothing, an anchor that does not exist, or an alias shared by two documents is an error. An alias that resolves is accepted but reported, with the id to write instead; `spec fix --rule L1 --write` rewrites them all.",
+            explain: "Body references are written [[<id>]] or [[<id>#<anchor>]]. A reference that names nothing, an anchor that does not exist, or an alias shared by two documents is an error. An alias that resolves is accepted but reported, with the id to write instead; `spec fix --rule L1 --write` rewrites them all. [[<remote>:<id>]] names a document in a repository listed in [remotes]; it is checked when that directory is on disk and skipped when it is not.",
             on_commit: true,
         }
     }
@@ -86,6 +86,12 @@ impl Rule for LinksResolve {
                         );
                     }
                     Resolution::Missing => {
+                        if let Some(msg) = remote_problem(ctx, &l.item, None) {
+                            if let Some(m) = msg {
+                                out.push(Finding::error("L1", &l.path, l.line, format!("[[{}]] {m}", l.item)));
+                            }
+                            continue;
+                        }
                         let target = RefText::parse(&l.item).target;
                         if let Some(root) = external_note(ctx, &target) {
                             out.push(Finding::warn(
@@ -189,6 +195,27 @@ fn by_near_path(ctx: &Ctx, cited: &str) -> Vec<usize> {
     scored.into_iter().filter(|(d, _)| *d == best).map(|(_, i)| i).collect()
 }
 
+/// A `<remote>:<id>` reference: `None` when it is not one, `Some(None)` when it resolves (or
+/// the remote's directory is absent, which is not reported), `Some(Some(problem))` otherwise.
+/// With a relation, the target's type is checked as for local targets.
+fn remote_problem(ctx: &Ctx, text: &str, rel: Option<(&str, &str)>) -> Option<Option<String>> {
+    use crate::remotes::Remote;
+    Some(match crate::remotes::resolve(&ctx.corpus.cfg, text) {
+        Remote::Local => return None,
+        Remote::Absent { .. } => None,
+        Remote::Found { ty, .. } => match rel.map(|(kind, own)| (allowed_targets(kind), kind, own)) {
+            Some((Some([]), kind, own)) if ty != own => Some(format!("is a {ty}; rel.{kind} needs a {own}")),
+            Some((Some(list), kind, _)) if !list.is_empty() && !list.contains(&ty.as_str()) => {
+                Some(format!("is a {ty}, which rel.{kind} cannot point at"))
+            }
+            _ => None,
+        },
+        Remote::Missing { name, id } => Some(format!("names no document in the remote {name} ({id})")),
+        Remote::MissingAnchor { name, id, anchor } => Some(format!("{name}:{id} has no anchor #{anchor}")),
+        Remote::Ambiguous { name, ids } => Some(format!("is ambiguous in the remote {name}: {}", ids.join(", "))),
+    })
+}
+
 /// The types a relation may point at; `None` means any type, `Some(&[])` means the same type.
 fn allowed_targets(kind: &str) -> Option<&'static [&'static str]> {
     match kind {
@@ -204,7 +231,7 @@ impl Rule for RelationsResolve {
         &RuleInfo {
             id: "L3",
             title: "relations resolve and point at the right types",
-            explain: "rel.supersedes names documents of the same type, rel.implements names rules or decisions (sot, adr, page, design), rel.evidence names evidence, research or audits, rel.depends_on and rel.translation_of name anything, and rel.governs names code paths. Other relation names are reported.",
+            explain: "rel.supersedes names documents of the same type, rel.implements names rules or decisions (sot, adr, page, design), rel.evidence names evidence, research or audits, rel.depends_on and rel.translation_of name anything, and rel.governs names code paths. A target written <remote>:<id> is looked up in that repository from [remotes], with the same type rules, and skipped when its directory is absent. Other relation names are reported.",
             on_commit: true,
         }
     }
@@ -245,12 +272,18 @@ impl Rule for RelationsResolve {
                             Finding::error("L3", &d.path, line, format!("rel.{kind} target {t} is ambiguous"))
                                 .with_candidates(ids(ctx, &list)),
                         ),
-                        _ => out.push(Finding::error(
-                            "L3",
-                            &d.path,
-                            line,
-                            format!("rel.{kind} target {t} names no document"),
-                        )),
+                        _ => match remote_problem(ctx, &t, Some((&kind, &d.id.ty))) {
+                            Some(None) => {}
+                            Some(Some(m)) => {
+                                out.push(Finding::error("L3", &d.path, line, format!("rel.{kind} target {t} {m}")))
+                            }
+                            None => out.push(Finding::error(
+                                "L3",
+                                &d.path,
+                                line,
+                                format!("rel.{kind} target {t} names no document"),
+                            )),
+                        },
                     }
                 }
             }
