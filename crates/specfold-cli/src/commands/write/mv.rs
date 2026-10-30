@@ -66,6 +66,14 @@ pub fn run(g: &Global, a: &MvArgs) -> Result<Output> {
         rerun.push_str(" --cited-paths");
     }
     rerun.push_str(" --write");
+    if plan.changes.is_empty() {
+        // C164: already there; as set does, nothing written and no undo.
+        return Ok(o
+            .field("written", false)
+            .field("changed", false)
+            .foot("no change: the document is already at this id and path")
+            .next(format!("spec show {}", moved.to)));
+    }
     let max = s.corpus.cfg.raw.write.max_files;
     let (o, written) = preview::finish_bounded(o, &plan, &s.corpus.cfg.root, max, a.write, a.yes, &rerun)?;
     Ok(if !written && o.summary.contains_key("bounded") {

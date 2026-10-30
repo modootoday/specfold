@@ -1569,3 +1569,17 @@ fn c163_dir_reaches_shell_next_undo_and_fix_hints() {
     let (_, plain) = r.text(&["check"]);
     assert!(!plain.contains("-C"), "{plain}");
 }
+
+#[test]
+fn c164_mv_to_the_same_place_is_no_change() {
+    let r = common::repo();
+    let d = r.new_doc("sot", "services/shop", "Cart");
+    r.commit("doc");
+    let slug = d.rsplit('/').next().unwrap().to_string();
+    let (code, v) = r.json(&["mv", &d, "--slug", &slug, "--write"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["written"], false, "{v}");
+    assert!(v.get("undo").is_none(), "{v}");
+    let (_, t) = r.text(&["mv", &d, "--slug", &slug, "--write"]);
+    assert!(t.contains("no change") && !t.contains("undo:"), "{t}");
+}
