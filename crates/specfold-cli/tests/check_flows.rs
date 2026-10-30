@@ -451,3 +451,22 @@ fn a_type_table_that_looks_like_a_typo_is_warned_about() {
     let all = format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
     assert_eq!(all.matches("did you mean [types.adr]").count(), 1, "{all}");
 }
+
+#[test]
+fn the_commit_check_refuses_a_document_secret_with_no_guard_configured() {
+    let r = common::repo();
+    let id = r.new_doc("adr", "services/shop", "Database");
+    let path = r.json(&["show", &id]).1["path"].as_str().unwrap().to_string();
+    let url = format!("postgres://app:{}{}@db.acme.io/main", "s3cr", "Et-77x");
+    r.write(&path, &(r.read(&path) + "\nDSN: " + &url + "\n"));
+    r.git(&["add", "-A"]);
+    let (code, v) = r.json(&["check", "--staged"]);
+    assert_eq!(code, 1, "{v}");
+    let s = v.to_string();
+    assert!(s.contains("\"U2\"") && s.contains(&path) && !s.contains("Et-77x"), "{s}");
+    let (code, v) = r.json(&["guard", "secrets", "--staged"]);
+    assert_eq!(code, 1, "{v}");
+    assert_eq!(v["next"], "spec explain U2", "{v}");
+    let (code, v) = r.json(&["guard"]);
+    assert_eq!(code, 1, "spec guard with no guards configured runs the built-in check: {v}");
+}

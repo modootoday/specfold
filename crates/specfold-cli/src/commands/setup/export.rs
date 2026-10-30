@@ -15,15 +15,18 @@ fn guard(
     cfg: &specfold_core::Config,
     a: &ExportArgs,
     blobs: &[(String, Vec<u8>)],
+    sources: &[(String, Vec<u8>)],
     o: Output,
 ) -> Result<(Output, bool)> {
     if a.no_guard {
         return Ok((o.foot("secrets check and public guards skipped (--no-guard)"), false));
     }
     let mut gate = outbound::gate(cfg, |g| g.public, blobs, &[])?;
-    // The built-in secrets check runs even with no public guard configured; a line a guard
-    // already reported is not reported twice.
-    for (g, f) in specfold_core::guards::builtin_secrets(blobs) {
+    // The built-in secrets check runs unless a public guard already reads secrets, over the
+    // source files so a hit names the line to fix; a line already reported is not repeated.
+    let covered = cfg.raw.guards.iter().any(|g| g.public && g.secrets);
+    let builtin = if covered { vec![] } else { specfold_core::guards::builtin_secrets(sources) };
+    for (g, f) in builtin {
         if !gate.hits.iter().any(|(_, h, _)| h.path == f.path && h.line == f.line) {
             gate.hits.push((g, f, false));
         }
@@ -33,7 +36,7 @@ fn guard(
         o = o.head(l);
     }
     if gate.refuses() {
-        // `spec guard` re-runs a configured guard; the built-in check alone is explained in help.
+        // `spec guard` re-runs a configured guard; `spec guard secrets` the built-in check.
         let refusing_guard = gate.refusing().iter().any(|g| g != "secrets");
         let n = gate.hits.iter().filter(|(_, f, _)| f.severity == specfold_core::check::Severity::Error).count();
         return Ok((
@@ -42,11 +45,25 @@ fn guard(
                 gate.refusing().join(", ")
             ))
             .code(Code::Findings)
-            .next(if refusing_guard { "spec guard --range all" } else { "spec help export" }),
+            .next(if refusing_guard { "spec guard --range all" } else { "spec guard secrets" }),
             true,
         ));
     }
     Ok((o, false))
+}
+
+/// The files the exported documents come from (main file and chapters), as guard blobs.
+fn source_blobs(c: &specfold_core::corpus::Corpus, only: &[usize]) -> Vec<(String, Vec<u8>)> {
+    let mut blobs = vec![];
+    for &i in only {
+        let d = &c.docs[i];
+        for path in std::iter::once(&d.path).chain(&d.chapters) {
+            if let Ok(bytes) = std::fs::read(c.cfg.root.join(path)) {
+                blobs.push((path.clone(), bytes));
+            }
+        }
+    }
+    blobs
 }
 
 pub fn run(g: &Global, a: &ExportArgs) -> Result<Output> {
@@ -82,17 +99,8 @@ pub fn run(g: &Global, a: &ExportArgs) -> Result<Output> {
     });
     let o = Output::new("export").unpaged().field("plugin", a.plugin.clone()).field("format", format.clone());
     // The plugin gets each document's text, so the guard reads the files it comes from.
-    let root = &s.corpus.cfg.root;
-    let mut blobs = vec![];
-    for &i in &only {
-        let d = &s.corpus.docs[i];
-        for path in std::iter::once(&d.path).chain(&d.chapters) {
-            if let Ok(bytes) = std::fs::read(root.join(path)) {
-                blobs.push((path.clone(), bytes));
-            }
-        }
-    }
-    let (o, refused) = guard(&s.corpus.cfg, a, &blobs, o)?;
+    let blobs = source_blobs(&s.corpus, &only);
+    let (o, refused) = guard(&s.corpus.cfg, a, &blobs, &blobs, o)?;
     if refused {
         return Ok(o);
     }
@@ -157,7 +165,8 @@ fn built_in(g: &Global, a: &ExportArgs) -> Result<Output> {
             .next("spec check --rule L1"));
     }
     let blobs: Vec<(String, Vec<u8>)> = tree.files.iter().map(|(p, t)| (p.clone(), t.as_bytes().to_vec())).collect();
-    let (o, refused) = guard(&s.corpus.cfg, a, &blobs, o)?;
+    let sources = source_blobs(&s.corpus, &export::payload::visible(&s.corpus, a.local));
+    let (o, refused) = guard(&s.corpus.cfg, a, &blobs, &sources, o)?;
     if refused {
         return Ok(o);
     }

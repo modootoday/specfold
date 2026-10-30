@@ -18,6 +18,9 @@ impl Graph {
             if let Some(dir) = &d.dir {
                 g.by_path.insert(dir.clone(), i);
             }
+            if let Some(s) = d.slug_id() {
+                g.by_slug.entry(s).or_default().push(i);
+            }
             for a in d.list_field("aliases") {
                 g.by_alias.entry(a).or_default().push(i);
             }
@@ -73,6 +76,8 @@ impl Graph {
         let (candidates, via_alias) = if let Some(&i) = self.by_id.get(target).or_else(|| self.by_path.get(target)) {
             (vec![i], false)
         } else if let Some(list) = self.by_alias.get(target) {
+            (list.clone(), true)
+        } else if let Some(list) = self.by_slug.get(target) {
             (list.clone(), true)
         } else {
             (vec![], false)

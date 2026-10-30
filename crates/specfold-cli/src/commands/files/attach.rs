@@ -31,19 +31,24 @@ pub fn run(g: &Global, a: &AttachArgs) -> Result<Output> {
     for f in &plan.files {
         o = o.item(to_value(f)?, format!("{:<5} {:>10}  {}  <- {}", f.store, f.bytes, f.path, f.source));
     }
-    let uploads: Vec<&attach::Planned> = plan.files.iter().filter(|f| f.store == "store").collect();
-    if !uploads.is_empty() {
-        let mut blobs = vec![];
-        for f in &uploads {
+    // Every planned file gets the built-in secrets check: a hit refuses an upload to the store
+    // and is a warning for a file that stays in the repository; configured guards gate uploads.
+    if !plan.files.is_empty() {
+        let (mut uploads, mut kept) = (vec![], vec![]);
+        for f in &plan.files {
             let mut bytes = vec![];
             std::fs::File::open(&f.source)?.take(SCAN_LIMIT).read_to_end(&mut bytes)?;
             if f.bytes > SCAN_LIMIT {
                 o = o.head(format!("{}: only the first 64 MiB was read by the upload guard", f.source));
             }
-            blobs.push((f.path.clone(), bytes));
+            if f.store == "store" { &mut uploads } else { &mut kept }.push((f.path.clone(), bytes));
         }
-        let gate = outbound::gate(&s.corpus.cfg, specfold_core::guards::reads_content, &blobs, &a.allow_hit)?;
-        o = o.field("guard", gate.json());
+        let mut gate = outbound::gate(&s.corpus.cfg, specfold_core::guards::reads_content, &uploads, &a.allow_hit)?;
+        gate.add_builtin(&uploads, &a.allow_hit, false);
+        gate.add_builtin(&kept, &a.allow_hit, true);
+        if !gate.hits.is_empty() || !uploads.is_empty() {
+            o = o.field("guard", gate.json());
+        }
         for l in gate.lines() {
             o = o.head(l);
         }

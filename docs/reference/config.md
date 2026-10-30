@@ -27,7 +27,7 @@ description: The spec.toml tables and what each one controls.
 | `[types.<name>]` | override, disable or add a type: key, statuses, fields, transitions, required sections |
 | `[forbid]` | retired layouts and identifiers (rule Z1) |
 | `[aliases]` | the frozen alias table written by `spec import` |
-| `[files]` | the attachment size limit and the store for larger files |
+| `[files]` | `inline_max_bytes`, and `[files.store]`: `kind = "dir"` with `path`, or `kind = "command"` with `put`/`get`/`exists` argv templates (see the example) |
 | `[[assets]]` | agent skills, rules, subagents and instruction files |
 
 ## Checks
@@ -64,4 +64,11 @@ languages = ["ko", "ja"]
 
 [remotes.org]
 path = "../shared-decisions"   # [[org:adr:root/20261030000000]] names a document there
+
+[files]
+inline_max_bytes = 1048576     # larger attachments go to the store
+
+[files.store]
+kind = "dir"                   # or "command" with put/get/exists, e.g.
+path = "~/specfold-store"      # put = ["rclone", "copyto", "{src}", "remote:bucket/{key}"]
 ```

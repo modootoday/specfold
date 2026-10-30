@@ -81,7 +81,8 @@ fn mcp_redacts_secrets_and_edits_refuse_the_marker() {
     assert_eq!(v["redacted"], 1, "{s}");
     let (code, v) = r.json(&["edit", &id, "--section", "Decision", "--text", "DSN: [redacted: JWT]", "--write"]);
     assert_ne!(code, 0, "{v}");
-    assert!(v.to_string().contains("spec mcp"), "{v}");
+    assert!(v.to_string().contains("spec mcp") && v.to_string().contains("--append"), "{v}");
+    assert_eq!(v["next"], "spec help edit", "{v}");
     r.write("spec.toml", &(r.read("spec.toml") + "[mcp]\nredact = false\n"));
     assert!(mcp_show(&r, &id).to_string().contains("Et-77x"), "redaction can be turned off");
 }
@@ -173,4 +174,23 @@ fn set_refuses_the_marker_and_a_document_that_already_holds_it_can_be_edited() {
     let (code, v) =
         r.json(&["edit", &id, "--section", "Decision", "--text", "Keep [redacted: JWT] as written.", "--write"]);
     assert_eq!(code, 0, "{v}");
+}
+
+#[test]
+fn attach_runs_the_built_in_secrets_check_with_no_guard_configured() {
+    let r = common::repo();
+    with_store(&r, "");
+    let d = r.new_doc("design", "services/shop", "Runs");
+    r.write("run.log", &format!("connecting to {}\n", leaky_url()));
+    let (code, v) = r.json(&["attach", &d, "run.log", "--store", "--write"]);
+    assert_eq!(code, 1, "a store upload is refused: {v}");
+    assert!(!v.to_string().contains("Et-77x"), "{v}");
+    assert_eq!(v["next"], format!("spec attach {d} run.log --store --write --allow-hit secrets"));
+    let (code, v) = r.json(&["attach", &d, "run.log", "--store", "--write", "--allow-hit", "secrets"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["guard"][0]["allowed"], true, "{v}");
+    r.write("small.log", &format!("db {}\n", leaky_url()));
+    let (code, v) = r.json(&["attach", &d, "small.log", "--repo", "--write"]);
+    assert_eq!(code, 0, "a repository file is attached: {v}");
+    assert_eq!(v["guard"][0]["level"], "warn", "{v}");
 }

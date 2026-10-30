@@ -16,6 +16,7 @@ mod machine_paths;
 mod pins;
 mod placement;
 mod schema;
+mod secrets;
 mod sections;
 mod translations;
 pub use lifecycle::{is_date, overdue_exceptions};
@@ -60,6 +61,7 @@ pub fn catalog() -> Vec<Box<dyn Rule>> {
         Box::new(commands::VerifyDeclared),
         Box::new(commands::GeneratedInSync),
         Box::new(guarded::GuardsPass),
+        Box::new(secrets::NoSecrets),
         Box::new(assets::AssetFrontmatter),
         Box::new(assets::AssetNamesUnique),
         Box::new(asset_refs::AssetRefsExist),

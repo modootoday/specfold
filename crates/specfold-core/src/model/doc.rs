@@ -65,6 +65,13 @@ pub struct Doc {
 }
 
 impl Doc {
+    /// `plan:root/payment-rollout`: the id with the slug in place of a timestamp key, the name
+    /// people write when they remember the title. None when the key is the slug already.
+    pub fn slug_id(&self) -> Option<String> {
+        (!self.slug.is_empty() && self.slug != self.id.key)
+            .then(|| format!("{}:{}/{}", self.id.ty, self.id.owner, self.slug))
+    }
+
     pub fn fm(&self) -> Option<&Map<String, Value>> {
         self.frontmatter.map.as_ref()
     }
