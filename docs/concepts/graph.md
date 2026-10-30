@@ -25,7 +25,7 @@ resolve and point at the right types.
 ## A small graph
 
 A plan implements a source of truth, which depends on a decision. Dashed lines are code paths.
-This block is the output of `spec graph --format mermaid` on the tutorial repository.
+The figure below is drawn from `spec graph --format mermaid` output for the tutorial repository.
 
 <!-- spec:graph format=mermaid source=tutorial -->
 
