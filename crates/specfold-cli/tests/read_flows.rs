@@ -357,3 +357,20 @@ fn c179_body_cut_by_max_bytes_continues_with_the_doc_id() {
     let next = v["next"].as_str().unwrap();
     assert!(next.starts_with(&format!("spec show {id} --section ")), "{v}");
 }
+
+#[test]
+fn c185_a_path_with_glob_characters_round_trips_from_context_to_new() {
+    let r = common::repo();
+    r.write("src/[a]/z.rs", "fn z() {}\n");
+    r.write("src/a/z.rs", "fn z() {}\n");
+    let (_, v) = r.json(&["context", "src/[a]/z.rs"]);
+    let next = v["next"].to_string();
+    assert!(next.contains("src/[[]a]/z.rs"), "the hint escapes the literal path: {v}");
+    let (code, v) = r.json(&["new", "sot", "--governs", "src/[a]/z.rs", "--title", "Zed"]);
+    assert_eq!(code, 0, "{v}");
+    let id = v["id"].as_str().unwrap().to_string();
+    let (_, v) = r.json(&["context", "src/[a]/z.rs"]);
+    assert_eq!(v["items"][0]["id"], id.as_str(), "the literal file is governed: {v}");
+    let (_, v) = r.json(&["context", "src/a/z.rs"]);
+    assert!(!v.to_string().contains(&id), "the class reading must not match: {v}");
+}

@@ -12,10 +12,11 @@ pub struct Decision<'a> {
 /// The directory part of a path or glob before its first wildcard.
 pub fn literal_base(glob: &str) -> String {
     let g = glob.trim_start_matches("./");
-    if !g.contains(['*', '?', '[', '{']) {
-        return g.trim_end_matches('/').to_string();
+    // C185: `[[]a]` is the literal directory `[a]`, not a wildcard.
+    let (head, wild) = crate::workspace::literal_prefix(g);
+    if !wild {
+        return head.trim_end_matches('/').to_string();
     }
-    let head = g.split(['*', '?', '[', '{']).next().unwrap_or("");
     match head.rsplit_once('/') {
         Some((dir, _)) => dir.to_string(),
         None => String::new(),

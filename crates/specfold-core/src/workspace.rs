@@ -4,4 +4,4 @@ pub mod exposure;
 pub mod owners;
 pub mod vcs;
 
-pub use owners::{Owner, Owners};
+pub use owners::{Owner, Owners, escape_glob, literal_prefix};

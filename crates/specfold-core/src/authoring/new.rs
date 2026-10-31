@@ -94,6 +94,15 @@ pub fn plan(c: &Corpus, g: &Graph, req: &NewDoc) -> Result<(Created, Plan)> {
     if req.title.trim().is_empty() {
         bail!("--title is required");
     }
+    // C185: a governs value naming an existing path that holds glob characters is that path, so
+    // it is written escaped; read as a glob it would name other files or none.
+    let mut owned = req.clone();
+    for g in &mut owned.governs {
+        if g.contains(['[', '*', '?', '{']) && c.cfg.root.join(g.as_str()).exists() {
+            *g = crate::workspace::escape_glob(g);
+        }
+    }
+    let req = &owned;
     let root_owner = c.owners.root();
     let decision = placement::decide(&c.owners, &req.governs, root_owner);
     let (owner, reason) = match &req.owner {
