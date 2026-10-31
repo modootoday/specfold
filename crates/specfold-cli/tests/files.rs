@@ -71,7 +71,7 @@ fn c202_attach_over_other_content_needs_yes_force_and_keeps_a_copy() {
 }
 
 #[test]
-fn c223_attach_replace_undo_restores_the_document_too() {
+fn c225_attach_replace_undo_restores_the_document_too() {
     let r = common::repo();
     let d = r.new_doc("design", "services/shop", "Cart boards");
     r.write("a/board.svg", "<svg>one</svg>");

@@ -36,7 +36,7 @@ pub fn clashes(root: &Path, doc: &Doc, plan: &Plan) -> Vec<Clash> {
 }
 
 /// Copies the files about to be replaced, and the document file whose `files` entries the attach
-/// rewrites (C223), into a fresh trash folder and gives the one undo command for both.
+/// rewrites (C225), into a fresh trash folder and gives the one undo command for both.
 pub fn keep(root: &Path, doc_path: &str, clashes: &[Clash]) -> Result<Option<String>> {
     if clashes.is_empty() {
         return Ok(None);
