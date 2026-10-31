@@ -527,3 +527,22 @@ fn c189_local_and_no_local_together_are_refused_in_either_order() {
         assert!(!r.path().join("o").exists());
     }
 }
+
+#[cfg(unix)]
+#[test]
+fn c221_a_symbolic_link_cannot_hide_a_spec_or_git_directory() {
+    let r = common::repo();
+    r.new_doc("guide", "services/shop", "Setup");
+    let root = r.path().to_path_buf();
+    std::fs::create_dir_all(root.join(".spec")).unwrap();
+    std::os::unix::fs::symlink(root.join(".spec"), root.join("lnk")).unwrap();
+    std::fs::create_dir_all(root.join(".git/hooks")).unwrap();
+    std::os::unix::fs::symlink(root.join(".git/hooks"), root.join("hk")).unwrap();
+    for out in ["lnk/sub", "hk/x", "lnk"] {
+        let (code, v) = r.json(&["export", "markdown", "--target", "obsidian", "--out", out]);
+        assert_ne!(code, 0, "{out}: {v}");
+        assert!(v.to_string().contains("inside a spec or git directory"), "{out}: {v}");
+    }
+    assert!(!root.join(".spec/sub").exists());
+    assert!(!root.join(".git/hooks/x").exists());
+}

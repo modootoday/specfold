@@ -9,11 +9,14 @@ use crate::corpus::Corpus;
 use crate::graph::Graph;
 use crate::markdown::{body, frontmatter};
 use crate::model::{Tier, stamp::slugify};
-use anyhow::{Context, Result, bail};
+use anyhow::Result;
 use serde::Serialize;
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::Path;
+
+mod out;
+pub use out::check_out;
 
 pub const MANIFEST: &str = ".specfold-export.json";
 
@@ -402,41 +405,6 @@ fn index_files(tree: &mut Tree, c: &Corpus, t: Target, pages: &[Page]) {
 
 /// Whether `out` may be written: missing, empty, or holding a previous export's manifest.
 /// Returns the files the previous export wrote.
-pub fn check_out(out: &Path, root: &Path) -> Result<Vec<String>> {
-    if out.components().any(|c| matches!(c.as_os_str().to_str(), Some(".spec" | ".spec.local" | ".git"))) {
-        bail!("refusing to export into {}: it is inside a spec or git directory", out.display());
-    }
-    if !out.exists() {
-        return Ok(vec![]);
-    }
-    if !out.is_dir() {
-        bail!("{} is not a directory", out.display());
-    }
-    let abs = out.canonicalize()?;
-    let root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
-    if root.starts_with(&abs) {
-        bail!("refusing to export into {}: it contains the repository", out.display());
-    }
-    let m = out.join(MANIFEST);
-    if m.is_file() {
-        let v: Value =
-            serde_json::from_str(&std::fs::read_to_string(&m)?).with_context(|| format!("reading {}", m.display()))?;
-        return Ok(v["files"]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .filter_map(|f| f.as_str().map(str::to_string))
-            .collect());
-    }
-    if std::fs::read_dir(out)?.next().is_some() {
-        bail!(
-            "refusing to export into {}: it is not empty and holds no {MANIFEST} from an earlier export",
-            out.display()
-        );
-    }
-    Ok(vec![])
-}
-
 /// Writes the tree and its manifest, removing the files of the previous export first.
 pub fn write(out: &Path, tree: &Tree, target: Target, previous: &[String]) -> Result<()> {
     for f in previous {
