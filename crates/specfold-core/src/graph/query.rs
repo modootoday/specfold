@@ -18,18 +18,24 @@ pub struct Governing {
 /// Narrowest claims first.
 pub fn governing(c: &Corpus, path: &str) -> Vec<Governing> {
     let path = path.trim_start_matches("./").trim_end_matches('/');
+    // C207: for a folder, a document governing a file or glob inside it governs part of it.
+    let dir = c.cfg.root.join(path);
+    let inside = (!path.is_empty() && dir.is_dir()).then(|| files_under(&c.cfg.root, path));
     let mut out = vec![];
     for (i, d) in c.docs.iter().enumerate() {
         let globs = d.rel().remove("governs").unwrap_or_default();
         if globs.is_empty() {
             let Some(owner) = c.owners.by_id(&d.id.owner) else { continue };
-            if !owner.path.is_empty() && (path == owner.path || path.starts_with(&format!("{}/", owner.path))) {
+            let under = inside.is_some() && owner.path.starts_with(&format!("{path}/"));
+            if !owner.path.is_empty() && (path == owner.path || path.starts_with(&format!("{}/", owner.path)) || under)
+            {
                 out.push(Governing { idx: i, pattern: format!("{}/**", owner.path), specificity: owner.path.len() });
             }
             continue;
         }
         for g in globs {
-            if matcher(&g).is_some_and(|m| m.is_match(path)) {
+            let below = || inside.as_ref().is_some_and(|files| below_dir(&g, path, files));
+            if matcher(&g).is_some_and(|m| m.is_match(path)) || below() {
                 let specificity = g.split(['*', '?', '[', '{']).next().unwrap_or("").len();
                 out.push(Governing { idx: i, pattern: g, specificity });
                 break;
@@ -37,6 +43,42 @@ pub fn governing(c: &Corpus, path: &str) -> Vec<Governing> {
         }
     }
     out.sort_by(|a, b| b.specificity.cmp(&a.specificity).then(a.idx.cmp(&b.idx)));
+    out
+}
+
+/// Whether glob `g` claims something below folder `dir`: its literal part lies inside it, or it
+/// matches one of the files there.
+fn below_dir(g: &str, dir: &str, files: &[String]) -> bool {
+    let lit = g.split(['*', '?', '[', '{']).next().unwrap_or("");
+    if lit.starts_with(&format!("{dir}/")) {
+        return true;
+    }
+    matcher(g).is_some_and(|m| files.iter().any(|f| m.is_match(f)))
+}
+
+/// Up to a few thousand file paths below `dir`, relative to the root, skipping dot folders.
+fn files_under(root: &std::path::Path, dir: &str) -> Vec<String> {
+    const MAX: usize = 5000;
+    let mut out = vec![];
+    let mut stack = vec![dir.to_string()];
+    while let Some(d) = stack.pop() {
+        let Ok(rd) = std::fs::read_dir(root.join(&d)) else { continue };
+        for e in rd.flatten() {
+            let name = e.file_name().to_string_lossy().to_string();
+            if name.starts_with('.') {
+                continue;
+            }
+            let rel = format!("{d}/{name}");
+            if e.file_type().is_ok_and(|t| t.is_dir()) {
+                stack.push(rel);
+            } else if out.len() < MAX {
+                out.push(rel);
+            }
+        }
+        if out.len() >= MAX {
+            break;
+        }
+    }
     out
 }
 

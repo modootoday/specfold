@@ -410,3 +410,20 @@ fn c198_exact_section_wins_and_ambiguous_names_refuse() {
     assert_eq!(code, 2, "{v}");
     assert!(v["error"].as_str().unwrap().contains("matches 2 headings"), "{v}");
 }
+
+#[test]
+fn c207_a_folder_shows_documents_governing_inside_it() {
+    let r = common::repo();
+    r.write("services/shop/cart/c.rs", "fn c() {}\n");
+    r.write("services/shop/pay/sub/b.rs", "fn b() {}\n");
+    let file = r.new_doc("sot", "services/shop/cart/c.rs", "Cart file");
+    let glob = r.new_doc("guide", "services/shop/pay/sub/*.rs", "Sub rs");
+    let (code, v) = r.json(&["context", "services/shop/cart"]);
+    assert_eq!(code, 0, "{v}");
+    assert!(v.to_string().contains(&file), "{v}");
+    assert!(!v["next"].as_str().unwrap_or("").contains("spec new"), "{v}");
+    let (_, v) = r.json(&["context", "services/shop/pay"]);
+    assert!(v.to_string().contains(&glob), "{v}");
+    let (_, v) = r.json(&["graph", "governs", "services/shop/pay"]);
+    assert!(v.to_string().contains(&glob), "{v}");
+}
