@@ -77,14 +77,18 @@ pub fn plan(c: &Corpus, idx: usize, req: &Move) -> Result<(Moved, Plan)> {
             let text = std::fs::read_to_string(c.cfg.root.join(file))?;
             let mut body = refs::rewrite_body(&text, &old_s, &new_s);
             if j != idx {
+                // C137: relative Markdown links to the moved file follow it, fragment kept.
+                body = refs::rewrite_relative_links(&body, file, &d.path, &new_main);
+                if let Some(bundle) = &d.dir {
+                    let new_dir = new_main.rsplit_once('/').map(|x| x.0).unwrap_or("");
+                    body = refs::rewrite_bundle_links(&body, file, bundle, new_dir);
+                }
                 // Plain paths to the moved file break with the move; cite the new id instead (L2).
                 for cite in other.path_cites.iter().filter(|p| &p.path == file) {
                     if refs::same_path(&cite.item, &d.path) {
                         body = body.replace(&cite.item, &format!("[[{new_s}]]"));
                     }
                 }
-                // C137: relative Markdown links to the moved file follow it, fragment kept.
-                body = refs::rewrite_relative_links(&body, file, &d.path, &new_main);
             }
             let is_main = file == &other.path;
             if is_main {

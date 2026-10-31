@@ -81,6 +81,20 @@ pub fn rewrite_relative_links(body: &str, file: &str, old: &str, new: &str) -> S
     .0
 }
 
+/// C234: relative links to anything under a moved bundle directory (its attachments, its
+/// chapters) follow the directory to its new place.
+pub fn rewrite_bundle_links(body: &str, file: &str, old_dir: &str, new_dir: &str) -> String {
+    let dir = file.rsplit_once('/').map(|x| x.0).unwrap_or("");
+    let prefix = format!("{old_dir}/");
+    crate::markdown::link_dest::rewrite(body, |target| {
+        let local = !target.is_empty() && !target.contains("://") && !target.starts_with('/');
+        let joined = if dir.is_empty() { target.to_string() } else { format!("{dir}/{target}") };
+        let rest = normalize(&joined).filter(|_| local)?.strip_prefix(&prefix)?.to_string();
+        Some(relative(file, &format!("{new_dir}/{rest}")))
+    })
+    .0
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
