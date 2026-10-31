@@ -139,6 +139,7 @@ A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is 
   `gateway`), not only when most of the title is lost.
 
 ### Fixed
+- `spec graph --format dot` names nodes `d0`/`p0` with the text as `label`, like mermaid, so a governs path spelled like a document id no longer redeclares that document as a folder or lands its edge on it. Scripts that matched quoted id node names must match labels now (C190).
 - `spec init --upgrade` reads a spec.toml that starts with a UTF-8 BOM (and keeps the BOM when it writes), so the upgrade `check` asks for no longer reports "is current" and loops (C191).
 - `spec edit --new-section` refuses (exit 2) a name that is empty or blank, holds a line break, or starts with `#`, as `new --title` does, instead of writing an empty, doubled or `## ##` heading (C188).
 - `-C <file>` is refused (exit 3) instead of running against no repository, and an empty `-C ` value points at the help of the command typed rather than an unrelated one (C193).

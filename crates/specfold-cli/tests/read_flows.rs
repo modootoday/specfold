@@ -49,7 +49,8 @@ fn graph_draws_trees_diagrams_relations_and_chains_both_ways() {
     let (_, text) = r.text(&["graph", "--format", "dot"]);
     assert!(
         text.starts_with("digraph specfold {")
-            && text.contains(&format!("\"{new}\" -> \"{old}\" [label=\"supersedes\"]")),
+            && text.contains(&format!("[label=\"{new}\"]"))
+            && text.contains("[label=\"supersedes\"]"),
         "{text}"
     );
     assert_ne!(r.text(&["graph", "impact", &sot, "--format", "dot"]).0, 0);
@@ -373,4 +374,20 @@ fn c185_a_path_with_glob_characters_round_trips_from_context_to_new() {
     assert_eq!(v["items"][0]["id"], id.as_str(), "the literal file is governed: {v}");
     let (_, v) = r.json(&["context", "src/a/z.rs"]);
     assert!(!v.to_string().contains(&id), "the class reading must not match: {v}");
+}
+
+#[test]
+fn c190_dot_keeps_a_governs_path_spelled_like_an_id_apart_from_the_document() {
+    let r = common::repo();
+    let q = r.new_doc("sot", "services/shop", "Q");
+    let (code, v) = r.json(&["new", "sot", "--governs", &q, "--title", "Col"]);
+    assert_eq!(code, 0, "{v}");
+    let (_, text) = r.text(&["graph", "--format", "dot"]);
+    let doc = text.lines().filter(|l| l.contains(&format!("label=\"{q}\""))).count();
+    assert_eq!(doc, 2, "one document node and one folder node: {text}");
+    assert!(
+        text.lines().any(|l| l.contains(&format!("[label=\"{q}\", shape=folder]")) && l.trim_start().starts_with('p')),
+        "{text}"
+    );
+    assert!(!text.contains(&format!("\"{q}\" [shape=folder]")), "{text}");
 }
