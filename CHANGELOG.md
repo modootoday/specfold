@@ -139,6 +139,7 @@ A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is 
   `gateway`), not only when most of the title is lost.
 
 ### Fixed
+- C221: `spec export markdown --out` resolves the nearest existing folder through symbolic links, so a link into `.spec`, `.spec.local` or `.git` (or one containing the repository) is refused like the plain path
 - C216: `spec guard <unknown>` lists `secrets (built-in)` among the guards it has, with next `spec guard secrets`
 - C214: `spec fix` resolves its targets like `spec check` (a missing file, a directory, a non-document or `:abc` is rc 2; ids are accepted)
 - C204: T1 on a draft names the two-step fix (`status=active --write && status=superseded`), and T1 and `spec set status=superseded` ignore a cross-type `rel.supersedes` that L3 rejects
