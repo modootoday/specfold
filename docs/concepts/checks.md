@@ -12,7 +12,7 @@ redirect_from: [/checks/]
 
 ## How a check runs
 
-![spec check reads documents and spec.toml; with no findings it exits 0, with errors it exits 1 with rule ids, then spec explain and spec fix --write lead back to spec check](../assets/diagrams/checks.svg)
+![spec check reads documents and spec.toml; with no findings it exits 0, with errors it exits 1 with rule ids, then spec explain and spec fix with its write flag lead back to spec check](../assets/diagrams/checks.svg)
 
 *How a check runs. Source: [checks.mmd](../assets/diagrams/checks.mmd).*
 
