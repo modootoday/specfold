@@ -53,3 +53,26 @@ fn c220_guard_range_refuses_empty_and_open_ended_ranges() {
         assert!(v["next"].as_str().unwrap_or_default().contains("<base>..HEAD"), "{bad:?}: {v}");
     }
 }
+
+/// C230/C231: a range is read at its end, not the checkout, and a value one commit adds and a
+/// later one removes still fails, since both commits are pushed.
+#[test]
+fn c230_c231_guard_range_reads_its_end_and_every_pushed_version() {
+    let r = common::repo();
+    let toml = r.read("spec.toml") + "[[guards]]\nname = \"pub\"\ndeny_terms = [\"acme-internal\"]\n";
+    r.write("spec.toml", &toml);
+    r.commit("guard");
+    r.git(&["checkout", "-q", "-b", "feat"]);
+    r.write("notes.md", "plain\nacme-internal plans\n");
+    r.commit("notes");
+    r.git(&["checkout", "-q", "-b", "feat2"]);
+    r.write("notes.md", "plain\n");
+    r.commit("clean up");
+    r.git(&["checkout", "-q", "main"]);
+    let (code, v) = r.json(&["guard", "pub", "--range", "main..feat"]);
+    assert_eq!(code, 1, "the range's end holds the term: {v}");
+    let (code, v) = r.json(&["guard", "pub", "--range", "main..feat2"]);
+    assert_eq!(code, 1, "a removed term is still pushed: {v}");
+    assert!(v["items"][0]["message"].as_str().unwrap().contains("in commit"), "{v}");
+    assert_eq!(r.json(&["guard", "pub", "--range", "feat..feat2"]).0, 0, "removing it pushes nothing new");
+}

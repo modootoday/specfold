@@ -120,11 +120,20 @@ fn builtin_hits(
         Some(r) => {
             let res = guards::range::resolve(root, r, &[])?;
             in_range = Some(res.files.clone());
-            res.files
+            let mut b: Vec<(String, Vec<u8>)> = res
+                .files
                 .into_iter()
                 .filter(|f| docs.contains(f))
                 .filter_map(|p| Some((p.clone(), guards::range::read(root, &res.source, &p)?)))
-                .collect()
+                .collect();
+            // C231: versions a commit in the range wrote and a later one replaced are pushed too;
+            // a markdown file gone by the range's end is no longer in the corpus, so it counts.
+            let ends_md = |p: &str| p.ends_with(".md");
+            b.extend(res.passing.into_iter().filter(|p| docs.contains(&p.path) || ends_md(&p.path)).map(|p| {
+                let short = p.commit[..p.commit.len().min(10)].to_string();
+                (format!("{} (commit {short})", p.path), p.bytes)
+            }));
+            b
         }
     };
     let mut unread = unread.into_inner();
@@ -135,7 +144,14 @@ fn builtin_hits(
         unread.retain(|p| files.contains(p));
     }
     let note = guards::secrets::skipped_note(root, &unread, max);
-    let hits = guards::builtin_secrets(&blobs)
+    let mut found = guards::builtin_secrets(&blobs);
+    // A hit the range's end already reports is not repeated for an earlier version.
+    let ends: Vec<(String, String)> = found.iter().map(|(_, f)| (f.path.clone(), f.message.clone())).collect();
+    found.retain(|(_, f)| match f.path.split_once(" (commit ") {
+        Some((base, _)) => !ends.contains(&(base.to_string(), f.message.clone())),
+        None => true,
+    });
+    let hits = found
         .into_iter()
         .map(|(_, mut f)| {
             f.rule = "U2".into();
