@@ -32,19 +32,16 @@ pub fn run(g: &Global, a: &GuardArgs) -> Result<Output> {
         }
         return Ok(o.next("git add <baseline files>"));
     }
-    // C205: a single rev would scan that rev's own history, never the commits after it.
+    // C205/C220: a single rev scans its own history; an empty or open-ended range scans nothing useful.
     if let Some(r) = a.range.as_deref()
-        && !matches!(r, "staged" | "push" | "all")
-        && !r.contains("..")
+        && let Some((msg, next)) = range_problem(r)
     {
         let names = if a.names.is_empty() { String::new() } else { format!(" {}", a.names.join(" ")) };
         return Ok(Output::error(
             "guard",
             crate::output::Code::Usage,
-            &format!(
-                "--range '{r}' is a single revision, which would scan its own history; give a range such as {r}..HEAD (or staged, push, all)"
-            ),
-            Some(format!("spec guard{names} --range {}", specfold_core::shell::quote(&format!("{r}..HEAD")))),
+            &msg,
+            Some(format!("spec guard{names} --range {next}")),
         ));
     }
     let range = if a.staged {
@@ -150,4 +147,29 @@ fn builtin_hits(
         })
         .collect();
     Ok((hits, note))
+}
+
+/// Why `--range r` cannot be scanned, with the `--range` value to suggest instead.
+fn range_problem(r: &str) -> Option<(String, String)> {
+    let t = r.trim();
+    if matches!(t, "staged" | "push" | "all") {
+        return None;
+    }
+    let base = "'<base>..HEAD'".to_string();
+    if t.is_empty() {
+        return Some(("--range is empty; give a range such as origin/main..HEAD (or staged, push, all)".into(), base));
+    }
+    if t.starts_with("..") {
+        return Some((format!("--range '{r}' has no base revision; give a range such as <base>{t}"), base));
+    }
+    if t.contains("..") {
+        return None;
+    }
+    let next = if t.contains(char::is_whitespace) { base } else { specfold_core::shell::quote(&format!("{t}..HEAD")) };
+    Some((
+        format!(
+            "--range '{r}' is a single revision, which would scan its own history; give a range such as <rev>..HEAD (or staged, push, all)"
+        ),
+        next,
+    ))
 }
