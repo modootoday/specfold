@@ -76,7 +76,7 @@ pub fn absolute(p: &std::path::Path) -> std::path::PathBuf {
 }
 
 /// The files named on the command line, repository-relative; each must be a document file.
-fn documents_named(s: &session::Session, files: &[String], stdin: Option<&str>) -> Result<Vec<String>> {
+pub(crate) fn documents_named(s: &session::Session, files: &[String], stdin: Option<&str>) -> Result<Vec<String>> {
     let mut out = vec![];
     for f in files {
         if f == "-" {

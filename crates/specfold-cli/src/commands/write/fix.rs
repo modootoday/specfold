@@ -15,6 +15,25 @@ fn split_target(t: &str) -> (String, Option<usize>) {
     }
 }
 
+/// C214: each target is checked the way `spec check` checks its files (an existing document,
+/// an id, `:N` a line number), so a typo is refused instead of reading as nothing to fix.
+fn resolve_targets(s: &session::Session, targets: &[String]) -> Result<Vec<(String, Option<usize>)>> {
+    let mut out = vec![];
+    for t in targets {
+        let (p, l) = split_target(t);
+        if l.is_none()
+            && let Some((head, tail)) = t.rsplit_once(':')
+            && head.ends_with(".md")
+            && !std::path::Path::new(t).exists()
+        {
+            bail!("{t}: '{tail}' is not a line number; use <FILE>:<LINE>, e.g. {head}:1; next: spec check {head}");
+        }
+        let paths = crate::commands::verify::check::documents_named(s, std::slice::from_ref(&p), None)?;
+        out.extend(paths.into_iter().map(|p| (p, l)));
+    }
+    Ok(out)
+}
+
 /// C168: `--write` with nothing to fix, as `mv` and `set` (C164): nothing written, no undo line.
 fn no_change(o: Output) -> Output {
     o.field("written", false).field("changed", false).foot("no change: nothing to fix")
@@ -42,8 +61,7 @@ pub fn run(g: &Global, a: &FixArgs) -> Result<Output> {
     let range = if a.staged { Range::Staged } else { Range::All };
     let sel = Selection { only: a.rules.clone(), skip: vec![] };
     let report = check::run(&s.corpus, &s.graph, range, &Options::default(), &sel)?;
-    let targets: Vec<(String, Option<usize>)> =
-        a.targets.iter().map(|t| split_target(t)).map(|(p, l)| (session::repo_path(&s, &p), l)).collect();
+    let targets = resolve_targets(&s, &a.targets)?;
     let findings: Vec<_> = report
         .findings
         .into_iter()
