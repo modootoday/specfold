@@ -219,7 +219,7 @@ fn plan_with(c: &Corpus, idx: usize, assigns: &[Assign], successor_pending: bool
             if a.value == "superseded" && !succeeded && !successor_pending {
                 let title = d.title.clone().unwrap_or_else(|| d.slug.replace('-', " ")).replace('\'', "");
                 bail!(
-                    "nothing supersedes {me} yet, so status=superseded would fail T1; write the successor, which marks this one superseded (edit the title); next: spec new {} --from {me} --title '{title}'",
+                    "nothing supersedes {me} yet, so status=superseded would fail T1; write the successor, which marks this one superseded (edit the title); next: spec new {} --from {me} --title '{title}' --write",
                     ty.name
                 );
             }

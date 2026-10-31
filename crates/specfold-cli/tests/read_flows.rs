@@ -24,12 +24,13 @@ fn show_counts_task_items_with_file_lines() {
 fn graph_draws_trees_diagrams_relations_and_chains_both_ways() {
     let r = common::repo();
     let old = r.new_doc("adr", "services/shop", "Use files");
-    assert_eq!(r.json(&["set", &old, "status=active"]).0, 0);
-    let (_, v) = r.json(&["new", "adr", "--from", &old, "--governs", "services/shop", "--title", "Use a database"]);
+    assert_eq!(r.json(&["set", &old, "status=active", "--write"]).0, 0);
+    let (_, v) =
+        r.json(&["new", "adr", "--from", &old, "--governs", "services/shop", "--title", "Use a database", "--write"]);
     let new = v["id"].as_str().unwrap().to_string();
     let sot = r.new_doc("sot", "services/shop/src", "Cart");
     let plan = r.new_doc("plan", "services/shop", "Ship");
-    assert_eq!(r.json(&["set", &plan, &format!("rel.implements={sot}")]).0, 0);
+    assert_eq!(r.json(&["set", &plan, &format!("rel.implements={sot}"), "--write"]).0, 0);
 
     let (code, text) = r.text(&["graph"]);
     assert_eq!(code, 0, "{text}");
@@ -71,7 +72,7 @@ fn box_graph_fits_columns_and_falls_back_to_ascii_or_the_tree() {
     let r = common::repo();
     let sot = r.new_doc("sot", "services/shop/src", "Cart");
     let plan = r.new_doc("plan", "services/shop", "Ship");
-    assert_eq!(r.json(&["set", &plan, &format!("rel.implements={sot}")]).0, 0);
+    assert_eq!(r.json(&["set", &plan, &format!("rel.implements={sot}"), "--write"]).0, 0);
     let out = |cols: &str, locale: &str, extra: &[&str]| {
         let mut c = r.spec();
         c.args(["graph", "--format", "box"]).args(extra).env("COLUMNS", cols).env("LC_ALL", locale);
@@ -205,7 +206,7 @@ fn an_unknown_id_points_at_a_search_not_at_help() {
 #[test]
 fn a_unique_timestamp_part_of_an_id_opens_the_document() {
     let r = common::repo();
-    let (code, v) = r.json(&["new", "adr", "--title", "Use files"]);
+    let (code, v) = r.json(&["new", "adr", "--title", "Use files", "--write"]);
     assert_eq!(code, 0, "{v}");
     let id = v["id"].as_str().unwrap().to_string();
     let stamp = id.rsplit('/').next().unwrap().to_string();
@@ -367,7 +368,7 @@ fn c185_a_path_with_glob_characters_round_trips_from_context_to_new() {
     let (_, v) = r.json(&["context", "src/[a]/z.rs"]);
     let next = v["next"].to_string();
     assert!(next.contains("src/[[]a]/z.rs"), "the hint escapes the literal path: {v}");
-    let (code, v) = r.json(&["new", "sot", "--governs", "src/[a]/z.rs", "--title", "Zed"]);
+    let (code, v) = r.json(&["new", "sot", "--governs", "src/[a]/z.rs", "--title", "Zed", "--write"]);
     assert_eq!(code, 0, "{v}");
     let id = v["id"].as_str().unwrap().to_string();
     let (_, v) = r.json(&["context", "src/[a]/z.rs"]);
@@ -380,7 +381,7 @@ fn c185_a_path_with_glob_characters_round_trips_from_context_to_new() {
 fn c190_dot_keeps_a_governs_path_spelled_like_an_id_apart_from_the_document() {
     let r = common::repo();
     let q = r.new_doc("sot", "services/shop", "Q");
-    let (code, v) = r.json(&["new", "sot", "--governs", &q, "--title", "Col"]);
+    let (code, v) = r.json(&["new", "sot", "--governs", &q, "--title", "Col", "--write"]);
     assert_eq!(code, 0, "{v}");
     let (_, text) = r.text(&["graph", "--format", "dot"]);
     let doc = text.lines().filter(|l| l.contains(&format!("label=\"{q}\""))).count();

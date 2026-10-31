@@ -65,7 +65,7 @@ impl Repo {
 
     /// Creates a document and returns its id.
     pub fn new_doc(&self, ty: &str, governs: &str, title: &str) -> String {
-        let (code, v) = self.json(&["new", ty, "--governs", governs, "--title", title]);
+        let (code, v) = self.json(&["new", ty, "--governs", governs, "--title", title, "--write"]);
         assert_eq!(code, 0, "{v}");
         v["id"].as_str().unwrap().to_string()
     }

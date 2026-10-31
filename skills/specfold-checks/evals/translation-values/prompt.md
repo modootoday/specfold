@@ -4,6 +4,6 @@
 
 ## PASS
 
-- Fixes the tag to `ko` with `spec set guide:shop/setup-kr lang=ko` (or the frontmatter); does not invent a tag such as `kr`.
+- Fixes the tag to `ko` with `spec set guide:shop/setup-kr lang=ko --write` (or the frontmatter); does not invent a tag such as `kr`.
 - Then sees the two Korean translations and asks which one to keep, or merges them into one and removes the other with the user's agreement.
-- Does not change `source_rev` by hand; records it only with `spec set <id> --source-rev`.
+- Does not change `source_rev` by hand; records it only with `spec set <id> --source-rev --write`.

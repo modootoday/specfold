@@ -51,7 +51,7 @@ pub fn plan(c: &Corpus, idx: usize, e: &Edit) -> Result<Outcome> {
     }
     let status = d.status().unwrap_or_default();
     if CLOSED.contains(&status.as_str()) {
-        bail!("{} is {status}; its body is history. Supersede it: spec new {} --from {}", d.id, ty.name, d.id);
+        bail!("{} is {status}; its body is history. Supersede it: spec new {} --from {} --write", d.id, ty.name, d.id);
     }
     let text = crate::corpus::overlay::read(&c.cfg.root.join(&d.path))?;
     let split = frontmatter::split(&text);

@@ -153,7 +153,7 @@ fn lsp_offers_each_candidate_and_runs_only_offered_fix_commands() {
     let a = r.new_doc("adr", "services/shop", "First readme");
     let b = r.new_doc("adr", "services/shop", "Second readme");
     for id in [&a, &b] {
-        assert_eq!(r.json(&["set", id, "aliases+=README"]).0, 0);
+        assert_eq!(r.json(&["set", id, "aliases+=README", "--write"]).0, 0);
     }
     let c = r.new_doc("sot", "services/shop", "Cart");
     let pc = r.json(&["show", &c]).1["path"].as_str().unwrap().to_string();

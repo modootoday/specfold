@@ -189,13 +189,13 @@ pub fn translation(c: &Corpus, g: &Graph, from: &str, lang: &str, title: Option<
     use crate::config::types::TranslationLayout as L;
     if let Some((name, rest)) = crate::remotes::split(&c.cfg, from) {
         bail!(
-            "--from {from} is in the remote {name}, which specfold reads but never copies from; copy {rest} into this repository first (or translate it in that repository), then: spec new --translation {lang} --from <the local id>. A local translation may still name a remote source in rel.translation_of; R1 tracks it"
+            "--from {from} is in the remote {name}, which specfold reads but never copies from; copy {rest} into this repository first (or translate it in that repository), then: spec new --translation {lang} --from <the local id> --write. A local translation may still name a remote source in rel.translation_of; R1 tracks it"
         );
     }
     let Resolution::Doc { idx, .. } = g.resolve(from) else { bail!("--from {from} names no single document") };
     if let Some(orig) = crate::translation::source_ref(c, idx) {
         bail!(
-            "--from {} is itself a translation of {orig}; translate the original instead: spec new --translation {lang} --from {orig}",
+            "--from {} is itself a translation of {orig}; translate the original instead: spec new --translation {lang} --from {orig} --write",
             c.docs[idx].id
         );
     }

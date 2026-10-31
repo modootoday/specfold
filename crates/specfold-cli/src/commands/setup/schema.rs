@@ -85,7 +85,7 @@ pub fn run(g: &Global, a: &SchemaArgs) -> Result<Output> {
                         .unwrap_or_default()
                 ))
                 .foot("translations: lang: ko, rel.translation_of: [<source id>], source_rev: sha256:<12 hex>")
-                .next(format!("spec new {} --title '…'", t.name)))
+                .next(format!("spec new {} --title '…' --write", t.name)))
         }
         None => {
             for t in &cfg.registry.types {

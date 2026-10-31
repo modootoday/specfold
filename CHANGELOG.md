@@ -9,6 +9,8 @@ Release notes for each version are also on
 
 What an existing command does differs from 0.3.0; check scripts and CI that call these.
 
+**`spec new` and `spec set` now only preview without `--write`: add `--write` to every script, CI job and agent instruction that creates or changes documents with them.** Like every other write command, a run without `--write` (or with `--dry-run`, which does the same) writes nothing, shows the change with its diff, and exits 0 with `next:` naming the same command with `--write`; `--json` reports `written: false`. Their hints, help, docs and agent skills now give the `--write` form. The 0.3 stderr warning is gone.
+
 `spec check --write-baseline` with `--rule` or `--skip` is refused with exit 2: a baseline is recorded from a full run only (C181).
 
 Two or more `[[guards]]` with the same `baseline` file are refused when the config loads (exit 2, naming both guards): each guard's `--write-baseline` used to overwrite the other's entries (C184).
@@ -41,20 +43,17 @@ A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is 
 - `spec set <id> key=[a, b]` stores a list, not the string `"[a, b]"`.
 - `spec sync --prune --write --yes` no longer deletes: each pruned file moves to `.specfold/trash/<stamp>/` (ignored by git), and the undo line copies it back (`cp -Rp .specfold/trash/<stamp>/. .`), so a file never committed can be restored. The undo of a sync or copy lists only the files written, not their sources; a successful sync ends with `next: git status --short` (C100, C101, C106).
 - `spec check --write-baseline` without `[check] baseline` says what to add to spec.toml before previewing, with `next: spec explain config` (C102). `--dry-run` is accepted on every command guarded by `--yes` or `--write` and writes nothing: check and guard ignore it, import previews even with `--apply` (C120), and export previews instead (C103, C114). An export whose `--out` is outside the repository suggests `ls <out>` instead of `git status` (C104).
-- `spec new` warns about the 0.4 `--write` change only when it wrote something; an invalid spec.toml points to `spec explain config` (C106).
+- An invalid spec.toml points to `spec explain config` (C106).
 - Overwrites need ownership or `--force` (CLI-4): `spec sync assets --write` overwrites a copy file only when its content is a version its source has had (git history or now); a hand-edited copy needs `--force`. `spec fetch` leaves a different existing file alone and fetches nothing unless `--force`. `init` upgrades and `export` are unchanged.
 - Bulk writes are bounded (CLI-7): `[write] max_files = 50` (0 = no bound). When `spec mv`, `fix`, `sync` or `import` would change more files, the preview says how many and `--write` alone writes nothing; narrow the scope or add `--yes` (new on mv, fix and import).
 - One meaning per shared flag (CLI-11): `spec guard --tree` (was `--all`), `spec find --body` (was `--text`), `spec init --owner-kind` (was `--owner`). The old names keep working as hidden aliases with a stderr warning; help JSON lists them under each flag's `deprecated_aliases`.
 - `spec --help` and `spec help` list the 12 core commands (context, find, show, graph, new, set, edit, check, guard, fix, explain, init); `spec --help --all` / `spec help --all` list every command. `spec help --json`, `--markdown`, `--llms` and MCP still describe every command; JSON adds `core`.
-- `spec set` without `--write` still writes in 0.3 but warns on stderr. **From 0.4, `set` (like `new`) previews unless `--write`.**
 - `spec guard --write-baseline` without `--yes` previews the hit counts it would record.
 - CLI conventions CLI-1–CLI-16 (AGENTS.md, `tests/cli_contract.rs`). Actions that delete,
   overwrite or send files out now need `--yes` besides their write flag; without it they write
   nothing and `next` shows the command with `--yes`: `spec sync assets --prune --write`,
   `spec attach … --write` when a file goes to the store, `spec export markdown` replacing an
   earlier export in `--out`, and `spec check`/`spec guard --write-baseline`.
-- `spec new` without `--write` or `--dry-run` still writes but warns on stderr. **From 0.4,
-  `spec new` previews unless `--write`.** Add `--write` to scripts now.
 
 ### Added
 

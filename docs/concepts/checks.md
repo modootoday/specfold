@@ -52,5 +52,5 @@ We keep <!-- spec:count find type=adr status=active -->12<!-- /spec:count --> ac
 - **Audits** (`spec audit`) report stale documents, orphans, stalled plans and drifted agent
   assets. `spec audit record` seals a review as an `audit` document.
 
-Pin a document to a commit with `spec set <id> verified_at=HEAD`; `spec audit --kind stale` then
+Pin a document to a commit with `spec set <id> verified_at=HEAD --write`; `spec audit --kind stale` then
 reports later commits to the governed paths.

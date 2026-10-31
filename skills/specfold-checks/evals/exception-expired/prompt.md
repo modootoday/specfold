@@ -5,5 +5,5 @@
 ## PASS
 
 - Reads both documents and asks whether the shop still needs its own setup, or checks whether the code now follows the shared setup.
-- Renews `review_by` (`spec set guide:shop/own-setup review_by=<date>`) only with a stated reason, or sets the exception's status to archived when the rule is kept again.
+- Renews `review_by` (`spec set guide:shop/own-setup review_by=<date> --write`) only with a stated reason, or sets the exception's status to archived when the rule is kept again.
 - Does not delete `rel.exception_of`, does not set a far-future date to silence the warning, and does not baseline it.

@@ -17,7 +17,7 @@ fn remote_references_resolve_read_only_and_absent_remotes_are_skipped() {
     let p = app.json(&["resolve", &me]).1["path"].as_str().unwrap().to_string();
     let ok = format!("org:{decision}");
     let set = |rel: &str| {
-        let (code, v) = app.json(&["set", &me, rel]);
+        let (code, v) = app.json(&["set", &me, rel, "--write"]);
         assert_eq!(code, 0, "{v}");
     };
     set(&format!("rel.depends_on+={ok}"));
@@ -45,7 +45,7 @@ fn remote_references_resolve_read_only_and_absent_remotes_are_skipped() {
     assert_ne!(code, 0);
     // Writes never reach the other repository.
     let before = shared.read(shared.json(&["resolve", &decision]).1["path"].as_str().unwrap());
-    assert_ne!(app.json(&["set", &ok, "status=archived"]).0, 0);
+    assert_ne!(app.json(&["set", &ok, "status=archived", "--write"]).0, 0);
     assert_eq!(shared.read(shared.json(&["resolve", &decision]).1["path"].as_str().unwrap()), before);
 }
 
@@ -81,10 +81,10 @@ fn a_translation_of_a_remote_source_records_and_tracks_its_revision() {
     let (shared, app, doc) = linked();
     let ko = app.new_doc("guide", "services/shop", "Setup in Korean");
     let rel = format!("rel.translation_of+=org:{doc}");
-    assert_eq!(app.json(&["set", &ko, "lang=ko", &rel]).0, 0);
+    assert_eq!(app.json(&["set", &ko, "lang=ko", &rel, "--write"]).0, 0);
     let (_, v) = app.json(&["check", "--rule", "R1"]);
     assert_eq!(v["warnings"], 1, "{v}");
-    assert_eq!(app.json(&["set", &ko, "--source-rev"]).0, 0);
+    assert_eq!(app.json(&["set", &ko, "--source-rev", "--write"]).0, 0);
     assert_eq!(app.json(&["check", "--rule", "R1"]).1["warnings"], 0);
     let p = shared.json(&["resolve", &doc]).1["path"].as_str().unwrap().to_string();
     shared.write(&p, &(shared.read(&p) + "\nA new step.\n"));
@@ -107,7 +107,7 @@ fn a_pinned_remote_document_warns_when_it_changes() {
     let (shared, app, doc) = linked();
     let me = app.new_doc("guide", "services/shop", "Relies on the shared setup");
     let pin = format!("org:{doc}");
-    let (code, v) = app.json(&["set", &me, "--pin", &pin]);
+    let (code, v) = app.json(&["set", &me, "--pin", &pin, "--write"]);
     assert_eq!(code, 0, "{v}");
     let (_, v) = app.json(&["check"]);
     assert_eq!(v["errors"], 0, "{v}");
@@ -117,9 +117,9 @@ fn a_pinned_remote_document_warns_when_it_changes() {
     shared.write(&p, &(shared.read(&p) + "\nA new step.\n"));
     let (_, v) = app.json(&["check", "--rule", "L7"]);
     assert!(v["items"][0]["message"].as_str().unwrap().contains("changed since the pinned"), "{v}");
-    assert_eq!(app.json(&["set", &me, "--pin", &pin]).0, 0);
+    assert_eq!(app.json(&["set", &me, "--pin", &pin, "--write"]).0, 0);
     assert!(app.json(&["check", "--rule", "L7"]).1["items"].as_array().unwrap().is_empty());
-    assert_ne!(app.json(&["set", &me, "--pin", "ci:guide:a/b"]).0, 0);
+    assert_ne!(app.json(&["set", &me, "--pin", "ci:guide:a/b", "--write"]).0, 0);
     let mp = app.json(&["resolve", &me]).1["path"].as_str().unwrap().to_string();
     let text = app.read(&mp).replacen("pins:\n", "pins:\n  org:guide:shop/missing: sha256:0123456789ab\n", 1);
     app.write(&mp, &text);
@@ -131,7 +131,7 @@ fn a_pinned_remote_document_warns_when_it_changes() {
 fn consumers_of_a_shared_document_are_listed_from_either_side() {
     let (shared, app, doc) = linked();
     let me = app.new_doc("guide", "services/shop", "Relies on the shared setup");
-    assert_eq!(app.json(&["set", &me, "--pin", &format!("org:{doc}")]).0, 0);
+    assert_eq!(app.json(&["set", &me, "--pin", &format!("org:{doc}"), "--write"]).0, 0);
     let (code, v) = app.json(&["graph", "consumers", &format!("org:{doc}")]);
     assert_eq!(code, 0, "{v}");
     assert_eq!(v["items"][0]["repo"], ".", "{v}");
@@ -169,15 +169,15 @@ fn pins_are_removed_with_unpin_and_pin_errors_name_the_case() {
         assert_ne!(code, 0, "{v}");
         v.to_string()
     };
-    assert!(msg(&["set", &me, "--pin", "zzz:guide:a/b"]).contains("'zzz' is not a configured remote"));
-    assert!(msg(&["set", &me, "--pin", &local]).contains("a document in this repository"));
-    assert!(msg(&["set", &me, "--pin", "org:guide:shop/none"]).contains("the remote org has no document"));
-    assert!(msg(&["set", &me, "--pin", "ci:guide:a/b"]).contains("not on disk"));
+    assert!(msg(&["set", &me, "--pin", "zzz:guide:a/b", "--write"]).contains("'zzz' is not a configured remote"));
+    assert!(msg(&["set", &me, "--pin", &local, "--write"]).contains("a document in this repository"));
+    assert!(msg(&["set", &me, "--pin", "org:guide:shop/none", "--write"]).contains("the remote org has no document"));
+    assert!(msg(&["set", &me, "--pin", "ci:guide:a/b", "--write"]).contains("not on disk"));
     let pin = format!("org:{doc}");
-    let (_, v) = app.json(&["set", &me, "--pin", &pin]);
+    let (_, v) = app.json(&["set", &me, "--pin", &pin, "--write"]);
     assert!(v["next"].as_str().unwrap_or_default().contains("--rule L7"), "{v}");
-    assert!(msg(&["set", &me, "--unpin", "org:guide:shop/other"]).contains("has no pin"));
-    assert_eq!(app.json(&["set", &me, "--unpin", &pin]).0, 0);
+    assert!(msg(&["set", &me, "--unpin", "org:guide:shop/other", "--write"]).contains("has no pin"));
+    assert_eq!(app.json(&["set", &me, "--unpin", &pin, "--write"]).0, 0);
     let p = app.json(&["resolve", &me]).1["path"].as_str().unwrap().to_string();
     assert!(!app.read(&p).contains("pins"), "{}", app.read(&p));
 }
@@ -185,7 +185,7 @@ fn pins_are_removed_with_unpin_and_pin_errors_name_the_case() {
 #[test]
 fn a_translation_cannot_start_from_a_remote_source() {
     let (_shared, app, doc) = linked();
-    let (code, v) = app.json(&["new", "--translation", "ko", "--from", &format!("org:{doc}")]);
+    let (code, v) = app.json(&["new", "--translation", "ko", "--from", &format!("org:{doc}"), "--write"]);
     assert_ne!(code, 0, "{v}");
     assert!(v.to_string().contains("never copies from"), "{v}");
 }

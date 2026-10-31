@@ -19,7 +19,7 @@ pub fn run(c: &Corpus, owners: &[String], out: &mut Vec<Item>) {
                 line: 0,
                 detail: "has code but no active sot".into(),
                 next: Some(format!(
-                    "spec new sot --governs {} --title '…'",
+                    "spec new sot --governs {} --title '…' --write",
                     crate::shell::word(crate::workspace::escape_glob(&o.path))
                 )),
             });

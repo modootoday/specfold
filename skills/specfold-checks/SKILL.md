@@ -52,7 +52,7 @@ repository; the CI runner's /home/runner/ is not reported). A3 does not read git
 directories when spec.toml declares no assets.
 
 R1 (translation behind its source, or no `source_rev`) is fixed by updating the translation's
-text to match the source, then `spec set <id> --source-rev`. The warning names the changed
+text to match the source, then `spec set <id> --source-rev --write`. The warning names the changed
 sections (`in Install (1 paragraph changed), Support (new)`) when git has the recorded
 revision: update those sections. Never run `--source-rev` without updating the text: it only
 records that the translation matches. `spec census --translations` lists every translation's

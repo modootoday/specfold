@@ -6,8 +6,9 @@ mod common;
 fn supersede_flow_keeps_both_sides_in_step() {
     let r = common::repo();
     let old = r.new_doc("adr", "services/shop", "Use files");
-    assert_eq!(r.json(&["set", &old, "status=active"]).0, 0);
-    let (code, v) = r.json(&["new", "adr", "--from", &old, "--governs", "services/shop", "--title", "Use a database"]);
+    assert_eq!(r.json(&["set", &old, "status=active", "--write"]).0, 0);
+    let (code, v) =
+        r.json(&["new", "adr", "--from", &old, "--governs", "services/shop", "--title", "Use a database", "--write"]);
     assert_eq!(code, 0, "{v}");
     let new = v["id"].as_str().unwrap().to_string();
     assert_eq!(r.json(&["show", &old]).1["frontmatter"]["status"], "superseded");
@@ -58,7 +59,7 @@ fn edit_previews_then_replaces_and_appends_sections() {
 fn edit_refuses_closed_documents() {
     let r = common::repo();
     let id = r.new_doc("adr", "services/shop", "Old idea");
-    let (code, _) = r.json(&["set", &id, "status=rejected"]);
+    let (code, _) = r.json(&["set", &id, "status=rejected", "--write"]);
     assert_eq!(code, 0);
     let (code, v) = r.json(&["edit", &id, "--append", "--text", "more", "--write"]);
     assert_ne!(code, 0, "{v}");
@@ -70,7 +71,7 @@ fn fix_i2_keeps_a_shared_alias_on_the_picked_document() {
     let a = r.new_doc("adr", "services/shop", "First readme");
     let b = r.new_doc("adr", "services/shop", "Second readme");
     for id in [&a, &b] {
-        let (code, v) = r.json(&["set", id, "aliases+=README"]);
+        let (code, v) = r.json(&["set", id, "aliases+=README", "--write"]);
         assert_eq!(code, 0, "{v}");
     }
     let (_, v) = r.json(&["check", "--rule", "I2"]);
@@ -121,14 +122,15 @@ fn edit_changes_one_table_row_by_its_key() {
 #[test]
 fn change_notes_collect_until_a_release_archives_them() {
     let r = common::repo();
-    let (code, v) = r.json(&["new", "change", "--governs", "services/shop/src", "--title", "Cart keeps coupons"]);
+    let (code, v) =
+        r.json(&["new", "change", "--governs", "services/shop/src", "--title", "Cart keeps coupons", "--write"]);
     assert_eq!(code, 0, "{v}");
     let id = v["id"].as_str().unwrap().to_string();
     assert!(id.starts_with("change:"), "{v}");
-    assert_eq!(r.json(&["set", &id, "kind=fixed"]).0, 0);
+    assert_eq!(r.json(&["set", &id, "kind=fixed", "--write"]).0, 0);
     let (_, v) = r.json(&["find", "--type", "change", "--status", "active"]);
     assert!(v.to_string().contains(&id), "pending notes are the active ones: {v}");
-    assert_eq!(r.json(&["set", &id, "status=archived", "release=0.3.0"]).0, 0);
+    assert_eq!(r.json(&["set", &id, "status=archived", "release=0.3.0", "--write"]).0, 0);
     let (_, v) = r.json(&["find", "--type", "change", "--status", "active"]);
     assert!(!v.to_string().contains(&id), "{v}");
     let (code, v) = r.json(&["check"]);
@@ -140,7 +142,7 @@ fn superseding_a_draft_points_at_activating_it_not_at_the_same_command() {
     let r = common::repo();
     let old = r.new_doc("adr", "services/shop/src", "Cart rounding");
     let (code, text) =
-        r.text(&["new", "adr", "--governs", "services/shop/src", "--title", "New rounding", "--from", &old]);
+        r.text(&["new", "adr", "--governs", "services/shop/src", "--title", "New rounding", "--from", &old, "--write"]);
     assert_ne!(code, 0, "{text}");
     assert!(text.contains(&format!("spec set {old} status=active")), "{text}");
     assert!(!text.contains("supersede it with"), "{text}");
@@ -157,14 +159,14 @@ fn new_refuses_a_forbidden_path_and_suggests_local() {
     if !r.read("spec.toml").contains("**/.spec") {
         r.write("spec.toml", &(r.read("spec.toml") + "[forbid]\npaths = [\"**/.spec\"]\n"));
     }
-    let (code, v) = r.json(&["new", "adr", "--governs", "services/shop", "--title", "Use files"]);
+    let (code, v) = r.json(&["new", "adr", "--governs", "services/shop", "--title", "Use files", "--write"]);
     assert_ne!(code, 0, "{v}");
     let e = v["error"].as_str().unwrap();
     assert!(e.contains("[forbid]"), "{e}");
     let next = v["next"].as_str().unwrap();
     assert!(next.starts_with("spec new adr ") && next.ends_with(" --local"), "{next}");
     assert!(!r.path().join("services/shop/.spec").exists(), "nothing written");
-    let (code, v) = r.json(&["new", "adr", "--governs", "services/shop", "--title", "Use files", "--local"]);
+    let (code, v) = r.json(&["new", "adr", "--governs", "services/shop", "--title", "Use files", "--local", "--write"]);
     assert_eq!(code, 0, "{v}");
 }
 
@@ -172,8 +174,8 @@ fn new_refuses_a_forbidden_path_and_suggests_local() {
 fn set_rejecting_a_status_names_the_allowed_ones_and_the_next_command() {
     let r = common::repo();
     let id = r.new_doc("plan", "services/shop", "Checkout");
-    assert_eq!(r.json(&["set", &id, "status=active"]).0, 0);
-    let (code, v) = r.json(&["set", &id, "status=done"]);
+    assert_eq!(r.json(&["set", &id, "status=active", "--write"]).0, 0);
+    let (code, v) = r.json(&["set", &id, "status=done", "--write"]);
     assert_ne!(code, 0);
     let e = v["error"].as_str().unwrap();
     assert!(e.contains("allowed:"), "{e}");
@@ -219,7 +221,7 @@ fn mv_refuses_a_forbidden_target_before_writing() {
 fn set_with_no_matching_finished_status_names_only_the_allowed_ones() {
     let r = common::repo();
     let id = r.new_doc("adr", "services/shop", "Use files");
-    let (code, v) = r.json(&["set", &id, "status=done"]);
+    let (code, v) = r.json(&["set", &id, "status=done", "--write"]);
     assert_ne!(code, 0);
     let e = v["error"].as_str().unwrap();
     assert!(e.contains("allowed:") && !e.contains("next:"), "{e}");
@@ -230,11 +232,11 @@ fn set_with_no_matching_finished_status_names_only_the_allowed_ones() {
 fn superseding_without_a_successor_points_to_new_from() {
     let r = common::repo();
     let id = r.new_doc("adr", "services/shop", "Use files");
-    assert_eq!(r.json(&["set", &id, "status=active"]).0, 0);
-    let (code, v) = r.json(&["set", &id, "status=superseded"]);
+    assert_eq!(r.json(&["set", &id, "status=active", "--write"]).0, 0);
+    let (code, v) = r.json(&["set", &id, "status=superseded", "--write"]);
     assert_ne!(code, 0);
     assert!(v["next"].as_str().unwrap().starts_with(&format!("spec new adr --from {id} --title ")), "{v}");
-    let (code, v) = r.json(&["new", "adr", "--from", &id, "--title", "Use a database"]);
+    let (code, v) = r.json(&["new", "adr", "--from", &id, "--title", "Use a database", "--write"]);
     assert_eq!(code, 0, "{v}");
 }
 
@@ -242,7 +244,7 @@ fn superseding_without_a_successor_points_to_new_from() {
 fn set_warns_about_an_unknown_key_at_once() {
     let r = common::repo();
     let id = r.new_doc("adr", "services/shop", "Use files");
-    let (code, v) = r.json(&["set", &id, "colour=blue"]);
+    let (code, v) = r.json(&["set", &id, "colour=blue", "--write"]);
     assert_eq!(code, 0, "{v}");
     assert!(v["warnings"][0].as_str().unwrap().contains("unknown key 'colour'"), "{v}");
     assert!(v["next"].as_str().unwrap().contains("--rule S1"), "{v}");
@@ -251,11 +253,12 @@ fn set_warns_about_an_unknown_key_at_once() {
 #[test]
 fn a_mostly_non_ascii_title_takes_its_slug_from_governs_or_asks_for_one() {
     let r = common::repo();
-    let (code, v) = r.json(&["new", "adr", "--governs", "services/shop/src/cart", "--title", "결제는 PG 하나만 쓴다"]);
+    let (code, v) =
+        r.json(&["new", "adr", "--governs", "services/shop/src/cart", "--title", "결제는 PG 하나만 쓴다", "--write"]);
     assert_eq!(code, 0, "{v}");
     assert!(v["path"].as_str().unwrap().ends_with("-cart.adr.md"), "{v}");
     assert!(v["slug_note"].as_str().unwrap().contains("--slug"), "{v}");
-    let (code, v) = r.json(&["new", "adr", "--title", "결제"]);
+    let (code, v) = r.json(&["new", "adr", "--title", "결제", "--write"]);
     assert_ne!(code, 0);
     assert!(v["error"].as_str().unwrap().contains("--slug"), "{v}");
 }
@@ -263,22 +266,22 @@ fn a_mostly_non_ascii_title_takes_its_slug_from_governs_or_asks_for_one() {
 #[test]
 fn the_first_local_document_keeps_the_local_directory_out_of_git() {
     let r = common::repo();
-    let (code, v) = r.json(&["new", "plan", "--title", "Try it", "--local"]);
+    let (code, v) = r.json(&["new", "plan", "--title", "Try it", "--local", "--write"]);
     assert_eq!(code, 0, "{v}");
     let status =
         std::process::Command::new("git").arg("-C").arg(r.path()).args(["status", "--porcelain"]).output().unwrap();
     assert!(!String::from_utf8_lossy(&status.stdout).contains(".spec.local"), "{v}");
-    let (_, v) = r.json(&["new", "plan", "--title", "Again", "--local"]);
+    let (_, v) = r.json(&["new", "plan", "--title", "Again", "--local", "--write"]);
     assert!(v.get("ignored").is_none(), "only once: {v}");
 }
 
 #[test]
 fn new_takes_the_title_as_a_positional_argument() {
     let r = common::repo();
-    let (code, v) = r.json(&["new", "adr", "Use files", "--governs", "services/shop"]);
+    let (code, v) = r.json(&["new", "adr", "Use files", "--governs", "services/shop", "--write"]);
     assert_eq!(code, 0, "{v}");
     assert!(v["path"].as_str().unwrap().ends_with("-use-files.adr.md"), "{v}");
-    let (code, v) = r.json(&["new", "adr"]);
+    let (code, v) = r.json(&["new", "adr", "--write"]);
     assert_ne!(code, 0);
     assert!(v["next"].as_str().unwrap().starts_with("spec new adr --title '"), "{v}");
 }
@@ -286,7 +289,8 @@ fn new_takes_the_title_as_a_positional_argument() {
 #[test]
 fn a_mostly_non_ascii_title_points_at_slug() {
     let r = common::repo();
-    let (code, v) = r.json(&["new", "adr", "--title", "결제는 PG 하나만 쓴다", "--governs", "services/shop"]);
+    let (code, v) =
+        r.json(&["new", "adr", "--title", "결제는 PG 하나만 쓴다", "--governs", "services/shop", "--write"]);
     assert_eq!(code, 0, "{v}");
     assert!(v["slug_note"].as_str().is_some(), "{v}");
     assert!(v["next"].as_str().unwrap().contains("--slug"), "{v}");
@@ -295,7 +299,7 @@ fn a_mostly_non_ascii_title_points_at_slug() {
 #[test]
 fn mv_tier_promotes_a_local_document() {
     let r = common::repo();
-    let (code, v) = r.json(&["new", "sot", "Notes", "--local"]);
+    let (code, v) = r.json(&["new", "sot", "Notes", "--local", "--write"]);
     assert_eq!(code, 0, "{v}");
     let id = v["id"].as_str().unwrap().to_string();
     assert!(v["path"].as_str().unwrap().starts_with(".spec.local/"), "{v}");
@@ -361,7 +365,7 @@ fn mv_cited_paths_reads_staged_files() {
 #[test]
 fn new_without_ascii_words_suggests_the_full_command() {
     let r = common::repo();
-    let (code, v) = r.json(&["new", "sot", "--title", "장바구니"]);
+    let (code, v) = r.json(&["new", "sot", "--title", "장바구니", "--write"]);
     assert_eq!(code, 2, "{v}");
     let next = v["next"].as_str().unwrap();
     assert!(next.starts_with("spec new sot --title") && next.ends_with("--slug my-slug"), "{v}");
@@ -372,7 +376,7 @@ fn required_sections_are_in_new_documents_and_a_missing_one_names_the_command() 
     let r = common::repo();
     let toml = std::fs::read_to_string(r.path().join("spec.toml")).unwrap_or_default();
     r.write("spec.toml", &format!("{toml}\n[types.adr]\nsections = [\"Decision\", \"Risks\"]\n"));
-    assert_eq!(r.text(&["new", "adr", "Pick a queue"]).0, 0);
+    assert_eq!(r.text(&["new", "adr", "Pick a queue", "--write"]).0, 0);
     let (_, l) = r.json(&["list", "--type", "adr"]);
     let id = l["items"][0]["id"].as_str().unwrap().to_string();
     let (_, d) = r.json(&["show", &id]);
@@ -421,7 +425,7 @@ fn c117_a_set_that_changes_nothing_writes_nothing() {
 fn c165_draft_refusal_and_missing_title_keep_from() {
     let r = common::repo();
     let id = r.new_doc("adr", "services/shop", "Use files");
-    let (code, v) = r.json(&["set", &id, "status=superseded"]);
+    let (code, v) = r.json(&["set", &id, "status=superseded", "--write"]);
     assert_eq!(code, 2, "{v}");
     let e = v.to_string();
     assert!(e.contains(&format!("spec new adr --title '…' --from {id}")), "{e}");
@@ -459,7 +463,7 @@ fn c168_fix_write_with_nothing_to_fix_is_no_change() {
 fn c178_new_with_an_unknown_option_points_at_help_not_the_same_error() {
     let r = common::repo();
     for bad in [["--tier", "local"], ["--bogus", "x"]] {
-        let mut args = vec!["new", "sot"];
+        let mut args = vec!["new", "sot", "--write"];
         args.extend(bad);
         args.extend(["--governs", "src/x", "--title", "T", "--write"]);
         let (code, v) = r.json(&args);
@@ -762,7 +766,7 @@ fn c223_set_checks_and_keeps_updated() {
     let was = d["frontmatter"]["updated"].clone();
     for bad in ["updated=notadate", "updated=2026-13-45", "updated="] {
         for write in [false, true] {
-            let mut args = vec!["set", id.as_str(), bad];
+            let mut args = vec!["set", id.as_str(), bad, "--write"];
             if write {
                 args.push("--write");
             }

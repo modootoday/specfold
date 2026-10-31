@@ -7,7 +7,7 @@ mod common;
 #[test]
 fn values_may_start_with_a_hyphen() {
     let r = common::repo();
-    let (code, v) = r.json(&["new", "adr", "--governs", "services/shop", "--title", "-1 retries"]);
+    let (code, v) = r.json(&["new", "adr", "--governs", "services/shop", "--title", "-1 retries", "--write"]);
     assert_eq!(code, 0, "{v}");
     let id = v["id"].as_str().unwrap().to_string();
     assert!(r.json(&["show", &id]).1.to_string().contains("-1 retries"));
@@ -56,19 +56,19 @@ fn a_file_that_is_not_utf8_is_named_with_its_line() {
 fn set_aliases_points_at_the_duplicate_alias_check() {
     let r = common::repo();
     let a = r.new_doc("adr", "services/shop", "First");
-    let (_, v) = r.json(&["set", &a, "aliases=PAY-1"]);
+    let (_, v) = r.json(&["set", &a, "aliases=PAY-1", "--write"]);
     assert!(v["next"].as_str().unwrap().contains("--rule I2"), "{v}");
 }
 
 #[test]
 fn dropped_non_ascii_words_warn() {
     let r = common::repo();
-    let (code, v) = r.json(&["new", "adr", "--governs", "services/shop", "--title", "결제 비교 Gateway"]);
+    let (code, v) = r.json(&["new", "adr", "--governs", "services/shop", "--title", "결제 비교 Gateway", "--write"]);
     assert_eq!(code, 0, "{v}");
     let note = v["slug_note"].as_str().unwrap_or_else(|| panic!("{v}"));
     assert!(note.contains("결제 비교"), "{note}");
     assert!(v["next"].as_str().unwrap().starts_with("spec mv "), "{v}");
-    let (_, v) = r.json(&["new", "adr", "--governs", "services/shop", "--title", "Plain Gateway"]);
+    let (_, v) = r.json(&["new", "adr", "--governs", "services/shop", "--title", "Plain Gateway", "--write"]);
     assert!(v.get("slug_note").is_none(), "{v}");
 }
 
@@ -109,7 +109,7 @@ fn c199_writes_keep_a_leading_bom() {
     let path = v["path"].as_str().unwrap().to_string();
     r.write(&path, &format!("\u{FEFF}{}", r.read(&path).replace('\n', "\r\n")));
     r.commit("bom");
-    let (code, v) = r.json(&["set", &id, "title=X"]);
+    let (code, v) = r.json(&["set", &id, "title=X", "--write"]);
     assert_eq!(code, 0, "{v}");
     assert!(!v.to_string().contains("\\ufeff"), "the preview shows no BOM change: {v}");
     for args in

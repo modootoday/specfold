@@ -56,7 +56,7 @@ pub fn plan(c: &Corpus, idx: usize, req: &Move) -> Result<(Moved, Plan)> {
     let hint = if tier == Tier::Local {
         "change [forbid] paths or the type's directory"
     } else {
-        "choose another --owner, or keep it local: spec new --local, then move the body"
+        "choose another --owner, or keep it local: spec new --local --write, then move the body"
     };
     super::forbid::refuse(c, &new_main, hint)?;
     if c.docs.iter().enumerate().any(|(j, x)| j != idx && x.id == new_id) {

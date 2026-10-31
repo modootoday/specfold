@@ -11,8 +11,17 @@ fn placement_follows_governs_and_public_paths() {
     assert_eq!(id, "sot:shop/shop-rules");
     let id = r.new_doc("plan", "services/shop", "Cross cutting");
     assert!(id.starts_with("plan:shop/"));
-    let (code, v) =
-        r.json(&["new", "plan", "--governs", "services/shop", "--governs", "services/blog", "--title", "Both apps"]);
+    let (code, v) = r.json(&[
+        "new",
+        "plan",
+        "--governs",
+        "services/shop",
+        "--governs",
+        "services/blog",
+        "--title",
+        "Both apps",
+        "--write",
+    ]);
     assert_eq!(code, 0);
     assert!(v["id"].as_str().unwrap().starts_with("plan:ws/"), "{v}");
 }
@@ -34,7 +43,7 @@ fn check_fix_loop_for_mechanical_problems() {
 fn staged_check_catches_backward_status_and_sealed_edits() {
     let r = common::repo();
     let adr = r.new_doc("adr", "services/shop", "Choose");
-    assert_eq!(r.json(&["set", &adr, "status=active"]).0, 0);
+    assert_eq!(r.json(&["set", &adr, "status=active", "--write"]).0, 0);
     let (_, v) = r.json(&["audit", "--record", "--title", "First audit", "--write"]);
     let audit_path = v["path"].as_str().unwrap().to_string();
     r.commit("decided");
@@ -97,8 +106,8 @@ fn check_summary_counts_per_rule_and_quiet_hides_warnings() {
 fn a_pinned_document_is_stale_after_any_commit_to_its_code() {
     let r = common::repo();
     let id = r.new_doc("adr", "services/shop", "Cart totals");
-    assert_eq!(r.json(&["set", &id, "status=active"]).0, 0);
-    let (code, v) = r.json(&["set", &id, "verified_at=HEAD"]);
+    assert_eq!(r.json(&["set", &id, "status=active", "--write"]).0, 0);
+    let (code, v) = r.json(&["set", &id, "verified_at=HEAD", "--write"]);
     assert_eq!(code, 0, "{v}");
     let (_, v) = r.json(&["show", &id]);
     let pin = v["frontmatter"]["verified_at"].as_str().unwrap_or_default().to_string();
@@ -114,11 +123,11 @@ fn a_pinned_document_is_stale_after_any_commit_to_its_code() {
     let t = v.to_string();
     assert!(t.contains("changed in 1 commit(s) since verified_at"), "{v}");
     assert!(t.contains("verified_at=HEAD"), "the next step re-pins: {v}");
-    let (_, v) = r.json(&["set", &id, "verified_at=HEAD"]);
+    let (_, v) = r.json(&["set", &id, "verified_at=HEAD", "--write"]);
     assert_eq!(v["id"], id.as_str());
     let (_, v) = r.json(&["audit", "--kind", "stale"]);
     assert!(!v.to_string().contains("since verified_at"), "re-pinned: {v}");
-    assert_eq!(r.json(&["set", &id, "verified_at=0000000deadbeef"]).0, 0);
+    assert_eq!(r.json(&["set", &id, "verified_at=0000000deadbeef", "--write"]).0, 0);
     let (_, v) = r.json(&["audit", "--kind", "stale"]);
     assert!(v.to_string().contains("is not a commit in this repository"), "{v}");
     let item = v["items"].as_array().unwrap().iter().find(|i| i["kind"] == "stale").cloned().unwrap();
@@ -480,7 +489,7 @@ fn the_commit_check_refuses_a_document_secret_with_no_guard_configured() {
 #[test]
 fn a_secret_in_a_local_document_is_a_warning() {
     let r = common::repo();
-    let (code, v) = r.json(&["new", "adr", "--governs", "services/shop", "--title", "Notes", "--local"]);
+    let (code, v) = r.json(&["new", "adr", "--governs", "services/shop", "--title", "Notes", "--local", "--write"]);
     assert_eq!(code, 0, "{v}");
     let id = v["id"].as_str().unwrap().to_string();
     let path = r.json(&["show", &id]).1["path"].as_str().unwrap().to_string();
@@ -497,7 +506,7 @@ fn a_secret_in_a_local_document_is_a_warning() {
 #[test]
 fn a_secret_in_a_repository_attachment_is_found_after_attach() {
     let r = common::repo();
-    let (code, v) = r.json(&["new", "design", "--governs", "services/shop", "--title", "Board"]);
+    let (code, v) = r.json(&["new", "design", "--governs", "services/shop", "--title", "Board", "--write"]);
     assert_eq!(code, 0, "{v}");
     let id = v["id"].as_str().unwrap().to_string();
     let url = format!("postgres:{}app:{}{}@db.acme.io/main", "//", "s3cr", "Et-77x");
@@ -531,7 +540,7 @@ fn a_secret_in_a_repository_attachment_is_found_after_attach() {
 #[test]
 fn an_attachment_that_gains_a_secret_points_at_u2_not_at_attaching_it_again() {
     let r = common::repo();
-    let (code, v) = r.json(&["new", "design", "--governs", "services/shop", "--title", "Board"]);
+    let (code, v) = r.json(&["new", "design", "--governs", "services/shop", "--title", "Board", "--write"]);
     assert_eq!(code, 0, "{v}");
     let id = v["id"].as_str().unwrap().to_string();
     let dir = v["path"].as_str().unwrap().rsplit_once('/').unwrap().0.to_string();
@@ -555,7 +564,7 @@ fn an_attachment_that_gains_a_secret_points_at_u2_not_at_attaching_it_again() {
 fn governed_code_changed_without_its_document_warns_in_a_staged_run() {
     let r = common::repo();
     let sot = r.new_doc("sot", "services/shop", "Cart rules");
-    assert_eq!(r.json(&["set", &sot, "status=active"]).0, 0);
+    assert_eq!(r.json(&["set", &sot, "status=active", "--write"]).0, 0);
     r.commit("rules");
     let d1 = |v: &serde_json::Value| -> Vec<String> {
         v["items"]
@@ -575,7 +584,7 @@ fn governed_code_changed_without_its_document_warns_in_a_staged_run() {
     assert!(hits[0].contains("services/shop/src/cart/total.rs") && hits[0].contains(&sot), "{hits:?}");
     assert!(d1(&r.json(&["check"]).1).is_empty(), "a full run never reports D1");
     // A change note that names the document answers it.
-    let (code, v) = r.json(&["new", "change", "--owner", "shop", "--title", "Totals round up"]);
+    let (code, v) = r.json(&["new", "change", "--owner", "shop", "--title", "Totals round up", "--write"]);
     assert_eq!(code, 0, "{v}");
     let note = v["path"].as_str().unwrap().to_string();
     r.write(&note, &(r.read(&note) + &format!("\nFollows [[{sot}]].\n")));
@@ -643,8 +652,8 @@ fn set_with_an_empty_value_deletes_the_key() {
     assert_eq!(r.json(&["set", &sot, "rel.affects+=x", "--write"]).0, 0);
     let path = r.json(&["resolve", &sot]).1["path"].as_str().unwrap().to_string();
     assert!(r.read(&path).contains("affects"));
-    let out = r.spec().args(["set", &sot, "rel.affects="]).output().unwrap();
-    assert!(String::from_utf8_lossy(&out.stderr).contains("from 0.4 it previews unless --write"));
+    let out = r.spec().args(["set", &sot, "rel.affects=", "--write"]).output().unwrap();
+    assert!(out.status.success() && out.stderr.is_empty(), "{}", String::from_utf8_lossy(&out.stderr));
     assert!(!r.read(&path).contains("affects"), "{}", r.read(&path));
 }
 
@@ -652,8 +661,8 @@ fn set_with_an_empty_value_deletes_the_key() {
 fn c175_stale_diff_next_quotes_the_governed_paths() {
     let r = common::repo();
     let id = r.new_doc("adr", "services/my shop", "Cart totals");
-    assert_eq!(r.json(&["set", &id, "status=active"]).0, 0);
-    assert_eq!(r.json(&["set", &id, "verified_at=HEAD"]).0, 0);
+    assert_eq!(r.json(&["set", &id, "status=active", "--write"]).0, 0);
+    assert_eq!(r.json(&["set", &id, "verified_at=HEAD", "--write"]).0, 0);
     r.commit("pinned");
     r.write("services/my shop/total.rs", "fn total() -> u32 { 0 }\n");
     r.commit("change totals");

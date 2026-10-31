@@ -143,7 +143,7 @@ fn c7_one_resolver_for_ids_paths_slugs() {
 #[test]
 fn c8_current_documents_by_default() {
     let (r, _, adr) = populated();
-    let (code, _) = r.json(&["set", &adr, "status=rejected"]);
+    let (code, _) = r.json(&["set", &adr, "status=rejected", "--write"]);
     assert_eq!(code, 0);
     assert_eq!(r.json(&["find", "round"]).1["total"], 0);
     assert_eq!(r.json(&["find", "round", "--all"]).1["total"], 1);
@@ -234,24 +234,6 @@ fn cli1_writes_need_write_flag_everywhere() {
     // --dry-run and --write together are a usage error.
     let out = r.spec().args(["mv", &sot, "--slug", "b", "--dry-run", "--write"]).output().unwrap();
     assert_eq!(out.status.code(), Some(2));
-}
-
-#[test]
-fn cli1_new_without_write_warns_on_stderr_until_0_4() {
-    let r = common::repo();
-    let out =
-        r.spec().args(["new", "plan", "--governs", "services/blog", "--title", "Blog", "--json"]).output().unwrap();
-    assert_eq!(out.status.code(), Some(0));
-    let err = String::from_utf8_lossy(&out.stderr);
-    assert!(err.contains("from 0.4 it previews unless --write"), "{err}");
-    serde_json::from_slice::<Value>(&out.stdout).expect("stdout stays JSON");
-    let out = r
-        .spec()
-        .args(["new", "plan", "--governs", "services/blog", "--title", "Blog two", "--write"])
-        .output()
-        .unwrap();
-    assert_eq!(out.status.code(), Some(0));
-    assert!(!String::from_utf8_lossy(&out.stderr).contains("warning"));
 }
 
 #[test]
@@ -353,8 +335,11 @@ fn cli7_bulk_writes_are_bounded() {
 #[test]
 fn cli8_stdout_is_data_only() {
     let r = common::repo();
-    let out =
-        r.spec().args(["new", "plan", "--governs", "services/blog", "--title", "Blog", "--json"]).output().unwrap();
+    let out = r
+        .spec()
+        .args(["new", "plan", "--governs", "services/blog", "--title", "Blog", "--json", "--write"])
+        .output()
+        .unwrap();
     serde_json::from_slice::<Value>(&out.stdout).expect("diagnostics stay off stdout");
 }
 
@@ -1142,8 +1127,8 @@ fn c131_box_cycle_note_is_one_line_of_ids() {
     let r = common::repo();
     let a = r.new_doc("sot", "services/shop", "Aa");
     let b = r.new_doc("sot", "services/shop", "Bb");
-    assert_eq!(r.json(&["set", &a, &format!("rel.depends_on+={b}")]).0, 0);
-    assert_eq!(r.json(&["set", &b, &format!("rel.depends_on+={a}")]).0, 0);
+    assert_eq!(r.json(&["set", &a, &format!("rel.depends_on+={b}"), "--write"]).0, 0);
+    assert_eq!(r.json(&["set", &b, &format!("rel.depends_on+={a}"), "--write"]).0, 0);
     let (_, out) = r.text(&["graph", "--format", "box"]);
     let line = out.lines().find(|l| l.contains("also:")).unwrap_or_else(|| panic!("{out}"));
     assert!(line.contains("depends_on") && line.ends_with("(a cycle)"), "{out}");
@@ -1184,7 +1169,7 @@ fn c145_c146_fix_next_keeps_the_pick_and_refuses_a_foreign_one() {
     let a = r.new_doc("adr", "services/shop", "First readme");
     let b = r.new_doc("adr", "services/shop", "Second readme");
     for id in [&a, &b] {
-        assert_eq!(r.json(&["set", id, "aliases+=README"]).0, 0);
+        assert_eq!(r.json(&["set", id, "aliases+=README", "--write"]).0, 0);
     }
     let target = format!("{}:1", doc_path(&r, &a));
     let (code, v) = r.json(&["fix", "--rule", "I2", "--pick", &a, &target]);
@@ -1199,12 +1184,12 @@ fn c145_c146_fix_next_keeps_the_pick_and_refuses_a_foreign_one() {
 #[test]
 fn c133_new_usage_next_skips_option_values() {
     let r = common::repo();
-    let (code, v) = r.json(&["new", "sot", "--governs", "services/shop"]);
+    let (code, v) = r.json(&["new", "sot", "--governs", "services/shop", "--write"]);
     assert_eq!(code, 2, "{v}");
     let next = v["next"].as_str().unwrap_or_default();
     assert!(next.starts_with("spec new sot --title ") && next.contains("--governs services/shop"), "{v}");
-    let (_, v) = r.json(&["new", "--title", "My doc"]);
-    assert_eq!(v["next"], "spec new adr --title 'My doc'", "{v}");
+    let (_, v) = r.json(&["new", "--title", "My doc", "--write"]);
+    assert_eq!(v["next"], "spec new adr --title 'My doc' --write", "{v}");
 }
 
 #[test]

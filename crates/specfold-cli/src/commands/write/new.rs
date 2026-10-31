@@ -11,23 +11,48 @@ use specfold_core::authoring::new::{self, NewDoc};
 use specfold_core::config::types::AssetKind;
 use specfold_core::model::stamp::slugify;
 
+/// CLI-1: `new` previews unless --write (--dry-run previews too), as every write command does.
 pub fn run(g: &Global, a: &NewArgs) -> Result<Output> {
-    let out = create(g, a);
-    // CLI-1: from 0.4 `new` previews unless --write; 0.3 still writes, and says so on stderr
-    // once it has written (C106: a failed run wrote nothing to warn about).
-    if out.is_ok() && !a.dry_run && !a.write {
-        eprintln!(
-            "warning: spec new writes without --write in 0.3; from 0.4 it previews unless --write. Add --write to keep writing (--dry-run previews)."
-        );
+    create(g, a)
+}
+
+/// The same `spec new` with --write: the next step of a preview.
+fn rerun(a: &NewArgs) -> String {
+    use specfold_core::shell::{opt, word};
+    let mut cmd = String::from("spec new");
+    if let Some(ty) = &a.ty {
+        cmd.push_str(&format!(" {}", word(ty)));
     }
-    out
+    let flags = [("--title", a.title.as_ref().or(a.title_text.as_ref()))]
+        .into_iter()
+        .chain([("--owner", a.owner.as_ref()), ("--slug", a.slug.as_ref()), ("--from", a.from.as_ref())])
+        .chain([("--translation", a.translation.as_ref()), ("--description", a.description.as_ref())]);
+    for (flag, v) in flags {
+        if let Some(v) = v {
+            cmd.push_str(&format!(" {}", opt(flag, v)));
+        }
+    }
+    for (flag, vs) in [("--governs", &a.governs), ("--depends-on", &a.depends_on)] {
+        for v in vs {
+            cmd.push_str(&format!(" {}", opt(flag, v)));
+        }
+    }
+    for (flag, on) in [(" --local", a.local), (" --bundle", a.bundle)] {
+        if on {
+            cmd.push_str(flag);
+        }
+    }
+    cmd.push_str(" --write");
+    cmd
 }
 
 fn create(g: &Global, a: &NewArgs) -> Result<Output> {
     // C160: a title is one line; a line break splits the heading and list rows.
     if [&a.title, &a.title_text].into_iter().flatten().any(|t| t.contains(session::LINE_BREAKS)) {
         let ty = a.ty.as_deref().unwrap_or("<type>");
-        bail!("the title has a line break; give it on one line; next: spec new {ty} --title \"<one-line title>\"");
+        bail!(
+            "the title has a line break; give it on one line; next: spec new {ty} --title \"<one-line title>\" --write"
+        );
     }
     let s = session::open(g)?;
     if let Some(lang) = &a.translation {
@@ -56,7 +81,7 @@ fn create(g: &Global, a: &NewArgs) -> Result<Output> {
     // another process takes the next second.
     for _ in 0..120 {
         let key = created.id.rsplit('/').next().unwrap_or_default().to_string();
-        if a.dry_run
+        if !a.write
             || !specfold_core::model::stamp::is_stamp(&key)
             || reserve(&s.corpus.cfg.root, &created.id, &created.path, &key)
         {
@@ -70,7 +95,7 @@ fn create(g: &Global, a: &NewArgs) -> Result<Output> {
         .field("id", created.id.clone())
         .field("path", created.path.clone())
         .field("owner_reason", created.owner_reason.clone())
-        .head(format!("{} {}  {}", if a.dry_run { "would create" } else { "created" }, created.id, created.path))
+        .head(format!("{} {}  {}", if a.write { "created" } else { "would create" }, created.id, created.path))
         .head(format!("owner: {}", created.owner_reason))
         .head("dates and timestamp keys are UTC");
     let o = match &created.slug_note {
@@ -92,16 +117,16 @@ fn create(g: &Global, a: &NewArgs) -> Result<Output> {
     } else {
         o.field("same_title", json!(same)).head(format!("warn  same title as {}", same.join(", ")))
     };
-    let mut o = preview::finish(o, &plan, &s.corpus.cfg.root, !a.dry_run, "rerun without --dry-run")?;
+    let mut o = preview::finish(o, &plan, &s.corpus.cfg.root, a.write, &rerun(a))?;
     if a.local
-        && !a.dry_run
+        && a.write
         && let Some(note) = ignore_local(&s.corpus.cfg.root, &created.path, s.corpus.cfg.local_dir())
     {
         o = o.field("ignored", note.clone()).foot(note);
     }
     // A slug taken from a few ASCII letters of a mostly non-ASCII title rarely names the
     // document: the next step is to name it.
-    Ok(match (&created.slug_note, a.dry_run) {
+    Ok(match (&created.slug_note, !a.write) {
         (Some(_), false) => {
             o.next(format!("spec mv {} --slug <kebab-case-name> --write", specfold_core::shell::word(&created.id)))
         }
@@ -161,11 +186,11 @@ fn translation(s: &session::Session, a: &NewArgs, lang: &str) -> Result<Output> 
         .field("id", created.id.clone())
         .field("path", created.path.clone())
         .field("owner_reason", created.owner_reason.clone())
-        .head(format!("{} {}  {}", if a.dry_run { "would create" } else { "created" }, created.id, created.path))
+        .head(format!("{} {}  {}", if a.write { "created" } else { "would create" }, created.id, created.path))
         .head(created.owner_reason.clone())
         .head("the body is the source's: translate it; source_rev already records the source it was copied from");
-    let o = preview::finish(o, &plan, &s.corpus.cfg.root, !a.dry_run, "rerun without --dry-run")?;
-    Ok(if a.dry_run { o } else { o.next(format!("spec show {}", specfold_core::shell::word(&created.id))) })
+    let o = preview::finish(o, &plan, &s.corpus.cfg.root, a.write, &rerun(a))?;
+    Ok(if !a.write { o } else { o.next(format!("spec show {}", specfold_core::shell::word(&created.id))) })
 }
 
 /// The local directory is meant to stay out of git; the first local document makes sure it does,
@@ -234,7 +259,7 @@ fn asset(s: &session::Session, a: &NewArgs, kind: AssetKind) -> Result<Output> {
         .field("name", name.clone())
         .field("declared", covered)
         .field("path", path.clone())
-        .head(format!("{} {} {name}  {path}", if a.dry_run { "would create" } else { "created" }, kind.as_str()))
+        .head(format!("{} {} {name}  {path}", if a.write { "created" } else { "would create" }, kind.as_str()))
         .head("agent assets carry no id");
     if !covered {
         o = o.head(format!(
@@ -243,14 +268,18 @@ fn asset(s: &session::Session, a: &NewArgs, kind: AssetKind) -> Result<Output> {
             declare_path(kind, &path)
         ));
     }
-    if a.dry_run {
-        return Ok(o.field("text", text).next("rerun without --dry-run"));
+    if !a.write {
+        return Ok(o
+            .field("text", text)
+            .field("written", false)
+            .foot("preview only; nothing was written")
+            .next(rerun(a)));
     }
     if let Some(dir) = full.parent() {
         std::fs::create_dir_all(dir).with_context(|| format!("cannot create {}", dir.display()))?;
     }
     std::fs::write(&full, text).with_context(|| format!("cannot write {path}"))?;
-    Ok(o.next("spec check --rule A1"))
+    Ok(o.field("written", true).next("spec check --rule A1"))
 }
 
 /// The directory to declare for a new asset path.

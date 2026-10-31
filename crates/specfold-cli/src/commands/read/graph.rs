@@ -43,7 +43,7 @@ pub fn run(g: &Global, a: &GraphArgs) -> Result<Output> {
             match example {
                 Some(t) => bail!("'{q}' needs a target: spec graph {q} <id or path>; next: spec graph {q} {t}"),
                 None => bail!(
-                    "'{q}' needs a target, and there are no documents yet; next: spec new adr --title 'First decision'"
+                    "'{q}' needs a target, and there are no documents yet; next: spec new adr --title 'First decision' --write"
                 ),
             }
         }
