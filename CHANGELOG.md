@@ -139,6 +139,7 @@ A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is 
   `gateway`), not only when most of the title is lost.
 
 ### Fixed
+- C199: set, edit and mv keep a document's leading UTF-8 BOM; the preview no longer shows line 1 changing
 - C198: a section name picks an exact heading or {#anchor} before a heading that only starts with it; several prefix matches or duplicate headings are rc 2 listing them
 - C215: an argument that is not UTF-8 is rc 2 with the argument named, instead of a panic
 - C218: `spec help --markdown`/`--llms` put `--flag` words in prose in code spans, so the docs site no longer renders `--write` as an en dash
