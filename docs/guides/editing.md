@@ -13,8 +13,8 @@ redirect_from: [/editing/]
 ## Create
 
 ```console
-$ spec new plan --governs services/shop --title "Checkout launch"
-$ spec new skill --title review --description "Review a change"
+$ spec new plan --governs services/shop --title "Checkout launch" --write
+$ spec new skill --title review --description "Review a change" --write
 ```
 
 A title is one line: `new --title` and `set title=` refuse a line break (exit 2).

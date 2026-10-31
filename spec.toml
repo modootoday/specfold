@@ -19,3 +19,6 @@ deny_terms_env = "SPECFOLD_PRIVATE_TERMS"
 secrets = true
 commit_messages = true
 exclude = ["LICENSE-APACHE", "LICENSE-MIT"]
+
+[check]
+count_paths = ["README.md", "docs/**/*.md"]

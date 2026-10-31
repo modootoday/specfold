@@ -46,9 +46,9 @@ the same change.
 ## Create
 
 ```sh
-spec new adr --governs services/shop/src/db --title "Use Postgres for orders"
-spec new plan --governs services/shop --title "Checkout v2"
-spec new adr --from adr:shop/20250101000000 --title "Move orders to a queue"   # supersedes
+spec new adr --governs services/shop/src/db --title "Use Postgres for orders" --write
+spec new plan --governs services/shop --title "Checkout v2" --write
+spec new adr --from adr:shop/20250101000000 --title "Move orders to a queue" --write   # supersedes
 ```
 
 `--governs` decides the owner. Use `--local` for a draft that stays out of git, and
