@@ -92,7 +92,7 @@ fn markdown(cmds: &[describe::CommandInfo]) -> Output {
     let mut o =
         Output::new("help").unpaged().head("").head("| command | what it does |").head("| ------- | ------------ |");
     for c in cmds {
-        let about = c.about.trim_end_matches('.').replace('|', "\\|");
+        let about = code_flags(&c.about.trim_end_matches('.').replace('|', "\\|"));
         o = o.item(to_value(c).unwrap_or_default(), format!("| `spec {}` | {about}{} |", c.name, also(c)));
     }
     o
@@ -131,7 +131,44 @@ fn llms(cmds: &[describe::CommandInfo]) -> Output {
 }
 
 fn cell(s: &str) -> String {
-    s.trim_end_matches('.').replace('|', "\\|").replace('\n', " ")
+    code_flags(&s.trim_end_matches('.').replace('|', "\\|").replace('\n', " "))
+}
+
+/// C218: a `--flag` in prose goes in a code span, or Jekyll's typography turns `--` into an en
+/// dash. Text already inside backticks stays as it is.
+pub fn code_flags(s: &str) -> String {
+    let chars: Vec<char> = s.chars().collect();
+    let mut out = String::new();
+    let mut in_code = false;
+    let mut i = 0;
+    while i < chars.len() {
+        let c = chars[i];
+        if c == '`' {
+            in_code = !in_code;
+            out.push(c);
+            i += 1;
+            continue;
+        }
+        let starts = !in_code
+            && c == '-'
+            && chars.get(i + 1) == Some(&'-')
+            && chars.get(i + 2).is_some_and(char::is_ascii_lowercase)
+            && (i == 0 || !(chars[i - 1].is_alphanumeric() || chars[i - 1] == '-'));
+        if starts {
+            let mut j = i + 2;
+            while j < chars.len() && (chars[j].is_ascii_lowercase() || chars[j].is_ascii_digit() || chars[j] == '-') {
+                j += 1;
+            }
+            out.push('`');
+            out.extend(&chars[i..j]);
+            out.push('`');
+            i = j;
+            continue;
+        }
+        out.push(c);
+        i += 1;
+    }
+    out
 }
 
 /// Where `spec lsp` is wired into Neovim, Helix and VS Code.
@@ -181,7 +218,7 @@ pub fn notes_markdown(notes: &str) -> Vec<String> {
             out.push("```".to_string());
             code = indented;
         }
-        out.push(if code { l[2..].to_string() } else { l.to_string() });
+        out.push(if code { l[2..].to_string() } else { code_flags(l) });
     }
     if code {
         out.push("```".to_string());

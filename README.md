@@ -89,10 +89,10 @@ times and task items: [docs/concepts/index.md](docs/concepts/index.md).
 | `spec log` | The history of a document's status and relations, from git |
 | `spec new` | Create a document at the place its owner and type decide |
 | `spec set` | Change frontmatter with the lifecycle enforced |
-| `spec edit` | Replace or append to a section or the whole body; previews until --write |
+| `spec edit` | Replace or append to a section or the whole body; previews until `--write` |
 | `spec mv` | Move or rename a document and rewrite every reference to it |
 | `spec fix` | Apply fixes that need no judgement |
-| `spec sync` | Copy asset sources over the [[assets]] roots that declare copy_of; previews until --write |
+| `spec sync` | Copy asset sources over the [[assets]] roots that declare copy_of; previews until `--write` |
 | `spec attach` | Register files with a document, in the repository or the store |
 | `spec fetch` | Download a document's stored attachments, verified by hash |
 | `spec files` | A document's attachments and where each is kept |
@@ -106,7 +106,7 @@ times and task items: [docs/concepts/index.md](docs/concepts/index.md).
 | `spec doctor` | Read-only setup diagnosis: configuration, conflict markers, ignored local documents |
 | `spec explain` | Why a rule exists and how to fix it; or the configuration keys |
 | `spec schema` | Document types and their frontmatter; or output schema names |
-| `spec help` | Commands and arguments; with --json, the whole command tree |
+| `spec help` | Commands and arguments; with `--json`, the whole command tree |
 | `spec agents` | The lines to put in an agent's instruction file |
 | `spec hook` | Hook snippets for git, pre-commit, lefthook or husky |
 | `spec plugins` | Configured plugins and what they provide |

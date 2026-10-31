@@ -206,3 +206,66 @@ fn every_rule_is_in_the_rules_reference() {
         assert!(page.contains(&format!("| **{id}** |")), "docs/reference/rules.md has no row for {id}");
     }
 }
+
+/// Bare `--flag` words outside code in markdown prose: Jekyll typography turns `--` into an en dash.
+fn bare_flags(text: &str) -> Vec<String> {
+    let (mut out, mut fence, mut code) = (vec![], false, false);
+    for (n, line) in text.lines().enumerate() {
+        let t = line.trim_start();
+        if t.starts_with("```") || t.starts_with("~~~") {
+            fence = !fence;
+            continue;
+        }
+        if fence || line.starts_with("    ") || line.trim().starts_with("<!--") {
+            continue;
+        }
+        if line.trim().is_empty() {
+            code = false;
+        }
+        let chars: Vec<char> = line.chars().collect();
+        for i in 0..chars.len() {
+            if chars[i] == '`' {
+                code = !code;
+            } else if !code
+                && chars[i] == '-'
+                && chars.get(i + 1) == Some(&'-')
+                && chars.get(i + 2).is_some_and(char::is_ascii_lowercase)
+                && (i == 0 || !(chars[i - 1].is_alphanumeric() || chars[i - 1] == '-'))
+            {
+                out.push(format!("line {}: {line}", n + 1));
+            }
+        }
+    }
+    out
+}
+
+#[test]
+fn c218_flags_in_prose_are_code_spans() {
+    let r = common::repo();
+    for args in [
+        &["help", "--markdown"][..],
+        &["help", "--llms"],
+        &["help", "edit", "--markdown"],
+        &["help", "sync", "--markdown"],
+    ] {
+        let (code, text) = r.text(args);
+        assert_eq!(code, 0, "{text}");
+        assert!(bare_flags(&text).is_empty(), "spec {args:?}: {:?}", bare_flags(&text));
+    }
+    let mut files = vec![root().join("README.md")];
+    let mut dirs = vec![root().join("docs")];
+    while let Some(d) = dirs.pop() {
+        for e in std::fs::read_dir(&d).unwrap().flatten() {
+            let p = e.path();
+            if p.is_dir() {
+                dirs.push(p);
+            } else if p.extension().is_some_and(|x| x == "md") {
+                files.push(p);
+            }
+        }
+    }
+    for f in files {
+        let text = std::fs::read_to_string(&f).unwrap();
+        assert!(bare_flags(&text).is_empty(), "{}: {:?}", f.display(), bare_flags(&text));
+    }
+}
