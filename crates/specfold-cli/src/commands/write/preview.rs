@@ -308,8 +308,27 @@ pub fn dirty_writes(plan: &Plan, root: &Path) -> Vec<String> {
     out
 }
 
+/// C209: files a plan rewrites that git cannot give back, the dirty tracked ones and the ones
+/// never committed; their pre-write copy goes to the trash.
+fn unrecoverable_writes(plan: &Plan, root: &Path) -> Vec<String> {
+    let tracked: std::collections::HashSet<String> =
+        specfold_core::workspace::vcs::tracked(root, &[]).unwrap_or_default().into_iter().collect();
+    let mut out = dirty_writes(plan, root);
+    for c in &plan.changes {
+        if let Change::Write { path, created: false, .. } = c
+            && !tracked.contains(path)
+            && root.join(path).is_file()
+        {
+            out.push(path.clone());
+        }
+    }
+    out.sort();
+    out.dedup();
+    out
+}
+
 pub fn keep_untracked(plan: &Plan, root: &Path) -> Result<Saved> {
-    let dirty = dirty_writes(plan, root);
+    let dirty = unrecoverable_writes(plan, root);
     let tracked: std::collections::HashSet<String> =
         specfold_core::workspace::vcs::tracked(root, &[]).unwrap_or_default().into_iter().collect();
     let mut bin: Option<String> = None;
@@ -367,10 +386,16 @@ pub fn undo(plan: &Plan, root: &Path, kept: &Saved) -> String {
     paths.retain(|p| known(p) && !back.iter().any(|(to, _)| to == p));
     paths.sort();
     paths.dedup();
+    // C197: an ignored path (the local tier) is out of git's reach: what spec made there is removed.
+    let ignored = specfold_core::workspace::vcs::ignored(root, &paths);
+    paths.retain(|p| !ignored.contains(p));
     trash.sort();
     trash.dedup();
     let w = specfold_core::shell::quote;
     let mut parts = vec![];
+    for p in &ignored {
+        parts.push(format!("rm -f -- {}", w(p)));
+    }
     for (to, _) in back.iter().filter(|_| saved.is_some()) {
         parts.push(format!("rm -f -- {}", w(to)));
     }

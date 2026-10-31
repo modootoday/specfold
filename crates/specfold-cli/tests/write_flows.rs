@@ -638,3 +638,43 @@ fn c196_audit_records_take_a_slug_for_a_title_without_ascii_words() {
     assert_eq!(code, 0, "{v}");
     assert_eq!(r.json(&["audit", "--record", "--title", "x", "--slug", "Bad_Slug"]).0, 2);
 }
+
+fn run_undo(r: &common::Repo, undo: &str) {
+    let st = std::process::Command::new("sh").arg("-c").arg(undo).current_dir(r.path()).status().unwrap();
+    assert!(st.success(), "{undo}");
+}
+
+#[test]
+fn c197_c209_undo_reaches_ignored_and_never_committed_documents() {
+    let r = common::repo();
+    r.write(".gitignore", ".spec.local/\n.specfold/\n");
+    r.commit("ignore");
+    // C197: a new document in the ignored local tier.
+    let (code, v) = r.json(&["new", "guide", "--title", "Priv two", "--local", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    let path = v["path"].as_str().unwrap().to_string();
+    let undo = v["undo"].as_str().unwrap().to_string();
+    assert!(undo.starts_with("rm -f -- "), "{undo}");
+    run_undo(&r, &undo);
+    assert!(!r.path().join(&path).exists());
+    // C197: a committed document moved into the local tier comes back.
+    let (code, v) = r.json(&["new", "guide", "--title", "Keep me", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    let kept = v["path"].as_str().unwrap().to_string();
+    r.commit("keep");
+    let (code, v) = r.json(&["mv", "guide:ws/keep-me", "--tier", "local", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    run_undo(&r, v["undo"].as_str().unwrap());
+    assert!(r.path().join(&kept).is_file());
+    // C209: set on a document never committed keeps it, with its old text.
+    let (code, v) = r.json(&["new", "guide", "--title", "Checkout Flow", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    let fresh = v["path"].as_str().unwrap().to_string();
+    let before = r.read(&fresh);
+    let (code, v) = r.json(&["set", "guide:ws/checkout-flow", "tags=retry", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    let undo = v["undo"].as_str().unwrap().to_string();
+    assert!(undo.contains(".specfold/trash/"), "{undo}");
+    run_undo(&r, &undo);
+    assert_eq!(r.read(&fresh), before);
+}
