@@ -60,6 +60,24 @@ fn scalar(v: &Value) -> String {
     }
 }
 
+/// C217: a tool argument must have its schema type, so a string never becomes a flag or a flag value a switch.
+fn check_type(tool: &str, arg: &str, kind: &str, v: &Value) -> Result<(), String> {
+    let ok = match kind {
+        "bool" => v.is_boolean(),
+        "string[]" => v.is_string() || v.as_array().is_some_and(|xs| xs.iter().all(Value::is_string)),
+        _ => v.is_string() || v.is_number() || v.is_null(),
+    };
+    if ok {
+        return Ok(());
+    }
+    let want = match kind {
+        "bool" => "boolean (true or false)",
+        "string[]" => "an array of strings",
+        _ => "a string",
+    };
+    Err(format!("argument {arg} of {tool} must be {want}; next: resend the call with {arg} as {want}"))
+}
+
 /// `spec_find` + `{"words": ["cart"], "type": ["adr"]}` → `spec find cart --type adr --json`.
 pub fn argv(name: &str, args: &Map<String, Value>) -> Result<Vec<String>, String> {
     let cmd = name.strip_prefix("spec_").ok_or_else(|| format!("unknown tool {name}"))?;
@@ -70,6 +88,7 @@ pub fn argv(name: &str, args: &Map<String, Value>) -> Result<Vec<String>, String
     let mut out = vec!["spec".to_string(), cmd.to_string()];
     for a in &info.args {
         let Some(v) = args.get(&a.name) else { continue };
+        check_type(name, &a.name, &a.kind, v)?;
         let values: Vec<String> = match v {
             Value::Array(items) => items.iter().map(scalar).collect(),
             Value::Bool(false) | Value::Null => continue,
@@ -77,7 +96,16 @@ pub fn argv(name: &str, args: &Map<String, Value>) -> Result<Vec<String>, String
             other => vec![scalar(other)],
         };
         match &a.long {
-            None => out.extend(values),
+            None => {
+                // C217: a positional value never turns into a flag.
+                if let Some(bad) = values.iter().find(|s| s.starts_with('-')) {
+                    return Err(format!(
+                        "argument {} of {name} must not start with '-' (got {bad:?}); next: pass options as their own boolean or string arguments",
+                        a.name
+                    ));
+                }
+                out.extend(values);
+            }
             Some(long) if values.is_empty() => out.push(format!("--{long}")),
             Some(long) => {
                 for val in values {
@@ -85,6 +113,15 @@ pub fn argv(name: &str, args: &Map<String, Value>) -> Result<Vec<String>, String
                     out.push(val);
                 }
             }
+        }
+    }
+    for k in ["limit", "offset", "max_bytes"] {
+        if let Some(v) = args.get(k)
+            && !v.is_u64()
+        {
+            return Err(format!(
+                "argument {k} of {name} must be a non-negative integer; next: pass a number such as 30"
+            ));
         }
     }
     for k in ["limit", "offset"] {

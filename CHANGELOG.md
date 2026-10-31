@@ -139,6 +139,7 @@ A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is 
   `gateway`), not only when most of the title is lost.
 
 ### Fixed
+- `spec mcp` refuses a tool argument whose type does not match the schema (a string for a boolean, a non-integer limit) and a positional value starting with `-`, so a value can no longer become a flag such as `--write` or `--yes`.
 - `spec audit record` and `spec audit --record` accept `--slug` (validated like `spec new`), so a title with no ASCII words can be recorded; `--write` now prints an `undo:` line.
 - A guard baseline that passes through a symbolic link into a folder that does not exist yet and back out (`lnk/sub/../.guard-base.json`) is compared where the write would land: the deepest existing part of the path is resolved before `..` is applied. Such baselines are refused as shared instead of overwriting another guard's baseline and creating `sub/` (C195).
 - Two guards whose baselines reach one file through a symbolic link folder (`lnk/.guard-base.json` and `./.guard-base.json` with `lnk -> .`) are refused as sharing it: an existing folder is resolved before the paths are compared (C194).
