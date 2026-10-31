@@ -32,7 +32,7 @@ tar -xzf specfold-x86_64-unknown-linux-gnu.tar.gz
 
 npm downloads only the build for your machine through platform-specific optional dependencies.
 Do not install with `--omit=optional` or `--no-optional`. cargo builds from crates.io and needs a
-Rust toolchain.
+Rust toolchain. [Packages](../reference/packages.md) lists each published package and its registry.
 
 ## Prebuilt targets
 
