@@ -7,9 +7,9 @@ redirect_from: [/editing/]
 # Editing documents
 
 > [!TIP]
-> Writes are previews until `--write`. In 0.3, `new` and `set` still write without it but warn;
-> from 0.4 they preview too, so pass `--write` (or `--dry-run` to preview). Sealed and closed
-> documents are refused.
+> Every write command, `new` and `set` included, previews until `--write` (`--dry-run` previews
+> too); the preview ends with the same command and `--write`. Sealed and closed documents are
+> refused.
 
 ## Create
 
@@ -23,8 +23,8 @@ A title is one line: `new --title` and `set title=` refuse a line break (exit 2)
 ## Front matter
 
 ```console
-$ spec set <id> status=active
-$ spec set <id> tags+=money
+$ spec set <id> status=active --write
+$ spec set <id> tags+=money --write
 ```
 
 ## Bodies

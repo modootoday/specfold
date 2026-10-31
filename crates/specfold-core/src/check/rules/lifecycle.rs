@@ -175,7 +175,7 @@ impl Rule for ForwardOnly {
                         format!("status moved back from '{before}' to '{now}'"),
                     )
                     .fix_cmd(format!(
-                        "spec new {} --from {} --title '…'",
+                        "spec new {} --from {} --title '…' --write",
                         d.id.ty,
                         crate::shell::word(&d.id)
                     )),

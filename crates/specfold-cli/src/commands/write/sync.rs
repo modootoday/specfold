@@ -47,7 +47,7 @@ pub fn run(g: &Global, a: &SyncArgs) -> Result<Output> {
         if found.is_empty() {
             return Ok(o
                 .head("no agent files found (.agents, .claude, .cursor, AGENTS.md, CLAUDE.md): nothing to sync")
-                .next("spec new skill <name>   # or add agent files, then declare a copy in spec.toml"));
+                .next("spec new skill <name> --write   # or add agent files, then declare a copy in spec.toml"));
         }
         return Ok(o.head(format!("agent files found ({}), but no copy is declared", found.join(", "))).next("declare a copy in spec.toml: [[assets]] kind = \"skill\", path = \".claude/skills\", copy_of = \".agents/skills\""));
     }

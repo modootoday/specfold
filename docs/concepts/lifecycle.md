@@ -28,8 +28,8 @@ description: Document statuses, allowed transitions and how spec enforces them.
 ## Changing status
 
 ```console
-$ spec set sot:shop/cart-totals status=active
-$ spec set adr:root/20261030 rel.supersedes+=adr:root/20250101
+$ spec set sot:shop/cart-totals status=active --write
+$ spec set adr:root/20261030 rel.supersedes+=adr:root/20250101 --write
 ```
 
 `spec set` writes directly and accepts `--dry-run`. It refuses a jump the type does not allow, and

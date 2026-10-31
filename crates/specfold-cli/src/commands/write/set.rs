@@ -8,13 +8,8 @@ use anyhow::{Result, anyhow, bail};
 use specfold_core::authoring::set::{self, Assign, Op};
 use specfold_core::translation;
 
+/// CLI-1: `set` previews unless --write (--dry-run previews too), as every write command does.
 pub fn run(g: &Global, a: &SetArgs) -> Result<Output> {
-    // CLI-1: from 0.4 `set` previews unless --write; 0.3 still writes, and says so on stderr.
-    if !a.dry_run && !a.write {
-        eprintln!(
-            "warning: spec set writes without --write in 0.3; from 0.4 it previews unless --write. Add --write to keep writing (--dry-run previews)."
-        );
-    }
     let s = session::open(g)?;
     let idx = session::resolve(&s, &a.doc)?;
     let mut assigns = a.assignments.iter().map(|x| Assign::parse(x)).collect::<Result<Vec<_>>>()?;
@@ -123,11 +118,11 @@ pub fn run(g: &Global, a: &SetArgs) -> Result<Output> {
                 a.assignments.join(" ")
             ));
         let o = shown_open.into_iter().fold(o, |o, l| o.foot(l));
-        return Ok(if a.dry_run { o } else { o.code(crate::output::Code::Refused) });
+        return Ok(if a.write { o.code(crate::output::Code::Refused) } else { o });
     }
-    let o = preview::finish(o, &plan, &s.corpus.cfg.root, !a.dry_run, "rerun without --dry-run")?;
+    let o = preview::finish(o, &plan, &s.corpus.cfg.root, a.write, &rerun(a))?;
     let o = unknown.iter().fold(o.field("warnings", unknown.clone()), |o, w| o.foot(format!("warn  S1  {w}")));
-    Ok(if a.dry_run { o } else { o.next(check_next(&s, a, &assigns, &ty, &id)) })
+    Ok(if !a.write { o } else { o.next(check_next(&s, a, &assigns, &ty, &id)) })
 }
 
 /// Why `--pin <target>` names nothing to pin, with the next step for that case.
@@ -235,4 +230,18 @@ fn check_next(s: &session::Session, a: &SetArgs, assigns: &[Assign], ty: &str, i
     }
     let rules: Vec<String> = rules.iter().map(|r| format!("--rule {r}")).collect();
     format!("spec check {}  # then: spec show {}", rules.join(" "), specfold_core::shell::word(id))
+}
+
+/// The same `spec set` with --write: the next step of a preview.
+fn rerun(a: &SetArgs) -> String {
+    use specfold_core::shell::{opt, word};
+    let mut words: Vec<String> = std::iter::once(word(&a.doc)).chain(a.assignments.iter().map(word)).collect();
+    if a.source_rev {
+        words.push("--source-rev".into());
+    }
+    for (flag, vs) in [("--pin", &a.pin), ("--unpin", &a.unpin)] {
+        words.extend(vs.iter().map(|v| opt(flag, v)));
+    }
+    let force = if a.force { " --force" } else { "" };
+    format!("spec set {} --write{force}", words.join(" "))
 }

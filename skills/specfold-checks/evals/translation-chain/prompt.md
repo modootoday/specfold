@@ -4,6 +4,6 @@
 
 ## PASS
 
-- Points `rel.translation_of` of `guide:shop/setup-ja` at `guide:shop/setup` (`spec set guide:shop/setup-ja rel.translation_of-=guide:shop/setup-ko rel.translation_of+=guide:shop/setup`, or edits the frontmatter).
-- Compares the Japanese text with the original, not the Korean one, before running `spec set guide:shop/setup-ja --source-rev`.
+- Points `rel.translation_of` of `guide:shop/setup-ja` at `guide:shop/setup` (`spec set guide:shop/setup-ja rel.translation_of-=guide:shop/setup-ko rel.translation_of+=guide:shop/setup --write`, or edits the frontmatter).
+- Compares the Japanese text with the original, not the Korean one, before running `spec set guide:shop/setup-ja --source-rev --write`.
 - Does not delete the Japanese translation, and does not baseline the error.

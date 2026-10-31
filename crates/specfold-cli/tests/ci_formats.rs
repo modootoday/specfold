@@ -7,7 +7,7 @@ use serde_json::Value;
 fn warned() -> common::Repo {
     let r = common::repo();
     let id = r.new_doc("adr", "services/shop", "Use files");
-    let (code, _) = r.json(&["set", &id, "colour=blue"]);
+    let (code, _) = r.json(&["set", &id, "colour=blue", "--write"]);
     assert_eq!(code, 0);
     r
 }

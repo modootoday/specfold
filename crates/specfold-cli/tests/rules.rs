@@ -24,12 +24,12 @@ fn a_custom_type_moves_through_its_own_statuses_and_requires_fields() {
         + "[types.finding]\nkey = \"stamp\"\nstatuses = [\"open\", \"resolved\", \"accepted-risk\"]\ninitial = \"open\"\nfields = [\"review_by\"]\n[types.finding.transitions]\nopen = [\"resolved\", \"accepted-risk\"]\n[types.finding.require_when]\naccepted-risk = [\"review_by\"]\n";
     r.write("spec.toml", &toml);
     let id = r.new_doc("finding", "services/shop", "Token in logs");
-    assert_eq!(r.json(&["set", &id, "status=accepted-risk"]).0, 0);
+    assert_eq!(r.json(&["set", &id, "status=accepted-risk", "--write"]).0, 0);
     let (code, v) = r.json(&["check", "--rule", "S6"]);
     assert_eq!(code, 1, "{v}");
-    assert_eq!(r.json(&["set", &id, "review_by=2026-12-01"]).0, 0);
+    assert_eq!(r.json(&["set", &id, "review_by=2026-12-01", "--write"]).0, 0);
     assert_eq!(r.json(&["check", "--rule", "S6", "--rule", "S4"]).0, 0);
-    let (code, v) = r.json(&["set", &id, "status=open"]);
+    let (code, v) = r.json(&["set", &id, "status=open", "--write"]);
     assert_ne!(code, 0, "accepted-risk may not go back to open: {v}");
 }
 
@@ -347,11 +347,11 @@ fn s8_a_required_field_needs_a_real_value_of_its_kind() {
     let sot = r.new_doc("sot", "services/shop", "Logs");
     let id = r.new_doc("finding", "services/shop", "Token in logs");
     // A placeholder on a status that does not require the field is fine.
-    assert_eq!(r.json(&["set", &id, "approvers=TBD"]).0, 0);
+    assert_eq!(r.json(&["set", &id, "approvers=TBD", "--write"]).0, 0);
     let (_, v) = r.json(&["check", "--rule", "S8"]);
     assert!(rules_hit(&v).is_empty(), "{v}");
     for kv in ["status=accepted-risk", "review_by=2026-12-01", "authors=ann", "decision=sot:nowhere"] {
-        let (c, v) = r.json(&["set", &id, kv]);
+        let (c, v) = r.json(&["set", &id, kv, "--write"]);
         assert_eq!(c, 0, "{kv}: {v}");
     }
     let (code, v) = r.json(&["check", "--rule", "S8"]);
@@ -360,11 +360,11 @@ fn s8_a_required_field_needs_a_real_value_of_its_kind() {
     assert!(s.contains("'TBD' is a placeholder"), "{v}");
     assert!(s.contains("names no document"), "{v}");
     assert!(s.contains(&format!("spec set {id} approvers=")), "{v}");
-    assert_eq!(r.json(&["set", &id, "approvers=Ann"]).0, 0);
+    assert_eq!(r.json(&["set", &id, "approvers=Ann", "--write"]).0, 0);
     let (_, v) = r.json(&["check", "--rule", "S8"]);
     assert!(v.to_string().contains("in both authors and approvers"), "{v}");
     for kv in ["authors=Bob", &format!("decision={sot}")] {
-        assert_eq!(r.json(&["set", &id, kv]).0, 0, "{kv}");
+        assert_eq!(r.json(&["set", &id, kv, "--write"]).0, 0, "{kv}");
     }
     let (_, v) = r.json(&["check", "--rule", "S8", "--rule", "S1"]);
     assert!(rules_hit(&v).is_empty(), "declared kinds are known keys and the values pass: {v}");
@@ -405,13 +405,13 @@ fn c109_c110_c111_c112_set_lists_statuses_and_nexts() {
     let out = r.spec().args(["check"]).output().unwrap();
     let err = String::from_utf8_lossy(&out.stderr);
     assert!(err.contains("status 'accepted'") && err.contains("draft"), "C110: {err}");
-    let (_, v) = r.json(&["set", &id, "status=active"]);
+    let (_, v) = r.json(&["set", &id, "status=active", "--write"]);
     let next = v["next"].to_string();
     assert!(next.contains("S6") && next.contains("S8"), "C111: {v}");
     let (_, v) = r.json(&["check", "--rule", "S6"]);
     let fix = v["items"][0].to_string();
     assert!(fix.contains("approvers=") && fix.contains("review_by="), "C112: every missing field: {v}");
-    r.json(&["set", &id, "approvers=[kim, lee]"]);
+    r.json(&["set", &id, "approvers=[kim, lee]", "--write"]);
     let (_, d) = r.json(&["show", &id]);
     assert_eq!(d["frontmatter"]["approvers"], serde_json::json!(["kim", "lee"]), "C109: {d}");
 }

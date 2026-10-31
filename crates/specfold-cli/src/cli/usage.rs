@@ -43,6 +43,10 @@ pub(crate) fn usage_example(
                     None => cmd.push_str(k),
                 }
             }
+            // A preview is not what the user meant to get; new writes only with --write.
+            if !opts.iter().any(|(k, _)| k == "--write" || k == "--dry-run") {
+                cmd.push_str(" --write");
+            }
             Some(cmd)
         }
         // C241: only the missing-argument list counts; the usage line below always names <DOC>.

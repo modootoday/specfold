@@ -21,7 +21,7 @@ them from one command, `spec`.
 ## Why
 
 - **Documents live with the code they govern.** Each owner (the root, an app, a package) keeps
-  its documents in its own `.spec/`; `spec new --governs <path>` finds the owner for you.
+  its documents in its own `.spec/`; `spec new --governs <path> --write` finds the owner for you.
 - **One definition, a derived graph.** Types, statuses and checks come from one `spec.toml`;
   references, supersede chains and governed code are computed on every run, never stored.
 - **Built for AI agents first.** No prompts, stable `--json`, bounded output, a fix on every

@@ -26,7 +26,7 @@ Yes. `spec import` moves an existing layout through a map, and old paths keep re
 
 ## Where do private notes go?
 
-Into the git-ignored `[local]` directory, created with `spec new --local`. Rule **V2** stops
+Into the git-ignored `[local]` directory, created with `spec new --local --write`. Rule **V2** stops
 committed documents from citing them.
 
 ## What is the license?

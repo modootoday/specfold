@@ -123,7 +123,7 @@ pub fn run(g: &Global, a: &InitArgs) -> Result<Output> {
         .foot(text);
     if a.write {
         std::fs::write(&path, o.summary["content"].as_str().unwrap_or_default())?;
-        o = o.foot("written").next("spec new sot --governs <path> --title '…'");
+        o = o.foot("written").next("spec new sot --governs <path> --title '…' --write");
     } else {
         o = o.next("spec init --write");
     }

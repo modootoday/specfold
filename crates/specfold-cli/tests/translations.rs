@@ -20,7 +20,7 @@ fn pair() -> (common::Repo, String, String) {
     let src = r.new_doc("guide", "services/shop", "Setup");
     let ko = r.new_doc("guide", "services/shop", "Setup in Korean");
     let rel = format!("rel.translation_of+={src}");
-    assert_eq!(r.json(&["set", &ko, "lang=ko", &rel]).0, 0);
+    assert_eq!(r.json(&["set", &ko, "lang=ko", &rel, "--write"]).0, 0);
     (r, src, ko)
 }
 
@@ -32,7 +32,7 @@ fn a_translation_records_its_source_and_warns_when_the_source_changes() {
     assert!(messages(&v)[0].contains("records no source_rev"), "{v}");
     assert_eq!(v["items"][0]["fix"]["cmd"].as_str().map(|s| s.contains("--source-rev")), Some(true), "{v}");
 
-    let (code, v) = r.json(&["set", &ko, "--source-rev"]);
+    let (code, v) = r.json(&["set", &ko, "--source-rev", "--write"]);
     assert_eq!(code, 0, "{v}");
     assert!(r.read(&path_of(&r, &ko)).contains("source_rev: sha256:"));
     assert_eq!(r.json(&["check", "--rule", "R1", "--rule", "S1", "--rule", "L3"]).1["warnings"], 0);
@@ -46,7 +46,7 @@ fn a_translation_records_its_source_and_warns_when_the_source_changes() {
     assert_eq!(v["warnings"], 1, "{v}");
     assert!(messages(&v)[0].contains("changed since source_rev"), "{v}");
 
-    assert_eq!(r.json(&["set", &ko, "--source-rev"]).0, 0);
+    assert_eq!(r.json(&["set", &ko, "--source-rev", "--write"]).0, 0);
     assert_eq!(r.json(&["check", "--rule", "R1"]).1["warnings"], 0);
 }
 
@@ -56,7 +56,7 @@ fn census_lists_translation_state_and_missing_languages_with_an_exit_code() {
     let (code, v) = r.json(&["census", "--translations"]);
     assert_eq!(code, 1, "{v}");
     assert_eq!(v["translations"][0]["state"], "unrecorded", "{v}");
-    assert_eq!(r.json(&["set", &ko, "--source-rev"]).0, 0);
+    assert_eq!(r.json(&["set", &ko, "--source-rev", "--write"]).0, 0);
     let (code, v) = r.json(&["census", "--translations"]);
     assert_eq!(code, 0, "{v}");
     assert_eq!(v["translations"][0]["state"], "current", "{v}");
@@ -74,7 +74,7 @@ fn census_lists_translation_state_and_missing_languages_with_an_exit_code() {
 #[test]
 fn a_removed_source_is_a_broken_relation_not_a_lag() {
     let (r, src, ko) = pair();
-    assert_eq!(r.json(&["set", &ko, "--source-rev"]).0, 0);
+    assert_eq!(r.json(&["set", &ko, "--source-rev", "--write"]).0, 0);
     std::fs::remove_file(r.path().join(path_of(&r, &src))).unwrap();
     let (code, v) = r.json(&["check", "--rule", "L3"]);
     assert_eq!(code, 1, "{v}");
@@ -87,7 +87,7 @@ fn a_removed_source_is_a_broken_relation_not_a_lag() {
 fn source_rev_needs_a_translation_of() {
     let r = common::repo();
     let id = r.new_doc("guide", "services/shop", "Alone");
-    let (code, v) = r.json(&["set", &id, "--source-rev"]);
+    let (code, v) = r.json(&["set", &id, "--source-rev", "--write"]);
     assert_ne!(code, 0, "{v}");
 }
 
@@ -97,7 +97,7 @@ fn a_behind_translation_names_the_sections_that_changed_when_git_has_its_revisio
     let p = path_of(&r, &src);
     let body = r.read(&p);
     r.write(&p, &format!("{body}\n## Install\n\nRun the installer.\n\n## Limits\n\nNone yet.\n"));
-    assert_eq!(r.json(&["set", &ko, "--source-rev"]).0, 0);
+    assert_eq!(r.json(&["set", &ko, "--source-rev", "--write"]).0, 0);
     r.commit("source and translation");
     let now = r.read(&p).replace("Run the installer.", "Run the installer twice.");
     r.write(&p, &format!("{now}\n## Support\n\nAsk the team.\n"));
@@ -109,7 +109,7 @@ fn a_behind_translation_names_the_sections_that_changed_when_git_has_its_revisio
     assert_eq!(v["translations"][0]["sections"][0]["section"], "Install", "{v}");
     assert_eq!(v["translations"][0]["sections"][1]["change"], "added", "{v}");
     // Without the revision in git, the warning still says the source changed.
-    let (_, v) = r.json(&["set", &ko, "source_rev=sha256:000000000000"]);
+    let (_, v) = r.json(&["set", &ko, "source_rev=sha256:000000000000", "--write"]);
     assert_eq!(v["ok"], true, "{v}");
     let (_, v) = r.json(&["check", "--rule", "R1"]);
     let m = &messages(&v)[0];
@@ -137,7 +137,7 @@ fn spec_new_translation_copies_the_source_and_records_the_pair_beside_it() {
     with_layout(&r, "[translations]\nlayout = \"suffix\"\nlanguages = [\"ko\"]\n");
     let src = r.new_doc("adr", "services/shop", "Use carts");
     append(&r, &src, "\nKeep carts small.\n");
-    let (code, v) = r.json(&["new", "--translation", "ko", "--from", &src, "--title", "카트 사용"]);
+    let (code, v) = r.json(&["new", "--translation", "ko", "--from", &src, "--title", "카트 사용", "--write"]);
     assert_eq!(code, 0, "{v}");
     let id = v["id"].as_str().unwrap().to_string();
     let path = v["path"].as_str().unwrap().to_string();
@@ -152,8 +152,8 @@ fn spec_new_translation_copies_the_source_and_records_the_pair_beside_it() {
     let (_, v) = r.json(&["check", "--rule", "R1", "--rule", "R2"]);
     assert_eq!(v["warnings"], 0, "{v}");
     // Not in the configured languages, and a type that is not the source's, are refused.
-    assert_ne!(r.json(&["new", "--translation", "ja", "--from", &src]).0, 0);
-    assert_ne!(r.json(&["new", "guide", "--translation", "ko", "--from", &src]).0, 0);
+    assert_ne!(r.json(&["new", "--translation", "ja", "--from", &src, "--write"]).0, 0);
+    assert_ne!(r.json(&["new", "guide", "--translation", "ko", "--from", &src, "--write"]).0, 0);
 }
 
 #[test]
@@ -168,7 +168,7 @@ fn the_suffix_layout_pairs_by_name_and_fix_writes_the_pair_down() {
     assert_eq!(v["translations"][0]["lang"], "ko", "{v}");
     assert_eq!(v["translations"][0]["state"], "unrecorded", "{v}");
     // The implicit pair is fine as it is; source_rev works on it.
-    assert_eq!(r.json(&["set", "guide:shop/setup-ko", "--source-rev"]).0, 0);
+    assert_eq!(r.json(&["set", "guide:shop/setup-ko", "--source-rev", "--write"]).0, 0);
     assert_eq!(r.json(&["check", "--rule", "R1", "--rule", "R2"]).1["warnings"], 0);
     // Writing the pair down is a preview first.
     let (_, v) = r.json(&["fix", "--translations"]);
@@ -186,13 +186,22 @@ fn r2_reports_a_translation_without_source_and_a_conflicting_pair_and_strict_mak
     with_layout(&r, "[translations]\nlayout = \"suffix\"\nlanguages = [\"ko\"]\n");
     let a = r.new_doc("guide", "services/shop", "Setup");
     let b = r.new_doc("guide", "services/shop", "Other");
-    let (code, v) = r.json(&["new", "guide", "--governs", "services/shop", "--title", "Lost", "--slug", "lost-ko"]);
+    let (code, v) =
+        r.json(&["new", "guide", "--governs", "services/shop", "--title", "Lost", "--slug", "lost-ko", "--write"]);
     assert_eq!(code, 0, "{v}");
-    let (code, v) = r.json(&["new", "--translation", "ko", "--from", &a]);
+    let (code, v) = r.json(&["new", "--translation", "ko", "--from", &a, "--write"]);
     assert_eq!(code, 0, "{v}");
     let ko = v["id"].as_str().unwrap().to_string();
     assert_eq!(
-        r.json(&["set", &ko, "lang=ja", &format!("rel.translation_of-={a}"), &format!("rel.translation_of+={b}")]).0,
+        r.json(&[
+            "set",
+            &ko,
+            "lang=ja",
+            &format!("rel.translation_of-={a}"),
+            &format!("rel.translation_of+={b}"),
+            "--write"
+        ])
+        .0,
         0
     );
     let (code, v) = r.json(&["check", "--rule", "R2"]);
@@ -217,7 +226,7 @@ fn the_dir_layout_pairs_the_same_slug_under_a_language_owner() {
         "[[owners.kinds]]\npattern = \"services/*/ko\"\nid = \"{1}-ko\"\n[translations]\nlayout = \"dir\"\nlanguages = [\"ko\"]\n",
     );
     let src = r.new_doc("guide", "services/shop", "Setup");
-    let (code, v) = r.json(&["new", "--translation", "ko", "--from", &src]);
+    let (code, v) = r.json(&["new", "--translation", "ko", "--from", &src, "--write"]);
     assert_eq!(code, 0, "{v}");
     assert_eq!(v["id"], "guide:shop-ko/setup", "{v}");
     assert!(v["path"].as_str().unwrap().starts_with("services/shop/ko/"), "{v}");
@@ -235,10 +244,10 @@ fn the_dir_layout_pairs_the_same_slug_under_a_language_owner() {
 #[test]
 fn set_refuses_a_bad_language_tag_or_source_rev() {
     let (r, _src, ko) = pair();
-    assert_ne!(r.json(&["set", &ko, "lang=korean language"]).0, 0);
-    assert_ne!(r.json(&["set", &ko, "source_rev=abc"]).0, 0);
-    assert_eq!(r.json(&["set", &ko, "lang=pt-BR"]).0, 0);
-    assert_eq!(r.json(&["set", &ko, "source_rev=sha256:0123456789ab"]).0, 0);
+    assert_ne!(r.json(&["set", &ko, "lang=korean language", "--write"]).0, 0);
+    assert_ne!(r.json(&["set", &ko, "source_rev=abc", "--write"]).0, 0);
+    assert_eq!(r.json(&["set", &ko, "lang=pt-BR", "--write"]).0, 0);
+    assert_eq!(r.json(&["set", &ko, "source_rev=sha256:0123456789ab", "--write"]).0, 0);
 }
 
 #[test]
@@ -246,7 +255,7 @@ fn a_translation_of_a_translation_is_an_error_and_not_a_census_source() {
     let (r, src, ko) = pair();
     let ja = r.new_doc("guide", "services/shop", "Setup in Japanese");
     let rel = format!("rel.translation_of+={ko}");
-    assert_eq!(r.json(&["set", &ja, "lang=ja", &rel]).0, 0);
+    assert_eq!(r.json(&["set", &ja, "lang=ja", &rel, "--write"]).0, 0);
     let (code, v) = r.json(&["check", "--rule", "R1"]);
     assert_eq!(code, 1, "{v}");
     assert!(messages(&v).iter().any(|m| m.contains("is itself a translation") && m.contains(&src)), "{v}");
@@ -259,7 +268,7 @@ fn two_translations_into_one_language_warn() {
     let (r, src, _ko) = pair();
     let ko2 = r.new_doc("guide", "services/shop", "Setup in Korean again");
     let rel = format!("rel.translation_of+={src}");
-    assert_eq!(r.json(&["set", &ko2, "lang=ko", &rel]).0, 0);
+    assert_eq!(r.json(&["set", &ko2, "lang=ko", &rel, "--write"]).0, 0);
     let (_, v) = r.json(&["check", "--rule", "R1"]);
     assert!(messages(&v).iter().any(|m| m.contains("another 'ko' translation")), "{v}");
 }
@@ -278,7 +287,7 @@ fn new_translation_lowercases_the_slug_tag_and_refuses_a_translation_as_source()
     let r = common::repo();
     with_layout(&r, "[translations]\nlayout = \"suffix\"\nlanguages = [\"ko-KR\", \"ja\"]\n");
     let src = r.new_doc("guide", "services/shop", "Install the CLI");
-    let (code, v) = r.json(&["new", "--translation", "ko-KR", "--from", &src]);
+    let (code, v) = r.json(&["new", "--translation", "ko-KR", "--from", &src, "--write"]);
     assert_eq!(code, 0, "{v}");
     let ko = v["id"].as_str().unwrap().to_string();
     assert!(ko.ends_with("install-the-cli-ko-kr"), "{ko}");
@@ -286,7 +295,7 @@ fn new_translation_lowercases_the_slug_tag_and_refuses_a_translation_as_source()
     let (_, v) = r.json(&["check"]);
     assert_eq!(v["errors"], 0, "{v}");
     assert!(rules(&v, "R2").is_empty() && rules(&v, "S3").is_empty(), "{v}");
-    let (code, v) = r.json(&["new", "--translation", "ja", "--from", &ko]);
+    let (code, v) = r.json(&["new", "--translation", "ja", "--from", &ko, "--write"]);
     assert_ne!(code, 0, "{v}");
     assert!(v.to_string().contains(&format!("--from {src}")), "{v}");
 }
@@ -299,10 +308,10 @@ fn new_and_set_accept_write_and_errors_keep_their_own_command_as_next() {
     assert_eq!(code, 0, "{v}");
     assert_eq!(r.json(&["set", &src, "tags+=x", "--write"]).0, 0);
     let ja = r.json(&["find", "install-ja"]).1["items"][0]["id"].as_str().unwrap().to_string();
-    let (code, v) = r.json(&["new", "--translation", "ko", "--from", &ja]);
+    let (code, v) = r.json(&["new", "--translation", "ko", "--from", &ja, "--write"]);
     assert_ne!(code, 0);
-    assert_eq!(v["next"], format!("spec new --translation ko --from {src}"), "{v}");
-    let (_, v) = r.json(&["new", "--translation", "ko", "--from", &src, "--bogus"]);
+    assert_eq!(v["next"], format!("spec new --translation ko --from {src} --write"), "{v}");
+    let (_, v) = r.json(&["new", "--translation", "ko", "--from", &src, "--bogus", "--write"]);
     assert!(!v["next"].as_str().unwrap().contains("--title"), "{v}");
 }
 

@@ -5,5 +5,5 @@
 ## PASS
 
 - Reads the named sections of the source (`spec show guide:shop/setup`), updates the Korean Install paragraph and adds a Support section; leaves the other sections alone.
-- Only then runs `spec set guide:shop/setup-ko --source-rev`.
+- Only then runs `spec set guide:shop/setup-ko --source-rev --write`.
 - Does not run `--source-rev` alone to silence the warning, and does not baseline it.

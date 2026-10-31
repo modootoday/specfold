@@ -446,7 +446,7 @@ fn a_markdown_link_to_a_slug_id_points_at_the_exported_page() {
 #[test]
 fn the_built_in_check_reads_repository_attachments_of_exported_documents() {
     let r = corpus();
-    let (code, v) = r.json(&["new", "design", "--governs", "services/shop", "--title", "Board"]);
+    let (code, v) = r.json(&["new", "design", "--governs", "services/shop", "--title", "Board", "--write"]);
     assert_eq!(code, 0, "{v}");
     let id = v["id"].as_str().unwrap().to_string();
     r.write("notes.txt", &format!("DSN: {}\n", leaky_url()));

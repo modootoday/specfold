@@ -289,7 +289,7 @@ fn done_next(
         // C222: an empty repository exports the manifest alone.
         o = o
             .foot("no documents to export yet; the folder holds only the manifest")
-            .next("spec new sot --title <TITLE>");
+            .next("spec new sot --title <TITLE> --write");
     } else if n > 0 {
         o = o.foot(format!("{n} reference(s) written as plain text")).next("spec check --rule L1");
     } else {

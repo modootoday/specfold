@@ -40,7 +40,7 @@ pub fn run(g: &Global, a: &ContextArgs) -> Result<Output> {
         o = o.foot("no document governs these paths");
         let p = a.paths.first().cloned().unwrap_or_default();
         return Ok(o.next(format!(
-            "spec new sot --governs {} --title '…'",
+            "spec new sot --governs {} --title '…' --write",
             specfold_core::shell::word(specfold_core::workspace::escape_glob(&p))
         )));
     }

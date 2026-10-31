@@ -33,7 +33,7 @@ fn usage_errors_name_the_missing_argument_and_the_nearest_command() {
     let (code, v) = r.json(&["show"]);
     assert_eq!(code, 2);
     assert!(v["error"].as_str().unwrap().contains("<DOC>"), "{v}");
-    let (_, v) = r.json(&["new", "adr"]);
+    let (_, v) = r.json(&["new", "adr", "--write"]);
     assert!(v["error"].as_str().unwrap().contains("--title"), "{v}");
     let (_, v) = r.json(&["chek"]);
     assert_eq!(v["next"], "spec help check", "{v}");

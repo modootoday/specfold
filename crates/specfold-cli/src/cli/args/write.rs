@@ -46,10 +46,10 @@ pub struct NewArgs {
     /// For skill, rule and agent: the description (defaults to the title).
     #[arg(long)]
     pub description: Option<String>,
-    /// Show what would be created without writing.
+    /// Preview what would be created (the default without --write).
     #[arg(long)]
     pub dry_run: bool,
-    /// Write the document. 0.3 also writes without it but warns; from 0.4 new previews unless --write.
+    /// Write the document (otherwise a preview).
     #[arg(long, conflicts_with = "dry_run")]
     pub write: bool,
 }
@@ -73,10 +73,10 @@ pub struct SetArgs {
     /// Remove a pin (`<remote>:<id>`, as written under `pins`).
     #[arg(long)]
     pub unpin: Vec<String>,
-    /// Show the change without writing.
+    /// Preview the change (the default without --write).
     #[arg(long)]
     pub dry_run: bool,
-    /// Write the change. 0.3 also writes without it but warns; from 0.4 set previews unless --write.
+    /// Write the change (otherwise a preview).
     #[arg(long, conflicts_with = "dry_run")]
     pub write: bool,
     /// Archive a plan although some of its tasks are still open.

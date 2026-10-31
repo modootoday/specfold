@@ -53,15 +53,15 @@ heading's GitHub slug (a repeat gets `-1`, `-2`) or a `{#anchor}` in the target 
 ids are skipped, and so are targets matching `[check] link_ignore` globs.
 L6 checks `[[<name>:<id>]]` in files listed under `[cites]` the same way. For checking only, a
 translation may name a remote source (`rel.translation_of: [org:guide:root/setup]`); R1 compares
-its `source_rev` with the remote body, and `spec set <id> --source-rev` records it. `spec new
+its `source_rev` with the remote body, and `spec set <id> --source-rev --write` records it. `spec new
 --translation` does not start from a remote source, because nothing is copied out of a remote:
 copy the document into this repository first, or translate it in its own repository. `spec doctor` lists every remote,
 its directory and whether it is present.
 
 A document can pin a remote document by content when it depends on that exact text:
-`spec set <id> --pin org:guide:root/setup` records `pins: {org:guide:root/setup: sha256:…}`, the
+`spec set <id> --pin org:guide:root/setup --write` records `pins: {org:guide:root/setup: sha256:…}`, the
 same body hash as a translation's `source_rev`. L7 warns when the remote body has changed; review
-the change, then pin again. `spec set <id> --unpin org:guide:root/setup` removes a pin. A pin of a document that does not exist there is an error, and an
+the change, then pin again. `spec set <id> --unpin org:guide:root/setup --write` removes a pin. A pin of a document that does not exist there is an error, and an
 absent remote directory is skipped.
 
 ## Lifecycle
@@ -77,7 +77,7 @@ absent remote directory is skipped.
 
 A document that departs from another on purpose names it with `rel.exception_of` and sets
 `review_by: YYYY-MM-DD`. T5 warns when `review_by` is missing or not a date, and once the date has
-passed (UTC). Renew it with `spec set <id> review_by=<date>` (set refuses a value that is not a date). When the
+passed (UTC). Renew it with `spec set <id> review_by=<date> --write` (set refuses a value that is not a date). When the
 rule is kept again, retire the exception with `status=rejected`, or supersede it with a newer one.
 Superseded and rejected exceptions are not checked. An exception that names itself is refused by
 `spec set` and warned by T5. `spec audit --kind exception` lists the overdue ones. A local exception
@@ -159,7 +159,7 @@ A3 does not read URLs, ids, globs, placeholders such as `<id>`, or git refs such
 | **R1** | translations are current with their source |
 | **R2** | translations are where the `[translations]` layout expects them |
 
-A translation names its source with `rel.translation_of` and records `source_rev`, a hash of the source body (`sha256:` and 12 hex digits) with frontmatter removed and whitespace collapsed, so it needs no git history and reformatting does not count. For a bundle, the hash covers the main file and then its chapters in path order. When the source body changes, R1 warns until the translation is updated and `spec set <id> --source-rev` records the source again. When git still has a commit with the recorded revision, the warning names the sections that changed since, for example `in Install (1 paragraph changed), Support (new)`; chapter sections are prefixed with the chapter file name. A source that no longer exists is an L3 finding. `spec census --translations` lists every translation's state, the changed sections of those behind, and the sources each language lacks. It exits 1 when anything is behind or missing; `--fail-on stale` fails only on translations that are behind or unrecorded, and `--fail-on none` reports without failing.
+A translation names its source with `rel.translation_of` and records `source_rev`, a hash of the source body (`sha256:` and 12 hex digits) with frontmatter removed and whitespace collapsed, so it needs no git history and reformatting does not count. For a bundle, the hash covers the main file and then its chapters in path order. When the source body changes, R1 warns until the translation is updated and `spec set <id> --source-rev --write` records the source again. When git still has a commit with the recorded revision, the warning names the sections that changed since, for example `in Install (1 paragraph changed), Support (new)`; chapter sections are prefixed with the chapter file name. A source that no longer exists is an L3 finding. `spec census --translations` lists every translation's state, the changed sections of those behind, and the sources each language lacks. It exits 1 when anything is behind or missing; `--fail-on stale` fails only on translations that are behind or unrecorded, and `--fail-on none` reports without failing.
 
 R1 also checks the values. `lang` must be a language tag (BCP 47, such as `ko`, `ja`, `pt-BR`). `source_rev` must be `sha256:` and 12 hex digits; `spec set` refuses other values. One source should have one translation per language. A translation must name an original: naming itself or another translation is an error, and the message names the original to use. `spec census --translations` lists only originals as sources. A translation's frontmatter looks like this:
 
@@ -172,7 +172,7 @@ source_rev: sha256:3f2a9c0b1d4e
 
 A translation can also be paired by place, without frontmatter, when `spec.toml` sets `[translations] layout`. With `layout = "suffix"`, `guide:shop/setup-ko` is the `ko` translation of `guide:shop/setup`: same type and spec directory, slug ending in `-<lang>`. With `layout = "dir"`, the translation has the source's slug under an owner in a `<lang>` directory of the source's owner, for example `services/shop/ko/.spec/guide/setup.guide.md`; that directory must be an owner (`[[owners.kinds]] pattern = "services/*/ko"`). `<lang>` is one of `languages`. Timestamp-keyed translations keep their own timestamp and are paired by slug. `rel.translation_of` and `lang` in frontmatter win over the layout. R2 reports a document placed as a translation with no source, or more than one, in the matching place; `rel.translation_of` that names another document than the layout; and `lang` that differs from the language of its place. R2 warns; `strict = true` makes it an error. `spec fix --translations` previews writing `rel.translation_of` and `lang` into every pair the layout infers, and `--write` applies it.
 
-`spec new --translation <lang> --from <id>` starts a translation: it takes the source's type, gets its own key, is placed by the layout (`<slug>-<lang>` beside the source without one), copies the source body (and the chapters and files of a bundle), and records `lang`, `rel.translation_of` and `source_rev`. It starts as `draft` where the type has that status. The tag in the name is lower case (`setup-pt-br`); `lang` keeps the BCP 47 form (`pt-BR`). A source that is itself a translation is refused with the original's id.
+`spec new --translation <lang> --from <id> --write` starts a translation: it takes the source's type, gets its own key, is placed by the layout (`<slug>-<lang>` beside the source without one), copies the source body (and the chapters and files of a bundle), and records `lang`, `rel.translation_of` and `source_rev`. It starts as `draft` where the type has that status. The tag in the name is lower case (`setup-pt-br`); `lang` keeps the BCP 47 form (`pt-BR`). A source that is itself a translation is refused with the original's id.
 
 ## Numbers
 

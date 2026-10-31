@@ -69,9 +69,9 @@ spec edit plan:shop/20260101000000 --new-section Risks --after Goal --text "- no
 ## Change status and relations
 
 ```sh
-spec set plan:shop/20260101000000 status=active
-spec set plan:shop/20260101000000 rel.implements+=sot:shop/cart
-spec set sot:shop/cart tags-=draft
+spec set plan:shop/20260101000000 status=active --write
+spec set plan:shop/20260101000000 rel.implements+=sot:shop/cart --write
+spec set sot:shop/cart tags-=draft --write
 ```
 
 Statuses move forward only: `draft`, `active`, then `superseded`, `archived` or `rejected`.
@@ -82,7 +82,7 @@ repository listed under `[remotes.<name>]` in spec.toml is `<name>:<id>` (`[[org
 read it with `spec show <name>:<id>`, and change it in that repository, not from here.
 A translation may name such a source, and `[[<name>:<id>]]` in READMEs and code comments is
 checked too. `spec doctor` shows which remotes are on disk. When this document relies on the exact
-text of a remote one, pin it: `spec set <id> --pin <name>:<id>`; L7 warns when it changes; `--unpin <name>:<id>` removes a pin. Before changing a shared document, `spec graph consumers <id>` lists who
+text of a remote one, pin it: `spec set <id> --pin <name>:<id> --write`; L7 warns when it changes; `--unpin <name>:<id>` removes a pin. Before changing a shared document, `spec graph consumers <id>` lists who
 relies on it in the remotes on disk.
 
 An exception to a rule or decision is its own document: `rel.exception_of` names what it departs
@@ -94,8 +94,8 @@ A translation is its own document that names its source and language, and record
 body it was made from:
 
 ```sh
-spec set guide:shop/setup-ko lang=ko rel.translation_of+=guide:shop/setup
-spec set guide:shop/setup-ko --source-rev      # after the text matches the source
+spec set guide:shop/setup-ko lang=ko rel.translation_of+=guide:shop/setup --write
+spec set guide:shop/setup-ko --source-rev --write      # after the text matches the source
 ```
 
 When the source changes, R1 warns; update the translation, then run `--source-rev` again.
@@ -104,7 +104,7 @@ The frontmatter then holds `lang: ko`, `rel: {translation_of: [guide:shop/setup]
 `source_rev: sha256:3f2a9c0b1d4e`. `lang` is a language tag (BCP 47); a translation names the
 original, never another translation; one translation per language per source.
 
-To start one, `spec new --translation ko --from guide:shop/setup` copies the source body and
+To start one, `spec new --translation ko --from guide:shop/setup --write` copies the source body and
 records all three. The source must be local; for a document in a remote, copy it here first
 or translate it in its own repository. With `[translations] layout` in spec.toml, a translation in its place
 (`setup-ko` beside the source, or under a `ko` owner for `layout = "dir"`) is paired without

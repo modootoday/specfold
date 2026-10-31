@@ -6,7 +6,7 @@ mod common;
 fn audit_reports_a_plan_whose_tasks_and_status_disagree() {
     let r = common::repo();
     let id = r.new_doc("plan", "services/shop", "Checkout v2");
-    assert_eq!(r.json(&["set", &id, "status=active"]).0, 0, "plan can go active");
+    assert_eq!(r.json(&["set", &id, "status=active", "--write"]).0, 0, "plan can go active");
     let (code, _) = r.json(&["edit", &id, "--text=## Steps\n\n- [x] build\n- [x] ship\n", "--write"]);
     assert_eq!(code, 0);
     let (_, v) = r.json(&["audit", "--kind", "finished"]);
@@ -14,7 +14,7 @@ fn audit_reports_a_plan_whose_tasks_and_status_disagree() {
     assert_eq!(r.json(&["edit", &id, "--text=## Steps\n\n- [x] build\n- [ ] ship\n", "--write"]).0, 0);
     let (_, v) = r.json(&["audit", "--kind", "finished"]);
     assert!(!v.to_string().contains("tasks are done"), "{v}");
-    assert_eq!(r.json(&["set", &id, "status=archived", "--force"]).0, 0);
+    assert_eq!(r.json(&["set", &id, "status=archived", "--force", "--write"]).0, 0);
     let (_, v) = r.json(&["audit", "--kind", "finished"]);
     assert!(v.to_string().contains("archived with 1 of 2 tasks still open"), "{v}");
 }
@@ -76,17 +76,20 @@ fn new_skill_rule_and_agent_write_templates_without_ids() {
     assert_eq!(code, 0, "{v}");
     assert_eq!(v["path"], ".agents/skills/pdf-tools/SKILL.md", "{v}");
     assert!(!r.path().join(".agents/skills/pdf-tools/SKILL.md").exists(), "a dry run writes nothing");
-    assert_eq!(r.json(&["new", "skill", "--title", "PDF tools", "--description", "Read and fill PDFs."]).0, 0);
+    assert_eq!(
+        r.json(&["new", "skill", "--title", "PDF tools", "--description", "Read and fill PDFs.", "--write"]).0,
+        0
+    );
     let text = r.read(".agents/skills/pdf-tools/SKILL.md");
     assert!(text.starts_with("---\nname: pdf-tools\ndescription: Read and fill PDFs.\n---\n"), "{text}");
     assert!(!text.contains("id:"), "{text}");
-    let (code, _) = r.json(&["new", "skill", "--title", "PDF tools"]);
+    let (code, _) = r.json(&["new", "skill", "--title", "PDF tools", "--write"]);
     assert_ne!(code, 0, "an existing skill is not overwritten");
-    let (code, v) = r.json(&["new", "rule", "--title", "Code style"]);
+    let (code, v) = r.json(&["new", "rule", "--title", "Code style", "--write"]);
     assert_eq!(code, 0, "{v}");
     assert_eq!(v["path"], ".cursor/rules/code-style.mdc", "{v}");
     assert_eq!(v["declared"], false, "{v}");
-    assert_eq!(r.json(&["new", "agent", "--title", "Reviewer"]).1["path"], ".claude/agents/reviewer.md");
+    assert_eq!(r.json(&["new", "agent", "--title", "Reviewer", "--write"]).1["path"], ".claude/agents/reviewer.md");
     let (_, v) = r.json(&["check", "--rule", "A1"]);
     assert_eq!(v["errors"], 0, "templates pass the asset rule: {v}");
 }
