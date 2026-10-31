@@ -38,7 +38,7 @@ fn create(g: &Global, a: &NewArgs) -> Result<Output> {
         return asset(&s, a, kind);
     }
     let governs: Vec<String> = a.governs.iter().map(|p| session::governed_path(&s, p)).collect::<Result<_>>()?;
-    let req = NewDoc {
+    let mut req = NewDoc {
         ty: ty.clone(),
         title: a.title().to_string(),
         governs,
@@ -51,7 +51,20 @@ fn create(g: &Global, a: &NewArgs) -> Result<Output> {
         body: None,
         depends_on: a.depends_on.clone(),
     };
-    let (created, plan) = new::plan(&s.corpus, &s.graph, &req)?;
+    let (mut created, mut plan) = new::plan(&s.corpus, &s.graph, &req)?;
+    // C206: a timestamp id is reserved with create-new before the write; a clash with a run in
+    // another process takes the next second.
+    for _ in 0..120 {
+        let key = created.id.rsplit('/').next().unwrap_or_default().to_string();
+        if a.dry_run
+            || !specfold_core::model::stamp::is_stamp(&key)
+            || reserve(&s.corpus.cfg.root, &created.id, &created.path, &key)
+        {
+            break;
+        }
+        req.key = specfold_core::model::stamp::next_stamp(&key);
+        (created, plan) = new::plan(&s.corpus, &s.graph, &req)?;
+    }
     let o = Output::new("new")
         .unpaged()
         .field("id", created.id.clone())
@@ -95,6 +108,41 @@ fn create(g: &Global, a: &NewArgs) -> Result<Output> {
         (Some(_), true) => o.next("rerun with --slug <kebab-case-name>"),
         (None, true) => o,
         (None, false) => o.next(format!("spec show {}", specfold_core::shell::word(&created.id))),
+    })
+}
+
+/// Takes `id` for this process: false when another `spec new` holds it or already wrote a file
+/// with that key next to `path`.
+fn reserve(root: &std::path::Path, id: &str, path: &str, key: &str) -> bool {
+    let git = root.join(".git");
+    let base = if git.is_dir() { git } else { std::env::temp_dir() };
+    let dir = base.join("specfold-ids");
+    if std::fs::create_dir_all(&dir).is_err() {
+        return true;
+    }
+    // Old reservations are of no use once their files are written.
+    if let Ok(rd) = std::fs::read_dir(&dir) {
+        for e in rd.flatten() {
+            let old = e.metadata().and_then(|m| m.modified()).ok().and_then(|t| t.elapsed().ok());
+            if old.is_some_and(|d| d.as_secs() > 3600) {
+                let _ = std::fs::remove_file(e.path());
+            }
+        }
+    }
+    let name: String = id.chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '_' }).collect();
+    let took = std::fs::OpenOptions::new().write(true).create_new(true).open(dir.join(name)).is_ok();
+    if !took {
+        return false;
+    }
+    let mut parent = root.join(path);
+    parent.pop();
+    let mut dirs = vec![parent.clone()];
+    if let Some(up) = parent.parent() {
+        dirs.push(up.to_path_buf());
+    }
+    !dirs.iter().any(|d| {
+        std::fs::read_dir(d)
+            .is_ok_and(|rd| rd.flatten().any(|e| e.file_name().to_string_lossy().starts_with(&format!("{key}-"))))
     })
 }
 
