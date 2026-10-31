@@ -52,12 +52,20 @@ jobs:
       - name: Check the tag matches Cargo.toml
         if: github.event_name == 'push'
         run: test "v${{ steps.tag.outputs.version }}" = "$GITHUB_REF_NAME"
-      # Notes are the commit subjects since the previous version tag.
+      # Notes are the CHANGELOG section for the version; without one, the commit subjects since the previous version tag.
       - name: Release notes
+        env:
+          VERSION: ${{ steps.tag.outputs.version }}
         run: |
-          previous="$(git describe --tags --abbrev=0 --match 'v*' HEAD^ 2>/dev/null || true)"
-          range="${previous:+$previous..}HEAD"
-          git log "$range" --no-merges --format='- %s' > notes.md
+          awk -v v="$VERSION" '
+            /^## / { if (on) exit; h = $2; sub(/^v/, "", h); on = (h == v); next }
+            on { print }
+          ' CHANGELOG.md | sed -e '/./,$!d' > notes.md
+          if ! grep -q '[^[:space:]]' notes.md; then
+            previous="$(git describe --tags --abbrev=0 --match 'v*' HEAD^ 2>/dev/null || true)"
+            range="${previous:+$previous..}HEAD"
+            git log "$range" --no-merges --format='- %s' > notes.md
+          fi
           cat notes.md >> "$GITHUB_STEP_SUMMARY"
       # After a bootstrap the release already exists, published by hand; it is reused as is.
       - name: Draft release
