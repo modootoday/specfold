@@ -139,6 +139,7 @@ A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is 
   `gateway`), not only when most of the title is lost.
 
 ### Fixed
+- `spec help new` examples and the `spec agents` lines that start documents carry `--write` (C232).
 - `spec guard --range A..B` reads files at `B` (HEAD when empty) instead of the checkout, and also reads every version a commit in the range wrote, so a value added and later removed inside the range still fails (C230, C231).
 - Suggested next commands write option values starting with `-` as `--opt=value`, put such words after `--`, and a usage error's next keeps `-C <dir>` (C229).
 - C227: every `spec set` that a fix, next, rule explanation or help example suggests carries `--write`, including both steps of the T1 fix for a draft, so it still writes once `set` previews by default
