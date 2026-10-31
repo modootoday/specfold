@@ -23,7 +23,10 @@ fn parse_kind(s: &str) -> Result<StarterKind> {
     if body.contains(':') {
         bail!("--owner-kind '{s}': the only suffix is ':manifest', e.g. 'libs/*=lib.{{1}}:manifest'");
     }
-    let stars = pattern.matches('*').count();
+    if let Some(why) = specfold_core::workspace::owners::patterns::kind_pattern_problem(pattern) {
+        bail!("--owner-kind '{s}': {why}");
+    }
+    let stars = specfold_core::workspace::owners::patterns::kind_stars(pattern);
     let mut sample = String::new();
     let mut rest = id;
     while let Some(i) = rest.find('{') {

@@ -71,6 +71,20 @@ pub fn literal_prefix(glob: &str) -> (String, bool) {
 
 /// Expands a pattern of literal segments and `*` into existing directories, returning each with
 /// the values its `*` segments took.
+/// C210: owner patterns take literal folder names and whole `*` segments only. The problem
+/// with `pattern`, if it has one.
+pub fn kind_pattern_problem(pattern: &str) -> Option<String> {
+    let bad = pattern.trim_matches('/').split('/').find(|seg| *seg != "*" && seg.contains(['*', '?', '[', '{']))?;
+    Some(format!(
+        "owner pattern '{pattern}' has the segment '{bad}'; owner patterns take literal folder names and whole '*' segments, e.g. services/*"
+    ))
+}
+
+/// The number of `*` segments in an owner pattern: the captures `{1}`..`{N}` can name.
+pub fn kind_stars(pattern: &str) -> usize {
+    pattern.trim_matches('/').split('/').filter(|s| *s == "*").count()
+}
+
 pub fn expand(root: &Path, pattern: &str) -> Vec<(String, Vec<String>)> {
     let mut acc: Vec<(String, Vec<String>)> = vec![(String::new(), vec![])];
     for seg in pattern.trim_matches('/').split('/') {
