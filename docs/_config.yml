@@ -7,7 +7,7 @@ baseurl: ""
 lang: en
 permalink: pretty
 repository: modootoday/specfold
-remote_theme: modootoday/jekyll-theme-modootoday@v1.2.2
+remote_theme: modootoday/jekyll-theme-modootoday@v1.2.3
 markdown: kramdown
 kramdown: {input: GFM, syntax_highlighter: rouge}
 sass: {style: compressed, silence_deprecations: [import, global-builtin]}
