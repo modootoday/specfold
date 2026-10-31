@@ -100,3 +100,24 @@ fn c215_non_utf8_arguments_are_a_usage_error() {
     assert_eq!(out.status.code(), Some(2));
     assert!(String::from_utf8_lossy(&out.stdout).contains("next: spec help"));
 }
+
+#[test]
+fn c199_writes_keep_a_leading_bom() {
+    let r = common::repo();
+    let id = r.new_doc("guide", "services/shop", "Bom");
+    let (_, v) = r.json(&["show", &id]);
+    let path = v["path"].as_str().unwrap().to_string();
+    r.write(&path, &format!("\u{FEFF}{}", r.read(&path).replace('\n', "\r\n")));
+    r.commit("bom");
+    let (code, v) = r.json(&["set", &id, "title=X"]);
+    assert_eq!(code, 0, "{v}");
+    assert!(!v.to_string().contains("\\ufeff"), "the preview shows no BOM change: {v}");
+    for args in
+        [&["set", &id, "title=X", "--write"][..], &["edit", &id, "--section", "Steps", "--text", "Two.", "--write"]]
+    {
+        let (code, v) = r.json(args);
+        assert_eq!(code, 0, "{v}");
+        let text = r.read(&path);
+        assert!(text.starts_with("\u{FEFF}---\r\n"), "{args:?}: {text:?}");
+    }
+}

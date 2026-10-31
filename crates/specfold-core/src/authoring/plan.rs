@@ -5,6 +5,9 @@ use anyhow::{Context, Result};
 use serde::Serialize;
 use std::path::Path;
 
+/// The UTF-8 byte order mark some editors put at the start of a file.
+pub const BOM: &str = "\u{FEFF}";
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "op", rename_all = "lowercase")]
 pub enum Change {
@@ -94,12 +97,17 @@ impl Plan {
                 let dst = root.join(path);
                 ensure_parent(&dst)?;
                 // C154: a file kept with CRLF line endings stays CRLF throughout.
-                let crlf = std::fs::read(&dst).map(|b| b.windows(2).any(|w| w == b"\r\n")).unwrap_or(false);
-                let text = if crlf {
+                let old = std::fs::read(&dst).unwrap_or_default();
+                let crlf = old.windows(2).any(|w| w == b"\r\n");
+                let mut text = if crlf {
                     std::borrow::Cow::Owned(content.replace("\r\n", "\n").replace('\n', "\r\n"))
                 } else {
                     std::borrow::Cow::Borrowed(content.as_str())
                 };
+                // C199: a document that starts with a UTF-8 BOM keeps it.
+                if old.starts_with(BOM.as_bytes()) && !text.starts_with(BOM) {
+                    text = std::borrow::Cow::Owned(format!("{BOM}{text}"));
+                }
                 std::fs::write(&dst, text.as_bytes()).with_context(|| format!("cannot write {path}"))?;
             }
         }

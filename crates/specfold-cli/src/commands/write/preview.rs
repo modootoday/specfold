@@ -174,7 +174,9 @@ pub fn finish(mut o: Output, plan: &Plan, root: &Path, write: bool, rerun: &str)
             && let Ok(old) = std::fs::read_to_string(root.join(path))
         {
             // C157: the write keeps the file's line endings, so compare with them set aside.
-            let hs = hunks(&old.replace("\r\n", "\n"), &content.replace("\r\n", "\n"));
+            // C199: and its leading BOM, which the write keeps too.
+            let bare = |t: &str| t.trim_start_matches('\u{FEFF}').replace("\r\n", "\n");
+            let hs = hunks(&bare(&old), &bare(content));
             if let Some(first) = hs.first() {
                 item["line"] = json!(first.new_at);
                 item["hunks"] = json!(
