@@ -606,3 +606,17 @@ fn c192_dir_into_a_subfolder_reads_paths_like_cd_and_its_undo_works() {
     assert!(st.success());
     assert_ne!(run(&["show", &id]).0, 0, "the undo removed the new file");
 }
+
+#[test]
+fn c188_new_section_names_are_one_plain_line() {
+    let r = common::repo();
+    let id = r.new_doc("plan", "services/shop", "Ship");
+    let before = r.json(&["show", &id]).1["path"].as_str().map(|p| r.read(p)).unwrap();
+    for name in ["Risks\n\n## Goal", "", "   ", "## Bad"] {
+        let (code, text) = r.text(&["edit", &id, "--new-section", name, "--text", "y", "--write"]);
+        assert_eq!(code, 2, "{name:?}: {text}");
+        assert!(text.contains("the section name") && text.contains("--new-section"), "{text}");
+    }
+    let after = r.json(&["show", &id]).1["path"].as_str().map(|p| r.read(p)).unwrap();
+    assert_eq!(before, after);
+}
