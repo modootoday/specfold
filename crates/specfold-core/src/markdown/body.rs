@@ -40,9 +40,43 @@ fn anchor_re() -> &'static Regex {
     R.get_or_init(|| Regex::new(r"\{#([A-Za-z0-9][A-Za-z0-9_.-]*)\}\s*$").expect("static regex is valid"))
 }
 
-fn inline_code_re() -> &'static Regex {
-    static R: OnceLock<Regex> = OnceLock::new();
-    R.get_or_init(|| Regex::new(r"`+[^`]*`+").expect("static regex is valid"))
+/// C201: a line with its inline code spans taken out, CommonMark style: a run of N backticks
+/// closes only at the next run of exactly N; a run with no partner is plain text.
+pub fn strip_code_spans(line: &str) -> String {
+    let b = line.as_bytes();
+    let run_at = |i: usize| b[i..].iter().take_while(|c| **c == b'`').count();
+    let (mut out, mut i, mut kept) = (String::new(), 0, 0);
+    while i < b.len() {
+        if b[i] != b'`' {
+            i += 1;
+            continue;
+        }
+        let n = run_at(i);
+        let mut j = i + n;
+        let close = loop {
+            match b[j..].iter().position(|c| *c == b'`') {
+                None => break None,
+                Some(p) => {
+                    let at = j + p;
+                    let m = run_at(at);
+                    if m == n {
+                        break Some(at + m);
+                    }
+                    j = at + m;
+                }
+            }
+        };
+        match close {
+            Some(end) => {
+                out.push_str(&line[kept..i]);
+                kept = end;
+                i = end;
+            }
+            None => i += n,
+        }
+    }
+    out.push_str(&line[kept..]);
+    out
 }
 
 /// Builds the regex that finds plain-text paths into `<spec_dir>/` ending in `.md`.
@@ -63,7 +97,7 @@ pub fn scan(body: &str, first_line: usize, path_re: &Regex) -> Body {
         if fence.step(trimmed) || fence.inside() {
             continue;
         }
-        let line = inline_code_re().replace_all(raw_line, "");
+        let line = strip_code_spans(raw_line);
         if let Some(rest) = trimmed.strip_prefix('#') {
             let level_rest = rest.trim_start_matches('#');
             if level_rest.starts_with(' ') || level_rest.is_empty() {
@@ -89,6 +123,15 @@ pub fn scan(body: &str, first_line: usize, path_re: &Regex) -> Body {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn c201_code_spans_pair_equal_backtick_runs() {
+        use super::strip_code_spans as s;
+        assert_eq!(s("Also ``c ` d`` with [[x]] and `y`."), "Also  with [[x]] and .");
+        assert_eq!(s("`` `id` ``"), "");
+        assert_eq!(s("a ` b [[x]]"), "a ` b [[x]]", "an unpaired run is text");
+        assert_eq!(s("`a` ``b"), " ``b");
+    }
+
     use super::*;
 
     #[test]

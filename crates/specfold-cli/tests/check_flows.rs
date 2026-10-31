@@ -737,3 +737,15 @@ fn c195_a_baseline_through_a_link_into_a_missing_folder_and_back_is_the_same_fil
     assert!(v["error"].as_str().unwrap().contains("'g1' and 'g2' both write the baseline file"), "{v}");
     assert!(!r.path().join("sub").exists(), "nothing is created before the refusal");
 }
+
+#[test]
+fn c201_a_link_after_a_double_backtick_span_is_checked() {
+    let r = common::repo();
+    let id = r.new_doc("guide", "services/shop", "Spans");
+    let (_, v) = r.json(&["show", &id]);
+    let path = v["path"].as_str().unwrap().to_string();
+    r.write(&path, &(r.read(&path) + "\nAlso ``c ` d`` with [[sot:ws/gone]] and `y`.\n"));
+    let (code, v) = r.json(&["check"]);
+    assert_eq!(code, 1, "{v}");
+    assert!(v.to_string().contains("L1"), "{v}");
+}
