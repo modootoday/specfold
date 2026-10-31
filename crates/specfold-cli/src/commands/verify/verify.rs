@@ -30,6 +30,10 @@ pub fn run(g: &Global, a: &VerifyArgs) -> Result<Output> {
             .and_then(|p| s.corpus.docs.iter().find(|d| d.path == p))
             .map(|d| d.id.to_string())
             .unwrap_or_default();
+        // C237: a shell that cannot start fails every command; the setup is at fault, not the document.
+        if list.iter().any(|f| f.message.contains("[verify] shell")) {
+            return Ok(o.code(Code::Findings).next("spec doctor"));
+        }
         o.code(Code::Findings).next(format!("spec show {} --section verification", specfold_core::shell::quote(&id)))
     })
 }

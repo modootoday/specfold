@@ -76,7 +76,11 @@ pub fn run(root: &Path, cmd: &str, env: &[(String, String)], timeout: Duration, 
         Ok(c) => c,
         Err(e) => {
             return Outcome {
-                verdict: Verdict::CannotRun(e.to_string()),
+                // C237: a missing program here is the shell itself, not the command.
+                verdict: Verdict::CannotRun(format!(
+                    "shell '{}' cannot start: {e}; [verify] shell",
+                    shell.unwrap_or("sh")
+                )),
                 tail: String::new(),
                 elapsed: start.elapsed(),
             };

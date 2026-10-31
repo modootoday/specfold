@@ -38,14 +38,7 @@ pub fn run(g: &Global) -> Result<Output> {
         o = add(o, "config", "spec.toml", "no spec.toml here; spec runs on defaults".into(), "spec init --write");
     }
     for w in session::config_warnings(&cfg) {
-        // Each warning gets the fix for its own kind of mistake.
-        let next = if w.starts_with("[audit] coverage_types") {
-            "correct the type name in [audit] coverage_types (the warning lists the types)"
-        } else if w.contains("require_when") {
-            "correct the status in require_when, or add it to the type's statuses"
-        } else {
-            "rename the table, or give the new type an `about`"
-        };
+        let next = warning_fix(&w);
         o = add(o, "config", "spec.toml", w, next);
     }
     let mut files = vec![];
@@ -169,5 +162,18 @@ fn config_fix(msg: &str) -> String {
     match line.filter(|n| !n.is_empty()) {
         Some(n) => format!("fix spec.toml at line {n} (spec explain config)"),
         None => "fix spec.toml (spec explain config)".into(),
+    }
+}
+
+/// Each config warning gets the fix for its own kind of mistake.
+fn warning_fix(w: &str) -> &'static str {
+    if w.starts_with("[verify] shell") {
+        "set [verify] shell to an installed shell such as sh or bash, or remove the key"
+    } else if w.starts_with("[audit] coverage_types") {
+        "correct the type name in [audit] coverage_types (the warning lists the types)"
+    } else if w.contains("require_when") {
+        "correct the status in require_when, or add it to the type's statuses"
+    } else {
+        "rename the table, or give the new type an `about`"
     }
 }

@@ -73,6 +73,10 @@ impl Config {
                 bail!("{}: {why}; next: spec explain config", path.display());
             }
         }
+        if let Some((why, value)) = super::validate::pattern_problem(&raw) {
+            let at = text.lines().position(|l| l.contains(&value)).map(|n| format!(" at line {}", n + 1));
+            bail!("{}{}: {why}; next: spec explain config", path.display(), at.unwrap_or_default());
+        }
         // C184: guards sharing a baseline file overwrite each other's entries on --write-baseline.
         let mut seen: Vec<(&str, String)> = Vec::new();
         for g in &raw.guards {
