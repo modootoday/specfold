@@ -21,6 +21,7 @@ pub fn run(g: &Global, a: &EditArgs) -> Result<Output> {
             rerun_with(a, " --file - --write")
         );
     }
+    check_section_name(a)?;
     let cells_only = a.row.is_some() && !a.cell.is_empty() && a.text.is_none() && a.file.is_none();
     let text = match (&a.text, &a.file) {
         _ if cells_only => String::new(),
@@ -154,6 +155,25 @@ fn rerun_with(a: &EditArgs, tail: &str) -> String {
     }
     c.push_str(tail);
     c
+}
+
+/// C188: a section name is one heading line, checked like `new --title`.
+fn check_section_name(a: &EditArgs) -> Result<()> {
+    if let Some(n) = &a.new_section {
+        let what = if n.contains(session::LINE_BREAKS) {
+            Some("has a line break; give it on one line")
+        } else if n.trim().is_empty() {
+            Some("is empty; give it a name")
+        } else if n.trim_start().starts_with('#') {
+            Some("starts with '#'; give the name without the heading marks")
+        } else {
+            None
+        };
+        if let Some(w) = what {
+            anyhow::bail!("the section name {w}; next: spec edit {} --new-section \"<one-line name>\"", quote(&a.doc));
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
