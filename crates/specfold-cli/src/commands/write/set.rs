@@ -189,6 +189,17 @@ fn check_values(assigns: &[Assign]) -> Result<()> {
             "review_by" if !specfold_core::check::rules::is_date(&x.value) => {
                 Some(format!("review_by '{}' is not a date (YYYY-MM-DD), for example review_by=2027-03-31", x.value))
             }
+            // C223: updated takes a date, an RFC 3339 time, or `today`, as S5 reads it.
+            "updated"
+                if !x.value.trim().is_empty()
+                    && x.value != "today"
+                    && !specfold_core::model::stamp::is_date_value(&x.value) =>
+            {
+                Some(format!(
+                    "updated '{}' is not a date (YYYY-MM-DD, an RFC 3339 time, or today), for example updated=today",
+                    x.value
+                ))
+            }
             translation::KEY => translation::rev_problem(&x.value).map(|p| format!("{p}; record it with --source-rev")),
             _ => None,
         };
@@ -210,6 +221,9 @@ fn check_next(s: &session::Session, a: &SetArgs, assigns: &[Assign], ty: &str, i
         s.corpus.cfg.registry.get(ty).map(|t| t.require_when.values().flatten().collect()).unwrap_or_default();
     if assigns.iter().any(|x| x.key == "status" || required.contains(&&x.key)) {
         rules.extend(["S6", "S8"]);
+    }
+    if assigns.iter().any(|x| x.key == "updated") {
+        rules.push("S5");
     }
     if assigns.iter().any(|x| x.key.starts_with("aliases")) {
         rules.push("I2");
