@@ -111,6 +111,23 @@ fn workers() -> rayon::ThreadPool {
     })
 }
 
+/// C231: what versions written inside the range and gone by its end trip, each hit named with
+/// its commit; a hit the end version already reports is not repeated.
+fn passing_hits(g: &GuardDef, c: &Compiled, range: &Resolved, out: &mut Vec<Finding>) {
+    let mut seen = std::collections::HashSet::new();
+    for p in range.passing.iter().filter(|p| p.path != "spec.toml" && c.in_scope(&p.path)) {
+        let short = &p.commit[..p.commit.len().min(10)];
+        for mut f in scan_bytes(g, c, &p.path, p.bytes.clone()) {
+            let known = out.iter().any(|o| o.path == f.path && o.message == f.message);
+            if known || !seen.insert((f.path.clone(), f.message.clone())) {
+                continue;
+            }
+            f.message = format!("{} (in commit {short}; still pushed though a later commit removes it)", f.message);
+            out.push(f);
+        }
+    }
+}
+
 pub fn run(cfg: &Config, g: &GuardDef, c: &Compiled, range: &Resolved) -> Result<Scanned> {
     let mut out = vec![];
     let mut files = vec![];
@@ -139,6 +156,7 @@ pub fn run(cfg: &Config, g: &GuardDef, c: &Compiled, range: &Resolved) -> Result
     if let Some(k) = cache {
         k.save();
     }
+    passing_hits(g, c, range, &mut out);
     if g.commit_messages
         && let Some(r) = &range.commits
     {

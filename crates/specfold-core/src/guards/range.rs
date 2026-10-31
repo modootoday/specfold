@@ -37,6 +37,8 @@ pub struct Resolved {
     pub source: Source,
     /// The git range for commit scanning, when there is one.
     pub commits: Option<String>,
+    /// C231: versions the range's commits wrote that its end no longer has.
+    pub passing: Vec<vcs::Passing>,
 }
 
 /// Every file under `bases` (repository-relative directories; the whole repository when empty):
@@ -74,6 +76,7 @@ pub fn resolve(root: &Path, range: &GuardRange, bases: &[String]) -> Result<Reso
             files: vcs::staged(root).ok_or_else(|| anyhow!("--staged needs a git repository"))?,
             source: Source::Index,
             commits: None,
+            passing: vec![],
         }),
         GuardRange::Push(r) => {
             let r = match r {
@@ -84,9 +87,13 @@ pub fn resolve(root: &Path, range: &GuardRange, bases: &[String]) -> Result<Reso
                 ),
             };
             let files = vcs::changed_in_range(root, &r).ok_or_else(|| anyhow!("cannot read the range {r}"))?;
-            Ok(Resolved { files, source: Source::Rev("HEAD".into()), commits: Some(r) })
+            // C230: contents come from the range's end, not from whatever is checked out.
+            let source = Source::Rev(vcs::range_end(&r));
+            Ok(Resolved { files, source, passing: vcs::passing(root, &r), commits: Some(r) })
         }
-        GuardRange::All => Ok(Resolved { files: walk(root, bases), source: Source::WorkTree, commits: None }),
+        GuardRange::All => {
+            Ok(Resolved { files: walk(root, bases), source: Source::WorkTree, commits: None, passing: vec![] })
+        }
     }
 }
 
