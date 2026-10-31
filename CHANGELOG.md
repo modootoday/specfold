@@ -139,6 +139,7 @@ A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is 
   `gateway`), not only when most of the title is lost.
 
 ### Fixed
+- C207: `context` and `graph governs` on a folder also list documents whose governs path or glob lies inside it, and no longer suggest `spec new sot` then
 - C206: concurrent `spec new` runs reserve their timestamp id with create-new and take the next second on a clash; I1's explain gives a repair path for timestamp ids
 - C201: inline code spans close only at a backtick run of the same length (CommonMark), so a link after ``a ` b`` is checked and counted
 - C200: S1 reports a title that is not a non-empty string and S4 a status that is not a string; `spec set title=[x, y]` writes quoted text, not a list
