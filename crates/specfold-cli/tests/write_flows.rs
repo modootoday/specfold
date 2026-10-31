@@ -734,3 +734,22 @@ fn c214_fix_refuses_targets_check_would_refuse() {
         assert_eq!(r.json(&["fix", t]).0, 0, "{t}");
     }
 }
+
+#[test]
+fn c224_mv_counts_a_referring_document_once() {
+    let r = common::repo();
+    let sot = r.new_doc("sot", "services/shop", "Cart");
+    let plan = r.new_doc("plan", "services/shop", "Ship");
+    let rel = format!("rel.depends_on+={sot}");
+    assert_eq!(r.json(&["set", &plan, &rel, "--write"]).0, 0);
+    let plan_path = r.json(&["resolve", &plan]).1["path"].as_str().unwrap().to_string();
+    let text = r.read(&plan_path) + &format!("\nSee [[{sot}]].\n");
+    r.write(&plan_path, &text);
+    for extra in [&[][..], &["--write"][..]] {
+        let mut args = vec!["mv", sot.as_str(), "--slug", "basket"];
+        args.extend_from_slice(extra);
+        let (code, v) = r.json(&args);
+        assert_eq!(code, 0, "{v}");
+        assert_eq!(v["references"], 1, "{extra:?}: {v}");
+    }
+}
