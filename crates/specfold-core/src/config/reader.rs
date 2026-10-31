@@ -68,6 +68,11 @@ impl Config {
                 );
             }
         }
+        for k in &raw.owners.kinds {
+            if let Some(why) = crate::workspace::owners::patterns::kind_pattern_problem(&k.pattern) {
+                bail!("{}: {why}; next: spec explain config", path.display());
+            }
+        }
         // C184: guards sharing a baseline file overwrite each other's entries on --write-baseline.
         let mut seen: Vec<(&str, String)> = Vec::new();
         for g in &raw.guards {

@@ -1,7 +1,7 @@
 //! Owners of documents.
 
 mod discover;
-mod patterns;
+pub mod patterns;
 mod reader;
 mod types;
 

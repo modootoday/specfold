@@ -176,3 +176,25 @@ fn c191_upgrade_reads_past_a_bom_and_keeps_it() {
     let (code, text) = r.text(&["check"]);
     assert_eq!(code, 0, "{text}");
 }
+
+#[test]
+fn c210_owner_patterns_take_whole_star_segments() {
+    let fresh = tempfile::tempdir().unwrap();
+    for bad in ["services/**={1}", "services/svc-*=svc.{1}"] {
+        let r = common::repo();
+        let out = r
+            .spec()
+            .current_dir(fresh.path())
+            .args(["init", "--owner-kind", bad, "--write", "--json"])
+            .output()
+            .unwrap();
+        assert_eq!(out.status.code(), Some(2), "{bad}: {}", String::from_utf8_lossy(&out.stdout));
+        assert!(String::from_utf8_lossy(&out.stdout).contains("whole '*' segments"), "{bad}");
+    }
+    let r = common::repo();
+    let toml = r.read("spec.toml") + "\n[[owners.kinds]]\npattern = \"libs/lib-*\"\nid = \"{1}\"\n";
+    r.write("spec.toml", &toml);
+    let (code, v) = r.json(&["check"]);
+    assert_eq!(code, 2, "{v}");
+    assert!(v["error"].as_str().unwrap().contains("whole '*' segments"), "{v}");
+}
