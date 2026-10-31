@@ -139,10 +139,12 @@ pub fn run(g: &Global, a: &AttachArgs) -> Result<Output> {
             .next(again(a, &format!(" --write --yes{force}"))));
     }
     if a.write {
-        let undo = replace::keep(&s.corpus.cfg.root, &clashes)?;
+        let undo = replace::keep(&s.corpus.cfg.root, &d.path, &clashes)?;
         attach::apply(&s.corpus, d, &plan)?;
         if let Some(undo) = undo {
-            o = o.field("undo", undo.clone()).foot(format!("undo (puts the replaced files back): {undo}"));
+            o = o
+                .field("undo", undo.clone())
+                .foot(format!("undo (puts the replaced files and the document back): {undo}"));
         }
         return Ok(o.foot("attached").next(format!("spec files {}", specfold_core::shell::word(&d.id))));
     }

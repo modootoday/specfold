@@ -139,6 +139,7 @@ A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is 
   `gateway`), not only when most of the title is lost.
 
 ### Fixed
+- C223: the undo of `spec attach --write --yes` over other content also puts the document file back, so one `cp -Rp` restores the files list and the replaced files
 - C220: `spec guard --range` refuses an empty value and `..X` with their own message (rc 2, next `<base>..HEAD`); the `<rev>..HEAD` suggestion is built only for a single revision
 - C222: `spec export markdown` in a repository with no documents creates the folder with the manifest alone (rc 0, next `spec new`) instead of a raw os error
 - C221: `spec export markdown --out` resolves the nearest existing folder through symbolic links, so a link into `.spec`, `.spec.local` or `.git` (or one containing the repository) is refused like the plain path

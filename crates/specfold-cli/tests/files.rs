@@ -69,3 +69,25 @@ fn c202_attach_over_other_content_needs_yes_force_and_keeps_a_copy() {
     assert_eq!(r.json(&["attach", &d, "src/notes.md", "--write", "--yes", "--force"]).0, 0);
     assert_eq!(r.read(&format!("{base}/notes.md")), "other");
 }
+
+#[test]
+fn c223_attach_replace_undo_restores_the_document_too() {
+    let r = common::repo();
+    let d = r.new_doc("design", "services/shop", "Cart boards");
+    r.write("a/board.svg", "<svg>one</svg>");
+    assert_eq!(r.json(&["attach", &d, "a/board.svg", "--write"]).0, 0);
+    let v = r.json(&["files", &d]).1;
+    let base = v["base"].as_str().unwrap().to_string();
+    let (_, s) = r.json(&["show", &d]);
+    let doc = s["path"].as_str().map(str::to_string).unwrap_or_else(|| format!("{base}/index.md"));
+    let before = r.read(&doc);
+    r.write("b/board.svg", "<svg>two</svg>");
+    let (code, v) = r.json(&["attach", &d, "b/board.svg", "--write", "--yes"]);
+    assert_eq!(code, 0, "{v}");
+    assert_ne!(r.read(&doc), before, "the attach rewrites the document's files entry");
+    let undo = v["undo"].as_str().unwrap();
+    let ok = std::process::Command::new("sh").arg("-c").arg(undo).current_dir(r.path()).status().unwrap();
+    assert!(ok.success());
+    assert_eq!(r.read(&format!("{base}/board.svg")), "<svg>one</svg>");
+    assert_eq!(r.read(&doc), before);
+}
