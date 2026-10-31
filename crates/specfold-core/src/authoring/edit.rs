@@ -68,8 +68,11 @@ pub fn plan(c: &Corpus, idx: usize, e: &Edit) -> Result<Outcome> {
     let (target, before, body) = match &e.section {
         Some(name) => {
             let Some((start, end)) = sections::span(split.body, name) else {
-                let have = sections::names(split.body);
-                bail!("no section '{name}' (sections: {}); to add it: --new-section {name:?}", have.join(" | "));
+                let msg = sections::not_found(split.body, name);
+                if sections::matches(split.body, name).len() > 1 {
+                    bail!("{msg}");
+                }
+                bail!("{msg}; to add it: --new-section {name:?}");
             };
             refuse_headings(new_text, lines[start].trim_start().chars().take_while(|c| *c == '#').count())?;
             // Trailing blank lines separate sections; keep them outside the edited content.
@@ -150,8 +153,7 @@ fn plan_row(d: &Doc, head: &str, lines: &[&str], body: &str, section: Option<&st
     let (lo, hi, target) = match &section {
         Some(name) => {
             let Some((start, end)) = sections::span(body, name) else {
-                let have = sections::names(body);
-                bail!("no section '{name}' (sections: {})", have.join(" | "));
+                bail!("{}", sections::not_found(body, name));
             };
             (start + 1, end, format!("row '{}' in {}", ch.key, lines[start].trim()))
         }
@@ -181,14 +183,17 @@ fn plan_new_section(
     new_text: &str,
 ) -> Result<Outcome> {
     let title = title.trim();
-    if sections::span(body, title).is_some() {
+    if !sections::matches(body, title).is_empty()
+        && sections::matches(body, title)
+            .iter()
+            .all(|&i| lines[i].trim_start().trim_start_matches('#').trim().eq_ignore_ascii_case(title))
+    {
         bail!("a section '{title}' already exists; edit it with --section");
     }
     let (at, level) = match &after {
         Some(name) => {
             let Some((start, end)) = sections::span(body, name) else {
-                let have = sections::names(body);
-                bail!("no section '{name}' (sections: {})", have.join(" | "));
+                bail!("{}", sections::not_found(body, name));
             };
             (end, lines[start].trim_start().chars().take_while(|c| *c == '#').count())
         }
