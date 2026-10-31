@@ -53,9 +53,14 @@ fn target<'a>(map: &'a mut Map<String, Value>, key: &str) -> (&'a mut Map<String
     }
 }
 
+/// Frontmatter keys that hold one value.
+const SCALAR_KEYS: &[&str] = &["id", "title", "status", "owner", "created", "updated", "source_rev"];
+
 fn apply_one(map: &mut Map<String, Value>, a: &Assign) {
     // C109: `key=[a, b]` is a list, written the way YAML writes one.
-    let bracketed = a.value.trim().strip_prefix('[').and_then(|v| v.strip_suffix(']'));
+    // C200: a single-value key keeps `[x, y]` as text (the writer quotes it), not a list.
+    let scalar = SCALAR_KEYS.contains(&a.key.as_str());
+    let bracketed = a.value.trim().strip_prefix('[').and_then(|v| v.strip_suffix(']')).filter(|_| !scalar);
     let is_list = bracketed.is_some() || a.key.starts_with("rel.") || LIST_KEYS.contains(&a.key.as_str());
     let value = if let (Op::Set, Some(inner)) = (&a.op, bracketed) {
         if inner.trim().is_empty() {

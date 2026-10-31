@@ -121,3 +121,41 @@ fn c199_writes_keep_a_leading_bom() {
         assert!(text.starts_with("\u{FEFF}---\r\n"), "{args:?}: {text:?}");
     }
 }
+
+#[test]
+fn c200_wrong_type_title_and_status_are_errors() {
+    let r = common::repo();
+    let id = r.new_doc("guide", "services/shop", "Typed");
+    let (_, v) = r.json(&["show", &id]);
+    let path = v["path"].as_str().unwrap().to_string();
+    let (code, v) = r.json(&["set", &id, "title=[x, y]", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    assert!(
+        r.read(&path).contains("title: '[x, y]'") || r.read(&path).contains("title: \"[x, y]\""),
+        "{}",
+        r.read(&path)
+    );
+    let (_, v) = r.json(&["show", &id]);
+    assert_eq!(v["frontmatter"]["title"], "[x, y]", "{v}");
+    let text = r.read(&path);
+    let text: String = text
+        .lines()
+        .map(|l| {
+            if l.starts_with("title:") {
+                "title: [x, y]".into()
+            } else if l.starts_with("status:") {
+                "status: [active]".into()
+            } else {
+                l.to_string()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+        + "\n";
+    r.write(&path, &text);
+    let (code, v) = r.json(&["check"]);
+    assert_eq!(code, 1, "{v}");
+    let s = v.to_string();
+    assert!(s.contains("not a non-empty string") && s.contains("S1"), "{s}");
+    assert!(s.contains("not a string") && s.contains("S4"), "{s}");
+}

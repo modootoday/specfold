@@ -106,6 +106,20 @@ impl Rule for Frontmatter {
                         .fix_cmd(format!("spec fix --rule S1 --write {}", quote(&d.path))),
                 );
             }
+            // C200: a title of the wrong YAML type (a list, a map, a number, "") is no title.
+            if let Some(t) = fm.get("title")
+                && !t.as_str().is_some_and(|s| !s.trim().is_empty())
+            {
+                out.push(
+                    Finding::error(
+                        "S1",
+                        &d.path,
+                        key_line(ctx, &d.path, "title"),
+                        format!("title is {t}, not a non-empty string"),
+                    )
+                    .fix_cmd(format!("spec set {} 'title=<text>' --write", d.id)),
+                );
+            }
             let ty = ctx.corpus.cfg.registry.get(&d.id.ty);
             for k in fm.keys() {
                 let known = COMMON_KEYS.contains(&k.as_str())
@@ -229,6 +243,17 @@ impl Rule for StatusAllowed {
     fn run(&self, ctx: &Ctx, out: &mut Vec<Finding>) {
         for (i, d) in ctx.corpus.docs.iter().enumerate() {
             if !ctx.scope.covers(i) {
+                continue;
+            }
+            if let Some(v) = d.fm().and_then(|fm| fm.get("status"))
+                && !v.is_string()
+            {
+                let line = key_line(ctx, &d.path, "status");
+                let msg = format!("status is {v}, not a string");
+                out.push(
+                    Finding::error("S4", &d.path, line, msg)
+                        .fix_cmd(format!("spec set {} status=<value> --write", d.id)),
+                );
                 continue;
             }
             let (Some(status), Some(ty)) = (d.status(), ctx.corpus.cfg.registry.get(&d.id.ty)) else { continue };
