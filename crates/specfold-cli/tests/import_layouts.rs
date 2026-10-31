@@ -355,3 +355,54 @@ fn c180_import_rewrites_reference_angle_and_encoded_links_but_not_code() {
     assert!(body.contains("`[code](0001-use-plain-files.md)`"), "inline code stays: {body}");
     assert_eq!(body.matches("0001-use").count(), 1, "only the code span keeps the old name: {body}");
 }
+
+/// C243: an imported document has one line ending throughout, the source body's (CRLF anywhere
+/// makes it CRLF, as C154 keeps an edited file); a BOM is not carried into the new file.
+#[test]
+fn c243_imported_documents_keep_one_line_ending() {
+    let r = common::repo();
+    let crlf = "# 1. Pay\r\n\r\nDate: 2026-01-05\r\n\r\n## Status\r\n\r\nAccepted\r\n\r\n## Context\r\n\r\n결제.\r\n";
+    r.write("doc/adr/0001-pay.md", crlf);
+    r.write("doc/adr/0002-bom.md", &format!("\u{feff}{}", crlf.replace("Pay", "Bom")));
+    r.write("doc/adr/0003-lf.md", &crlf.replace("\r\n", "\n").replace("Pay", "Lf"));
+    r.write(
+        "import.toml",
+        "[status]\naccepted = \"active\"\n[body]\nstatus = \"section:Status\"\ndate = \"line:Date\"\n[[sources]]\nglob = \"doc/adr/*.md\"\ntype = \"adr\"\nkey = \"created\"\nname = '^(?P<alias>\\d{4})-(?P<slug>.+)\\.md$'\n",
+    );
+    r.commit("sources");
+    let (code, preview) = r.text(&["import", "--map", "import.toml", "--apply"]);
+    assert_eq!(code, 0, "{preview}");
+    let (code, v) = r.json(&["import", "--map", "import.toml", "--apply", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    let made: Vec<String> = walk(&r.dir.path().join(".spec/adr"));
+    assert_eq!(made.len(), 3, "{made:?}");
+    for path in &made {
+        let text = std::fs::read_to_string(path).unwrap();
+        let (cr, lf) = (text.matches("\r\n").count(), text.matches('\n').count());
+        assert!(!text.starts_with('\u{feff}'), "{path}");
+        if path.contains("-lf.") {
+            assert_eq!(cr, 0, "{path}: {text:?}");
+        } else {
+            assert_eq!(cr, lf, "{path} mixes endings: {text:?}");
+        }
+    }
+    {
+        let undo = v["undo"].as_str().unwrap_or_default();
+        let st = std::process::Command::new("sh").arg("-c").arg(undo).current_dir(r.dir.path()).status().unwrap();
+        assert!(st.success(), "{undo}");
+        assert_eq!(r.read("doc/adr/0001-pay.md"), crlf, "undo restores the source bytes");
+    }
+}
+
+fn walk(dir: &std::path::Path) -> Vec<String> {
+    let mut out = vec![];
+    for e in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+        let p = e.path();
+        if p.is_dir() {
+            out.extend(walk(&p));
+        } else if p.extension().is_some_and(|x| x == "md") {
+            out.push(p.to_string_lossy().into_owned());
+        }
+    }
+    out
+}

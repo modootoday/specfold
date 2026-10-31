@@ -101,7 +101,8 @@ fn edit_frontmatter(plan: &mut Plan, path: &str, f: impl FnOnce(&mut Map<String,
             let frontmatter::Parsed::Map(mut fm) = frontmatter::parse(split.raw) else { return };
             f(&mut fm);
             let body = split.body.to_string();
-            *content = format!("{}{}", frontmatter::render(&crate::markdown::frontmatter::edit::ordered(fm)), body);
+            let text = format!("{}{}", frontmatter::render(&crate::markdown::frontmatter::edit::ordered(fm)), body);
+            *content = super::one_ending(text);
             return;
         }
     }
