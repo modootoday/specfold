@@ -72,7 +72,7 @@ pub fn execute(argv: Vec<String>) -> Executed {
     let (argv, all) = top_level_all(argv);
     let parsed =
         crate::cli::describe::parser_command(all).try_get_matches_from(&argv).and_then(|m| Cli::from_arg_matches(&m));
-    let cli = match parsed {
+    let mut cli = match parsed {
         Ok(c) => c,
         Err(e) => {
             let wants_json = argv.iter().any(|a| a == "--json");
@@ -141,6 +141,14 @@ pub fn execute(argv: Vec<String>) -> Executed {
     if matches!(cli.cmd, Cmd::Mcp) {
         return Executed { output: Output::new("mcp"), format, page, raw: None, serve_mcp: true };
     }
+    // C192: -C is a chdir: relative paths, repository discovery and repo_path all start there.
+    // The typed value stays for the hints; the session gets the absolute directory.
+    let shown_dir = cli.global.dir.clone();
+    if let Some(abs) = shown_dir.as_ref().and_then(|d| d.canonicalize().ok()).filter(|a| a.is_dir())
+        && std::env::set_current_dir(&abs).is_ok()
+    {
+        cli.global.dir = Some(abs);
+    }
     let output = match dispatch(&cli) {
         Ok(o) => o,
         Err(e) => {
@@ -162,36 +170,63 @@ pub fn execute(argv: Vec<String>) -> Executed {
         }
     };
     let mut output = output;
-    if let Some(d) = &cli.global.dir {
-        with_dir(&mut output, d);
+    if let Some(d) = &shown_dir {
+        with_dir(&mut output, d, &cli.global);
     }
     Executed { output, format, page, raw: None, serve_mcp: false }
 }
 
 /// C161/C163: commands to paste work from where -C was typed: spec gets `-C <dir>`, git gets
 /// `git -C <dir>`, any other shell command `cd <dir> &&`.
-fn with_dir(o: &mut Output, dir: &std::path::Path) {
+fn with_dir(o: &mut Output, dir: &std::path::Path, g: &crate::cli::args::global::Global) {
     let w = specfold_core::shell::quote(&dir.display().to_string());
-    o.next = o.next.as_deref().map(|n| dir_cmd(n, &w));
+    // C192: undo and fix name files from the repository root, so shell commands run there.
+    let abs = g.dir.clone().unwrap_or_default();
+    let root = crate::commands::session::config_quiet(g).ok().map(|c| root_as_typed(dir, &abs, &c.root));
+    let r = root.map(|r| specfold_core::shell::quote(&r.display().to_string())).unwrap_or_else(|| w.clone());
+    with_dirs(o, &w, &r);
+}
+
+/// The repository root written the way -C was: `my repo/src` gives `my repo`, `.` when -C is
+/// the root, otherwise the absolute root.
+fn root_as_typed(dir: &std::path::Path, abs: &std::path::Path, root: &std::path::Path) -> std::path::PathBuf {
+    let below = abs.strip_prefix(root).ok().map(|r| r.to_path_buf());
+    match below {
+        Some(b) if b.as_os_str().is_empty() => dir.to_path_buf(),
+        Some(b) => {
+            let mut up = dir.to_path_buf();
+            for _ in b.components() {
+                if !up.pop() {
+                    return root.to_path_buf();
+                }
+            }
+            if up.as_os_str().is_empty() { ".".into() } else { up }
+        }
+        None => root.to_path_buf(),
+    }
+}
+
+fn with_dirs(o: &mut Output, w: &str, r: &str) {
+    o.next = o.next.as_deref().map(|n| dir_cmd(n, w, r));
     if let Some(serde_json::Value::String(u)) = o.summary.get_mut("undo") {
-        *u = dir_cmd(u, &w);
+        *u = dir_cmd(u, w, r);
     }
     for f in &mut o.foot {
         if let Some(u) = f.strip_prefix("undo: ") {
-            *f = format!("undo: {}", dir_cmd(u, &w));
+            *f = format!("undo: {}", dir_cmd(u, w, r));
         }
     }
     let spec_c = format!("spec -C {w} ");
     for it in &mut o.items {
         if let Some(serde_json::Value::String(c)) = it.json.get_mut("fix").and_then(|f| f.get_mut("cmd")) {
-            *c = dir_cmd(c, &w);
+            *c = dir_cmd(c, w, r);
         }
         if it.text.contains("\n  fix: ") {
             it.text = it
                 .text
                 .lines()
                 .map(|l| match l.strip_prefix("  fix: ") {
-                    Some(c) => format!("  fix: {}", dir_cmd(c, &w))
+                    Some(c) => format!("  fix: {}", dir_cmd(c, w, r))
                         .replace("(spec fix --write", &format!("({spec_c}fix --write")),
                     None => l.to_string(),
                 })
@@ -204,7 +239,7 @@ fn with_dir(o: &mut Output, dir: &std::path::Path) {
 /// Shell commands that next, undo and fix hints start with.
 const SHELL: &[&str] = &["git", "mkdir", "mv", "ls", "rm", "rmdir", "cp", "cat", "touch", "ln", "find"];
 
-fn dir_cmd(cmd: &str, w: &str) -> String {
+fn dir_cmd(cmd: &str, w: &str, r: &str) -> String {
     let spec = |part: &str| match part.strip_prefix("spec ") {
         Some(rest) if !rest.starts_with("-C ") && !rest.starts_with("--dir") => format!("spec -C {w} {rest}"),
         _ => part.to_string(),
@@ -221,9 +256,9 @@ fn dir_cmd(cmd: &str, w: &str) -> String {
         return cmd.to_string();
     }
     if first == "git" && !cmd.contains("&&") && !cmd.starts_with("git -C ") {
-        return format!("git -C {w} {}", &cmd[4..]);
+        return format!("git -C {r} {}", &cmd[4..]);
     }
-    format!("cd {w} && {cmd}")
+    format!("cd {r} && {cmd}")
 }
 
 /// clap's error without its usage block: the first line, the missing arguments it lists under
