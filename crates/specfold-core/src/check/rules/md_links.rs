@@ -181,6 +181,8 @@ mod tests {
         for k in ["title", "use-files", "use-files-1", "detail", "R-1"] {
             assert!(f.contains(k), "{k} in {f:?}");
         }
+        let c = fragments("## Context ##\n");
+        assert!(c.contains("context") && !c.contains("context-"), "C240: {c:?}");
         assert!(has_scheme("https://x") && has_scheme("mailto:a@b") && has_scheme("adr:o/1"));
         assert!(!has_scheme("../a.md") && !has_scheme("#x"));
         assert_eq!(normalize("a/b/../c"), Some("a/c".into()));

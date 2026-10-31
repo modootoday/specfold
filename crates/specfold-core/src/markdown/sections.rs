@@ -128,4 +128,12 @@ mod tests {
         assert_eq!(span(b, "seven"), None);
         assert_eq!(outline("   ### three spaces\n#\n"), [(3, "three spaces".to_string()), (1, String::new())]);
     }
+
+    #[test]
+    fn c240_closing_hashes_are_not_heading_text() {
+        let b = "## Context ##\n## Decision #\n## C# ##\n## Tag#\n### ###\n";
+        let t: Vec<String> = outline(b).into_iter().map(|(_, t)| t).collect();
+        assert_eq!(t, ["Context", "Decision", "C#", "Tag#", ""]);
+        assert_eq!(span(b, "context"), Some((0, 1)));
+    }
 }
