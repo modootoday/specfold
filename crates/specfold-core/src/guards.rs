@@ -27,8 +27,10 @@ fn select<'a>(cfg: &'a Config, names: &[String]) -> Result<Vec<&'a GuardDef>> {
         .iter()
         .map(|n| {
             cfg.raw.guards.iter().find(|g| &g.name == n).ok_or_else(|| {
-                let have: Vec<&str> = cfg.raw.guards.iter().map(|g| g.name.as_str()).collect();
-                anyhow!("no guard named '{n}' (have: {})", have.join(", "))
+                // C216: the built-in check runs as `spec guard secrets` with no guard configured.
+                let mut have: Vec<&str> = cfg.raw.guards.iter().map(|g| g.name.as_str()).collect();
+                have.push("secrets (built-in)");
+                anyhow!("no guard named '{n}' (have: {}); next: spec guard secrets", have.join(", "))
             })
         })
         .collect()

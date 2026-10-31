@@ -194,3 +194,11 @@ fn attach_runs_the_built_in_secrets_check_with_no_guard_configured() {
     assert_eq!(code, 0, "a repository file is attached: {v}");
     assert_eq!(v["guard"][0]["level"], "warn", "{v}");
 }
+
+#[test]
+fn c216_an_unknown_guard_lists_the_built_in_secrets_check() {
+    let r = common::repo();
+    let (code, v) = r.json(&["guard", "nope"]);
+    assert_eq!(code, 2, "{v}");
+    assert!(v.to_string().contains("secrets (built-in)"), "{v}");
+}
