@@ -82,6 +82,10 @@ fn upgrade(g: &Global, a: &InitArgs) -> Result<Output> {
     let mut o =
         Output::new("init").unpaged().field("path", path.display().to_string()).field("changes", changes.clone());
     if changes.is_empty() {
+        // C235: nothing to rename is not "current" when the file does not load as a config.
+        if let Err(e) = session::config(g) {
+            bail!("{e:#}; next: spec doctor  # names the line to fix");
+        }
         return Ok(o
             .head(format!("{} is current (schema {})", path.display(), defaults::schema()))
             .next("spec doctor"));

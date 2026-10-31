@@ -198,3 +198,17 @@ fn c210_owner_patterns_take_whole_star_segments() {
     assert_eq!(code, 2, "{v}");
     assert!(v["error"].as_str().unwrap().contains("whole '*' segments"), "{v}");
 }
+
+/// C235: a spec.toml that does not load: doctor points at its line, and `init --upgrade` fails.
+#[test]
+fn c235_broken_config_points_at_the_line_and_upgrade_refuses() {
+    let r = common::repo();
+    r.write("spec.toml", &(r.read("spec.toml") + "\n[write]\nmax_files = \"x\"\n"));
+    let line = r.read("spec.toml").lines().position(|l| l.starts_with("max_files")).unwrap() + 1;
+    let (_, v) = r.json(&["doctor"]);
+    let fix = v["items"][0]["fix"].as_str().unwrap();
+    assert_eq!(fix, format!("fix spec.toml at line {line} (spec explain config)"), "{v}");
+    let (code, text) = r.text(&["init", "--upgrade"]);
+    assert_eq!(code, 2, "{text}");
+    assert!(!text.contains("is current") && text.contains("next: spec doctor"), "{text}");
+}
