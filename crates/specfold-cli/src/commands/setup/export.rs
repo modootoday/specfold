@@ -266,23 +266,40 @@ fn built_in(g: &Global, a: &ExportArgs) -> Result<Output> {
             .next(format!("spec export markdown --target {} --out {again}{} --yes", target.name(), content_flags(a))));
     }
     markdown::write(&out_path, &tree, target, &previous)?;
-    let mut o = o.head(format!(
+    let o = o.head(format!(
         "exported {} document(s) for {} into {} ({} files)",
         tree.docs,
         target.name(),
         out.display(),
         tree.files.len()
     ));
-    if n > 0 {
+    Ok(done_next(o, tree.docs, n, &out_path, &s.corpus.cfg.root, &again))
+}
+
+/// What to run after a written export.
+fn done_next(
+    mut o: Output,
+    docs: usize,
+    n: usize,
+    out_path: &std::path::Path,
+    root: &std::path::Path,
+    again: &str,
+) -> Output {
+    if docs == 0 {
+        // C222: an empty repository exports the manifest alone.
+        o = o
+            .foot("no documents to export yet; the folder holds only the manifest")
+            .next("spec new sot --title <TITLE>");
+    } else if n > 0 {
         o = o.foot(format!("{n} reference(s) written as plain text")).next("spec check --rule L1");
     } else {
         // Done: look at what changed in the output rather than exporting again.
         // C104: git sees only an --out inside the repository.
-        let inside = std::fs::canonicalize(&out_path)
+        let inside = std::fs::canonicalize(out_path)
             .ok()
-            .zip(std::fs::canonicalize(&s.corpus.cfg.root).ok())
+            .zip(std::fs::canonicalize(root).ok())
             .is_some_and(|(o, r)| o.starts_with(r));
         o = if inside { o.next(format!("git status --short -- {again}")) } else { o.next(format!("ls {again}")) };
     }
-    Ok(o)
+    o
 }
