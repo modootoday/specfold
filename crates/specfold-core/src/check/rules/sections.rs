@@ -3,7 +3,6 @@
 use crate::check::context::Ctx;
 use crate::check::finding::Finding;
 use crate::check::rule::{Rule, RuleInfo};
-use crate::shell::quote;
 
 pub struct RequiredSections;
 
@@ -62,9 +61,9 @@ impl Rule for RequiredSections {
                 if !have.contains(&s.trim().to_lowercase()) {
                     let msg = format!("missing section '{s}' (required for {})", ty.name);
                     let add = format!(
-                        "spec edit {} --new-section {} --text \"…\" --write",
+                        "spec edit {} {} --text \"…\" --write",
                         crate::shell::word(&d.id),
-                        quote(s.trim())
+                        crate::shell::opt("--new-section", s.trim())
                     );
                     out.push(Finding::warn("S7", &d.path, 1, msg).fix_cmd(add));
                 }

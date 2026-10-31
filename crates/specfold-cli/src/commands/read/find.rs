@@ -66,14 +66,21 @@ pub fn run(g: &Global, a: &FindArgs) -> Result<Output> {
         None if !a.all => {
             // The same search with --all, so the next line runs as written.
             let mut cmd = vec!["spec find --all".to_string()];
-            cmd.extend(a.words.iter().map(|w| specfold_core::shell::quote(w)));
+            // C229: words starting with `-` go last, after `--`.
+            let dash = a.words.iter().any(|w| w.starts_with('-'));
+            if !dash {
+                cmd.extend(a.words.iter().map(|w| specfold_core::shell::quote(w)));
+            }
             for (flag, list) in
                 [("--type", &a.types), ("--owner", &a.owners), ("--status", &a.statuses), ("--tag", &a.tags)]
             {
-                cmd.extend(list.iter().map(|v| format!("{flag} {}", specfold_core::shell::quote(v))));
+                cmd.extend(list.iter().map(|v| specfold_core::shell::opt(flag, v)));
             }
             if a.body {
                 cmd.push("--body".into());
+            }
+            if dash {
+                cmd.push(specfold_core::shell::positionals(&a.words));
             }
             o.foot("nothing current matches").next(cmd.join(" "))
         }

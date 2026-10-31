@@ -72,3 +72,22 @@ fn every_suggested_set_writes() {
     }
     assert!(bad.is_empty(), "spec set without --write: {bad:#?}");
 }
+
+/// C229: an option value quoted into a suggested command goes through `shell::opt`, so a value
+/// starting with `-` is written `--opt=value` and not read as another option.
+#[test]
+fn quoted_option_values_go_through_opt() {
+    let mut bad = vec![];
+    for f in files("src") {
+        let s = std::fs::read_to_string(&f).expect("read source");
+        for (n, l) in s.lines().enumerate() {
+            let t = l.replace("specfold_core::shell::", "").replace("crate::shell::", "");
+            let Some(at) = t.find(" {}\", quote(") else { continue };
+            let flag = t[..at].rsplit([' ', '"']).next().unwrap_or("");
+            if flag.starts_with("--") && !["--write", "--yes", "--force", "--all"].contains(&flag) {
+                bad.push(format!("{}:{}: {}", f.display(), n + 1, l.trim()));
+            }
+        }
+    }
+    assert!(bad.is_empty(), "use shell::opt for these: {bad:#?}");
+}

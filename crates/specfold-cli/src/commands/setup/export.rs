@@ -153,7 +153,7 @@ fn content_flags(a: &ExportArgs) -> String {
         }
     }
     if let Some(x) = &a.fail_on {
-        f.push_str(&format!(" --fail-on {}", specfold_core::shell::quote(x)));
+        f.push_str(&format!(" {}", specfold_core::shell::opt("--fail-on", x)));
     }
     f
 }
