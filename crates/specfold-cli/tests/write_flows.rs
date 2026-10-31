@@ -694,3 +694,25 @@ fn c208_edit_refuses_text_with_an_open_code_fence() {
     assert_eq!(code, 0, "{v}");
     assert_eq!(r.json(&["show", &d, "--section", "Steps"]).0, 0);
 }
+
+#[test]
+fn c206_concurrent_new_runs_get_distinct_timestamp_ids() {
+    let r = common::repo();
+    let ids: std::collections::BTreeSet<String> = std::thread::scope(|sc| {
+        let hs: Vec<_> = (0..4)
+            .map(|n| {
+                let r = &r;
+                sc.spawn(move || {
+                    let title = format!("Para {n}");
+                    let (code, v) = r.json(&["new", "adr", "--governs", "services/shop", "--title", &title, "--write"]);
+                    assert_eq!(code, 0, "{v}");
+                    v["id"].as_str().unwrap().to_string()
+                })
+            })
+            .collect();
+        hs.into_iter().map(|h| h.join().unwrap()).collect()
+    });
+    assert_eq!(ids.len(), 4, "{ids:?}");
+    let (_, v) = r.json(&["check"]);
+    assert_eq!(v["errors"], 0, "{v}");
+}

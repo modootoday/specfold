@@ -15,7 +15,7 @@ impl Rule for UniqueIds {
         &RuleInfo {
             id: "I1",
             title: "ids are unique across every root",
-            explain: "Two documents with the same id make every reference to it ambiguous. Ids come from timestamps or slugs; `spec new` picks the next free second, and `spec mv --slug` renames a slug document.",
+            explain: "Two documents with the same id make every reference to it ambiguous. Ids come from timestamps or slugs; `spec new` picks the next free second, and `spec mv --slug` renames a slug document. For a timestamp id held by two files, keep one and give the other a new key: `spec new <type> --title <its title> --write`, move its body over with `spec edit <new-id> --text ... --write`, then delete the duplicate file.",
             on_commit: true,
         }
     }
