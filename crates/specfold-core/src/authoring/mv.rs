@@ -88,16 +88,15 @@ pub fn plan(c: &Corpus, idx: usize, req: &Move) -> Result<(Moved, Plan)> {
             }
             let is_main = file == &other.path;
             if is_main {
-                let mut rel_changed = false;
                 body = edit::rewrite(&body, |m| {
-                    rel_changed = refs::rewrite_rel(m, &old_s, &new_s);
+                    refs::rewrite_rel(m, &old_s, &new_s);
                     if j == idx {
                         m.insert("id".into(), Value::String(new_s.clone()));
                         m.insert("updated".into(), Value::String(stamp::now_value()));
                     }
                 })?;
-                references += usize::from(rel_changed);
             }
+            // C224: a referring file counts once, whether its links, its rel lines, or both changed.
             if body != text {
                 references += usize::from(j != idx);
                 let target = if j != idx {
