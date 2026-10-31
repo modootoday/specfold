@@ -139,6 +139,7 @@ A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is 
   `gateway`), not only when most of the title is lost.
 
 ### Fixed
+- A line indented four or more spaces, or starting with seven or more `#`, is no longer read as a heading: outline, `show/edit --section`, edit's heading guard, required sections (S7) and anchors share one CommonMark heading parser (C238).
 - `spec.toml` regexes and globs (`[verify] serial`, `full_run_on`, `[forbid]`, `[cites]`, guard and asset paths) are checked at load: a bad one stops with its line (exit 2) instead of being dropped. An empty or missing `[verify] shell` is reported by `spec doctor`, and `spec verify` names the shell and points to `spec doctor` (C237).
 - Language tags compare case-insensitively in `spec census --translations` and R1's one-translation-per-language check, as `spec new --translation` does; `--lang` that is not a language tag exits 2 (C236).
 - `spec doctor` on a spec.toml that does not load says to fix it at the line TOML names; `spec init --upgrade` on such a file fails with exit 2 instead of calling it current (C235).

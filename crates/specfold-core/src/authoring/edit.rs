@@ -243,12 +243,11 @@ fn refuse_open_fence(text: &str) -> Result<()> {
 fn refuse_headings(text: &str, level: usize) -> Result<()> {
     let mut fence = crate::markdown::Fence::default();
     for line in text.lines() {
-        let t = line.trim_start();
-        if fence.step(t) || fence.inside() {
+        if fence.step(line) || fence.inside() {
             continue;
         }
-        let hashes = t.chars().take_while(|c| *c == '#').count();
-        if hashes >= 1 && hashes <= level && t[hashes..].starts_with(' ') {
+        let t = line.trim();
+        if crate::markdown::atx(line).is_some_and(|(hashes, _)| hashes <= level) {
             bail!(
                 "the text holds the heading '{}', which would start a new section; add it with --new-section, or use a deeper heading ({})",
                 t.trim(),

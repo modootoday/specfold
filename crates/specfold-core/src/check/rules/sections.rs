@@ -11,18 +11,10 @@ fn headings(text: &str) -> Vec<String> {
     let mut fence = crate::markdown::Fence::default();
     let mut out = vec![];
     for l in text.lines() {
-        let t = l.trim_start();
-        if fence.step(t) {
+        if fence.step(l) || fence.inside() {
             continue;
         }
-        if fence.inside() || !t.starts_with('#') {
-            continue;
-        }
-        let h = t.trim_start_matches('#');
-        if !h.starts_with(' ') {
-            continue;
-        }
-        let h = h.trim();
+        let Some((_, h)) = crate::markdown::atx(l) else { continue };
         let h = match h.rfind(" {#") {
             Some(i) if h.ends_with('}') => &h[..i],
             _ => h,

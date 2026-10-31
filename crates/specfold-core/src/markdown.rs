@@ -43,6 +43,22 @@ impl Fence {
     }
 }
 
+/// C238: an ATX heading the CommonMark way: at most three spaces of indent (four make code),
+/// one to six `#`, then a space, a tab or the end of the line. Gives the level and the text.
+pub fn atx(line: &str) -> Option<(usize, &str)> {
+    let indent = line.len() - line.trim_start_matches(' ').len();
+    if indent > 3 {
+        return None;
+    }
+    let t = &line[indent..];
+    let n = t.chars().take_while(|c| *c == '#').count();
+    let rest = &t[n..];
+    if !(1..=6).contains(&n) || !(rest.is_empty() || rest.starts_with([' ', '\t'])) {
+        return None;
+    }
+    Some((n, rest.trim()))
+}
+
 pub mod counts;
 pub mod frontmatter;
 pub mod sections;

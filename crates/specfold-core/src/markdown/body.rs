@@ -98,17 +98,13 @@ pub fn scan(body: &str, first_line: usize, path_re: &Regex) -> Body {
             continue;
         }
         let line = strip_code_spans(raw_line);
-        if let Some(rest) = trimmed.strip_prefix('#') {
-            let level_rest = rest.trim_start_matches('#');
-            if level_rest.starts_with(' ') || level_rest.is_empty() {
-                let heading_text = level_rest.trim();
-                let heading_clean = anchor_re().replace(heading_text, "").trim().to_string();
-                if out.first_heading.is_none() && !heading_clean.is_empty() {
-                    out.first_heading = Some(heading_clean.clone());
-                }
-                if let Some(c) = anchor_re().captures(heading_text) {
-                    out.anchors.push(Anchor { name: c[1].to_string(), heading: heading_clean, line: line_no });
-                }
+        if let Some((_, heading_text)) = crate::markdown::atx(raw_line) {
+            let heading_clean = anchor_re().replace(heading_text, "").trim().to_string();
+            if out.first_heading.is_none() && !heading_clean.is_empty() {
+                out.first_heading = Some(heading_clean.clone());
+            }
+            if let Some(c) = anchor_re().captures(heading_text) {
+                out.anchors.push(Anchor { name: c[1].to_string(), heading: heading_clean, line: line_no });
             }
         }
         for c in wiki_re().captures_iter(&line) {
