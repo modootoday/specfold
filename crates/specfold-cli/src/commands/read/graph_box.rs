@@ -291,6 +291,27 @@ fn first_line(label: &str) -> &str {
     label.lines().next().unwrap_or(label)
 }
 
+/// C212: the whole graph as stream rows for --jsonl.
+pub fn stream_rows(o: &crate::output::Output, gov: &[serde_json::Value]) -> crate::output::Output {
+    let mut out = o.clone();
+    for (row, key) in [("node", "nodes"), ("edge", "edges")] {
+        for v in o.summary.get(key).and_then(serde_json::Value::as_array).cloned().unwrap_or_default() {
+            out = out.item(tagged(row, v), String::new());
+        }
+    }
+    for v in gov {
+        out = out.item(tagged("governs", v.clone()), String::new());
+    }
+    out
+}
+
+fn tagged(row: &str, mut v: serde_json::Value) -> serde_json::Value {
+    if let serde_json::Value::Object(m) = &mut v {
+        m.insert("row".into(), serde_json::json!(row));
+    }
+    v
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

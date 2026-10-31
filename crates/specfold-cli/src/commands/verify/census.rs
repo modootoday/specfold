@@ -43,7 +43,7 @@ pub fn run(g: &Global, a: &CensusArgs) -> Result<Output> {
 
 fn translations(s: &session::Session, langs: &[String], fail_on: &str) -> Result<Output> {
     let r = translation::report(&s.corpus, &s.graph, langs);
-    let mut o = Output::new("census").unpaged();
+    let mut o = Output::new("census");
     if let serde_json::Value::Object(m) = to_value(&r)? {
         o.summary.extend(m);
     }
@@ -64,11 +64,18 @@ fn translations(s: &session::Session, langs: &[String], fail_on: &str) -> Result
         };
         let changed =
             if t.sections.is_empty() { String::new() } else { format!(" in {}", translation::describe(&t.sections)) };
-        o = o.foot(format!("  {:<14} {} ({}) → {}{changed}", what, t.id, t.lang.as_deref().unwrap_or("-"), t.source));
+        // C212: the rows are the items, so --jsonl streams them and --limit/--offset page them.
+        o = o.item(
+            to_value(t)?,
+            format!("  {:<14} {} ({}) → {}{changed}", what, t.id, t.lang.as_deref().unwrap_or("-"), t.source),
+        );
     }
     for (lang, ids) in &r.missing {
         for id in ids {
-            o = o.foot(format!("  {:<14} {id} has no {lang} translation", "missing"));
+            o = o.item(
+                serde_json::json!({"id": id, "lang": lang, "state": "missing"}),
+                format!("  {:<14} {id} has no {lang} translation", "missing"),
+            );
         }
     }
     if behind + unrecorded + gone + missing == 0 {
