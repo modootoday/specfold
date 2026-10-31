@@ -777,3 +777,32 @@ fn c223_set_checks_and_keeps_updated() {
         assert!(v["next"].as_str().unwrap_or_default().contains("--rule S5"), "{good}: {v}");
     }
 }
+
+#[test]
+fn c226_ambiguous_section_names_file_lines() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    let path = r.json(&["resolve", &id]).1["path"].as_str().unwrap().to_string();
+    r.write(&path, &(r.read(&path) + "\n## Steps\na\n\n## Steps\nb\n"));
+    let text = r.read(&path);
+    let want: Vec<String> = text
+        .lines()
+        .enumerate()
+        .filter(|(_, l)| *l == "## Steps")
+        .map(|(i, _)| format!("line {} 'Steps'", i + 1))
+        .collect();
+    assert_eq!(want.len(), 2);
+    for args in [
+        vec!["edit", id.as_str(), "--section", "Steps", "--text", "x"],
+        vec!["edit", id.as_str(), "--section", "Steps", "--row", "1", "--text", "x"],
+        vec!["show", id.as_str(), "--section", "Steps"],
+    ] {
+        let (code, t) = r.text(&args);
+        assert_ne!(code, 0, "{args:?}: {t}");
+        if t.contains("matches 2 headings") {
+            assert!(want.iter().all(|w| t.contains(w.as_str())), "{args:?}: {want:?} in {t}");
+        }
+    }
+    let (_, t) = r.text(&["edit", id.as_str(), "--section", "Steps", "--text", "x"]);
+    assert!(t.contains(&want[1]), "{t}");
+}

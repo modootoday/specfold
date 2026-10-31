@@ -68,7 +68,7 @@ pub fn plan(c: &Corpus, idx: usize, e: &Edit) -> Result<Outcome> {
     let (target, before, body) = match &e.section {
         Some(name) => {
             let Some((start, end)) = sections::span(split.body, name) else {
-                let msg = sections::not_found(split.body, name);
+                let msg = sections::not_found(split.body, split.body_line, name);
                 if sections::matches(split.body, name).len() > 1 {
                     bail!("{msg}");
                 }
@@ -153,7 +153,7 @@ fn plan_row(d: &Doc, head: &str, lines: &[&str], body: &str, section: Option<&st
     let (lo, hi, target) = match &section {
         Some(name) => {
             let Some((start, end)) = sections::span(body, name) else {
-                bail!("{}", sections::not_found(body, name));
+                bail!("{}", sections::not_found(body, head.matches('\n').count() + 1, name));
             };
             (start + 1, end, format!("row '{}' in {}", ch.key, lines[start].trim()))
         }
@@ -193,7 +193,7 @@ fn plan_new_section(
     let (at, level) = match &after {
         Some(name) => {
             let Some((start, end)) = sections::span(body, name) else {
-                bail!("{}", sections::not_found(body, name));
+                bail!("{}", sections::not_found(body, head.matches('\n').count() + 1, name));
             };
             (end, lines[start].trim_start().chars().take_while(|c| *c == '#').count())
         }

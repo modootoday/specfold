@@ -34,7 +34,7 @@ pub fn run(g: &Global, a: &ShowArgs) -> Result<Output> {
                 .iter()
                 .find_map(|c| sections::extract(&std::fs::read_to_string(s.corpus.cfg.root.join(c)).ok()?, name))
         }) else {
-            bail!("{}", sections::not_found(body, name));
+            bail!("{}", sections::not_found(body, split.body_line, name));
         };
         o = o.field("section", sec.clone()).foot(String::new()).foot(sec);
     } else if a.body {
