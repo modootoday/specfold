@@ -128,3 +128,22 @@ fn set_archive_of_a_plan_with_open_tasks_previews_and_refuses_only_the_write() {
     assert_eq!(code, 4, "{v}");
     assert!(v["next"].as_str().unwrap().contains("--write --force"), "{v}");
 }
+
+#[test]
+fn superseding_a_draft_hint_commands_run_as_given() {
+    let r = common::repo();
+    let id = r.new_doc("adr", "services/shop", "Use files");
+    let (code, v) = r.json(&["set", &id, "status=superseded", "--write"]);
+    assert_ne!(code, 0, "{v}");
+    let msg = format!("{} {}", v["error"].as_str().unwrap_or_default(), v["hint"].as_str().unwrap_or_default());
+    let cmds: Vec<String> = msg.split('`').skip(1).step_by(2).map(|c| c.replace('…', "Filled in")).collect();
+    assert_eq!(cmds.len(), 3, "{msg}");
+    assert!(cmds.iter().all(|c| c.ends_with(" --write")), "every step writes: {cmds:?}");
+    let (code, e) = follow(&r, &cmds[2]);
+    assert_eq!((code, &e["written"]), (0, &Value::Bool(true)), "edit the draft: {e}");
+    for c in &cmds[..2] {
+        let (code, w) = follow(&r, c);
+        assert_eq!((code, &w["written"]), (0, &Value::Bool(true)), "{c}: {w}");
+    }
+    assert_eq!(r.json(&["show", &id]).1["frontmatter"]["status"], "superseded");
+}

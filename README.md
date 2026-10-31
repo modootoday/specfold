@@ -115,8 +115,8 @@ times and task items: [docs/concepts/index.md](docs/concepts/index.md).
 | `spec lsp` | Serve check findings as editor diagnostics (Language Server Protocol over stdio) |
 <!-- spec:commands:end -->
 
-Every command has `--help`, examples and `--json`. Writes are previews until `--write` (`new` and
-`set` write directly and accept `--dry-run`).
+Every command has `--help`, examples and `--json`. Writes, `new` and `set` included, are previews until
+`--write`; `--dry-run` previews too.
 
 ## Using with AI agents
 
