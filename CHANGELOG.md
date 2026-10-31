@@ -139,6 +139,7 @@ A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is 
   `gateway`), not only when most of the title is lost.
 
 ### Fixed
+- `spec mv` of a bundle document: the undo stashes the old and new folder and runs cleanly, and relative links to the bundle's attachments follow the move (C233, C234).
 - Release notes come from the CHANGELOG section for the tag, falling back to the commit subjects since the previous tag.
 - `spec help new` examples and the `spec agents` lines that start documents carry `--write` (C232).
 - `spec guard --range A..B` reads files at `B` (HEAD when empty) instead of the checkout, and also reads every version a commit in the range wrote, so a value added and later removed inside the range still fails (C230, C231).

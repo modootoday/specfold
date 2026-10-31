@@ -361,7 +361,14 @@ pub fn undo(plan: &Plan, root: &Path, kept: &Saved) -> String {
     // taken back with a plain `mv` instead.
     let tracked: std::collections::HashSet<String> =
         specfold_core::workspace::vcs::tracked(root, &[]).unwrap_or_default().into_iter().collect();
-    let known = |p: &str| tracked.contains(p) || root.join(p).exists();
+    // C233: a bundle document moves as its directory, which git never lists itself; it counts
+    // as tracked when files under it are.
+    let under = |p: &str| {
+        let dir = format!("{p}/");
+        tracked.iter().any(|t| t.starts_with(&dir))
+    };
+    let is_tracked = |p: &str| tracked.contains(p) || under(p);
+    let known = |p: &str| is_tracked(p) || root.join(p).exists();
     let mut paths: Vec<String> = vec![];
     let mut trash: Vec<String> = vec![];
     let mut back: Vec<(String, String)> = vec![];
@@ -376,7 +383,7 @@ pub fn undo(plan: &Plan, root: &Path, kept: &Saved) -> String {
                 let dir: Vec<&str> = to.splitn(4, '/').take(3).collect();
                 trash.push(dir.join("/"));
             }
-            Change::Move { from, to } if !tracked.contains(from) => back.push((to.clone(), from.clone())),
+            Change::Move { from, to } if !is_tracked(from) => back.push((to.clone(), from.clone())),
             Change::Move { from, to } => {
                 paths.push(from.clone());
                 paths.push(to.clone());
@@ -385,7 +392,7 @@ pub fn undo(plan: &Plan, root: &Path, kept: &Saved) -> String {
             Change::Copy { to, .. } => paths.push(to.clone()),
         }
     }
-    paths.retain(|p| known(p) && !back.iter().any(|(to, _)| to == p));
+    paths.retain(|p| known(p) && !back.iter().any(|(to, _)| to == p || p.starts_with(&format!("{to}/"))));
     paths.sort();
     paths.dedup();
     // C197: an ignored path (the local tier) is out of git's reach: what spec made there is removed.

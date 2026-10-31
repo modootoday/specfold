@@ -806,3 +806,48 @@ fn c226_ambiguous_section_names_file_lines() {
     let (_, t) = r.text(&["edit", id.as_str(), "--section", "Steps", "--text", "x"]);
     assert!(t.contains(&want[1]), "{t}");
 }
+
+/// C233/C234: moving a committed bundle gives an undo that runs, and links to its attachments follow.
+#[test]
+fn c233_c234_bundle_mv_undo_runs_and_attachment_links_follow() {
+    let r = common::repo();
+    let design = r.new_doc("design", "services/shop", "Cart board");
+    r.write("board.png", "png");
+    r.write("flow.svg", "<svg/>");
+    let (code, v) = r.json(&["attach", &design, "board.png", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    let (code, v) = r.json(&["attach", &design, "flow.svg", "--into", "diagrams", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    let (_, s) = r.json(&["show", &design]);
+    let main = s["path"].as_str().unwrap().to_string();
+    let dir = main.rsplit_once('/').unwrap().0.to_string();
+    let sot = r.new_doc("sot", "services/shop", "Cart rules");
+    let (_, s) = r.json(&["show", &sot]);
+    let sp = s["path"].as_str().unwrap().to_string();
+    let rel = |p: &str| {
+        let up = "../".repeat(sp.matches('/').count());
+        format!("{up}{p}")
+    };
+    let links = format!(
+        "\nBoard: ![b]({})\nDoc: [d]({})\nSvg: [s]({})\n",
+        rel(&format!("{dir}/board.png")),
+        rel(&main),
+        rel(&format!("{dir}/diagrams/flow.svg"))
+    );
+    r.write(&sp, &(r.read(&sp) + &links));
+    r.commit("docs");
+    let before = r.read(&sp);
+    let (code, v) = r.json(&["mv", &design, "--slug", "basket", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    let after = r.read(&sp);
+    assert!(!after.contains(&format!("{dir}/")), "every link under the old bundle follows it: {after}");
+    let (_, c) = r.json(&["check"]);
+    assert_eq!(c["warnings"], 0, "no broken link left: {c}");
+    let undo = v["undo"].as_str().unwrap().to_string();
+    let out = std::process::Command::new("sh").arg("-c").arg(&undo).current_dir(r.path()).output().unwrap();
+    assert!(out.status.success(), "{undo}: {}", String::from_utf8_lossy(&out.stderr));
+    assert_eq!(r.read(&sp), before, "the referrer is back");
+    assert!(r.path().join(&main).is_file(), "the bundle is back at {main}");
+    let st = std::process::Command::new("git").args(["status", "--porcelain"]).current_dir(r.path()).output().unwrap();
+    assert!(st.stdout.is_empty(), "{}", String::from_utf8_lossy(&st.stdout));
+}
