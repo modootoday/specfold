@@ -27,7 +27,8 @@ impl Rule for TranslationsCurrent {
             if let (true, Some(s), Some(l)) =
                 (translation::is_translation(c, i), translation::source_of(c, ctx.graph, i), translation::lang_of(c, i))
             {
-                per.entry((s, l)).or_default().push(i);
+                // C236: ko and KO are one language.
+                per.entry((s, l.to_ascii_lowercase())).or_default().push(i);
             }
         }
         for (i, d) in c.docs.iter().enumerate() {
@@ -66,7 +67,7 @@ impl Rule for TranslationsCurrent {
                 continue;
             }
             if let Some(l) = translation::lang_of(c, i)
-                && let Some(same) = per.get(&(src, l.clone())).filter(|v| v.len() > 1)
+                && let Some(same) = per.get(&(src, l.to_ascii_lowercase())).filter(|v| v.len() > 1)
             {
                 let others: Vec<String> = same.iter().filter(|&&j| j != i).map(|&j| c.docs[j].id.to_string()).collect();
                 out.push(Finding::warn(

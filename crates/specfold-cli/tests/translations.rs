@@ -326,3 +326,30 @@ fn c212_census_translations_and_graph_stream_their_rows() {
     assert!(nodes >= 2, "{rows:?}");
     assert!(rows.iter().any(|x| x["row"] == "edge"), "{rows:?}");
 }
+
+/// C236: language tags match case-insensitively everywhere, and `--lang` must be a tag.
+#[test]
+fn c236_language_tags_match_whatever_their_case() {
+    let r = common::repo();
+    let src = r.new_doc("guide", "services/shop", "Setup");
+    let (code, v) = r.json(&["new", "--translation", "pt-BR", "--from", &src, "--write"]);
+    assert_eq!(code, 0, "{v}");
+    let (code, v) = r.json(&["census", "--translations", "--lang", "pt-br"]);
+    assert_eq!(code, 0, "pt-br is pt-BR: {v}");
+    let (code, v) = r.json(&["new", "--translation", "ko", "--from", &src, "--write"]);
+    assert_eq!(code, 0, "{v}");
+    let ko = v["id"].as_str().unwrap().to_string();
+    let (code, v) = r.json(&["new", "--translation", "ja", "--from", &src, "--write"]);
+    assert_eq!(code, 0, "{v}");
+    let ja = v["id"].as_str().unwrap().to_string();
+    let (code, v) = r.json(&["set", &ja, "lang=KO", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    let (_, c) = r.json(&["check", "--rule", "R1"]);
+    let msgs = c["items"].to_string();
+    assert!(msgs.contains(&ko) && msgs.contains(&ja), "ko and KO are one language: {c}");
+    for bad in ["xx_yy", ""] {
+        let (code, text) = r.text(&["census", "--translations", "--lang", bad]);
+        assert_eq!(code, 2, "--lang '{bad}': {text}");
+        assert!(text.contains("not a language tag"), "{text}");
+    }
+}
