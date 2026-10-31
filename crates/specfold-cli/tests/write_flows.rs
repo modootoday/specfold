@@ -716,3 +716,21 @@ fn c206_concurrent_new_runs_get_distinct_timestamp_ids() {
     let (_, v) = r.json(&["check"]);
     assert_eq!(v["errors"], 0, "{v}");
 }
+
+#[test]
+fn c214_fix_refuses_targets_check_would_refuse() {
+    let r = common::repo();
+    let id = r.new_doc("guide", "services/shop", "Pay retry");
+    let path = r.json(&["resolve", &id]).1["path"].as_str().unwrap().to_string();
+    let dir = std::path::Path::new(&path).parent().unwrap().to_string_lossy().to_string();
+    let typo = path.replace(".md", ".mdx");
+    let bad_line = format!("{path}:abc");
+    for t in ["nope.md", typo.as_str(), dir.as_str(), bad_line.as_str()] {
+        let (code, v) = r.json(&["fix", t]);
+        assert_eq!(code, 2, "{t}: {v}");
+    }
+    let line = format!("{path}:1");
+    for t in [path.as_str(), id.as_str(), line.as_str()] {
+        assert_eq!(r.json(&["fix", t]).0, 0, "{t}");
+    }
+}
