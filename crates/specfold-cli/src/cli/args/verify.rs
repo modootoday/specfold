@@ -136,6 +136,9 @@ pub struct AuditArgs {
     /// Title of the audit record.
     #[arg(long)]
     pub title: Option<String>,
+    /// Slug of the audit record, for a title with no ASCII words (kebab-case, as in `spec new`).
+    #[arg(long)]
+    pub slug: Option<String>,
     /// Write the record (otherwise a preview).
     #[arg(long)]
     pub write: bool,
