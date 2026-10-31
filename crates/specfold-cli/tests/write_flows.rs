@@ -678,3 +678,19 @@ fn c197_c209_undo_reaches_ignored_and_never_committed_documents() {
     run_undo(&r, &undo);
     assert_eq!(r.read(&fresh), before);
 }
+
+#[test]
+fn c208_edit_refuses_text_with_an_open_code_fence() {
+    let r = common::repo();
+    let d = r.new_doc("guide", "services/shop", "Deploy");
+    let before = r.json(&["show", &d, "--section", "Steps"]).0;
+    assert_eq!(before, 0);
+    for text in ["```\ncode", "~~~\nsnippet\n```"] {
+        let (code, t) = r.text(&["edit", &d, "--section", "Overview", "--text", text, "--write"]);
+        assert_eq!(code, 2, "{t}");
+        assert!(t.contains("never closes"), "{t}");
+    }
+    let (code, v) = r.json(&["edit", &d, "--section", "Overview", "--text", "```\ncode\n```", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(r.json(&["show", &d, "--section", "Steps"]).0, 0);
+}
