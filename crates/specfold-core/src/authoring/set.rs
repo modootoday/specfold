@@ -180,6 +180,10 @@ fn plan_with(c: &Corpus, idx: usize, assigns: &[Assign], successor_pending: bool
         if a.key == "title" && matches!(a.op, Op::Set) && a.value.trim().is_empty() {
             bail!("title is required and cannot be emptied; give a new one: spec set {} title='…'", d.id);
         }
+        // C223: updated is required (S1) as well; `updated=` would delete it.
+        if a.key == "updated" && matches!(a.op, Op::Set) && a.value.trim().is_empty() {
+            bail!("updated is required and cannot be emptied; give a date: spec set {} updated=today", d.id);
+        }
         if a.key == "status" {
             if !ty.statuses.contains(&a.value) {
                 let from = d.status().unwrap_or_else(|| ty.initial.clone());

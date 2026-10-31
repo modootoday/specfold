@@ -753,3 +753,27 @@ fn c224_mv_counts_a_referring_document_once() {
         assert_eq!(v["references"], 1, "{extra:?}: {v}");
     }
 }
+
+#[test]
+fn c223_set_checks_and_keeps_updated() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    let (_, d) = r.json(&["show", &id]);
+    let was = d["frontmatter"]["updated"].clone();
+    for bad in ["updated=notadate", "updated=2026-13-45", "updated="] {
+        for write in [false, true] {
+            let mut args = vec!["set", id.as_str(), bad];
+            if write {
+                args.push("--write");
+            }
+            let (code, v) = r.json(&args);
+            assert_eq!(code, 2, "{bad} write={write}: {v}");
+        }
+    }
+    assert_eq!(r.json(&["show", &id]).1["frontmatter"]["updated"], was);
+    for good in ["updated=2026-10-30", "updated=2026-10-30T02:21:00Z", "updated=today"] {
+        let (code, v) = r.json(&["set", &id, good, "--write"]);
+        assert_eq!(code, 0, "{good}: {v}");
+        assert!(v["next"].as_str().unwrap_or_default().contains("--rule S5"), "{good}: {v}");
+    }
+}
