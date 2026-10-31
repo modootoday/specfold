@@ -22,7 +22,7 @@ pub fn run(c: &Corpus, g: &Graph, docs: &[usize], out: &mut Vec<Item>) {
                 line: 1,
                 detail: "active, governs no code, and no document cites it".into(),
                 next: Some(format!(
-                    "spec set {} rel.governs+=<path>   # or: {}",
+                    "spec set {} rel.governs+=<path> --write   # or: {}",
                     crate::shell::word(&d.id),
                     super::archive(c, i)
                 )),

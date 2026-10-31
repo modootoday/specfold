@@ -102,7 +102,7 @@ pub fn run(g: &Global, a: &ShowArgs) -> Result<Output> {
         c
     } else if a.tasks && done < total {
         format!(
-            "spec show {} --body   # finish the open items, then spec set {} updated=today",
+            "spec show {} --body   # finish the open items, then spec set {} updated=today --write",
             specfold_core::shell::word(&shown),
             specfold_core::shell::word(&d.id)
         )

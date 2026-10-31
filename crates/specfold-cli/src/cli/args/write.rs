@@ -56,7 +56,7 @@ pub struct NewArgs {
 
 #[derive(Debug, Clone, Args)]
 #[command(
-    after_help = "Examples:\n  spec set adr:shop/20260101000000 status=active\n  spec set plan:shop/20260101000000 phase=P3 rel.implements+=sot:shop/cart\n  spec set sot:shop/cart tags-=draft\n  spec set sot:shop/cart rel.affects=   # delete a key\n  spec set sot:shop/cart verified_at=HEAD   # pin: audit flags any later commit to the governed code\n  spec set guide:docs/ko-setup --source-rev   # after re-translating: record the source it now matches"
+    after_help = "Examples:\n  spec set adr:shop/20260101000000 status=active --write\n  spec set plan:shop/20260101000000 phase=P3 rel.implements+=sot:shop/cart --write\n  spec set sot:shop/cart tags-=draft --write\n  spec set sot:shop/cart rel.affects= --write   # delete a key\n  spec set sot:shop/cart verified_at=HEAD --write   # pin: audit flags any later commit to the governed code\n  spec set guide:docs/ko-setup --source-rev --write   # after re-translating: record the source it now matches"
 )]
 pub struct SetArgs {
     /// An id, alias, path, or unique slug.

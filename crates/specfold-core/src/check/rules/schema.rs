@@ -32,7 +32,7 @@ impl Rule for RequiredByStatus {
         &RuleInfo {
             id: "S6",
             title: "a status has the fields it requires",
-            explain: "A type can require fields once a document reaches a status, through `require_when` in spec.toml (for example a review date for an accepted risk, or rel.depends_on for an active plan). `spec set <id> key=value` adds them.",
+            explain: "A type can require fields once a document reaches a status, through `require_when` in spec.toml (for example a review date for an accepted risk, or rel.depends_on for an active plan). `spec set <id> key=value --write` adds them.",
             on_commit: true,
         }
     }
@@ -56,7 +56,7 @@ impl Rule for RequiredByStatus {
                         format!("status '{status}' requires {}", missing.join(", ")),
                     )
                     .fix_cmd(format!(
-                        "spec set {} {}",
+                        "spec set {} {} --write",
                         crate::shell::word(&d.id),
                         missing.iter().map(|k| format!("{k}=…")).collect::<Vec<_>>().join(" ")
                     )),
@@ -235,7 +235,7 @@ impl Rule for StatusAllowed {
         &RuleInfo {
             id: "S4",
             title: "status is one the type allows",
-            explain: "Statuses come from one lifecycle (draft, active, superseded, archived, rejected); each type allows a subset. Words from other tools are not accepted but named: accepted means active, proposed means draft, deprecated means superseded. Change status with `spec set <id> status=<value>`, which also checks the transition.",
+            explain: "Statuses come from one lifecycle (draft, active, superseded, archived, rejected); each type allows a subset. Words from other tools are not accepted but named: accepted means active, proposed means draft, deprecated means superseded. Change status with `spec set <id> status=<value> --write`, which also checks the transition.",
             on_commit: true,
         }
     }

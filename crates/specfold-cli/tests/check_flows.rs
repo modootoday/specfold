@@ -122,7 +122,11 @@ fn a_pinned_document_is_stale_after_any_commit_to_its_code() {
     let (_, v) = r.json(&["audit", "--kind", "stale"]);
     assert!(v.to_string().contains("is not a commit in this repository"), "{v}");
     let item = v["items"].as_array().unwrap().iter().find(|i| i["kind"] == "stale").cloned().unwrap();
-    assert_eq!(item["next"], format!("spec set {id} verified_at=HEAD"), "C174: no diff from an unknown pin: {v}");
+    assert_eq!(
+        item["next"],
+        format!("spec set {id} verified_at=HEAD --write"),
+        "C174: no diff from an unknown pin: {v}"
+    );
 }
 
 #[test]
@@ -759,6 +763,8 @@ fn c204_t1_fix_for_a_draft_works_and_cross_type_is_no_successor() {
     assert_eq!(r.json(&["set", &new, &rel, "--write"]).0, 0);
     let (_, v) = r.json(&["check", "--rule", "T1"]);
     let cmd = v["items"][0]["fix"]["cmd"].as_str().unwrap().to_string();
+    // C227: every step of the two-step fix writes.
+    assert_eq!(cmd.matches("spec set ").count(), cmd.matches("--write").count(), "{cmd}");
     assert!(cmd.contains("&&"), "{v}");
     for step in cmd.split("&&") {
         let mut args: Vec<&str> = step.split_whitespace().skip(1).collect();

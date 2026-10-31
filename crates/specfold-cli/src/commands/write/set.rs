@@ -20,7 +20,9 @@ pub fn run(g: &Global, a: &SetArgs) -> Result<Output> {
     let mut assigns = a.assignments.iter().map(|x| Assign::parse(x)).collect::<Result<Vec<_>>>()?;
     if assigns.iter().any(|x| x.key == "title" && x.value.contains(session::LINE_BREAKS)) {
         let id = &s.corpus.docs[idx].id;
-        bail!("the title has a line break; give it on one line; next: spec set {id} title=\"<one-line title>\"");
+        bail!(
+            "the title has a line break; give it on one line; next: spec set {id} title=\"<one-line title>\" --write"
+        );
     }
     let mut shown = a.assignments.clone();
     crate::commands::outbound::refuse_redacted(
@@ -43,7 +45,7 @@ pub fn run(g: &Global, a: &SetArgs) -> Result<Output> {
             assigns.push(Assign { key: translation::KEY.into(), op: Op::Set, value: rev });
         } else {
             bail!(
-                "{} has no rel.translation_of that names a document; add it first: spec set {} rel.translation_of+=<source id>",
+                "{} has no rel.translation_of that names a document; add it first: spec set {} rel.translation_of+=<source id> --write",
                 d.id,
                 d.id
             );
@@ -138,7 +140,7 @@ fn pin_problem(s: &session::Session, target: &str) -> String {
         Remote::Local => {
             if session::resolve(s, target).is_ok() {
                 format!(
-                    "{target} is a document in this repository, not a remote one; pins are for <remote>:<id> ({known}); next: spec set <id> rel.<kind>+={target}"
+                    "{target} is a document in this repository, not a remote one; pins are for <remote>:<id> ({known}); next: spec set <id> rel.<kind>+={target} --write"
                 )
             } else if let Some((name, _)) = target.split_once(':').filter(|(n, _)| cfg.registry.get(n).is_none()) {
                 format!(

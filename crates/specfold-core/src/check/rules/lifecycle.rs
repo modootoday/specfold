@@ -65,7 +65,7 @@ impl Rule for SupersedePairs {
         &RuleInfo {
             id: "T1",
             title: "superseded documents have exactly one successor",
-            explain: "Supersession is written once, on the new document (rel.supersedes). The old document's status must then be superseded, and only one document may claim it. `spec new --from <id>` and `spec set <new> rel.supersedes+=<old>` keep both sides in step.",
+            explain: "Supersession is written once, on the new document (rel.supersedes). The old document's status must then be superseded, and only one document may claim it. `spec new --from <id>` and `spec set <new> rel.supersedes+=<old> --write` keep both sides in step.",
             on_commit: true,
         }
     }
@@ -131,14 +131,16 @@ impl Rule for SupersedePairs {
 fn superseded_fix(ctx: &Ctx, d: &crate::model::Doc, status: &str, successor: usize) -> String {
     let me = crate::shell::word(&d.id);
     let Some(ty) = ctx.corpus.cfg.registry.get(&d.id.ty) else {
-        return format!("spec set {me} status=superseded");
+        return format!("spec set {me} status=superseded --write");
     };
     if ty.transition_allowed(status, "superseded") {
-        return format!("spec set {me} status=superseded");
+        return format!("spec set {me} status=superseded --write");
     }
     match ty.statuses.iter().find(|m| ty.transition_allowed(status, m) && ty.transition_allowed(m, "superseded")) {
-        Some(m) => format!("spec set {me} status={m} --write && spec set {me} status=superseded"),
-        None => format!("spec set {} rel.supersedes-={}", crate::shell::word(&ctx.corpus.docs[successor].id), d.id),
+        Some(m) => format!("spec set {me} status={m} --write && spec set {me} status=superseded --write"),
+        None => {
+            format!("spec set {} rel.supersedes-={} --write", crate::shell::word(&ctx.corpus.docs[successor].id), d.id)
+        }
     }
 }
 
@@ -240,7 +242,7 @@ impl Rule for ExceptionsReviewed {
         &RuleInfo {
             id: "T5",
             title: "exceptions are reviewed by their date",
-            explain: "A document that makes a local exception to another names it with rel.exception_of and sets review_by: YYYY-MM-DD, the date by which someone decides whether the exception still holds. T5 warns when review_by is missing or not a date, and when the date has passed (UTC). Renew it with `spec set <id> review_by=<date>`, or retire the exception (status rejected, or superseded by a newer exception) once the rule it departs from is kept again. An exception that names itself is a warning. The target must resolve like any relation (L3).",
+            explain: "A document that makes a local exception to another names it with rel.exception_of and sets review_by: YYYY-MM-DD, the date by which someone decides whether the exception still holds. T5 warns when review_by is missing or not a date, and when the date has passed (UTC). Renew it with `spec set <id> review_by=<date> --write`, or retire the exception (status rejected, or superseded by a newer exception) once the rule it departs from is kept again. An exception that names itself is a warning. The target must resolve like any relation (L3).",
             on_commit: false,
         }
     }
@@ -265,14 +267,14 @@ impl Rule for ExceptionsReviewed {
                         "rel.exception_of names this document itself; name the rule or decision it departs from",
                     )
                     .fix_cmd(format!(
-                        "spec set {} rel.exception_of-={}",
+                        "spec set {} rel.exception_of-={} --write",
                         crate::shell::word(&me),
                         crate::shell::word(&me)
                     )),
                 );
             }
             let line = key_line(ctx, &d.path, "review_by");
-            let fix = format!("spec set {} review_by=<YYYY-MM-DD>", crate::shell::word(&d.id));
+            let fix = format!("spec set {} review_by=<YYYY-MM-DD> --write", crate::shell::word(&d.id));
             match d.str_field("review_by") {
                 None => out.push(
                     Finding::warn("T5", &d.path, 1, "an exception (rel.exception_of) needs review_by: YYYY-MM-DD")

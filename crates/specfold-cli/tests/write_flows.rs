@@ -177,7 +177,7 @@ fn set_rejecting_a_status_names_the_allowed_ones_and_the_next_command() {
     assert_ne!(code, 0);
     let e = v["error"].as_str().unwrap();
     assert!(e.contains("allowed:"), "{e}");
-    assert_eq!(v["next"], format!("spec set {id} status=archived"));
+    assert_eq!(v["next"], format!("spec set {id} status=archived --write"));
 }
 
 #[test]
