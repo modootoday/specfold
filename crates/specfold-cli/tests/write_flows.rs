@@ -153,6 +153,26 @@ fn superseding_a_draft_points_at_activating_it_not_at_the_same_command() {
 }
 
 #[test]
+fn rerun_hint_from_a_preview_keeps_the_write() {
+    let r = common::repo();
+    r.write("spec.toml", &(r.read("spec.toml").replacen("[forbid]\n", "[forbid]\npaths = [\"**/.spec\"]\n", 1)));
+    if !r.read("spec.toml").contains("**/.spec") {
+        r.write("spec.toml", &(r.read("spec.toml") + "[forbid]\npaths = [\"**/.spec\"]\n"));
+    }
+    let base = ["new", "adr", "--governs", "services/shop", "--title", "Use files"];
+    let (code, v) = r.json(&base);
+    assert_ne!(code, 0, "{v}");
+    let next = v["next"].as_str().unwrap_or_default().to_string();
+    assert!(next.ends_with(" --local --write"), "{next}");
+    let (_, v) = r.json(&[&base[..], &["--dry-run"]].concat());
+    let dry = v["next"].as_str().unwrap_or_default();
+    assert!(dry.ends_with(" --local") && !dry.contains("--write"), "{dry}");
+    let (code, v) = r.json(&[&base[..], &["--local", "--write"]].concat());
+    assert_eq!(code, 0, "following the hint writes: {v}");
+    assert_eq!(v["written"], true, "{v}");
+}
+
+#[test]
 fn new_refuses_a_forbidden_path_and_suggests_local() {
     let r = common::repo();
     r.write("spec.toml", &(r.read("spec.toml").replacen("[forbid]\n", "[forbid]\npaths = [\"**/.spec\"]\n", 1)));
