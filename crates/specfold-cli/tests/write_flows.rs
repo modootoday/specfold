@@ -620,3 +620,21 @@ fn c188_new_section_names_are_one_plain_line() {
     let after = r.json(&["show", &id]).1["path"].as_str().map(|p| r.read(p)).unwrap();
     assert_eq!(before, after);
 }
+
+#[test]
+fn c196_audit_records_take_a_slug_for_a_title_without_ascii_words() {
+    let r = common::repo();
+    r.write("review.md", "# Review\n\nall good\n");
+    r.commit("review");
+    let (code, text) = r.text(&["audit", "record", "--from", "review.md", "--title", "분기 감사"]);
+    assert_eq!(code, 2, "{text}");
+    assert!(text.contains("next: spec audit record --from review.md --title '분기 감사' --slug my-slug"), "{text}");
+    let (code, v) =
+        r.json(&["audit", "record", "--from", "review.md", "--title", "분기 감사", "--slug", "q-audit", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    assert!(v["path"].as_str().unwrap().contains("q-audit"), "{v}");
+    assert!(v["undo"].as_str().unwrap().starts_with("git stash push"), "{v}");
+    let (code, v) = r.json(&["audit", "--record", "--title", "분기 감사", "--slug", "q-two"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(r.json(&["audit", "--record", "--title", "x", "--slug", "Bad_Slug"]).0, 2);
+}

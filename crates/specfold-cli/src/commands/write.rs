@@ -6,6 +6,6 @@ pub mod import;
 pub mod init;
 pub mod mv;
 pub mod new;
-mod preview;
+pub(crate) mod preview;
 pub mod set;
 pub mod sync;
