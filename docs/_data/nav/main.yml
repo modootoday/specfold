@@ -42,6 +42,8 @@
     url: /reference/rules/
   - title: Configuration
     url: /reference/config/
+  - title: Packages
+    url: /reference/packages/
 - title: More
   items:
   - title: FAQ
