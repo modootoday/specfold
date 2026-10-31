@@ -139,6 +139,7 @@ A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is 
   `gateway`), not only when most of the title is lost.
 
 ### Fixed
+- `spec.toml` regexes and globs (`[verify] serial`, `full_run_on`, `[forbid]`, `[cites]`, guard and asset paths) are checked at load: a bad one stops with its line (exit 2) instead of being dropped. An empty or missing `[verify] shell` is reported by `spec doctor`, and `spec verify` names the shell and points to `spec doctor` (C237).
 - Language tags compare case-insensitively in `spec census --translations` and R1's one-translation-per-language check, as `spec new --translation` does; `--lang` that is not a language tag exits 2 (C236).
 - `spec doctor` on a spec.toml that does not load says to fix it at the line TOML names; `spec init --upgrade` on such a file fails with exit 2 instead of calling it current (C235).
 - `spec mv` of a bundle document: the undo stashes the old and new folder and runs cleanly, and relative links to the bundle's attachments follow the move (C233, C234).

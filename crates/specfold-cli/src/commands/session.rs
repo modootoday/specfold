@@ -28,7 +28,22 @@ pub fn config(g: &Global) -> Result<Config> {
 pub fn config_warnings(cfg: &Config) -> Vec<String> {
     let mut w = specfold_core::model::registry::suspect_overrides(&cfg.raw.types);
     w.extend(specfold_core::model::registry::suspect_coverage(&cfg.raw.types, &cfg.raw.audit.coverage_types));
+    w.extend(shell_problem(cfg.raw.verify.shell.as_deref()));
     w
+}
+
+/// C237: a `[verify] shell` that is empty or not on PATH makes every verify command fail.
+fn shell_problem(shell: Option<&str>) -> Option<String> {
+    let s = shell?;
+    if s.trim().is_empty() {
+        return Some("[verify] shell is empty, so no verify command can run".into());
+    }
+    let found = if s.contains('/') {
+        std::path::Path::new(s).is_file()
+    } else {
+        std::env::var_os("PATH").is_some_and(|p| std::env::split_paths(&p).any(|d| d.join(s).is_file()))
+    };
+    (!found).then(|| format!("[verify] shell \"{s}\" is not on PATH, so no verify command can run"))
 }
 
 /// Set once the config warnings were shown, or while no command asked for them.

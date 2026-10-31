@@ -488,3 +488,26 @@ fn c180_l8_checks_reference_definitions_and_encoded_paths() {
     assert_eq!(rules_hit(&v), ["L8"], "only the missing definition: {v}");
     assert!(v.to_string().contains("missing.md"), "{v}");
 }
+
+/// C237: bad [verify] patterns stop the load with the line; a missing shell is named by doctor and verify.
+#[cfg(unix)]
+#[test]
+fn c237_verify_config_mistakes_are_reported_not_ignored() {
+    let r = common::repo();
+    let base = r.read("spec.toml");
+    for bad in ["[verify]\nserial = [\"(unclosed\"]\n", "[verify]\nfull_run_on = [\"src/[\"]\n"] {
+        r.write("spec.toml", &format!("{base}\n{bad}"));
+        let (code, v) = r.json(&["check"]);
+        assert_eq!(code, 2, "{bad}: {v}");
+        assert!(v.to_string().contains("at line"), "{bad}: {v}");
+    }
+    r.write("spec.toml", &format!("{base}\n[verify]\nshell = \"no-such-shell-c237\"\n"));
+    let id = r.new_doc("sot", "services/shop/src", "Shell rule");
+    edit(&r, &id, "status: draft", "status: active\nverify:\n  - echo ok");
+    let (_, d) = r.json(&["doctor"]);
+    assert!(d.to_string().contains("no-such-shell-c237"), "{d}");
+    let (code, v) = r.json(&["verify"]);
+    assert_eq!(code, 1, "{v}");
+    assert!(v.to_string().contains("shell 'no-such-shell-c237'"), "{v}");
+    assert_eq!(v["next"].as_str().unwrap_or(""), "spec doctor", "{v}");
+}
