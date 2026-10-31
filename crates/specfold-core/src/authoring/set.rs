@@ -210,6 +210,7 @@ fn plan_with(c: &Corpus, idx: usize, assigns: &[Assign], successor_pending: bool
             let succeeded = c
                 .docs
                 .iter()
+                .filter(|o| o.id.ty == d.id.ty) // C204: L3 refuses a cross-type supersedes
                 .any(|o| o.rel().get("supersedes").is_some_and(|l| l.iter().any(|x| x.trim_matches(['[', ']']) == me)));
             if a.value == "superseded" && !succeeded && !successor_pending {
                 let title = d.title.clone().unwrap_or_else(|| d.slug.replace('-', " ")).replace('\'', "");

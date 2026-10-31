@@ -749,3 +749,33 @@ fn c201_a_link_after_a_double_backtick_span_is_checked() {
     assert_eq!(code, 1, "{v}");
     assert!(v.to_string().contains("L1"), "{v}");
 }
+
+#[test]
+fn c204_t1_fix_for_a_draft_works_and_cross_type_is_no_successor() {
+    let r = common::repo();
+    let old = r.new_doc("sot", "services/shop", "Old rule");
+    let new = r.new_doc("sot", "services/shop", "New rule");
+    let rel = format!("rel.supersedes+={old}");
+    assert_eq!(r.json(&["set", &new, &rel, "--write"]).0, 0);
+    let (_, v) = r.json(&["check", "--rule", "T1"]);
+    let cmd = v["items"][0]["fix"]["cmd"].as_str().unwrap().to_string();
+    assert!(cmd.contains("&&"), "{v}");
+    for step in cmd.split("&&") {
+        let mut args: Vec<&str> = step.split_whitespace().skip(1).collect();
+        if !args.contains(&"--write") {
+            args.push("--write");
+        }
+        let (code, out) = r.json(&args);
+        assert_eq!(code, 0, "{step}: {out}");
+    }
+    assert_eq!(r.json(&["check", "--rule", "T1"]).1["errors"], 0);
+
+    let sot = r.new_doc("sot", "services/shop", "Cart");
+    assert_eq!(r.json(&["set", &sot, "status=active", "--write"]).0, 0);
+    let adr = r.new_doc("adr", "services/shop", "Cart decision");
+    let rel = format!("rel.supersedes+={sot}");
+    assert_eq!(r.json(&["set", &adr, &rel, "--write"]).0, 0);
+    let msgs = r.json(&["check", "--rule", "T1"]).1.to_string();
+    assert!(!msgs.contains("superseded by"), "{msgs}");
+    assert_eq!(r.json(&["set", &sot, "status=superseded", "--write"]).0, 2);
+}
