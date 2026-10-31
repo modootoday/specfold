@@ -79,7 +79,7 @@ fn release_notes_use_the_changelog_section_then_commit_subjects() {
     git(&["init", "-q"]);
     std::fs::write(
         t.path().join("CHANGELOG.md"),
-        "# Changelog\n\n## Unreleased\n\n- next\n\n## 0.4.0\n\n- Added four.\n- Fixed it.\n\n## 0.3.0\n\n- Three.\n",
+        "# Changelog\n\n## Unreleased\n\n- next\n\n## 0.4.0 - 2026-11-01\n\n- Added four.\n- Fixed it.\n\n## 0.3.0\n\n- Three.\n",
     )
     .unwrap();
     git(&["add", "."]);
@@ -88,6 +88,13 @@ fn release_notes_use_the_changelog_section_then_commit_subjects() {
     git(&["commit", "-q", "--allow-empty", "-m", "second change"]);
     assert_eq!(run_notes(t.path(), "0.4.0"), "- Added four.\n- Fixed it.\n\n");
     assert_eq!(run_notes(t.path(), "0.3.0"), "- Three.\n");
+    // The repository's own CHANGELOG has a section for the version in Cargo.toml.
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let cargo = std::fs::read_to_string(root.join("Cargo.toml")).unwrap_or_default();
+    let version = cargo.lines().find_map(|l| l.strip_prefix("version = \"")).and_then(|v| v.strip_suffix('"'));
+    let version = version.unwrap_or_default();
+    std::fs::copy(root.join("CHANGELOG.md"), t.path().join("CHANGELOG.md")).unwrap();
+    assert!(!run_notes(t.path(), version).trim().is_empty(), "CHANGELOG has no ## {version} section");
     // No section for the version: the commit subjects since the previous tag.
     assert_eq!(run_notes(t.path(), "0.5.0"), "- second change\n");
 }
