@@ -58,6 +58,7 @@ pub fn plan(c: &Corpus, idx: usize, e: &Edit) -> Result<Outcome> {
     let head = &text[..text.len() - split.body.len()];
     let lines: Vec<&str> = split.body.lines().collect();
     let new_text = e.text.trim_end_matches('\n');
+    refuse_open_fence(new_text)?;
     if let Some(ch) = &e.row {
         return plan_row(d, head, &lines, split.body, e.section.as_deref(), ch);
     }
@@ -214,6 +215,22 @@ fn plan_new_section(
     let mut plan = Plan::default();
     plan.write(&d.path, rewritten, false);
     Ok(Outcome { plan, target: format!("new section '{title}'"), before: String::new(), after: new_text.to_string() })
+}
+
+/// C208: text that opens a code fence and never closes it would turn every later heading of the
+/// document into code.
+fn refuse_open_fence(text: &str) -> Result<()> {
+    let mut fence = crate::markdown::Fence::default();
+    let mut opened = 0;
+    for (n, line) in text.lines().enumerate() {
+        if fence.step(line) && fence.inside() {
+            opened = n + 1;
+        }
+    }
+    if fence.inside() {
+        bail!("the text opens a code fence at line {opened} that it never closes; close it with the same fence line");
+    }
+    Ok(())
 }
 
 /// C125: section text may hold sub-headings, but a heading at the section's level or above would
