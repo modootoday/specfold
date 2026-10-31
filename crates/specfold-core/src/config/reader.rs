@@ -128,6 +128,18 @@ pub fn newer_schema(path: &Path, schema: u32) -> anyhow::Error {
 /// C186: a baseline path as one string per file: relative to the repository root, with `.` and
 /// `..` resolved lexically, so `./b.json`, `x/../b.json` and `<root>/b.json` compare equal.
 fn same_file_key(root: &Path, p: &str) -> String {
+    // C194: when the folder exists, resolve it (symbolic links included) and add the file name;
+    // the result is kept root-relative so it compares with the lexical keys below.
+    let abs = root.join(p);
+    if let (Some(dir), Some(name), Ok(croot)) = (abs.parent(), abs.file_name(), root.canonicalize())
+        && let Ok(cdir) = dir.canonicalize()
+    {
+        let full = cdir.join(name);
+        return match full.strip_prefix(&croot) {
+            Ok(r) => r.to_string_lossy().replace('\\', "/"),
+            Err(_) => full.to_string_lossy().into_owned(),
+        };
+    }
     let p = Path::new(p);
     let rel = p.strip_prefix(root).unwrap_or(p);
     let mut parts: Vec<&str> = vec![];
