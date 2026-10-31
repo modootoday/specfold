@@ -139,6 +139,7 @@ A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is 
   `gateway`), not only when most of the title is lost.
 
 ### Fixed
+- C201: inline code spans close only at a backtick run of the same length (CommonMark), so a link after ``a ` b`` is checked and counted
 - C200: S1 reports a title that is not a non-empty string and S4 a status that is not a string; `spec set title=[x, y]` writes quoted text, not a list
 - C199: set, edit and mv keep a document's leading UTF-8 BOM; the preview no longer shows line 1 changing
 - C198: a section name picks an exact heading or {#anchor} before a heading that only starts with it; several prefix matches or duplicate headings are rc 2 listing them
