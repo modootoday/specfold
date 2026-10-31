@@ -79,6 +79,29 @@ fn top_level_all(argv: Vec<String>) -> (Vec<String>, bool) {
     (out, true)
 }
 
+/// C215: arguments as UTF-8, or a usage error naming the first one that is not (no panic).
+pub fn utf8_args(argv: Vec<std::ffi::OsString>) -> Result<Vec<String>, Box<Executed>> {
+    let wants_json = argv.iter().any(|a| a == "--json");
+    let mut out = Vec::with_capacity(argv.len());
+    for (i, a) in argv.into_iter().enumerate() {
+        match a.into_string() {
+            Ok(s) => out.push(s),
+            Err(bad) => {
+                let msg = format!(
+                    "argument {i} ({}) is not valid UTF-8; rename it, or pass a directory above it",
+                    bad.to_string_lossy()
+                );
+                let next = "spec help".to_string();
+                let output = Output::error("spec", Code::Usage, &msg, Some(next));
+                let format = if wants_json { Format::Json } else { Format::Text };
+                let page = Page { limit: 30, offset: 0, max_bytes: None };
+                return Err(Box::new(Executed { output, format, page, raw: None, serve_mcp: false }));
+            }
+        }
+    }
+    Ok(out)
+}
+
 pub fn execute(argv: Vec<String>) -> Executed {
     let page = Page { limit: 30, offset: 0, max_bytes: None };
     let (argv, warning) = crate::cli::describe::undeprecate(&argv, crate::cli::describe::DEPRECATED);

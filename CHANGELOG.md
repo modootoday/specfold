@@ -139,6 +139,7 @@ A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is 
   `gateway`), not only when most of the title is lost.
 
 ### Fixed
+- C215: an argument that is not UTF-8 is rc 2 with the argument named, instead of a panic
 - C218: `spec help --markdown`/`--llms` put `--flag` words in prose in code spans, so the docs site no longer renders `--write` as an en dash
 - `spec guard --range <rev>` without `..` is refused rc 2 (next: `--range <rev>..HEAD`), as the config already did; it used to scan the history of `<rev>` and pass the new commits.
 - `spec edit --text`/`--file` refuses text that opens a code fence and never closes it (rc 2), which used to turn every later heading into code and hide sections and open tasks.
