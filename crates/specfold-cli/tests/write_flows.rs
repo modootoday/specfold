@@ -580,3 +580,29 @@ fn c187_writes_in_one_second_never_share_or_overwrite_a_trash_folder() {
         assert!(!k.exists() || std::fs::read_to_string(&k).unwrap() == "old");
     }
 }
+
+#[test]
+fn c192_dir_into_a_subfolder_reads_paths_like_cd_and_its_undo_works() {
+    let r = common::repo();
+    let d = r.new_doc("sot", "services/shop/src", "Cart");
+    r.commit("doc");
+    let out = r.path().parent().unwrap().to_path_buf();
+    let name = r.path().file_name().unwrap().to_str().unwrap().to_string();
+    let sub = format!("{name}/services/shop");
+    let run = |args: &[&str]| {
+        let o = r.spec().current_dir(&out).arg("-C").arg(&sub).args(args).arg("--json").output().unwrap();
+        (o.status.code().unwrap_or(-1), serde_json::from_slice::<serde_json::Value>(&o.stdout).unwrap_or_default())
+    };
+    let (_, v) = run(&["context", "src"]);
+    assert_eq!(v["items"][0]["id"], d.as_str(), "{v}");
+    let (code, v) = run(&["new", "sot", "--governs", "src", "--title", "Dup", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    let id = v["id"].as_str().unwrap().to_string();
+    let (_, s) = run(&["show", &id]);
+    assert!(s.to_string().contains("services/shop/src"), "governs is rebased to the root: {s}");
+    let undo = v["undo"].as_str().unwrap().to_string();
+    assert!(undo.starts_with(&format!("git -C {name} ")), "{undo}");
+    let st = std::process::Command::new("sh").arg("-c").arg(&undo).current_dir(&out).status().unwrap();
+    assert!(st.success());
+    assert_ne!(run(&["show", &id]).0, 0, "the undo removed the new file");
+}
