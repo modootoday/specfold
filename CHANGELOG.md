@@ -139,6 +139,7 @@ A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is 
   `gateway`), not only when most of the title is lost.
 
 ### Fixed
+- `spec import --apply --write` of a CRLF source writes the new document CRLF throughout, its generated frontmatter included, instead of LF frontmatter over a CRLF body; LF sources stay LF (C243).
 - A usage error missing some other required option (`spec edit <id> --cell S=x --text x` without --row) no longer suggests `spec edit <id> <id> ...`; it points to `spec help <command>`. `--format json` next to an option left without its value is no longer rewritten into a rerun that fails the same way (C241).
 - `spec attach` refuses (exit 2, nothing written) the document's own file, or a file that would land on its bundle index name, which used to record a hash that could never match (C239).
 - A heading's optional closing `#` run (`## Context ##`) is dropped from its text, so the outline shows "Context" and `[x](#context)` links pass L8 (C240).

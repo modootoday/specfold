@@ -256,7 +256,7 @@ fn doc_row(c: &Corpus, map: &ImportMap, u: &Unit, taken: &mut BTreeSet<String>, 
     notes.extend(body_notes(map, &body, generated, scanned.first_heading.as_deref(), named, &slug, &id));
     let content = format!("{}{}", frontmatter::render(&crate::markdown::frontmatter::edit::ordered(fm)), body);
     crate::authoring::forbid::refuse(c, &main, crate::authoring::forbid::NO_LOCAL_HINT)?;
-    out.plan.write(main.clone(), content, true);
+    out.plan.write(main.clone(), one_ending(content), true);
     out.plan.remove(u.source.clone());
     // Old paths of chapters and attachments name the document too, so their citations resolve.
     for old in std::iter::once(u.source.clone())
@@ -442,6 +442,12 @@ pub fn alias_table(existing: &str, rows: &[(String, String)]) -> String {
         }
     }
     out
+}
+
+/// C243: as C154 keeps an edited file, a source with CRLF anywhere in its body gives a document
+/// that is CRLF throughout (the generated frontmatter included); otherwise LF.
+fn one_ending(content: String) -> String {
+    if content.contains("\r\n") { content.replace("\r\n", "\n").replace('\n', "\r\n") } else { content }
 }
 
 #[cfg(test)]
