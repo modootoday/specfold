@@ -4,3 +4,4 @@ pub mod args;
 pub mod describe;
 pub mod dispatch;
 pub mod execute;
+mod usage;

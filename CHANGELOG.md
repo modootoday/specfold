@@ -139,6 +139,7 @@ A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is 
   `gateway`), not only when most of the title is lost.
 
 ### Fixed
+- Suggested next commands write option values starting with `-` as `--opt=value`, put such words after `--`, and a usage error's next keeps `-C <dir>` (C229).
 - C227: every `spec set` that a fix, next, rule explanation or help example suggests carries `--write`, including both steps of the T1 fix for a draft, so it still writes once `set` previews by default
 - C226: "section '…' matches N headings (line …)" from `spec edit` and `spec show --section` names file lines, not body lines
 - C223: `spec set <doc> updated=` takes only a date, an RFC 3339 time or `today` (rc 2 otherwise, preview included), refuses `updated=` as it does `title=`, and its next runs S5

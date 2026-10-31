@@ -159,3 +159,43 @@ fn c200_wrong_type_title_and_status_are_errors() {
     assert!(s.contains("not a non-empty string") && s.contains("S1"), "{s}");
     assert!(s.contains("not a string") && s.contains("S4"), "{s}");
 }
+
+/// C229: runs a suggested next line through the shell from `dir`, as a user pasting it would.
+fn run_next(dir: &std::path::Path, r: &common::Repo, next: &str) -> std::process::Output {
+    let path = format!("{}:{}", common::bin_dir().display(), std::env::var("PATH").unwrap_or_default());
+    std::process::Command::new("sh")
+        .arg("-c")
+        .arg(next)
+        .current_dir(dir)
+        .env("PATH", path)
+        .env("SPECFOLD_CACHE", r.path().join(".cache"))
+        .output()
+        .unwrap()
+}
+
+#[test]
+fn every_suggested_next_with_a_dash_value_runs() {
+    let r = common::repo();
+    let parent = r.path().parent().unwrap().to_path_buf();
+    let name = r.path().file_name().unwrap().to_str().unwrap().to_string();
+    let cases: Vec<Vec<&str>> = vec![
+        vec!["find", "--tag=-q"],
+        vec!["find", "--owner=-z"],
+        vec!["find", "--type=adr", "--status=-s"],
+        vec!["find", "--", "-nope"],
+        vec!["new", "adr", "--title", "x", "--slug", "-x", "--write"],
+    ];
+    for case in cases {
+        let mut argv = vec!["-C", name.as_str(), "--json"];
+        argv.extend(case.iter().copied());
+        let out = r.spec().current_dir(&parent).args(&argv).output().unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        let next = v["next"].as_str().unwrap_or_else(|| panic!("{case:?}: no next in {v}"));
+        assert!(next.starts_with(&format!("spec -C {name} ")), "{case:?}: {next}");
+        let ran = run_next(&parent, &r, next);
+        let all = format!("{}{}", String::from_utf8_lossy(&ran.stdout), String::from_utf8_lossy(&ran.stderr));
+        let parse = ["unexpected argument", "a value is required", "unrecognized"];
+        assert!(!parse.iter().any(|p| all.contains(p)), "{case:?}: `{next}` does not parse: {all}");
+        assert!(ran.status.code().is_some(), "{case:?}: `{next}` did not run");
+    }
+}

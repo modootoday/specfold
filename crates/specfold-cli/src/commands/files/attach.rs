@@ -18,7 +18,7 @@ use super::replace::{self, Clash};
 fn again(a: &AttachArgs, flags: &str) -> String {
     let files: Vec<String> = a.files.iter().map(|p| specfold_core::shell::word(p.display())).collect();
     let into =
-        if a.into.is_empty() { String::new() } else { format!(" --into {}", specfold_core::shell::quote(&a.into)) };
+        if a.into.is_empty() { String::new() } else { format!(" {}", specfold_core::shell::opt("--into", &a.into)) };
     format!(
         "spec attach {} {}{}{into}{flags}",
         specfold_core::shell::word(&a.doc),
@@ -73,7 +73,7 @@ pub fn run(g: &Global, a: &AttachArgs) -> Result<Output> {
     let plan = attach::plan(&s.corpus, d, &files, &a.into, place)?;
     // C143: every next keeps --into, so it attaches where the preview showed.
     let into =
-        if a.into.is_empty() { String::new() } else { format!(" --into {}", specfold_core::shell::quote(&a.into)) };
+        if a.into.is_empty() { String::new() } else { format!(" {}", specfold_core::shell::opt("--into", &a.into)) };
     let mut o = Output::new("attach").field("id", d.id.to_string());
     if let Some((from, to)) = &plan.to_bundle {
         o = o.head(format!("{from} becomes a bundle: {to}"));

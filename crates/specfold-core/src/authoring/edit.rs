@@ -138,9 +138,9 @@ fn duplicate_rows(e: anyhow::Error, d: &Doc, head: &str, lines: &[&str], section
                 let above = dup.rows.first().map_or(0, |r| *r);
                 lines[..above].iter().rev().find(|l| l.starts_with('#')).map(|l| l.trim_start_matches('#').trim())
             };
-            let s = crate::shell::word(section.or_else(heading).unwrap_or("<section>"));
+            let s = crate::shell::opt("--section", section.or_else(heading).unwrap_or("<section>"));
             anyhow::anyhow!(
-                "several rows have the key '{}' (lines {}); --row edits one row; next: spec edit {id} --section {s}",
+                "several rows have the key '{}' (lines {}); --row edits one row; next: spec edit {id} {s}",
                 dup.key,
                 at.join(", ")
             )

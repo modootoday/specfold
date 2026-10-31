@@ -104,10 +104,10 @@ pub fn run(g: &Global, a: &FixArgs) -> Result<Output> {
         rerun.push_str(" --staged");
     }
     for r in &a.rules {
-        rerun.push_str(&format!(" --rule {}", specfold_core::shell::quote(r)));
+        rerun.push_str(&format!(" {}", specfold_core::shell::opt("--rule", r)));
     }
     if let Some(id) = &a.pick {
-        rerun.push_str(&format!(" --pick {}", specfold_core::shell::quote(id)));
+        rerun.push_str(&format!(" {}", specfold_core::shell::opt("--pick", id)));
     }
     for t in &a.targets {
         rerun.push_str(&format!(" {}", specfold_core::shell::quote(t)));
