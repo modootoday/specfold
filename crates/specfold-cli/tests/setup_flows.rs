@@ -159,3 +159,20 @@ fn c193_dir_naming_a_file_is_refused_and_an_empty_dir_points_at_the_typed_comman
     assert_eq!(code, 2, "{text}");
     assert!(text.contains("next: spec help find"), "{text}");
 }
+
+#[test]
+fn c191_upgrade_reads_past_a_bom_and_keeps_it() {
+    let r = common::repo();
+    let cur = r.read("spec.toml");
+    let old = cur.replacen("schema = 1", "schema = 0", 1);
+    assert_ne!(cur, old, "fixture has schema = 1");
+    r.write("spec.toml", &format!("\u{feff}{old}"));
+    assert_ne!(r.text(&["check"]).0, 0);
+    let (code, text) = r.text(&["init", "--upgrade", "--write"]);
+    assert_eq!(code, 0, "{text}");
+    assert!(!text.contains("is current"), "{text}");
+    let now = r.read("spec.toml");
+    assert!(now.starts_with('\u{feff}') && now.contains("schema = 1"), "{now:?}");
+    let (code, text) = r.text(&["check"]);
+    assert_eq!(code, 0, "{text}");
+}

@@ -67,7 +67,10 @@ fn upgrade(g: &Global, a: &InitArgs) -> Result<Output> {
             bail!("no spec.toml here or above; create one: spec init --write");
         }
     };
-    let text = std::fs::read_to_string(&path)?;
+    let raw = std::fs::read_to_string(&path)?;
+    // C191: a leading BOM hides the first table from the line scan; it is put back on write.
+    let bom = if raw.starts_with('\u{feff}') { "\u{feff}" } else { "" };
+    let text = raw.strip_prefix('\u{feff}').unwrap_or(&raw).to_string();
     // C170: a file from a newer version is refused as `spec check` refuses it.
     if let Some(n) = upgrade::schema_of(&text).filter(|n| *n > defaults::schema()) {
         return Err(specfold_core::config::reader::newer_schema(&path, n));
@@ -84,7 +87,7 @@ fn upgrade(g: &Global, a: &InitArgs) -> Result<Output> {
         o = o.head(c.clone());
     }
     if a.write {
-        std::fs::write(&path, new)?;
+        std::fs::write(&path, format!("{bom}{new}"))?;
         Ok(o.field("written", true).foot("written").next("spec doctor"))
     } else {
         Ok(o.field("written", false).next("spec init --upgrade --write"))
