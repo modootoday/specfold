@@ -139,6 +139,7 @@ A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is 
   `gateway`), not only when most of the title is lost.
 
 ### Fixed
+- Undo lines work for git-ignored paths (the local tier: `rm -f` instead of a stash git cannot reach) and for documents never committed (`set`/`edit` copy the old file to the trash instead of a stash that removes the whole document).
 - `spec attach` no longer silently overwrites a bundle file with other content (repo or store): the preview marks it `replace`, the write needs `--yes` (and `--force` for a file the document does not list, as `spec fetch`), and the old file is copied to the trash with an `undo:` line.
 - `spec mcp` refuses a tool argument whose type does not match the schema (a string for a boolean, a non-integer limit) and a positional value starting with `-`, so a value can no longer become a flag such as `--write` or `--yes`.
 - `spec audit record` and `spec audit --record` accept `--slug` (validated like `spec new`), so a title with no ASCII words can be recorded; `--write` now prints an `undo:` line.

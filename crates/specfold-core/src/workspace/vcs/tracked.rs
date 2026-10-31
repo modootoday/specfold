@@ -35,3 +35,14 @@ pub fn blob_id(root: &Path, path: &str) -> Option<String> {
 pub fn committed(root: &Path) -> Option<Vec<String>> {
     git(root, &["ls-tree", "-r", "-z", "--name-only", "HEAD"]).map(split_nul)
 }
+
+/// C197: the paths among `paths` that git ignores (and does not track); `git stash` cannot reach them.
+pub fn ignored(root: &Path, paths: &[String]) -> Vec<String> {
+    if paths.is_empty() {
+        return vec![];
+    }
+    // Paths spec writes have no newline, so git's line output is enough (-z needs --stdin).
+    let mut args = vec!["check-ignore", "--"];
+    args.extend(paths.iter().map(String::as_str));
+    git(root, &args).map(|o| String::from_utf8_lossy(&o).lines().map(str::to_string).collect()).unwrap_or_default()
+}
