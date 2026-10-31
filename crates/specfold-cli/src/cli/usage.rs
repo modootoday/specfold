@@ -45,7 +45,8 @@ pub(crate) fn usage_example(
             }
             Some(cmd)
         }
-        (_, ErrorKind::MissingRequiredArgument) if rendered.contains("<DOC>") && !rendered.contains("<DOC> <") => {
+        // C241: only the missing-argument list counts; the usage line below always names <DOC>.
+        (_, ErrorKind::MissingRequiredArgument) if missing_doc_only(rendered) => {
             let tasks = argv.iter().any(|a| a == "--tasks");
             let id = crate::commands::session::example_doc_for(argv, tasks.then_some("plan"))?;
             let mut cmd = vec!["spec".to_string(), name.to_string(), quote(&id)];
@@ -54,6 +55,14 @@ pub(crate) fn usage_example(
         }
         _ => None,
     }
+}
+
+/// Whether the document is the one argument clap reports missing (above its usage line).
+fn missing_doc_only(rendered: &str) -> bool {
+    let missing = rendered.split("Usage:").next().unwrap_or("");
+    let list = missing.split_once("provided:").map_or("", |(_, l)| l);
+    let args: Vec<&str> = list.split([',', '\n']).map(str::trim).filter(|l| !l.is_empty()).collect();
+    args == ["<DOC>"]
 }
 
 /// Whether `spec new` (or the global options) defines this flag.
@@ -99,6 +108,11 @@ fn split_new_args(args: &[String]) -> (Vec<String>, Vec<(String, Option<String>)
 
 /// `--format json` on a command whose formats are drawings: the same command with `--json`.
 pub(crate) fn format_json(argv: &[String]) -> Option<String> {
+    // C241: an option still waiting for its value would fail the same rerun.
+    let bare = |i: usize| argv.get(i + 1).is_none_or(|n| n.starts_with("--"));
+    if argv.iter().enumerate().any(|(i, a)| a.starts_with("--") && !a.contains('=') && bare(i) && takes_value(a)) {
+        return None;
+    }
     let mut out = vec!["spec".to_string()];
     let mut hit = false;
     let mut it = argv.iter().skip(1).peekable();
@@ -135,4 +149,14 @@ pub(crate) fn typed_dir(argv: &[String]) -> Option<String> {
         }
     }
     None
+}
+
+/// Whether some command defines this long option with a value.
+fn takes_value(flag: &str) -> bool {
+    use clap::CommandFactory;
+    fn walk(c: &clap::Command, long: &str) -> bool {
+        c.get_arguments().any(|a| a.get_long() == Some(long) && a.get_action().takes_values())
+            || c.get_subcommands().any(|s| walk(s, long))
+    }
+    walk(&Cli::command(), flag.trim_start_matches('-'))
 }
