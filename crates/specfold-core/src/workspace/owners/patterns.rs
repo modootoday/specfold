@@ -31,6 +31,44 @@ pub fn matcher(pattern: &str) -> Option<PathMatch> {
     }
 }
 
+/// C185: a literal path as a glob that matches only it: each of `[ * ? {` becomes a one-character
+/// class (`[[]`, `[*]`, …), which every glob reader takes literally. Other paths come back as is.
+pub fn escape_glob(path: &str) -> String {
+    let mut out = String::with_capacity(path.len());
+    for ch in path.chars() {
+        if matches!(ch, '[' | '*' | '?' | '{') {
+            out.push('[');
+            out.push(ch);
+            out.push(']');
+        } else {
+            out.push(ch);
+        }
+    }
+    out
+}
+
+/// The literal text before the first wildcard, reading `[c]` escapes of `[ * ? {` as `c`; the
+/// bool says whether a wildcard was found.
+pub fn literal_prefix(glob: &str) -> (String, bool) {
+    let b: Vec<char> = glob.chars().collect();
+    let mut out = String::new();
+    let mut i = 0;
+    while i < b.len() {
+        match b[i] {
+            '[' if b.len() > i + 2 && matches!(b[i + 1], '[' | '*' | '?' | '{') && b[i + 2] == ']' => {
+                out.push(b[i + 1]);
+                i += 3;
+            }
+            '[' | '*' | '?' | '{' => return (out, true),
+            c => {
+                out.push(c);
+                i += 1;
+            }
+        }
+    }
+    (out, false)
+}
+
 /// Expands a pattern of literal segments and `*` into existing directories, returning each with
 /// the values its `*` segments took.
 pub fn expand(root: &Path, pattern: &str) -> Vec<(String, Vec<String>)> {
