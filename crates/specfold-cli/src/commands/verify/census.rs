@@ -16,6 +16,10 @@ pub fn run(g: &Global, a: &CensusArgs) -> Result<Output> {
         o.summary.extend(m);
     }
     if a.translations {
+        // C236: a --lang that is not a language tag is refused, as set refuses a bad lang value.
+        if let Some(p) = a.lang.iter().find_map(|l| specfold_core::translation::lang_problem(l)) {
+            anyhow::bail!("{p}; next: spec census --translations --lang ko");
+        }
         return translations(&s, &a.lang, &a.fail_on);
     }
     if a.legacy {

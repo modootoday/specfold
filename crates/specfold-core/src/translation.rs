@@ -342,7 +342,8 @@ pub fn report(c: &Corpus, g: &Graph, langs: &[String]) -> Report {
         let src = source_of(c, g, i);
         // A translation of a translation (or of itself) is not a source; R1 reports it.
         if let (Some(l), Some(s)) = (&lang, src.filter(|&s| s != i && !is_translation(c, s))) {
-            have.entry(l.clone()).or_default().push(s);
+            // C236: language tags match case-insensitively (pt-BR is pt-br), as `spec new` does.
+            have.entry(l.to_ascii_lowercase()).or_default().push(s);
             if !sources.contains(&s) {
                 sources.push(s);
             }
@@ -377,7 +378,7 @@ pub fn report(c: &Corpus, g: &Graph, langs: &[String]) -> Report {
         have.keys().cloned().collect()
     };
     for l in wanted {
-        let got = have.get(&l).cloned().unwrap_or_default();
+        let got = have.get(&l.to_ascii_lowercase()).cloned().unwrap_or_default();
         let miss: Vec<String> =
             sources.iter().filter(|s| !got.contains(s)).map(|&s| c.docs[s].id.to_string()).collect();
         r.missing.insert(l, miss);
