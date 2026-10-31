@@ -427,3 +427,19 @@ fn c207_a_folder_shows_documents_governing_inside_it() {
     let (_, v) = r.json(&["graph", "governs", "services/shop/pay"]);
     assert!(v.to_string().contains(&glob), "{v}");
 }
+
+#[test]
+fn c213_a_supersede_cycle_has_no_current() {
+    let r = common::repo();
+    let r1 = r.new_doc("adr", "services/shop", "One");
+    let r2 = r.new_doc("adr", "services/shop", "Two");
+    let r3 = r.new_doc("adr", "services/shop", "Three");
+    for (a, b) in [(&r2, &r1), (&r3, &r2), (&r1, &r3)] {
+        let rel = format!("rel.supersedes+={b}");
+        assert_eq!(r.json(&["set", a, &rel, "--write"]).0, 0);
+    }
+    let (_, v) = r.json(&["graph", "chain", &r2]);
+    assert_eq!(v["total"], 3, "{v}");
+    assert!(v["current"].is_null(), "{v}");
+    assert_eq!(v["next"], "spec check --rule T1", "{v}");
+}
