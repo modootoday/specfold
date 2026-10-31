@@ -65,7 +65,7 @@ ok: 3 documents, 0 errors, 0 warnings
 ## At a glance
 
 - **11** document types
-- **36** rules, each explained by `spec explain`
+- **48** rules, each explained by `spec explain`
 - **5** prebuilt platforms
 - **0** servers or network calls
 

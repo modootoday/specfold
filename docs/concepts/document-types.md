@@ -50,7 +50,7 @@ statuses, fields, template and transitions. `spec schema <type>` prints a type's
 
 ```console
 $ spec schema adr
-$ spec new adr --title "Round totals half up"
+$ spec new adr --title "Round totals half up" --write
 ```
 
 Next, see how a document moves through its [lifecycle](lifecycle.md).

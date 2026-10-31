@@ -21,7 +21,7 @@ owner.
 
 ```console
 $ spec owners
-$ spec new sot --governs services/shop/src/cart --title "Cart totals"
+$ spec new sot --governs services/shop/src/cart --title "Cart totals" --write
 ```
 
 ## Ids

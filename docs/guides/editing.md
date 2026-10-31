@@ -7,14 +7,15 @@ redirect_from: [/editing/]
 # Editing documents
 
 > [!TIP]
-> Writes are previews until `--write`, except `new` and `set`, which write directly and accept
-> `--dry-run`. Sealed and closed documents are refused.
+> Writes are previews until `--write`. In 0.3, `new` and `set` still write without it but warn;
+> from 0.4 they preview too, so pass `--write` (or `--dry-run` to preview). Sealed and closed
+> documents are refused.
 
 ## Create
 
 ```console
-$ spec new plan --governs services/shop --title "Checkout launch"
-$ spec new skill --title review --description "Review a change"
+$ spec new plan --governs services/shop --title "Checkout launch" --write
+$ spec new skill --title review --description "Review a change" --write
 ```
 
 A title is one line: `new --title` and `set title=` refuse a line break (exit 2).
