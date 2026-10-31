@@ -140,7 +140,10 @@ pub fn execute(argv: Vec<String>) -> Executed {
                 };
             }
             let mut first = clap_message(&rendered);
-            let json_fix = (kind == clap::error::ErrorKind::InvalidValue).then(|| format_json(&argv)).flatten();
+            // C241: only when --format is the bad value; a missing value elsewhere is not fixed by --json.
+            let json_fix = (kind == clap::error::ErrorKind::InvalidValue && rendered.contains("for '--format"))
+                .then(|| format_json(&argv))
+                .flatten();
             if json_fix.is_some() {
                 first.push_str("; JSON output is --json");
             }

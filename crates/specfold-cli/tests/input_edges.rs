@@ -216,3 +216,25 @@ fn c238_indented_hash_lines_stay_inside_their_section() {
     let body = r.read(&path);
     assert!(body.contains("Use SQLite.") && !body.contains("install the tool") && !body.contains("Postgres"), "{body}");
 }
+
+/// C241: a usage error whose missing piece is not the document does not fill the id in again,
+/// and `--format json` with another bare option is not rewritten into a rerun that fails too.
+#[test]
+fn c241_usage_next_fills_only_a_missing_document() {
+    let r = common::repo();
+    let id = r.new_doc("adr", "services/shop", "Pick a store");
+    for args in
+        [vec!["edit", &id, "--cell", "S=x", "--text", "x"], vec!["edit", &id, "--after", "Context", "--text", "x"]]
+    {
+        let (code, v) = r.json(&args);
+        assert_eq!(code, 2, "{v}");
+        assert_eq!(v["next"], "spec help edit", "{v}");
+    }
+    let (code, v) = r.json(&["edit", "--text", "x"]);
+    assert_eq!(code, 2, "{v}");
+    assert!(v["next"].as_str().unwrap_or("").starts_with("spec edit "), "a missing doc is still filled: {v}");
+    let (_, v) = r.json(&["graph", "impact", &id, "--format", "json", "--depth"]);
+    assert!(!v["next"].as_str().unwrap_or("").ends_with("--depth"), "{v}");
+    let (_, v) = r.json(&["graph", "impact", &id, "--format", "json"]);
+    assert!(v["next"].as_str().unwrap_or("").contains("--json"), "{v}");
+}
