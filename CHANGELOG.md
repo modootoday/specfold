@@ -139,6 +139,7 @@ A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is 
   `gateway`), not only when most of the title is lost.
 
 ### Fixed
+- `spec export --local --no-local` is refused (exit 2) in either order instead of silently dropping the local documents the preview counted (C189).
 - `spec context` and `spec check` hint `--governs` with glob characters escaped (`src/[[]a]/z.rs`), and `spec new --governs` escapes an existing literal path holding `[ * ? {`, so the document governs that file and not the ones a glob reading would match (C185).
 - The shared-baseline check resolves `.` and `..` and paths under the repository root before comparing, so `x/../b.json` and `./b.json` count as one file (C186).
 - Two writes in the same second no longer share a `.specfold/trash/<timestamp>/` folder: each write claims a fresh one (`<timestamp>-1`, `-2`, … when taken), so an earlier trash copy is never overwritten. This applies to edit, fix, set, mv, import and sync --prune (C187).

@@ -515,3 +515,15 @@ fn c177_export_preview_next_keeps_the_content_flags_but_not_no_guard() {
     assert_eq!(code, 0, "{wrote}");
     assert_eq!(wrote["docs"], preview["docs"], "the write matches the preview");
 }
+
+#[test]
+fn c189_local_and_no_local_together_are_refused_in_either_order() {
+    let r = corpus();
+    for args in [["--local", "--no-local"], ["--no-local", "--local"]] {
+        let mut a = vec!["export", "markdown", "--target", "obsidian", "--out", "o", "--dry-run"];
+        a.extend(args);
+        let (code, text) = r.text(&a);
+        assert_eq!(code, 2, "{text}");
+        assert!(!r.path().join("o").exists());
+    }
+}

@@ -71,7 +71,7 @@ pub struct ExportArgs {
     #[arg(long)]
     pub target: Option<String>,
     /// Include documents in the local (git-ignored) directory; left out by default, for plugins too.
-    #[arg(long)]
+    #[arg(long, conflicts_with = "no_local")]
     pub local: bool,
     /// markdown: start each page with a note naming its source file.
     #[arg(long)]
