@@ -305,3 +305,24 @@ fn new_and_set_accept_write_and_errors_keep_their_own_command_as_next() {
     let (_, v) = r.json(&["new", "--translation", "ko", "--from", &src, "--bogus"]);
     assert!(!v["next"].as_str().unwrap().contains("--title"), "{v}");
 }
+
+#[test]
+fn c212_census_translations_and_graph_stream_their_rows() {
+    let (r, _src, _ko) = pair();
+    let lines = |args: &[&str]| -> Vec<serde_json::Value> {
+        let out = r.spec().args(args).output().unwrap();
+        String::from_utf8_lossy(&out.stdout).lines().map(|l| serde_json::from_str(l).unwrap()).collect()
+    };
+    let rows = lines(&["census", "--translations", "--lang", "ja", "--jsonl"]);
+    assert_eq!(rows.len(), 3, "{rows:?}");
+    assert_eq!(rows[0]["state"], "unrecorded", "{rows:?}");
+    assert_eq!(rows[1]["state"], "missing", "{rows:?}");
+    assert_eq!(rows[2]["total"], 2, "{rows:?}");
+    let (_, v) = r.json(&["census", "--translations", "--lang", "ja", "--limit", "1"]);
+    assert_eq!(v["items"].as_array().unwrap().len(), 1, "{v}");
+    assert_eq!(v["more"], 1, "{v}");
+    let rows = lines(&["graph", "--jsonl"]);
+    let nodes = rows.iter().filter(|x| x["row"] == "node").count();
+    assert!(nodes >= 2, "{rows:?}");
+    assert!(rows.iter().any(|x| x["row"] == "edge"), "{rows:?}");
+}

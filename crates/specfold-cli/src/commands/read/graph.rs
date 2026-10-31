@@ -17,7 +17,7 @@ pub fn run(g: &Global, a: &GraphArgs) -> Result<Output> {
         bail!("--format {} draws the whole graph: spec graph --format {}", a.format, a.format);
     }
     match (a.query.as_deref(), a.target.as_deref()) {
-        (None, _) => whole(&s, a, o),
+        (None, _) => whole(&s, a, g.jsonl, o),
         (Some("impact"), Some(t)) => impact(&s, a, t, o),
         (Some("chain"), Some(t)) => chain(&s, t, o),
         (Some("governs"), Some(t)) => governs_query(&s, t, o),
@@ -52,7 +52,7 @@ pub fn run(g: &Global, a: &GraphArgs) -> Result<Output> {
 }
 
 /// The whole graph: a tree, box drawing, Mermaid or DOT.
-fn whole(s: &Session, a: &GraphArgs, mut o: Output) -> Result<Output> {
+fn whole(s: &Session, a: &GraphArgs, jsonl: bool, mut o: Output) -> Result<Output> {
     let c = &s.corpus;
     let id = |i: usize| c.docs[i].id.to_string();
     o = o.field("nodes", json!(c.docs.iter().map(|d| json!({"id": d.id.to_string(), "type": d.id.ty, "owner": d.id.owner, "status": d.status(), "path": d.path, "governs": governs(s, d)})).collect::<Vec<_>>()));
@@ -71,7 +71,13 @@ fn whole(s: &Session, a: &GraphArgs, mut o: Output) -> Result<Output> {
         .iter()
         .flat_map(|d| governs(s, d).into_iter().map(move |p| json!({"from": d.id.to_string(), "path": p})))
         .collect();
-    o = o.field("governs", json!(gov)).unpaged();
+    if jsonl {
+        // C212: a stream gets one row per node, edge and governed path, tagged by `row`.
+        o = graph_box::stream_rows(&o, &gov);
+    } else {
+        o = o.unpaged();
+    }
+    o = o.field("governs", json!(gov));
     let named = if a.assets { asset_nodes(s) } else { vec![] };
     if a.assets {
         o = o.field(
