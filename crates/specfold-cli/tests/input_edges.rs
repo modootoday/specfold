@@ -199,3 +199,20 @@ fn every_suggested_next_with_a_dash_value_runs() {
         assert!(ran.status.code().is_some(), "{case:?}: `{next}` did not run");
     }
 }
+
+/// C238: a `#` line indented four spaces is code, so it neither ends a section nor is refused.
+#[test]
+fn c238_indented_hash_lines_stay_inside_their_section() {
+    let r = common::repo();
+    let id = r.new_doc("adr", "services/shop", "Pick a store");
+    let text = "Run this:\n\n    # install the tool\n    cargo install x\n\nThen use Postgres.";
+    let (code, v) = r.json(&["edit", &id, "--section", "Decision", "--text", text, "--write"]);
+    assert_eq!(code, 0, "{v}");
+    let (_, s) = r.text(&["show", &id, "--section", "Decision"]);
+    assert!(s.contains("Then use Postgres."), "{s}");
+    let (code, v) = r.json(&["edit", &id, "--section", "Decision", "--text", "Use SQLite.", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    let path = r.json(&["show", &id]).1["path"].as_str().unwrap_or("").to_string();
+    let body = r.read(&path);
+    assert!(body.contains("Use SQLite.") && !body.contains("install the tool") && !body.contains("Postgres"), "{body}");
+}

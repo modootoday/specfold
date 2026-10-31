@@ -92,9 +92,9 @@ fn sections(label: &str, body: &str) -> Vec<(String, Vec<String>)> {
             para.push(line);
             continue;
         }
-        if !fence.inside() && t.starts_with('#') && t.trim_start_matches('#').starts_with([' ', '\t']) {
+        if let Some((_, h)) = crate::markdown::atx(line).filter(|_| !fence.inside()) {
             flush(&mut para, &mut out);
-            out.push((name(t.trim_start_matches('#').trim()), vec![]));
+            out.push((name(h), vec![]));
         } else if !fence.inside() && t.is_empty() {
             flush(&mut para, &mut out);
         } else {

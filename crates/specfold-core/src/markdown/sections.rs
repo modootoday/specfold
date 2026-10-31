@@ -26,12 +26,10 @@ fn heading_levels(body: &str) -> (Vec<&str>, Vec<Option<usize>>) {
     let levels = lines
         .iter()
         .map(|l| {
-            let t = l.trim_start();
-            if fence.step(t) {
+            if fence.step(l) || fence.inside() {
                 return None;
             }
-            let n = t.chars().take_while(|c| *c == '#').count();
-            (!fence.inside() && n > 0 && t[n..].starts_with(' ')).then_some(n)
+            crate::markdown::atx(l).map(|(n, _)| n)
         })
         .collect();
     (lines, levels)
@@ -43,7 +41,7 @@ fn heading_levels(body: &str) -> (Vec<&str>, Vec<Option<usize>>) {
 pub fn matches(body: &str, name: &str) -> Vec<usize> {
     let want = name.trim().trim_start_matches('#').to_lowercase();
     let (lines, levels) = heading_levels(body);
-    let text = |i: usize| lines[i].trim_start().trim_start_matches('#').trim().to_lowercase();
+    let text = |i: usize| head_text(lines[i]).to_lowercase();
     let heads: Vec<usize> = (0..lines.len()).filter(|&i| levels[i].is_some()).collect();
     let exact: Vec<usize> =
         heads.iter().copied().filter(|&i| text(i) == want || text(i).contains(&format!("{{#{want}}}"))).collect();
@@ -59,10 +57,7 @@ pub fn not_found(body: &str, first: usize, name: &str) -> String {
     let lines: Vec<&str> = body.lines().collect();
     let hits = matches(body, name);
     if hits.len() > 1 {
-        let list: Vec<String> = hits
-            .iter()
-            .map(|&i| format!("line {} '{}'", i + first, lines[i].trim_start().trim_start_matches('#').trim()))
-            .collect();
+        let list: Vec<String> = hits.iter().map(|&i| format!("line {} '{}'", i + first, head_text(lines[i]))).collect();
         return format!(
             "section '{name}' matches {} headings ({}); name one exactly, or give it an {{#anchor}}",
             hits.len(),
@@ -82,15 +77,17 @@ pub fn outline(body: &str) -> Vec<(usize, String)> {
     let mut fence = crate::markdown::Fence::default();
     body.lines()
         .filter_map(|l| {
-            let t = l.trim_start();
-            fence.step(t);
-            if fence.inside() {
+            if fence.step(l) || fence.inside() {
                 return None;
             }
-            let n = t.chars().take_while(|c| *c == '#').count();
-            (n > 0 && t[n..].starts_with(' ')).then(|| (n, t[n..].trim().to_string()))
+            crate::markdown::atx(l).map(|(n, t)| (n, t.to_string()))
         })
         .collect()
+}
+
+/// The text of a heading line (already known to be one).
+fn head_text(line: &str) -> &str {
+    crate::markdown::atx(line).map_or("", |(_, t)| t)
 }
 
 #[cfg(test)]
@@ -121,5 +118,14 @@ mod tests {
         assert_eq!(span(d, "notes"), None, "duplicate titles are ambiguous");
         assert!(not_found(d, 5, "notes").contains("line 7 'Notes'"));
         assert!(not_found(d, 1, "zz").starts_with("no section"));
+    }
+
+    #[test]
+    fn c238_indented_code_and_seven_hashes_are_not_headings() {
+        let b = "## Decision\nRun this:\n\n    # install the tool\n    cargo install x\n\n####### seven\nThen use Postgres.\n## Next\n";
+        assert_eq!(outline(b), [(2, "Decision".to_string()), (2, "Next".to_string())]);
+        assert_eq!(span(b, "decision"), Some((0, 8)));
+        assert_eq!(span(b, "seven"), None);
+        assert_eq!(outline("   ### three spaces\n#\n"), [(3, "three spaces".to_string()), (1, String::new())]);
     }
 }
