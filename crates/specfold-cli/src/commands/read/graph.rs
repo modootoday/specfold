@@ -19,7 +19,7 @@ pub fn run(g: &Global, a: &GraphArgs) -> Result<Output> {
     match (a.query.as_deref(), a.target.as_deref()) {
         (None, _) => whole(&s, a, g.jsonl, o),
         (Some("impact"), Some(t)) => impact(&s, a, t, o),
-        (Some("chain"), Some(t)) => chain(&s, t, o),
+        (Some("chain"), Some(t)) => super::graph_chain::chain(&s, t, o),
         (Some("governs"), Some(t)) => governs_query(&s, t, o),
         (Some("consumers"), Some(t)) => consumers(&s, t, o),
         (Some(q), _) if !["impact", "chain", "governs", "consumers"].contains(&q) => {
@@ -204,25 +204,6 @@ fn impact(s: &Session, a: &GraphArgs, t: &str, mut o: Output) -> Result<Output> 
         .next(format!("spec show {} --rel", specfold_core::shell::word(id(idx)))))
 }
 
-/// `chain`: the supersede chain through the target.
-fn chain(s: &Session, t: &str, mut o: Output) -> Result<Output> {
-    let c = &s.corpus;
-    let id = |i: usize| c.docs[i].id.to_string();
-    let idx = session::resolve(s, t)?;
-    let mut chain = older(s, idx);
-    chain.reverse();
-    chain.extend(query::chain(&s.graph, idx));
-    for (n, i) in chain.iter().enumerate() {
-        let this = if *i == idx { "  (this)" } else { "" };
-        o = o.item(
-            json!({"id": id(*i), "status": c.docs[*i].status(), "this": *i == idx}),
-            format!("{}{}{this}", if n == 0 { "" } else { "superseded by " }, id(*i)),
-        );
-    }
-    let last = id(*chain.last().unwrap_or(&idx));
-    Ok(o.field("current", last.clone()).next(format!("spec show {}", specfold_core::shell::word(&last))))
-}
-
 /// `governs`: the documents that govern a path.
 fn governs_query(s: &Session, t: &str, mut o: Output) -> Result<Output> {
     let c = &s.corpus;
@@ -288,19 +269,6 @@ fn consumers(s: &Session, t: &str, mut o: Output) -> Result<Output> {
 
 fn governs(_s: &Session, d: &specfold_core::model::Doc) -> Vec<String> {
     d.rel().remove("governs").unwrap_or_default()
-}
-
-/// The documents `idx` supersedes, nearest first.
-fn older(s: &Session, idx: usize) -> Vec<usize> {
-    let (mut out, mut cur) = (vec![], idx);
-    while let Some(n) = s.graph.edges_from(cur).find(|e| e.kind == "supersedes").map(|e| e.to) {
-        if n == idx || out.contains(&n) {
-            break;
-        }
-        out.push(n);
-        cur = n;
-    }
-    out
 }
 
 struct Reach {
