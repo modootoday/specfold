@@ -169,6 +169,7 @@ pub fn plan(c: &Corpus, g: &Graph, req: &NewDoc) -> Result<(Created, Plan)> {
         if old.id.ty != ty.name {
             bail!("--from {} is a {}, not a {}", old.id, old.id.ty, ty.name);
         }
+        super::successor::refuse_second(c, idx, None)?;
         rel.insert("supersedes".into(), json!([old.id.to_string()]));
         let old_plan = set::plan_superseded_by_new(c, idx)?;
         plan.changes.extend(old_plan.changes);
