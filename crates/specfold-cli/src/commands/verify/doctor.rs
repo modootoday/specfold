@@ -27,7 +27,8 @@ pub fn run(g: &Global) -> Result<Output> {
     let cfg = match session::config(g) {
         Ok(c) => c,
         Err(e) => {
-            let o = add(o, "config", "spec.toml", format!("{e:#}"), "spec init, or fix spec.toml");
+            // C235: spec init cannot read the file either; the fix is an edit at the line TOML names.
+            let o = add(o, "config", "spec.toml", format!("{e:#}"), &config_fix(&format!("{e:#}")));
             return Ok(o.code(Code::Findings).next("spec explain config"));
         }
     };
@@ -159,5 +160,14 @@ fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
         {
             out.push(p);
         }
+    }
+}
+
+/// C235: where to edit a spec.toml that does not load: the line the parse error names.
+fn config_fix(msg: &str) -> String {
+    let line = msg.split("at line ").nth(1).and_then(|r| r.split(|c: char| !c.is_ascii_digit()).next());
+    match line.filter(|n| !n.is_empty()) {
+        Some(n) => format!("fix spec.toml at line {n} (spec explain config)"),
+        None => "fix spec.toml (spec explain config)".into(),
     }
 }
