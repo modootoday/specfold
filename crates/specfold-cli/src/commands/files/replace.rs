@@ -35,18 +35,19 @@ pub fn clashes(root: &Path, doc: &Doc, plan: &Plan) -> Vec<Clash> {
         .collect()
 }
 
-/// Copies the files about to be replaced into a fresh trash folder and gives the undo command.
-pub fn keep(root: &Path, clashes: &[Clash]) -> Result<Option<String>> {
+/// Copies the files about to be replaced, and the document file whose `files` entries the attach
+/// rewrites (C223), into a fresh trash folder and gives the one undo command for both.
+pub fn keep(root: &Path, doc_path: &str, clashes: &[Clash]) -> Result<Option<String>> {
     if clashes.is_empty() {
         return Ok(None);
     }
     let bin = format!("{TRASH}/{}", fresh_bin(root)?);
-    for c in clashes {
-        let dst = root.join(&bin).join(&c.path);
+    for rel in clashes.iter().map(|c| c.path.as_str()).chain(std::iter::once(doc_path)) {
+        let dst = root.join(&bin).join(rel);
         if let Some(dir) = dst.parent() {
             std::fs::create_dir_all(dir)?;
         }
-        std::fs::copy(root.join(&c.path), dst)?;
+        std::fs::copy(root.join(rel), dst)?;
     }
     Ok(Some(format!("cp -Rp {}/. .", specfold_core::shell::quote(&bin))))
 }
