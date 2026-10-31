@@ -184,6 +184,13 @@ fn plan_with(c: &Corpus, idx: usize, assigns: &[Assign], successor_pending: bool
         if a.key == "updated" && matches!(a.op, Op::Set) && a.value.trim().is_empty() {
             bail!("updated is required and cannot be emptied; give a date: spec set {} updated=today --write", d.id);
         }
+        if a.key == "rel.supersedes" && !matches!(a.op, Op::Remove) {
+            for v in a.value.split(',').map(|v| v.trim().trim_matches(['[', ']'])).filter(|v| !v.is_empty()) {
+                if let Some(old) = c.docs.iter().position(|o| o.id.to_string() == v && o.id.ty == d.id.ty) {
+                    super::successor::refuse_second(c, old, Some(idx))?;
+                }
+            }
+        }
         if a.key == "status" {
             if !ty.statuses.contains(&a.value) {
                 let from = d.status().unwrap_or_else(|| ty.initial.clone());

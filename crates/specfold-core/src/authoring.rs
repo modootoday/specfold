@@ -9,5 +9,6 @@ pub mod new;
 pub mod plan;
 pub mod refs;
 pub mod set;
+pub mod successor;
 
 pub use plan::{Change, Plan};

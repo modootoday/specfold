@@ -5,6 +5,14 @@ Release notes for each version are also on
 
 ## Unreleased
 
+### Behavior changes
+
+- `spec new --from <id>` and `spec set <doc> rel.supersedes+=<id>` refuse (exit 2, nothing written, preview included) when another document already supersedes `<id>`, naming that successor: a second one failed T1 (C246).
+
+### Fixed
+
+- `spec edit` on a superseded document points at the document now in force (`spec edit <successor> …`, or `spec new <type> --from <successor> --write` when it is active) instead of a second `--from` of the old one (C246).
+
 ## 0.4.0 - 2026-11-01
 
 0.4.0 makes every write command preview by default: `spec new` and `spec set` now write only with `--write`, like the rest, so add `--write` where scripts and CI create or change documents. It also adds coverage audits, decision-maker import, `[check] link_ignore` and safer `--write` undo for files with uncommitted edits, and fixes about 100 issues across checks, hints and refusals.

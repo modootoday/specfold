@@ -147,3 +147,48 @@ fn superseding_a_draft_hint_commands_run_as_given() {
     }
     assert_eq!(r.json(&["show", &id]).1["frontmatter"]["status"], "superseded");
 }
+
+/// C246: a superseded document gets no second successor, and its refusals point at the current one.
+#[test]
+fn a_superseded_document_gets_one_successor_and_points_to_it() {
+    let r = common::repo();
+    let old = r.new_doc("adr", "services/shop", "Pay");
+    assert_eq!(r.json(&["set", &old, "status=active", "--write"]).0, 0);
+    let (code, v) = r.json(&["new", "adr", "--title", "Pay two", "--from", &old, "--write"]);
+    assert_eq!(code, 0, "{v}");
+    let succ = v["id"].as_str().unwrap().to_string();
+    let (code, v) = r.json(&["edit", &old, "--text", "x"]);
+    assert_eq!(code, 2, "{v}");
+    let next = v["next"].as_str().unwrap_or_default().to_string();
+    assert!(
+        next.starts_with(&format!("spec edit {succ} ")) && next.ends_with(" --write"),
+        "a draft successor is edited: {v}"
+    );
+    for write in [false, true] {
+        let mut a = vec!["new", "adr", "--title", "Pay three", "--from", old.as_str()];
+        if write {
+            a.push("--write");
+        }
+        let before = r.json(&["find", "--type", "adr"]).1.to_string();
+        let (code, v) = r.json(&a);
+        assert_eq!(code, 2, "a second successor is refused, preview too: {v}");
+        assert!(v["error"].as_str().unwrap_or_default().contains(&succ), "{v}");
+        assert_eq!(r.json(&["find", "--type", "adr"]).1.to_string(), before, "nothing written");
+    }
+    let other = r.new_doc("adr", "services/shop", "Pay other");
+    let (code, v) = r.json(&["set", &other, &format!("rel.supersedes+={old}"), "--write"]);
+    assert_eq!(code, 2, "set refuses a second successor too: {v}");
+    let (code, w) = follow(&r, &next);
+    assert_eq!((code, &w["written"]), (0, &Value::Bool(true)), "the hint supersedes the current one: {w}");
+    let (code, c) = r.json(&["check"]);
+    assert_eq!(code, 0, "no T1: {c}");
+    assert_eq!(r.json(&["set", &succ, "status=active", "--write"]).0, 0);
+    let (_, v) = r.json(&["edit", &old, "--text", "x"]);
+    let next = v["next"].as_str().unwrap_or_default().to_string();
+    assert!(next.contains(&format!("--from {succ}")) && next.ends_with(" --write"), "an active one is superseded: {v}");
+    assert!(v["error"].as_str().unwrap_or_default().contains(&format!("spec edit {succ}")), "{v}");
+    let (code, w) = follow(&r, &next);
+    assert_eq!((code, &w["written"]), (0, &Value::Bool(true)), "{w}");
+    let (code, c) = r.json(&["check"]);
+    assert_eq!(code, 0, "one successor each: {c}");
+}

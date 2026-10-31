@@ -33,7 +33,8 @@ $ spec set adr:root/20261030 rel.supersedes+=adr:root/20250101 --write
 ```
 
 `spec set` previews the change until `--write`, as `--dry-run` does. It refuses a jump the type does not allow, and
-sealed or closed documents. Rule S6 then checks the fields the new status requires.
+sealed or closed documents, and a second successor for a document something already supersedes
+(`spec new --from` too): it names the one in force. Rule S6 then checks the fields the new status requires.
 
 ## What the rules check
 
