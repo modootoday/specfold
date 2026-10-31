@@ -139,6 +139,7 @@ A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is 
   `gateway`), not only when most of the title is lost.
 
 ### Fixed
+- A guard baseline that passes through a symbolic link into a folder that does not exist yet and back out (`lnk/sub/../.guard-base.json`) is compared where the write would land: the deepest existing part of the path is resolved before `..` is applied. Such baselines are refused as shared instead of overwriting another guard's baseline and creating `sub/` (C195).
 - Two guards whose baselines reach one file through a symbolic link folder (`lnk/.guard-base.json` and `./.guard-base.json` with `lnk -> .`) are refused as sharing it: an existing folder is resolved before the paths are compared (C194).
 - `spec graph --format dot` names nodes `d0`/`p0` with the text as `label`, like mermaid, so a governs path spelled like a document id no longer redeclares that document as a folder or lands its edge on it. Scripts that matched quoted id node names must match labels now (C190).
 - `spec init --upgrade` reads a spec.toml that starts with a UTF-8 BOM (and keeps the BOM when it writes), so the upgrade `check` asks for no longer reports "is current" and loops (C191).
