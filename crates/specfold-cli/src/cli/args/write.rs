@@ -178,6 +178,9 @@ pub struct AttachArgs {
     /// Upload even though this guard flags a file bound for the store (repeatable; `secrets` is the built-in check).
     #[arg(long = "allow-hit", value_name = "GUARD")]
     pub allow_hit: Vec<String>,
+    /// Replace a file in the bundle that the document does not list in `files` (with --write --yes).
+    #[arg(long)]
+    pub force: bool,
 }
 
 #[derive(Debug, Clone, Args)]
