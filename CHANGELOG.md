@@ -5,6 +5,10 @@ Release notes for each version are also on
 
 ## Unreleased
 
+## 0.4.0 - 2026-11-01
+
+0.4.0 makes every write command preview by default: `spec new` and `spec set` now write only with `--write`, like the rest, so add `--write` where scripts and CI create or change documents. It also adds coverage audits, decision-maker import, `[check] link_ignore` and safer `--write` undo for files with uncommitted edits, and fixes about 100 issues across checks, hints and refusals.
+
 ### Behavior changes
 
 What an existing command does differs from 0.3.0; check scripts and CI that call these.
