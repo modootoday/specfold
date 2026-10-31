@@ -381,12 +381,28 @@ fn split_next(msg: &str, argv: &[String]) -> (String, Option<String>) {
         }
         let mut cmd: Vec<String> = std::iter::once("spec".to_string()).chain(kept).collect();
         cmd.extend(flag.split(' ').map(str::to_string));
+        if previewed_write(argv) {
+            cmd.push("--write".into());
+        }
         return (m.to_string(), Some(cmd.join(" ")));
     }
     if let Some(cmd) = trailing_command(msg) {
         return (msg.to_string(), Some(cmd));
     }
     (msg.to_string(), None)
+}
+
+/// A write command run as a preview (no --write, no --dry-run): its rerun hint is the step that
+/// writes, so it keeps the write the preview would have offered next.
+fn previewed_write(argv: &[String]) -> bool {
+    if argv.iter().any(|a| a == "--write" || a == "--dry-run") {
+        return false;
+    }
+    let Some(first) = first_word(argv) else { return false };
+    crate::cli::describe::commands()
+        .into_iter()
+        .find(|c| &c.name == first || c.aliases.iter().any(|a| a == first))
+        .is_some_and(|c| c.args.iter().any(|a| a.long.as_deref() == Some("write")))
 }
 
 /// A message that ends in a complete command (`...: spec new --translation ja --from x`) names
