@@ -10,10 +10,20 @@ pub fn extract(body: &str, name: &str) -> Option<String> {
 /// Line range `[heading, end)` of the section `extract` would return, so writers can splice it.
 /// Headings inside fenced code are not headings.
 pub fn span(body: &str, name: &str) -> Option<(usize, usize)> {
-    let want = name.trim().trim_start_matches('#').to_lowercase();
+    let (lines, levels) = heading_levels(body);
+    let start = match matches(body, name).as_slice() {
+        [one] => *one,
+        _ => return None,
+    };
+    let lv = levels[start]?;
+    let end = (start + 1..lines.len()).find(|&i| levels[i].is_some_and(|n| n <= lv)).unwrap_or(lines.len());
+    Some((start, end))
+}
+
+fn heading_levels(body: &str) -> (Vec<&str>, Vec<Option<usize>>) {
     let lines: Vec<&str> = body.lines().collect();
     let mut fence = crate::markdown::Fence::default();
-    let levels: Vec<Option<usize>> = lines
+    let levels = lines
         .iter()
         .map(|l| {
             let t = l.trim_start();
@@ -24,15 +34,41 @@ pub fn span(body: &str, name: &str) -> Option<(usize, usize)> {
             (!fence.inside() && n > 0 && t[n..].starts_with(' ')).then_some(n)
         })
         .collect();
-    let start = (0..lines.len()).find(|&i| {
-        levels[i].is_some() && {
-            let text = lines[i].trim_start().trim_start_matches('#').trim().to_lowercase();
-            text == want || text.starts_with(&format!("{want} ")) || text.contains(&format!("{{#{want}}}"))
-        }
-    })?;
-    let lv = levels[start]?;
-    let end = (start + 1..lines.len()).find(|&i| levels[i].is_some_and(|n| n <= lv)).unwrap_or(lines.len());
-    Some((start, end))
+    (lines, levels)
+}
+
+/// C198: the heading lines `name` picks. An exact heading text or `{#anchor}` wins over a heading
+/// that only starts with the name; a prefix match counts only when there is no exact one. More
+/// than one result means the name is ambiguous, and [`span`] refuses it.
+pub fn matches(body: &str, name: &str) -> Vec<usize> {
+    let want = name.trim().trim_start_matches('#').to_lowercase();
+    let (lines, levels) = heading_levels(body);
+    let text = |i: usize| lines[i].trim_start().trim_start_matches('#').trim().to_lowercase();
+    let heads: Vec<usize> = (0..lines.len()).filter(|&i| levels[i].is_some()).collect();
+    let exact: Vec<usize> =
+        heads.iter().copied().filter(|&i| text(i) == want || text(i).contains(&format!("{{#{want}}}"))).collect();
+    if !exact.is_empty() {
+        return exact;
+    }
+    heads.into_iter().filter(|&i| text(i).starts_with(&format!("{want} "))).collect()
+}
+
+/// The error for a name [`span`] does not resolve: several candidates, or none.
+pub fn not_found(body: &str, name: &str) -> String {
+    let lines: Vec<&str> = body.lines().collect();
+    let hits = matches(body, name);
+    if hits.len() > 1 {
+        let list: Vec<String> = hits
+            .iter()
+            .map(|&i| format!("line {} '{}'", i + 1, lines[i].trim_start().trim_start_matches('#').trim()))
+            .collect();
+        return format!(
+            "section '{name}' matches {} headings ({}); name one exactly, or give it an {{#anchor}}",
+            hits.len(),
+            list.join(" | ")
+        );
+    }
+    format!("no section '{name}' (sections: {})", names(body).join(" | "))
 }
 
 /// The section names an error lists when a name is not found: every heading but the H1 title.
@@ -70,5 +106,19 @@ mod tests {
         assert_eq!(names(b), ["Rule", "Detail {#R-1}", "Why"], "the H1 title is not a section");
         assert_eq!(span(b, "why"), Some((5, 7)));
         assert_eq!(span("## A\n```\n## not\n```\n## B\n", "a"), Some((0, 4)));
+    }
+
+    #[test]
+    fn c198_exact_beats_prefix_and_ambiguity_refuses() {
+        let b = "## Steps to roll back\nr\n## Steps\ns\n";
+        assert_eq!(span(b, "steps"), Some((2, 4)));
+        assert_eq!(span(b, "steps to"), Some((0, 2)), "one prefix match still resolves");
+        let p = "## Steps one\n## Steps two\n";
+        assert_eq!(span(p, "steps"), None);
+        assert!(not_found(p, "steps").contains("matches 2 headings"), "{}", not_found(p, "steps"));
+        let d = "## Notes\na\n## Notes\nb\n";
+        assert_eq!(span(d, "notes"), None, "duplicate titles are ambiguous");
+        assert!(not_found(d, "notes").contains("line 3 'Notes'"));
+        assert!(not_found(d, "zz").starts_with("no section"));
     }
 }

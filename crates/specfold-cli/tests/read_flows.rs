@@ -391,3 +391,22 @@ fn c190_dot_keeps_a_governs_path_spelled_like_an_id_apart_from_the_document() {
     );
     assert!(!text.contains(&format!("\"{q}\" [shape=folder]")), "{text}");
 }
+
+#[test]
+fn c198_exact_section_wins_and_ambiguous_names_refuse() {
+    let r = common::repo();
+    let id = r.new_doc("guide", "services/shop", "Roll");
+    let (_, v) = r.json(&["show", &id]);
+    let path = v["path"].as_str().unwrap().to_string();
+    let text = r.read(&path).replace("## Steps", "## Steps to roll back\n\nback.\n\n## Steps");
+    r.write(&path, &text);
+    let (code, v) = r.json(&["edit", &id, "--section", "Steps", "--text", "new steps.", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    let after = r.read(&path);
+    assert!(after.contains("## Steps to roll back\n\nback."), "{after}");
+    assert!(after.contains("## Steps\n\nnew steps."), "{after}");
+    r.write(&path, &(after + "\n## Steps\n\nagain.\n"));
+    let (code, v) = r.json(&["show", &id, "--section", "Steps"]);
+    assert_eq!(code, 2, "{v}");
+    assert!(v["error"].as_str().unwrap().contains("matches 2 headings"), "{v}");
+}
