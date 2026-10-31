@@ -269,3 +269,20 @@ fn c218_flags_in_prose_are_code_spans() {
         assert!(bare_flags(&text).is_empty(), "{}: {:?}", f.display(), bare_flags(&text));
     }
 }
+
+/// C232: the `spec new` examples help and `spec agents` teach write, since new previews by default.
+#[test]
+fn c232_taught_new_commands_write() {
+    let r = common::repo();
+    let (_, help) = r.text(&["help", "new"]);
+    let (_, agents) = r.text(&["agents"]);
+    let mut bad = vec![];
+    for l in help.lines().chain(agents.lines()).filter(|l| l.contains("spec new ")) {
+        let cmd = l.split("spec new ").nth(1).unwrap_or("");
+        let cmd = cmd.split('`').next().unwrap_or(cmd);
+        if cmd.contains("--") && !cmd.contains("--write") {
+            bad.push(l.to_string());
+        }
+    }
+    assert!(bad.is_empty(), "spec new without --write: {bad:#?}");
+}

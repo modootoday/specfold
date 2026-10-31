@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone, Args)]
 #[command(
-    after_help = "Examples:\n  spec new adr --governs services/shop/src/db --title \"Use Postgres for orders\"\n  spec new adr --from adr:shop/20250101000000 --title \"Move orders to a queue\"\n  spec new plan --governs services/shop --title \"Checkout v2\" --local\n  spec new --translation ko --from guide:shop/setup\n\nTimestamp keys and the created/updated dates are UTC."
+    after_help = "Examples:\n  spec new adr --governs services/shop/src/db --title \"Use Postgres for orders\" --write\n  spec new adr --from adr:shop/20250101000000 --title \"Move orders to a queue\" --write\n  spec new plan --governs services/shop --title \"Checkout v2\" --local --write\n  spec new --translation ko --from guide:shop/setup --write\n\nTimestamp keys and the created/updated dates are UTC."
 )]
 pub struct NewArgs {
     /// The document type (spec schema lists them); with --translation, the source's.
