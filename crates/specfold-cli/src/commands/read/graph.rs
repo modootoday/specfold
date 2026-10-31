@@ -461,27 +461,29 @@ fn esc_dot(t: &str) -> String {
     t.replace('\\', "\\\\").replace('"', "\\\"")
 }
 
+/// C190: nodes get generated ids (`d0`, `p0`) with the text as the label, as in mermaid, so a
+/// governs path spelled like a document id stays its own node.
 fn dot(s: &Session) -> Vec<String> {
     let c = &s.corpus;
     let mut l = vec!["digraph specfold {".to_string(), "  rankdir=LR;".to_string(), "  node [shape=box];".to_string()];
-    for d in &c.docs {
-        l.push(format!("  \"{}\";", esc_dot(&d.id.to_string())));
+    for (i, d) in c.docs.iter().enumerate() {
+        l.push(format!("  d{i} [label=\"{}\"];", esc_dot(&d.id.to_string())));
     }
     for e in &s.graph.edges {
-        let (f, t) = (c.docs[e.from].id.to_string(), c.docs[e.to].id.to_string());
-        l.push(format!("  \"{}\" -> \"{}\" [label=\"{}\"];", esc_dot(&f), esc_dot(&t), esc_dot(&e.kind)));
+        l.push(format!("  d{} -> d{} [label=\"{}\"];", e.from, e.to, esc_dot(&e.kind)));
     }
-    let mut paths = BTreeSet::new();
-    for d in &c.docs {
+    let mut paths: Vec<String> = vec![];
+    for (i, d) in c.docs.iter().enumerate() {
         for p in governs(s, d) {
-            if paths.insert(p.clone()) {
-                l.push(format!("  \"{}\" [shape=folder];", esc_dot(&p)));
-            }
-            l.push(format!(
-                "  \"{}\" -> \"{}\" [label=\"governs\", style=dashed];",
-                esc_dot(&d.id.to_string()),
-                esc_dot(&p)
-            ));
+            let n = match paths.iter().position(|x| *x == p) {
+                Some(n) => n,
+                None => {
+                    l.push(format!("  p{} [label=\"{}\", shape=folder];", paths.len(), esc_dot(&p)));
+                    paths.push(p);
+                    paths.len() - 1
+                }
+            };
+            l.push(format!("  d{i} -> p{n} [label=\"governs\", style=dashed];"));
         }
     }
     l.push("}".to_string());
