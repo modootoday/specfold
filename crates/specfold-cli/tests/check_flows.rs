@@ -720,3 +720,20 @@ fn c194_shared_baseline_paths_are_compared_through_symbolic_links() {
     assert_eq!(code, 2, "{v}");
     assert!(v["error"].as_str().unwrap().contains("'g1' and 'g2' both write the baseline file"), "{v}");
 }
+
+#[test]
+fn c195_a_baseline_through_a_link_into_a_missing_folder_and_back_is_the_same_file() {
+    let r = common::repo();
+    std::os::unix::fs::symlink(".", r.path().join("lnk")).unwrap();
+    let toml = r.read("spec.toml");
+    r.write(
+        "spec.toml",
+        &format!(
+            "{toml}[[guards]]\nname = \"g1\"\ndeny_terms = [\"x\"]\nbaseline = \"lnk/sub/../.guard-base.json\"\n[[guards]]\nname = \"g2\"\ndeny_terms = [\"y\"]\nbaseline = \".guard-base.json\"\n"
+        ),
+    );
+    let (code, v) = r.json(&["guard", "--write-baseline"]);
+    assert_eq!(code, 2, "{v}");
+    assert!(v["error"].as_str().unwrap().contains("'g1' and 'g2' both write the baseline file"), "{v}");
+    assert!(!r.path().join("sub").exists(), "nothing is created before the refusal");
+}
