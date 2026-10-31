@@ -1,0 +1,50 @@
+- title: Start
+  items:
+  - title: 'Tutorial: three steps'
+    url: /start/
+  - title: Install
+    url: /start/install/
+- title: Concepts
+  items:
+  - title: Concepts
+    url: /concepts/
+  - title: Document types
+    url: /concepts/document-types/
+  - title: Lifecycle
+    url: /concepts/lifecycle/
+  - title: Owners and ids
+    url: /concepts/owners-ids/
+  - title: The graph
+    url: /concepts/graph/
+  - title: Checks
+    url: /concepts/checks/
+  - title: Times and tasks
+    url: /concepts/times-relations/
+- title: Guides
+  items:
+  - title: Using with AI agents
+    url: /guides/agents/
+  - title: Checks in CI and hooks
+    url: /guides/ci/
+  - title: Importing an existing layout
+    url: /guides/import/
+  - title: Editing documents
+    url: /guides/editing/
+  - title: Attachments
+    url: /guides/attachments/
+  - title: Exporting to Markdown
+    url: /guides/export/
+- title: Reference
+  items:
+  - title: Commands
+    url: /reference/commands/
+  - title: Rules
+    url: /reference/rules/
+  - title: Configuration
+    url: /reference/config/
+- title: More
+  items:
+  - title: FAQ
+    url: /faq/
+  - title: Changelog
+    url: /changelog/

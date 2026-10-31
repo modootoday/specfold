@@ -1,5 +1,5 @@
 ---
 layout: twin
-twin_of: guides/editing.md
+twin_of: editing.md
 permalink: /guides/editing/index.md
 ---

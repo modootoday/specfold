@@ -1,15 +1,3 @@
 ---
-layout: null
-permalink: /llms-full.txt
+layout: llms-full
 ---
-# {{ site.title }}: full documentation
-
-> {{ site.description }}
-{% include docs-list.html %}{% for p in docs %}
-{% capture raw %}{% include_relative {{ p.path }} %}{% endcapture %}{% assign fm = raw | split: "---" %}
----
-
-Source: {{ p.url | absolute_url }}
-
-{{ raw | remove_first: fm[1] | remove_first: "------" | strip }}
-{% endfor %}

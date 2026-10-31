@@ -1,5 +1,5 @@
 ---
 layout: twin
-twin_of: concepts/document-types.md
+twin_of: document-types.md
 permalink: /concepts/document-types/index.md
 ---

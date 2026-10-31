@@ -1,5 +1,5 @@
 ---
 layout: twin
-twin_of: concepts/owners-ids.md
+twin_of: owners-ids.md
 permalink: /concepts/owners-ids/index.md
 ---

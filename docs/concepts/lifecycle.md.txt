@@ -1,5 +1,5 @@
 ---
 layout: twin
-twin_of: concepts/lifecycle.md
+twin_of: lifecycle.md
 permalink: /concepts/lifecycle/index.md
 ---

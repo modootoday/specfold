@@ -1,8 +1,15 @@
 ---
 title: specfold — docs that live with your code
 description: "specfold keeps design, plan, and maintenance docs next to your code, linked as a graph and guarded by checks."
-hero_art: graph
-sections: [install, how, run, glance, next, faq]
+toc: false
+sidebar: false
+sections:
+  - {c: tabs, name: install}
+  - {c: steps, name: how}
+  - run
+  - {c: features, name: glance, cols: 4}
+  - {c: linkcards, name: next}
+  - {c: faq, name: faq}
 ---
 
 # Your code moves. Your docs keep up.
@@ -10,7 +17,7 @@ sections: [install, how, run, glance, next, faq]
 **specfold** is a command-line tool, `spec`, that keeps design, plan and maintenance docs next to
 the code they govern, links them as a graph and checks them on every change.
 
-[Get started](start/index.md)
+[Get started](start/index.md) [Install](start/install.md)
 
 ## Install it your way
 
@@ -64,17 +71,23 @@ ok: 3 documents, 0 errors, 0 warnings
 
 ## Where next
 
-- **[Concepts](concepts/index.md)** — types, lifecycle, owners, the graph and checks, one page each.
-- **[Guides](guides/agents.md)** — AI agents, CI, importing, editing and attachments.
-- **[Reference](reference/commands.md)** — every command, rule and configuration key.
+- [Concepts](concepts/index.md) — types, lifecycle, owners, the graph and checks, one page each.
+- [Guides](guides/agents.md) — AI agents, CI, importing, editing and attachments.
+- [Reference](reference/commands.md) — every command, rule and configuration key.
 
 ## Questions
 
-**What is specfold?** A command-line tool, `spec`, that keeps design, plan and maintenance
+### What is specfold?
+
+A command-line tool, `spec`, that keeps design, plan and maintenance
 documents in your repository and checks their links and metadata.
 
-**Does it need a server or network access?** No. `spec` is a single offline binary. Stores and
+### Does it need a server or network access?
+
+No. `spec` is a single offline binary. Stores and
 plugins are external commands you configure.
 
-**How do AI agents use it?** They run `spec` with `--json` to find the documents that govern a
+### How do AI agents use it?
+
+They run `spec` with `--json` to find the documents that govern a
 file, edit sections, and run `spec check` before committing. More in the [FAQ](faq.md).

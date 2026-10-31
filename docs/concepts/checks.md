@@ -12,16 +12,9 @@ redirect_from: [/checks/]
 
 ## How a check runs
 
-```mermaid
-flowchart LR
-  A[documents + spec.toml] --> B[spec check]
-  B --> C{findings?}
-  C -->|none| D[exit 0]
-  C -->|errors| E[exit 1 + rule ids]
-  E --> F[spec explain RULE]
-  F --> G[spec fix --write]
-  G --> B
-```
+![spec check reads documents and spec.toml; with no findings it exits 0, with errors it exits 1 with rule ids, then spec explain and spec fix --write lead back to spec check](../assets/diagrams/checks.svg)
+
+*How a check runs. Source: [checks.mmd](../assets/diagrams/checks.mmd).*
 
 ## Run the rules
 

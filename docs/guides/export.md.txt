@@ -1,5 +1,5 @@
 ---
 layout: twin
-twin_of: guides/export.md
+twin_of: export.md
 permalink: /guides/export/index.md
 ---

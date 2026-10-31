@@ -1,4 +1,5 @@
 # Local preview only (excluded from the site): bundle exec jekyll serve
+# Same builder as classic GitHub Pages (Deploy from a branch, /docs).
 source "https://rubygems.org"
 gem "github-pages", "~> 232", group: :jekyll_plugins
 gem "webrick"

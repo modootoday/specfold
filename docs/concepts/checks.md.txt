@@ -1,5 +1,5 @@
 ---
 layout: twin
-twin_of: concepts/checks.md
+twin_of: checks.md
 permalink: /concepts/checks/index.md
 ---

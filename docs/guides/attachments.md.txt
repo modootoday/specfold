@@ -1,5 +1,5 @@
 ---
 layout: twin
-twin_of: guides/attachments.md
+twin_of: attachments.md
 permalink: /guides/attachments/index.md
 ---

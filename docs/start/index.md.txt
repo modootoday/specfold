@@ -1,5 +1,5 @@
 ---
 layout: twin
-twin_of: start/index.md
+twin_of: index.md
 permalink: /start/index.md
 ---

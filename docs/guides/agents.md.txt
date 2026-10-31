@@ -1,5 +1,5 @@
 ---
 layout: twin
-twin_of: guides/agents.md
+twin_of: agents.md
 permalink: /guides/agents/index.md
 ---

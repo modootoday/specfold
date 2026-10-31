@@ -11,14 +11,9 @@ description: Document statuses, allowed transitions and how spec enforces them.
 
 ## The flow
 
-```mermaid
-flowchart LR
-  new([spec new]) --> draft
-  draft -->|spec set status=active| active
-  draft --> rejected
-  active -->|a successor supersedes it| superseded
-  active --> archived
-```
+![spec new creates a draft; a draft becomes active or rejected; an active document is superseded by a successor or archived](../assets/diagrams/lifecycle.svg)
+
+*Statuses only move forward. Source: [lifecycle.mmd](../assets/diagrams/lifecycle.mmd).*
 
 ## The statuses
 
