@@ -59,11 +59,22 @@ pub fn plan(c: &Corpus, doc: &Doc, sources: &[PathBuf], into: &str, place: Where
     {
         bail!("--into '{into}' must be a relative folder inside the bundle (no '..', no absolute path)");
     }
+    // C239: the document's own file (its bundle index) cannot be one of its attachments.
+    let main = to_bundle.as_ref().map_or(doc.path.as_str(), |(_, to)| to.as_str());
+    let main_name = Path::new(main).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    let own = std::fs::canonicalize(c.cfg.root.join(&doc.path)).ok();
     let mut files = vec![];
     for src in sources {
-        let (sha256, bytes) = hash::file(src).with_context(|| format!("cannot read {}", src.display()))?;
         let name = src.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
         let rel = if into.is_empty() { name } else { format!("{}/{name}", into.trim_matches('/')) };
+        if own.is_some() && std::fs::canonicalize(src).ok() == own || rel == main_name {
+            bail!(
+                "{} is the document's own file ({main_name}), not an attachment; nothing was written; next: spec attach {} <other file> --write",
+                src.display(),
+                doc.id
+            );
+        }
+        let (sha256, bytes) = hash::file(src).with_context(|| format!("cannot read {}", src.display()))?;
         let store = match place {
             Where::Repo if bytes > limit => {
                 bail!("{} is {bytes} bytes, over the {limit}-byte limit for the repository", src.display())

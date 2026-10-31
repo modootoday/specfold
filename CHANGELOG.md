@@ -139,6 +139,7 @@ A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is 
   `gateway`), not only when most of the title is lost.
 
 ### Fixed
+- `spec attach` refuses (exit 2, nothing written) the document's own file, or a file that would land on its bundle index name, which used to record a hash that could never match (C239).
 - A heading's optional closing `#` run (`## Context ##`) is dropped from its text, so the outline shows "Context" and `[x](#context)` links pass L8 (C240).
 - A line indented four or more spaces, or starting with seven or more `#`, is no longer read as a heading: outline, `show/edit --section`, edit's heading guard, required sections (S7) and anchors share one CommonMark heading parser (C238).
 - `spec.toml` regexes and globs (`[verify] serial`, `full_run_on`, `[forbid]`, `[cites]`, guard and asset paths) are checked at load: a bad one stops with its line (exit 2) instead of being dropped. An empty or missing `[verify] shell` is reported by `spec doctor`, and `spec verify` names the shell and points to `spec doctor` (C237).

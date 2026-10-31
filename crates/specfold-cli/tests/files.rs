@@ -91,3 +91,23 @@ fn c225_attach_replace_undo_restores_the_document_too() {
     assert_eq!(r.read(&format!("{base}/board.svg")), "<svg>one</svg>");
     assert_eq!(r.read(&doc), before);
 }
+
+/// C239: the document's own file, or anything landing on its bundle index name, is refused.
+#[test]
+fn c239_attach_refuses_the_documents_own_file() {
+    let r = common::repo();
+    let d = r.new_doc("design", "services/shop", "Cart boards");
+    r.write("board.svg", "<svg/>");
+    assert_eq!(r.json(&["attach", &d, "board.svg", "--write"]).0, 0);
+    let path = r.json(&["show", &d]).1["path"].as_str().unwrap().to_string();
+    let before = r.read(&path);
+    let (code, v) = r.json(&["attach", &d, &path, "--write"]);
+    assert_eq!(code, 2, "{v}");
+    assert!(v.to_string().contains("own file"), "{v}");
+    let name = std::path::Path::new(&path).file_name().unwrap().to_string_lossy().into_owned();
+    r.write(&format!("other/{name}"), "x");
+    let (code, v) = r.json(&["attach", &d, &format!("other/{name}"), "--write"]);
+    assert_eq!(code, 2, "{v}");
+    assert_eq!(r.read(&path), before, "nothing written");
+    assert_eq!(r.json(&["check", "--rule", "E1"]).0, 0);
+}
