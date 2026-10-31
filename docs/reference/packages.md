@@ -9,7 +9,9 @@ packages:
   - {name: "@modootoday/specfold", version: "0.3.0", text: "The prebuilt binary for your platform, through npm optional dependencies.", url: "https://www.npmjs.com/package/@modootoday/specfold", links: [{label: "npm", url: "https://www.npmjs.com/package/@modootoday/specfold"}, {label: "Source", url: "https://github.com/modootoday/specfold/tree/main/npm"}]}
 ---
 
-Versions are the latest published release. All three move together: a release publishes the
-crates and the npm package with the same version, and the
-[GitHub release](https://github.com/modootoday/specfold/releases/latest) of that version holds
-the prebuilt archives. To install, see [Install](../start/install.md).
+To install one, see [Install](../start/install.md). Each version is the latest published release.
+
+> [!NOTE]
+> All three packages share one version. A release publishes the crates and the npm package
+> together, and the [GitHub release](https://github.com/modootoday/specfold/releases/latest) of
+> that version holds the prebuilt archives.
