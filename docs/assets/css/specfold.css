@@ -1,4 +1,0 @@
-/* Site overrides on top of jekyll-theme-modootoday (loaded from _includes/head-custom.html).
-   The kit only pushes header controls right through .mt-search (margin-inline-start:auto);
-   this site has no search, so the theme toggle sat right after the nav. */
-.mt-header-inner > .mt-nav ~ .mt-theme-toggle { margin-inline-start: auto; }
