@@ -15,7 +15,7 @@ impl Rule for PinsHold {
         &RuleInfo {
             id: "L7",
             title: "pinned remote documents are unchanged",
-            explain: "`pins` maps a remote document (`<remote>:<id>`, see [remotes]) to the body revision it was read at, `sha256:<12 hex>`, the same hash as a translation's source_rev. When the remote directory is present and the body has changed, L7 warns: read the change, update this document if it depends on it, then record the new revision with `spec set <id> --pin <remote>:<id>`. A pin that names no document there is an error; a key that is not a remote reference, or a value that is not sha256:<12 hex>, is a warning. An absent remote directory is skipped.",
+            explain: "`pins` maps a remote document (`<remote>:<id>`, see [remotes]) to the body revision it was read at, `sha256:<12 hex>`, the same hash as a translation's source_rev. When the remote directory is present and the body has changed, L7 warns: read the change, update this document if it depends on it, then record the new revision with `spec set <id> --pin <remote>:<id> --write`. A pin that names no document there is an error; a key that is not a remote reference, or a value that is not sha256:<12 hex>, is a warning. An absent remote directory is skipped.",
             on_commit: false,
         }
     }
@@ -34,10 +34,10 @@ impl Rule for PinsHold {
             };
             for (target, rev) in pins {
                 let rev = rev.as_str().unwrap_or_default();
-                let fix = format!("spec set {} --pin {target}", crate::shell::word(&d.id));
+                let fix = format!("spec set {} --pin {target} --write", crate::shell::word(&d.id));
                 if translation::rev_problem(rev).is_some() {
                     let msg = format!(
-                        "pin of {target}: pin value '{rev}' is not sha256:<12 hex>; pin it again or remove it (spec set {} --unpin {target})",
+                        "pin of {target}: pin value '{rev}' is not sha256:<12 hex>; pin it again or remove it (spec set {} --unpin {target} --write)",
                         crate::shell::word(&d.id)
                     );
                     out.push(Finding::warn("L7", &d.path, line, msg).fix_cmd(fix));

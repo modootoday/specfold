@@ -86,7 +86,10 @@ fn translations(s: &session::Session, langs: &[String], fail_on: &str) -> Result
         .iter()
         .find(|t| matches!(t.state, State::Behind | State::Unrecorded))
         .map(|t| {
-            format!("spec set {} --source-rev  # after updating the translation", specfold_core::shell::word(&t.id))
+            format!(
+                "spec set {} --source-rev --write  # after updating the translation",
+                specfold_core::shell::word(&t.id)
+            )
         })
         .unwrap_or_else(|| "spec check --rule R1 --rule L3".to_string());
     let fails = match fail_on {

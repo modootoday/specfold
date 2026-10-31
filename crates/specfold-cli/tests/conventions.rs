@@ -51,3 +51,24 @@ fn files_stay_within_the_length_limits() {
     assert_eq!(over("src", 500), vec![], "src files over 500 lines");
     assert_eq!(over("tests", 1600), vec![], "test files over 1600 lines");
 }
+
+/// C227: every `spec set` a message, fix, explain or help names carries `--write`, so it writes
+/// once set previews by default.
+#[test]
+fn every_suggested_set_writes() {
+    let ends = ["`", " #", " && ", "; ", ", then", ")\"", ") ", "\\n", "\"", "\n", ", or", ", which"];
+    // A quoted argument (`'title=<text>'`, `\"…\"`) is part of the command, not its end.
+    let unquote = |t: &str| t.replace("\\\"", "").replace('\'', "");
+    let mut bad = vec![];
+    for f in files("src") {
+        let s = std::fs::read_to_string(&f).expect("read source");
+        for (j, _) in s.match_indices("spec set ") {
+            let rest = unquote(&s[j + 9..]);
+            let stop = ends.iter().filter_map(|e| rest.find(e)).min().unwrap_or(rest.len());
+            if !rest[..stop].contains("--write") {
+                bad.push(format!("{}: spec set {}", f.display(), &rest[..stop]));
+            }
+        }
+    }
+    assert!(bad.is_empty(), "spec set without --write: {bad:#?}");
+}

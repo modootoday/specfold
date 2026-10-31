@@ -17,7 +17,7 @@ pub fn run(c: &Corpus, docs: &[usize], out: &mut Vec<Item>) {
             line: 1,
             detail: format!("exception to {of} was due for review on {date}"),
             next: Some(format!(
-                "spec set {} review_by=<YYYY-MM-DD>   # or status=rejected to retire it",
+                "spec set {} review_by=<YYYY-MM-DD> --write   # or status=rejected to retire it",
                 crate::shell::word(&d.id)
             )),
         });

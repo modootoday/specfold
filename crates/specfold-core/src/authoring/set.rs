@@ -130,7 +130,7 @@ fn move_hint(ty: &crate::model::doctype::TypeDef, from: &str, to: &str, id: &str
         ty.statuses.iter().map(String::as_str).filter(|s| *s != from && ty.transition_allowed(from, s)).collect();
     if to == "superseded" && from == "draft" {
         return format!(
-            "a draft has not taken effect, so nothing supersedes it: make it active first with `spec set {} status=active`, then run `spec new {} --title '…' --from {}`; or change the draft itself with `spec edit {}`",
+            "a draft has not taken effect, so nothing supersedes it: make it active first with `spec set {} status=active --write`, then run `spec new {} --title '…' --from {}`; or change the draft itself with `spec edit {}`",
             crate::shell::word(id),
             ty.name,
             crate::shell::word(id),
@@ -178,11 +178,11 @@ fn plan_with(c: &Corpus, idx: usize, assigns: &[Assign], successor_pending: bool
         }
         // C128: title is required (S1), so it can be changed but not emptied.
         if a.key == "title" && matches!(a.op, Op::Set) && a.value.trim().is_empty() {
-            bail!("title is required and cannot be emptied; give a new one: spec set {} title='…'", d.id);
+            bail!("title is required and cannot be emptied; give a new one: spec set {} title='…' --write", d.id);
         }
         // C223: updated is required (S1) as well; `updated=` would delete it.
         if a.key == "updated" && matches!(a.op, Op::Set) && a.value.trim().is_empty() {
-            bail!("updated is required and cannot be emptied; give a date: spec set {} updated=today", d.id);
+            bail!("updated is required and cannot be emptied; give a date: spec set {} updated=today --write", d.id);
         }
         if a.key == "status" {
             if !ty.statuses.contains(&a.value) {
@@ -191,7 +191,7 @@ fn plan_with(c: &Corpus, idx: usize, assigns: &[Assign], successor_pending: bool
                     ty.statuses.iter().filter(|s| **s != from && ty.transition_allowed(&from, s)).collect();
                 let pick = finishing_status(&a.value, &reachable);
                 let next = pick
-                    .map(|s| format!("; next: spec set {} status={s}", crate::shell::word(&d.id)))
+                    .map(|s| format!("; next: spec set {} status={s} --write", crate::shell::word(&d.id)))
                     .unwrap_or_default();
                 bail!(
                     "status '{}' is not allowed for {} (allowed: {}; from '{from}': {}){next}",

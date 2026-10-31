@@ -63,7 +63,7 @@ impl Rule for RequiredValues {
         &RuleInfo {
             id: "S8",
             title: "a required field has a usable value",
-            explain: "Where `require_when` requires a field for a document's status, S6 checks it is there and S8 checks its value: not a placeholder (`[types.<t>] placeholders`, default TBD, Pending, TODO, ?; whole value, any case), of the kind declared in `[types.<t>] fields = { approvers = \"people\", resolution = \"url\", review_by = \"date\", decision = \"link\" }`, and not shared by two fields of a `distinct = [[\"authors\", \"approvers\"]]` group. A warning by default; `[check] fail_on` can make it fail. `spec set <id> <field>=…` gives the real value.",
+            explain: "Where `require_when` requires a field for a document's status, S6 checks it is there and S8 checks its value: not a placeholder (`[types.<t>] placeholders`, default TBD, Pending, TODO, ?; whole value, any case), of the kind declared in `[types.<t>] fields = { approvers = \"people\", resolution = \"url\", review_by = \"date\", decision = \"link\" }`, and not shared by two fields of a `distinct = [[\"authors\", \"approvers\"]]` group. A warning by default; `[check] fail_on` can make it fail. `spec set <id> <field>=… --write` gives the real value.",
             on_commit: true,
         }
     }
@@ -80,7 +80,7 @@ impl Rule for RequiredValues {
             let line = |k: &str| key_line(ctx, &d.path, k.strip_prefix("rel.").map(|_| "rel").unwrap_or(k));
             let warn = |k: &str, msg: String| {
                 Finding::warn("S8", &d.path, line(k), msg)
-                    .fix_cmd(format!("spec set {} {k}=…", crate::shell::word(&d.id)))
+                    .fix_cmd(format!("spec set {} {k}=… --write", crate::shell::word(&d.id)))
             };
             for k in required {
                 let Some(v) = get(fm, k) else { continue };
