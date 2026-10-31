@@ -84,3 +84,19 @@ fn errors_name_a_real_next_command() {
     assert!(v.to_string().contains("--json"), "{v}");
     assert_eq!(v["next"], "spec graph --json");
 }
+
+#[cfg(unix)]
+#[test]
+fn c215_non_utf8_arguments_are_a_usage_error() {
+    use std::os::unix::ffi::OsStrExt;
+    let r = common::repo();
+    let bad = std::ffi::OsStr::from_bytes(b"services/\xff");
+    let out = r.spec().arg("context").arg(bad).arg("--json").output().unwrap();
+    assert_eq!(out.status.code(), Some(2), "{}", String::from_utf8_lossy(&out.stderr));
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert!(v["error"].as_str().unwrap().contains("not valid UTF-8"), "{v}");
+    assert!(!String::from_utf8_lossy(&out.stderr).contains("panicked"));
+    let out = r.spec().arg("context").arg(bad).output().unwrap();
+    assert_eq!(out.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&out.stdout).contains("next: spec help"));
+}

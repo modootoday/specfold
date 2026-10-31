@@ -20,8 +20,10 @@ use std::io::Write;
 use std::process::ExitCode;
 
 pub fn main() -> ExitCode {
-    let argv: Vec<String> = std::env::args().collect();
-    let ex = execute::execute(argv);
+    let ex = match execute::utf8_args(std::env::args_os().collect()) {
+        Ok(argv) => execute::execute(argv),
+        Err(ex) => *ex,
+    };
     if ex.serve_mcp {
         return match mcp::server::serve() {
             Ok(()) => ExitCode::SUCCESS,
