@@ -139,6 +139,7 @@ A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is 
   `gateway`), not only when most of the title is lost.
 
 ### Fixed
+- C226: "section '…' matches N headings (line …)" from `spec edit` and `spec show --section` names file lines, not body lines
 - C223: `spec set <doc> updated=` takes only a date, an RFC 3339 time or `today` (rc 2 otherwise, preview included), refuses `updated=` as it does `title=`, and its next runs S5
 - C224: `spec mv` counts a referring document once when both its links and its rel lines change, in the preview, the write and --json
 - C225: the undo of `spec attach --write --yes` over other content also puts the document file back, so one `cp -Rp` restores the files list and the replaced files

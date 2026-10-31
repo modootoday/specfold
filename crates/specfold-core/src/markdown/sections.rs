@@ -53,14 +53,15 @@ pub fn matches(body: &str, name: &str) -> Vec<usize> {
     heads.into_iter().filter(|&i| text(i).starts_with(&format!("{want} "))).collect()
 }
 
-/// The error for a name [`span`] does not resolve: several candidates, or none.
-pub fn not_found(body: &str, name: &str) -> String {
+/// The error for a name [`span`] does not resolve: several candidates, or none. `first` is the
+/// file line of the body's first line, so the lines named are file lines (C226).
+pub fn not_found(body: &str, first: usize, name: &str) -> String {
     let lines: Vec<&str> = body.lines().collect();
     let hits = matches(body, name);
     if hits.len() > 1 {
         let list: Vec<String> = hits
             .iter()
-            .map(|&i| format!("line {} '{}'", i + 1, lines[i].trim_start().trim_start_matches('#').trim()))
+            .map(|&i| format!("line {} '{}'", i + first, lines[i].trim_start().trim_start_matches('#').trim()))
             .collect();
         return format!(
             "section '{name}' matches {} headings ({}); name one exactly, or give it an {{#anchor}}",
@@ -115,10 +116,10 @@ mod tests {
         assert_eq!(span(b, "steps to"), Some((0, 2)), "one prefix match still resolves");
         let p = "## Steps one\n## Steps two\n";
         assert_eq!(span(p, "steps"), None);
-        assert!(not_found(p, "steps").contains("matches 2 headings"), "{}", not_found(p, "steps"));
+        assert!(not_found(p, 1, "steps").contains("matches 2 headings"), "{}", not_found(p, 1, "steps"));
         let d = "## Notes\na\n## Notes\nb\n";
         assert_eq!(span(d, "notes"), None, "duplicate titles are ambiguous");
-        assert!(not_found(d, "notes").contains("line 3 'Notes'"));
-        assert!(not_found(d, "zz").starts_with("no section"));
+        assert!(not_found(d, 5, "notes").contains("line 7 'Notes'"));
+        assert!(not_found(d, 1, "zz").starts_with("no section"));
     }
 }
