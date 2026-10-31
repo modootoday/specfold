@@ -130,7 +130,7 @@ fn move_hint(ty: &crate::model::doctype::TypeDef, from: &str, to: &str, id: &str
         ty.statuses.iter().map(String::as_str).filter(|s| *s != from && ty.transition_allowed(from, s)).collect();
     if to == "superseded" && from == "draft" {
         return format!(
-            "a draft has not taken effect, so nothing supersedes it: make it active first with `spec set {} status=active --write`, then run `spec new {} --title '…' --from {}`; or change the draft itself with `spec edit {}`",
+            "a draft has not taken effect, so nothing supersedes it: make it active first with `spec set {} status=active --write`, then run `spec new {} --title '…' --from {} --write`; or change the draft itself with `spec edit {} --text '…' --write`",
             crate::shell::word(id),
             ty.name,
             crate::shell::word(id),

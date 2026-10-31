@@ -32,7 +32,7 @@ $ spec set sot:shop/cart-totals status=active --write
 $ spec set adr:root/20261030 rel.supersedes+=adr:root/20250101 --write
 ```
 
-`spec set` writes directly and accepts `--dry-run`. It refuses a jump the type does not allow, and
+`spec set` previews the change until `--write`, as `--dry-run` does. It refuses a jump the type does not allow, and
 sealed or closed documents. Rule S6 then checks the fields the new status requires.
 
 ## What the rules check
