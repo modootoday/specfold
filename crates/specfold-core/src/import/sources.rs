@@ -20,8 +20,10 @@ pub struct Unit {
 
 const MAIN_NAMES: &[&str] = &["index.md", "README.md", "readme.md", "00-index.md", "_index.md"];
 
+/// C211: sorted by path, so records sharing a date get their seconds in file-name order
+/// on every filesystem.
 fn all_files(root: &Path) -> Vec<String> {
-    WalkBuilder::new(root)
+    let mut files: Vec<String> = WalkBuilder::new(root)
         .hidden(false)
         .require_git(false)
         .filter_entry(|e| e.file_name() != ".git")
@@ -29,7 +31,9 @@ fn all_files(root: &Path) -> Vec<String> {
         .flatten()
         .filter(|e| e.file_type().is_some_and(|t| t.is_file()))
         .filter_map(|e| e.path().strip_prefix(root).ok().map(|p| p.to_string_lossy().replace('\\', "/")))
-        .collect()
+        .collect();
+    files.sort();
+    files
 }
 
 /// The main file, chapters and attachments of a directory, leaving out files an earlier rule
@@ -149,4 +153,20 @@ fn expand_rule(
         out.push(Unit { rule: ri, source: f.clone(), main: f.clone(), chapters, attachments });
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn c211_sources_come_in_path_order() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let names = ["0003-c.md", "0001-a.md", "0010-j.md", "0002-b.md", "0005-e.md", "0004-d.md"];
+        for n in names {
+            std::fs::write(dir.path().join(n), "x").expect("write");
+        }
+        let got = super::all_files(dir.path());
+        let mut want: Vec<String> = names.iter().map(|s| s.to_string()).collect();
+        want.sort();
+        assert_eq!(got, want);
+    }
 }
