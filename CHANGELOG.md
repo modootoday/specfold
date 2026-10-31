@@ -139,6 +139,7 @@ A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is 
   `gateway`), not only when most of the title is lost.
 
 ### Fixed
+- C204: T1 on a draft names the two-step fix (`status=active --write && status=superseded`), and T1 and `spec set status=superseded` ignore a cross-type `rel.supersedes` that L3 rejects
 - C213: `spec graph chain` walks a supersede cycle once, reports `current: null` ("a supersede cycle, nothing is current") and points at `spec check --rule T1`
 - C212: `spec census --translations` rows are paged items (--jsonl, --limit, --offset), and `spec graph --jsonl` streams one row per node, edge and governed path
 - C211: `spec import` walks sources in path order, so records sharing a date get ids in file-name order on every filesystem
