@@ -433,6 +433,8 @@ pub fn write(out: &Path, tree: &Tree, target: Target, previous: &[String]) -> Re
         "target": target.name(),
         "files": tree.files.keys().collect::<Vec<_>>(),
     });
+    // C222: an export of no documents is the manifest alone, in a folder made for it.
+    std::fs::create_dir_all(out)?;
     std::fs::write(out.join(MANIFEST), serde_json::to_string_pretty(&manifest)? + "\n")?;
     Ok(())
 }

@@ -546,3 +546,13 @@ fn c221_a_symbolic_link_cannot_hide_a_spec_or_git_directory() {
     assert!(!root.join(".spec/sub").exists());
     assert!(!root.join(".git/hooks/x").exists());
 }
+
+#[test]
+fn c222_an_empty_repository_exports_the_manifest_alone() {
+    let r = common::repo();
+    let (code, v) = r.json(&["export", "markdown", "--target", "obsidian", "--out", "newdir"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["docs"], 0, "{v}");
+    assert!(r.path().join("newdir").is_dir(), "{v}");
+    assert!(v["next"].as_str().unwrap().starts_with("spec new"), "{v}");
+}
