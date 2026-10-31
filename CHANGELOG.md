@@ -139,6 +139,7 @@ A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is 
   `gateway`), not only when most of the title is lost.
 
 ### Fixed
+- `spec guard --range <rev>` without `..` is refused rc 2 (next: `--range <rev>..HEAD`), as the config already did; it used to scan the history of `<rev>` and pass the new commits.
 - `spec edit --text`/`--file` refuses text that opens a code fence and never closes it (rc 2), which used to turn every later heading into code and hide sections and open tasks.
 - Undo lines work for git-ignored paths (the local tier: `rm -f` instead of a stash git cannot reach) and for documents never committed (`set`/`edit` copy the old file to the trash instead of a stash that removes the whole document).
 - `spec attach` no longer silently overwrites a bundle file with other content (repo or store): the preview marks it `replace`, the write needs `--yes` (and `--force` for a file the document does not list, as `spec fetch`), and the old file is copied to the trash with an `undo:` line.

@@ -32,6 +32,21 @@ pub fn run(g: &Global, a: &GuardArgs) -> Result<Output> {
         }
         return Ok(o.next("git add <baseline files>"));
     }
+    // C205: a single rev would scan that rev's own history, never the commits after it.
+    if let Some(r) = a.range.as_deref()
+        && !matches!(r, "staged" | "push" | "all")
+        && !r.contains("..")
+    {
+        let names = if a.names.is_empty() { String::new() } else { format!(" {}", a.names.join(" ")) };
+        return Ok(Output::error(
+            "guard",
+            crate::output::Code::Usage,
+            &format!(
+                "--range '{r}' is a single revision, which would scan its own history; give a range such as {r}..HEAD (or staged, push, all)"
+            ),
+            Some(format!("spec guard{names} --range {}", specfold_core::shell::quote(&format!("{r}..HEAD")))),
+        ));
+    }
     let range = if a.staged {
         Some(GuardRange::Staged)
     } else if a.tree {
