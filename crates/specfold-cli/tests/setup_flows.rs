@@ -147,3 +147,15 @@ fn c170_init_upgrade_refuses_a_newer_schema_like_check() {
     assert!(v2["error"].as_str().unwrap().contains("install the latest spec"), "{v2}");
     assert!(r.read("spec.toml").contains("schema = 7"));
 }
+
+#[test]
+fn c193_dir_naming_a_file_is_refused_and_an_empty_dir_points_at_the_typed_command() {
+    let r = common::repo();
+    r.write("afile", "x\n");
+    let (code, text) = r.text(&["-C", "afile", "find"]);
+    assert_eq!(code, 3, "{text}");
+    assert!(text.contains("is a file") && text.contains("next: spec help find"), "{text}");
+    let (code, text) = r.text(&["-C", "", "find"]);
+    assert_eq!(code, 2, "{text}");
+    assert!(text.contains("next: spec help find"), "{text}");
+}

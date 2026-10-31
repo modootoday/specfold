@@ -20,8 +20,29 @@ fn code_of(e: &anyhow::Error) -> Code {
 }
 
 /// The subcommand named on the command line, if it is a real one.
+fn dir_is_file(cli: &Cli, argv: &[String]) -> Option<Output> {
+    let d = cli.global.dir.as_ref().filter(|d| d.exists() && !d.is_dir())?;
+    let name = command_name(argv);
+    let msg = format!("cannot open {} as a directory: it is a file", d.display());
+    Some(Output::error(name.as_deref().unwrap_or("spec"), Code::Env, &msg, Some(help_hint(&name))))
+}
+
+/// C193: the first word that is not an option or the value of a global option that takes one
+/// (`-C ''`, `--limit 5`), so `spec -C '' find` is about find.
+fn first_word(argv: &[String]) -> Option<&String> {
+    let mut it = argv.iter().skip(1);
+    while let Some(a) = it.next() {
+        if matches!(a.as_str(), "-C" | "--dir" | "--limit" | "--offset" | "--max-bytes") {
+            it.next();
+        } else if !a.starts_with('-') {
+            return Some(a);
+        }
+    }
+    None
+}
+
 fn command_name(argv: &[String]) -> Option<String> {
-    let first = argv.iter().skip(1).find(|a| !a.starts_with('-'))?;
+    let first = first_word(argv)?;
     // Hidden aliases name the command they stand for.
     let first = match first.as_str() {
         "list" | "ls" => "find".to_string(),
@@ -140,6 +161,11 @@ pub fn execute(argv: Vec<String>) -> Executed {
     }
     if matches!(cli.cmd, Cmd::Mcp) {
         return Executed { output: Output::new("mcp"), format, page, raw: None, serve_mcp: true };
+    }
+    // C193: -C names a directory; a file is refused like a missing one, and with no -C in the
+    // hint, which would only repeat the problem.
+    if let Some(output) = dir_is_file(&cli, &argv) {
+        return Executed { output, format, page, raw: None, serve_mcp: false };
     }
     // C192: -C is a chdir: relative paths, repository discovery and repo_path all start there.
     // The typed value stays for the hints; the session gets the absolute directory.
@@ -287,7 +313,7 @@ fn clap_message(rendered: &str) -> String {
 
 /// The real subcommand a mistyped first word is closest to.
 fn nearest_command(argv: &[String]) -> Option<String> {
-    let first = argv.iter().skip(1).find(|a| !a.starts_with('-'))?;
+    let first = first_word(argv)?;
     let names: Vec<String> = crate::cli::describe::commands().into_iter().map(|c| c.name).collect();
     crate::commands::setup::help::nearest(first, names.iter().map(|s| s.as_str())).map(str::to_string)
 }

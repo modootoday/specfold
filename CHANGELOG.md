@@ -139,6 +139,7 @@ A guard whose `range` is not `staged`, `push`, `all` or a git range (`a..b`) is 
   `gateway`), not only when most of the title is lost.
 
 ### Fixed
+- `-C <file>` is refused (exit 3) instead of running against no repository, and an empty `-C ` value points at the help of the command typed rather than an unrelated one (C193).
 - `-C <subfolder>` now acts like `cd`: relative path arguments are read from it and rebased to the repository root (`context`, `new --governs`, …), and undo/fix shell commands run from the root (`git -C <root>`), so the printed undo works (C192).
 - `spec export --local --no-local` is refused (exit 2) in either order instead of silently dropping the local documents the preview counted (C189).
 - `spec context` and `spec check` hint `--governs` with glob characters escaped (`src/[[]a]/z.rs`), and `spec new --governs` escapes an existing literal path holding `[ * ? {`, so the document governs that file and not the ones a glob reading would match (C185).
