@@ -34,3 +34,12 @@ fn guards_skip_spec_toml_and_explain_an_empty_scope() {
     assert_ne!(code, 0, "{text}");
     assert!(text.contains("fail_if_empty = false"), "{text}");
 }
+
+#[test]
+fn c205_guard_range_refuses_a_single_revision() {
+    let r = common::repo();
+    let (code, v) = r.json(&["guard", "--range", "main"]);
+    assert_eq!(code, 2, "{v}");
+    assert!(v["next"].as_str().unwrap().contains("main..HEAD"), "{v}");
+    assert_eq!(r.json(&["guard", "--range", "HEAD..HEAD"]).0, 0);
+}
