@@ -43,3 +43,13 @@ fn c205_guard_range_refuses_a_single_revision() {
     assert!(v["next"].as_str().unwrap().contains("main..HEAD"), "{v}");
     assert_eq!(r.json(&["guard", "--range", "HEAD..HEAD"]).0, 0);
 }
+
+#[test]
+fn c220_guard_range_refuses_empty_and_open_ended_ranges() {
+    let r = common::repo();
+    for bad in ["", "  ", "..HEAD", "a b"] {
+        let (code, v) = r.json(&["guard", "--range", bad]);
+        assert_eq!(code, 2, "{bad:?}: {v}");
+        assert!(v["next"].as_str().unwrap_or_default().contains("<base>..HEAD"), "{bad:?}: {v}");
+    }
+}
