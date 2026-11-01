@@ -35,14 +35,17 @@ that does not exist is refused with the list of sections and a `--new-section` c
 
 ```sh
 spec edit <id> --section Goal --text "Ship on Friday." --write
+printf '| Step | status |\n|---|---|\n| Login | todo |\n' > steps.md
 spec edit <id> --section Steps --write < steps.md
-cat body.md | spec edit <id> --write
-spec edit <id> --new-section Risks --after Steps --text "None yet." --write
 spec edit <id> --row "Login" --cell status=done --write
+spec edit <id> --new-section Risks --after Steps --text "None yet." --write
+cat body.md | spec edit <id> --write
 ```
 
-`--row` picks the table row whose first cell is `Login` and `--cell` sets the cell under the
-`status` column.
+The new plan has no table, so the second and third lines first put one in `Steps`. `--row` edits a
+Markdown pipe table in the document: it picks the row whose first cell is `Login` and `--cell` sets
+the cell under the `status` column (column names match case-insensitively); without a table it is
+refused (exit 2). The last line replaces the whole body with `body.md`, sections included.
 
 A preview lists each file an update changes, with its changed lines as unified-diff hunks
 (`@@ -old,n +new,m @@`, written as `git diff -U0` writes them: a count of 1 is left out, and an
