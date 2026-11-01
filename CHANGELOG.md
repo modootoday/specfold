@@ -16,6 +16,8 @@ Release notes for each version are also on
 
 - `spec edit` on a superseded document points at the document now in force (`spec edit <successor> …`, or `spec new <type> --from <successor> --write` when it is active) instead of a second `--from` of the old one (C246).
 - `spec guard --write-baseline --yes` prints `next: git add <the written baseline files>`, shell-quoted, instead of a `<baseline files>` placeholder (C247).
+- `spec guard --write-baseline --yes` with several guards measures them all before writing any baseline and does not count this run's own baseline files as uncommitted: it wrote the first and refused the second, leaving a partial write; `next` lists every written file (C254).
+- The non-UTF-8 export refusal points at `spec explain S1` and names `iconv -f <encoding>`; its `iconv` next had no source encoding, failed on those files and left a `.utf8` file behind (C253).
 - The first `spec new --local --write` in a repository where `.spec.local/` was not yet ignored prints an `rm -f` undo; the `git stash` undo it printed did nothing once the exclude was written (C248).
 - `spec attach` with a store uploads every file before copying anything into the bundle, so a failed upload leaves the bundle and the document as they were (C249).
 

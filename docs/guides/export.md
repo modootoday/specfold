@@ -51,7 +51,7 @@ documents a plugin receives. The secrets check runs even when no guard is config
 reads the exported documents' text attachments kept in the repository (up to `[files]
 scan_max_bytes`, binary files skipped). An
 error-level hit writes nothing and exits 1; a document file that is not UTF-8 text writes
-nothing and exits 3, naming the file; warn-level hits are listed. `--no-guard` skips the
+nothing and exits 3, naming the file (`spec explain S1` says how to convert it); warn-level hits are listed. `--no-guard` skips the
 check and the guards. Matched values are never printed.
 
 ## The output directory

@@ -129,11 +129,10 @@ pub fn readable(c: &Corpus, only: &[usize]) -> anyhow::Result<()> {
         files.extend(d.chapters.iter().cloned());
         for p in files {
             if let Err(e) = crate::corpus::overlay::read(&c.cfg.root.join(&p)) {
-                let q = crate::shell::word(&p);
                 return Err(anyhow::Error::new(std::io::Error::new(
                     e.kind(),
                     format!(
-                        "cannot export {p} ({e}): nothing was written; next: iconv -t UTF-8 {q} > {q}.utf8 && mv {q}.utf8 {q}"
+                        "cannot export {p} ({e}): nothing was written; convert it from its encoding (iconv -f <encoding> -t UTF-8); next: spec explain S1"
                     ),
                 )));
             }
