@@ -2,7 +2,7 @@
 //! specfold never handles credentials: the command reads them from its own configuration.
 
 use super::types::Store;
-use anyhow::{Result, anyhow, bail};
+use anyhow::{Result, anyhow};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -35,7 +35,7 @@ impl Store for CommandStore {
         let t = self.put.as_ref().ok_or_else(|| anyhow!("files.store.put is not configured"))?;
         let out = self.run(t, key, &src.to_string_lossy(), "")?;
         if !out.status.success() {
-            bail!("store put failed: {}", String::from_utf8_lossy(&out.stderr).trim());
+            return Err(failed("put", t, &out));
         }
         Ok(())
     }
@@ -47,7 +47,7 @@ impl Store for CommandStore {
         }
         let out = self.run(t, key, "", &dst.to_string_lossy())?;
         if !out.status.success() {
-            bail!("store get failed: {}", String::from_utf8_lossy(&out.stderr).trim());
+            return Err(failed("get", t, &out));
         }
         Ok(())
     }
@@ -56,4 +56,14 @@ impl Store for CommandStore {
         let Some(t) = &self.exists else { return Ok(None) };
         Ok(Some(self.run(t, key, "", "")?.status.success()))
     }
+}
+
+/// C250: a store command that fails is an environment error (exit 3); with nothing on stderr the
+/// message names the command and how it ended.
+fn failed(what: &str, template: &[String], out: &std::process::Output) -> anyhow::Error {
+    let err = String::from_utf8_lossy(&out.stderr).trim().to_string();
+    let why = if err.is_empty() { format!("`{}` exited with {}", template.join(" "), out.status) } else { err };
+    anyhow::Error::new(std::io::Error::other(format!(
+        "store {what} failed: {why}; next: check the files.store.{what} command in spec.toml"
+    )))
 }

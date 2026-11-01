@@ -875,3 +875,14 @@ fn c233_c234_bundle_mv_undo_runs_and_attachment_links_follow() {
     let st = std::process::Command::new("git").args(["status", "--porcelain"]).current_dir(r.path()).output().unwrap();
     assert!(st.stdout.is_empty(), "{}", String::from_utf8_lossy(&st.stdout));
 }
+
+#[test]
+fn c248_first_local_doc_gets_an_rm_undo() {
+    let r = common::repo();
+    r.write(".gitignore", ".cache/\n");
+    let (code, v) =
+        r.json(&["new", "plan", "--governs", "services/shop", "--title", "First local", "--local", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    let undo = v["undo"].as_str().unwrap();
+    assert!(undo.starts_with("rm -f -- "), "{v}");
+}

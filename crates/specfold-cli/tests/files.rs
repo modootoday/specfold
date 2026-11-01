@@ -111,3 +111,30 @@ fn c239_attach_refuses_the_documents_own_file() {
     assert_eq!(r.read(&path), before, "nothing written");
     assert_eq!(r.json(&["check", "--rule", "E1"]).0, 0);
 }
+
+fn failing_store(r: &common::Repo) {
+    let toml = r.read("spec.toml")
+        + "[files]\ninline_max_bytes = 10\n[files.store]\nkind = \"command\"\nput = [\"false\", \"{src}\", \"{key}\"]\nget = [\"false\"]\n";
+    r.write("spec.toml", &toml);
+}
+
+#[test]
+fn c249_c250_a_failed_put_leaves_the_bundle_alone_and_exits_3() {
+    let r = common::repo();
+    let d = r.new_doc("design", "services/shop", "Cart boards");
+    r.write("t2.txt", "small");
+    assert_eq!(r.json(&["attach", &d, "t2.txt", "--write"]).0, 0);
+    let base = r.json(&["files", &d]).1["base"].as_str().unwrap().to_string();
+    let doc = r.json(&["show", &d]).1["path"].as_str().unwrap().to_string();
+    let before = r.read(&doc);
+    failing_store(&r);
+    r.write("t3.txt", "tiny");
+    r.write("big2.log", "a file larger than the limit");
+    let (code, v) = r.json(&["attach", &d, "t3.txt", "big2.log", "--write", "--yes"]);
+    assert_eq!(code, 3, "{v}");
+    let e = v["error"].as_str().unwrap();
+    assert!(e.contains("store put failed") && e.contains("`false {src} {key}` exited with"), "{e}");
+    assert!(!r.path().join(&base).join("big2.log").exists(), "{v}");
+    assert!(!r.path().join(&base).join("t3.txt").exists(), "{v}");
+    assert_eq!(r.read(&doc), before);
+}

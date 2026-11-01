@@ -556,3 +556,41 @@ fn c222_an_empty_repository_exports_the_manifest_alone() {
     assert!(r.path().join("newdir").is_dir(), "{v}");
     assert!(v["next"].as_str().unwrap().starts_with("spec new"), "{v}");
 }
+
+#[test]
+fn c251_export_refuses_to_overwrite_a_file_no_export_wrote() {
+    let r = corpus();
+    let out = r.path().join("../c251-out");
+    let o = out.display().to_string();
+    assert_eq!(r.json(&["export", "markdown", "--target", "mkdocs", "--out", &o]).0, 0);
+    let (_, v) = r.json(&["new", "guide", "--governs", "services/shop", "--title", "New one", "--write"]);
+    let id = v["id"].as_str().unwrap().to_string();
+    // Where the new page will go: a fresh export shows it.
+    let fresh = r.path().join("../c251-probe");
+    assert_eq!(r.json(&["export", "markdown", "--target", "mkdocs", "--out", &fresh.display().to_string()]).0, 0);
+    let page = tree(&fresh).into_keys().find(|p| p.contains("new-one")).unwrap_or_else(|| panic!("{id}"));
+    std::fs::create_dir_all(out.join(&page).parent().unwrap()).unwrap();
+    std::fs::write(out.join(&page), "USER OWN").unwrap();
+    for extra in [&["--dry-run"][..], &["--yes"][..]] {
+        let (code, v) = r.json(&[&["export", "markdown", "--target", "mkdocs", "--out", &o][..], extra].concat());
+        assert_eq!(code, 2, "{v}");
+        assert!(v["not_exported"].to_string().contains(&page), "{v}");
+    }
+    assert_eq!(std::fs::read_to_string(out.join(&page)).unwrap(), "USER OWN");
+    let _ = std::fs::remove_dir_all(&out);
+    let _ = std::fs::remove_dir_all(&fresh);
+}
+
+#[test]
+fn c252_export_refuses_a_document_that_is_not_utf8() {
+    let r = corpus();
+    let p = r.path().join("services/shop/.spec/sot/checkout.sot.md");
+    let mut bytes = std::fs::read(&p).unwrap();
+    bytes.extend_from_slice(b"caf\xe9\n");
+    std::fs::write(&p, bytes).unwrap();
+    let out = r.path().join("../c252-out");
+    let (code, v) = r.json(&["export", "markdown", "--target", "mkdocs", "--out", &out.display().to_string()]);
+    assert_eq!(code, 3, "{v}");
+    assert!(v["error"].as_str().unwrap().contains("checkout.sot.md"), "{v}");
+    assert!(!out.exists(), "nothing written");
+}

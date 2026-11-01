@@ -117,11 +117,14 @@ fn create(g: &Global, a: &NewArgs) -> Result<Output> {
     } else {
         o.field("same_title", json!(same)).head(format!("warn  same title as {}", same.join(", ")))
     };
+    // C248: the exclude goes in before the write, so the undo is the `rm -f` of an ignored file.
+    let ignored = if a.local && a.write {
+        ignore_local(&s.corpus.cfg.root, &created.path, s.corpus.cfg.local_dir())
+    } else {
+        None
+    };
     let mut o = preview::finish(o, &plan, &s.corpus.cfg.root, a.write, &rerun(a))?;
-    if a.local
-        && a.write
-        && let Some(note) = ignore_local(&s.corpus.cfg.root, &created.path, s.corpus.cfg.local_dir())
-    {
+    if let Some(note) = ignored {
         o = o.field("ignored", note.clone()).foot(note);
     }
     // A slug taken from a few ASCII letters of a mostly non-ASCII title rarely names the
