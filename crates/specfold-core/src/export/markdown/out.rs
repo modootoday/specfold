@@ -25,6 +25,8 @@ fn real_out(out: &Path) -> std::path::PathBuf {
     }
 }
 
+/// Checks `out` can take an export (missing, empty or an earlier export, outside the repository
+/// and `.spec`/`.git`) and returns the files the earlier export listed.
 pub fn check_out(out: &Path, root: &Path) -> Result<Vec<String>> {
     let real = real_out(out);
     let spec_or_git =
