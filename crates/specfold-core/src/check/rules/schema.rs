@@ -71,7 +71,7 @@ impl Rule for Frontmatter {
         &RuleInfo {
             id: "S1",
             title: "frontmatter parses and has the required keys",
-            explain: "Every document starts with a YAML frontmatter block holding id, title, status, created and updated. Keys outside the common set and the type's own fields are reported so typos do not pass silently; a key that is meant to stay is declared in spec.toml as `[types.<type>] fields = [...]`, a list that replaces the type's built-in fields, so it keeps them, or for every type as `[check] extra_keys = [\"team\", \"review_*\"]` (a trailing * allows a prefix). `spec fix --rule S1` fills missing keys from the path and the first heading.",
+            explain: "Every document starts with a YAML frontmatter block holding id, title, status, created and updated. Keys outside the common set and the type's own fields are reported so typos do not pass silently; a key that is meant to stay is declared in spec.toml as `[types.<type>] fields = [...]`, a list that replaces the type's built-in fields, so it keeps them, or for every type as `[check] extra_keys = [\"team\", \"review_*\"]` (a trailing * allows a prefix). `spec fix --rule S1` fills missing keys from the path and the first heading. A file that is not UTF-8 is refused; convert it from its encoding with `iconv -f <encoding> -t UTF-8 <file>`.",
             on_commit: true,
         }
     }
