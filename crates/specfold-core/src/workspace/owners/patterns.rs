@@ -11,6 +11,7 @@ pub enum PathMatch {
 }
 
 impl PathMatch {
+    /// Whether a repository-relative path matches.
     pub fn is_match(&self, rel: &str) -> bool {
         match self {
             PathMatch::Prefix(p) => rel == p || rel.starts_with(&format!("{p}/")),
@@ -85,6 +86,7 @@ pub fn kind_stars(pattern: &str) -> usize {
     pattern.trim_matches('/').split('/').filter(|s| *s == "*").count()
 }
 
+/// The directories a `services/*`-style pattern names, each with the values of its `*`s.
 pub fn expand(root: &Path, pattern: &str) -> Vec<(String, Vec<String>)> {
     let mut acc: Vec<(String, Vec<String>)> = vec![(String::new(), vec![])];
     for seg in pattern.trim_matches('/').split('/') {
@@ -127,6 +129,7 @@ pub fn render_id(template: &str, caps: &[String]) -> String {
     caps.iter().enumerate().fold(template.to_string(), |s, (i, c)| s.replace(&format!("{{{}}}", i + 1), c))
 }
 
+/// Whether `dir` holds one of the manifest files (`*.ext` matches by extension).
 pub fn has_manifest(dir: &Path, manifests: &[String]) -> bool {
     manifests.iter().any(|m| match m.strip_prefix("*.") {
         Some(ext) => std::fs::read_dir(dir)
