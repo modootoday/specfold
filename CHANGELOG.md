@@ -8,10 +8,16 @@ Release notes for each version are also on
 ### Behavior changes
 
 - `spec new --from <id>` and `spec set <doc> rel.supersedes+=<id>` refuse (exit 2, nothing written, preview included) when another document already supersedes `<id>`, naming that successor: a second one failed T1 (C246).
+- `spec export markdown` refuses (exit 2, also with `--dry-run` and `--yes`, nothing written) when `--out` already holds a file at a path it would write that no earlier export listed, naming it under `not_exported`: such a file was overwritten without notice (C251).
+- `spec export` refuses (exit 3, nothing written) when an exported document's file is not UTF-8 text, naming the file; it was exported with an empty body (C252).
+- A failing store command (`[files.store] kind = "command"`) exits 3 (environment) instead of 2; with nothing on stderr the message names the command and its exit status (C250).
 
 ### Fixed
 
 - `spec edit` on a superseded document points at the document now in force (`spec edit <successor> …`, or `spec new <type> --from <successor> --write` when it is active) instead of a second `--from` of the old one (C246).
+- `spec guard --write-baseline --yes` prints `next: git add <the written baseline files>`, shell-quoted, instead of a `<baseline files>` placeholder (C247).
+- The first `spec new --local --write` in a repository where `.spec.local/` was not yet ignored prints an `rm -f` undo; the `git stash` undo it printed did nothing once the exclude was written (C248).
+- `spec attach` with a store uploads every file before copying anything into the bundle, so a failed upload leaves the bundle and the document as they were (C249).
 
 ## 0.4.0 - 2026-11-01
 
