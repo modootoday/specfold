@@ -292,7 +292,7 @@ fn write_baseline(s: &session::Session, a: &CheckArgs, findings: &[Finding]) -> 
         .field("measured_on", b.measured_on.clone())
         .field("baselined", total)
         .foot(format!("{total} error(s) in {} rule/path pair(s) recorded in {rel}", b.counts.len()))
-        .next(format!("git add {rel}")))
+        .next(format!("git add {}", specfold_core::shell::word(&rel))))
 }
 
 /// Errors per rule that --fail-on leaves out of the exit code.

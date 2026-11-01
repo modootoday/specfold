@@ -13,8 +13,12 @@ pub fn run(g: &Global, a: &GuardArgs) -> Result<Output> {
         // A baseline hides today's hits from every later run: --yes confirms it (CLI-3).
         let mut o = Output::new("guard").field("written", a.yes);
         let mut total = 0;
+        let mut files: Vec<String> = vec![];
         for (name, rel, hits) in guards::write_baselines(&cfg, &a.names, a.yes)? {
             total += hits;
+            if !files.contains(&rel) {
+                files.push(rel.clone());
+            }
             let verb = if a.yes { "" } else { "would record " };
             o = o.item(
                 json!({"guard": name, "baseline": rel, "hits": hits}),
@@ -30,7 +34,9 @@ pub fn run(g: &Global, a: &GuardArgs) -> Result<Output> {
                 ))
                 .next(format!("spec guard{names} --write-baseline --yes")));
         }
-        return Ok(o.next("git add <baseline files>"));
+        // C247: the files just written, ready to commit.
+        let paths: Vec<String> = files.iter().map(specfold_core::shell::word).collect();
+        return Ok(if paths.is_empty() { o } else { o.next(format!("git add {}", paths.join(" "))) });
     }
     // C205/C220: a single rev scans its own history; an empty or open-ended range scans nothing useful.
     if let Some(r) = a.range.as_deref()

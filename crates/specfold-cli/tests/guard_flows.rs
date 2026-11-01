@@ -76,3 +76,17 @@ fn c230_c231_guard_range_reads_its_end_and_every_pushed_version() {
     assert!(v["items"][0]["message"].as_str().unwrap().contains("in commit"), "{v}");
     assert_eq!(r.json(&["guard", "pub", "--range", "feat..feat2"]).0, 0, "removing it pushes nothing new");
 }
+
+#[test]
+fn c247_guard_baseline_next_names_the_written_files() {
+    let r = common::repo();
+    let toml = r.read("spec.toml")
+        + "[[guards]]\nname = \"g\"\ndeny_terms = [\"noword\"]\nrange = \"all\"\nbaseline = \"guard baseline/g.json\"\n";
+    r.write("spec.toml", &toml);
+    r.write("libs/open/n.txt", "noword\n");
+    r.commit("hit");
+    let (code, v) = r.json(&["guard", "--write-baseline", "--yes"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["next"], "git add 'guard baseline/g.json'", "{v}");
+    assert!(r.path().join("guard baseline/g.json").exists());
+}
