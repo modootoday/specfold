@@ -49,17 +49,19 @@ Before anything is written or a plugin is called, the built-in secrets check and
 with `public = true` read what is leaving: the built-in tree, or the source files of the
 documents a plugin receives. The secrets check runs even when no guard is configured, and also
 reads the exported documents' text attachments kept in the repository (up to `[files]
-scan_max_bytes`, binary files skipped). An
-error-level hit writes nothing and exits 1; a document file that is not UTF-8 text writes
-nothing and exits 3, naming the file; warn-level hits are listed. `--no-guard` skips the
+scan_max_bytes`, binary files skipped). An error-level hit writes nothing and exits 1; a
+document file that is not UTF-8 text writes nothing and exits 3, naming the file; warn-level
+hits are listed. `--no-guard` skips the
 check and the guards. Matched values are never printed.
 
 ## The output directory
 
 `--out` must be missing, empty, or an earlier export. Each export writes
 `.specfold-export.json`, listing its files; the next export removes those files and keeps
-everything else (an `.obsidian/` folder, for example). A file at a path the export writes that no earlier export listed is
-yours: the export refuses (exit 2, nothing written) and names it. Specfold refuses a directory that holds
+everything else (an `.obsidian/` folder, for example). A file at a path the export would write
+that no earlier export listed is yours: the export refuses (exit 2, nothing written, with
+`--dry-run` or `--yes` too) and names it, under `not_exported` in `--json`. Move or delete that
+file, or choose another `--out`. Specfold refuses a directory that holds
 the repository or sits inside `.spec`, `.spec.local` or `.git`. Replacing an earlier export, or
 sending documents past a public guard, previews first and writes only with `--yes`.
 

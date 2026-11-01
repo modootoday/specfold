@@ -29,15 +29,20 @@ $ spec set <id> tags+=money --write
 
 ## Bodies
 
-`spec edit` replaces or appends to one section or the whole body, and bumps `updated`.
+`spec edit` replaces or appends to one section or the whole body, and bumps `updated`. The
+examples use the plan created above, whose sections are `Goal`, `Steps` and `Record`; a section
+that does not exist is refused with the list of sections and a `--new-section` command.
 
 ```sh
-spec edit <id> --section Notes --text "Ship on Friday." --write
-spec edit <id> --section Notes --write < notes.md
+spec edit <id> --section Goal --text "Ship on Friday." --write
+spec edit <id> --section Steps --write < steps.md
 cat body.md | spec edit <id> --write
-spec edit <id> --new-section Risks --after Plan --text "None yet." --write
-spec edit <id> --row "Login" --cell Status=done --write
+spec edit <id> --new-section Risks --after Steps --text "None yet." --write
+spec edit <id> --row "Login" --cell status=done --write
 ```
+
+`--row` picks the table row whose first cell is `Login` and `--cell` sets the cell under the
+`status` column.
 
 A preview lists each file an update changes, with its changed lines as unified-diff hunks
 (`@@ -old,n +new,m @@`, written as `git diff -U0` writes them: a count of 1 is left out, and an
