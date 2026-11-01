@@ -90,3 +90,22 @@ fn c247_guard_baseline_next_names_the_written_files() {
     assert_eq!(v["next"], "git add 'guard baseline/g.json'", "{v}");
     assert!(r.path().join("guard baseline/g.json").exists());
 }
+
+#[test]
+fn c254_two_guard_baselines_are_written_together() {
+    let r = common::repo();
+    let toml = r.read("spec.toml")
+        + "[[guards]]\nname = \"g\"\ndeny_terms = [\"noword\"]\nrange = \"all\"\nbaseline = \"guard baseline/g.json\"\n"
+        + "[[guards]]\nname = \"h\"\ndeny_terms = [\"other\"]\nrange = \"all\"\nbaseline = \"hb.json\"\n";
+    r.write("spec.toml", &toml);
+    r.write("libs/open/n.txt", "noword other\n");
+    r.commit("hits");
+    let (code, v) = r.json(&["guard", "--write-baseline"]);
+    assert_eq!(code, 0, "{v}");
+    let (code, v) = r.json(&["guard", "--write-baseline", "--yes"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["next"], "git add 'guard baseline/g.json' hb.json", "{v}");
+    assert!(r.path().join("guard baseline/g.json").exists() && r.path().join("hb.json").exists());
+    // A rerun with both files still uncommitted is not refused.
+    assert_eq!(r.json(&["guard", "--write-baseline", "--yes"]).0, 0);
+}

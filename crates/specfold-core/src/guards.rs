@@ -63,8 +63,12 @@ pub fn run(cfg: &Config, names: &[String], range: Option<&GuardRange>) -> Result
 /// Measures each named guard over the whole tree and writes its baseline file.
 /// With `write` false, only measures: what `--write-baseline` would record, for its preview.
 pub fn write_baselines(cfg: &Config, names: &[String], write: bool) -> Result<Vec<(String, String, usize)>> {
-    let mut written = vec![];
-    for g in select(cfg, names)? {
+    let guards = select(cfg, names)?;
+    // C254: every guard is measured before any baseline is written, and the baseline files of this
+    // run never count as uncommitted, so one guard's new file cannot stop the next half way.
+    let own: Vec<&String> = guards.iter().filter_map(|g| g.baseline.as_ref()).collect();
+    let mut measured = vec![];
+    for g in &guards {
         let Some(rel) = &g.baseline else {
             if !names.is_empty() {
                 bail!("guard {} has no baseline file; set baseline = \"…\" on it", g.name);
@@ -72,11 +76,17 @@ pub fn write_baselines(cfg: &Config, names: &[String], write: bool) -> Result<Ve
             continue;
         };
         let scanned = scan_one(cfg, g, Some(&GuardRange::All))?;
-        let b = baseline::measure_with(&cfg.root, &scanned.findings, &[], |p| scanned.files.iter().any(|f| f == p))?;
+        let b = baseline::measure_with(&cfg.root, &scanned.findings, &[], |p| {
+            !own.iter().any(|o| o.as_str() == p) && scanned.files.iter().any(|f| f == p)
+        })?;
+        measured.push((g.name.clone(), rel.clone(), b));
+    }
+    let mut written = vec![];
+    for (name, rel, b) in measured {
         if write {
-            baseline::write_file(&cfg.root, rel, &b)?;
+            baseline::write_file(&cfg.root, &rel, &b)?;
         }
-        written.push((g.name.clone(), rel.clone(), b.counts.values().sum()));
+        written.push((name, rel, b.counts.values().sum()));
     }
     Ok(written)
 }

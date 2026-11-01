@@ -35,7 +35,8 @@ rule, and `--json` gives one object for tooling.
 
 `spec check --write-baseline --yes` records today's findings in a committed file, so only new findings
 fail. `[check] severity` sets a rule to `error`, `warn` or `off`. `[check] strict` lists paths that
-never get a baseline.
+never get a baseline. `spec guard --write-baseline --yes` does the same for every guard with a
+`baseline` file, writing them all at once, and its `next` is the `git add` of those files.
 
 ## Verify sources of truth
 
