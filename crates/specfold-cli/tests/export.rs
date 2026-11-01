@@ -595,4 +595,9 @@ fn c252_export_refuses_a_document_that_is_not_utf8() {
     // C253: the next is a command that runs, not an iconv without its source encoding.
     assert_eq!(v["next"], "spec explain S1", "{v}");
     assert!(!out.exists(), "nothing written");
+    // C256: that explain says how to convert, in text and in --json.
+    let (_, text) = r.text(&["explain", "S1"]);
+    assert!(text.contains("iconv -f <encoding> -t UTF-8 <file>"), "{text}");
+    let (_, v) = r.json(&["explain", "S1"]);
+    assert!(v.to_string().contains("iconv -f <encoding> -t UTF-8 <file>"), "{v}");
 }
