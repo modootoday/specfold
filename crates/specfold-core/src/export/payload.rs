@@ -119,3 +119,25 @@ fn hide(mut l: links::Link, only: &[usize]) -> links::Link {
     }
     l
 }
+
+/// C252: every file of the exported documents must read as text before anything is exported;
+/// one that does not stops the export (exit 3) naming it, instead of going out as an empty body.
+pub fn readable(c: &Corpus, only: &[usize]) -> anyhow::Result<()> {
+    for &i in only {
+        let d = &c.docs[i];
+        let mut files = vec![d.path.clone()];
+        files.extend(d.chapters.iter().cloned());
+        for p in files {
+            if let Err(e) = crate::corpus::overlay::read(&c.cfg.root.join(&p)) {
+                let q = crate::shell::word(&p);
+                return Err(anyhow::Error::new(std::io::Error::new(
+                    e.kind(),
+                    format!(
+                        "cannot export {p} ({e}): nothing was written; next: iconv -t UTF-8 {q} > {q}.utf8 && mv {q}.utf8 {q}"
+                    ),
+                )));
+            }
+        }
+    }
+    Ok(())
+}

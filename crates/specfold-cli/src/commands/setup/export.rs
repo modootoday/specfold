@@ -101,6 +101,9 @@ pub fn run(g: &Global, a: &ExportArgs) -> Result<Output> {
     let wants = Wants::from(&d.wants);
     // Local documents stay out unless asked for, so private notes never reach a plugin.
     let only = export::payload::visible(&s.corpus, a.local);
+    if wants.any() {
+        export::payload::readable(&s.corpus, &only)?;
+    }
     let docs = if wants.any() {
         export::payload::docs(&s.corpus, &s.graph, wants, g.max_bytes, &only)
     } else {
@@ -199,6 +202,7 @@ fn built_in(g: &Global, a: &ExportArgs) -> Result<Output> {
         anyhow!("{m}; next: spec export markdown --target {} --out {fresh}{kept}", target.name())
     })?;
     let opts = markdown::Options { target, local: a.local, banner: a.banner };
+    export::payload::readable(&s.corpus, &export::payload::visible(&s.corpus, a.local))?;
     let tree = markdown::build(&s.corpus, &s.graph, &opts);
     let n = tree.unresolved.len();
     let mut o = Output::new("export")
@@ -217,6 +221,9 @@ fn built_in(g: &Global, a: &ExportArgs) -> Result<Output> {
             .head(format!("nothing written: {n} reference(s) lead nowhere in the tree"))
             .code(Code::Findings)
             .next("spec check --rule L1"));
+    }
+    if let Some(o) = foreign_files(o.clone(), &out_path, &tree, &previous, out, target.name()) {
+        return Ok(o);
     }
     let blobs: Vec<(String, Vec<u8>)> = tree.files.iter().map(|(p, t)| (p.clone(), t.as_bytes().to_vec())).collect();
     let visible = export::payload::visible(&s.corpus, a.local);
@@ -274,6 +281,33 @@ fn built_in(g: &Global, a: &ExportArgs) -> Result<Output> {
         tree.files.len()
     ));
     Ok(done_next(o, tree.docs, n, &out_path, &s.corpus.cfg.root, &again))
+}
+
+/// C251: a file the export would write over that no earlier export listed is the user's own:
+/// refused (exit 2, preview included) and named, so nothing of theirs is overwritten.
+fn foreign_files(
+    o: Output,
+    out_path: &std::path::Path,
+    tree: &markdown::Tree,
+    previous: &[String],
+    out: &std::path::Path,
+    target: &str,
+) -> Option<Output> {
+    let theirs: Vec<&String> =
+        tree.files.keys().filter(|p| !previous.contains(p) && out_path.join(p.as_str()).exists()).collect();
+    if theirs.is_empty() {
+        return None;
+    }
+    let mut o = o.code(Code::Usage).field("written", false).field("not_exported", json!(theirs)).head(format!(
+        "{} holds {} file(s) no earlier export wrote, at paths this export writes: nothing was written",
+        out.display(),
+        theirs.len()
+    ));
+    for p in &theirs {
+        o = o.foot(format!("keep   {p}  (not from an export; move it or export elsewhere)"));
+    }
+    let fresh = specfold_core::shell::quote(&format!("{}-export", out.display().to_string().trim_end_matches('/')));
+    Some(o.next(format!("spec export markdown --target {target} --out {fresh}")))
 }
 
 /// What to run after a written export.
