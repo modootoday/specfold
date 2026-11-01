@@ -32,7 +32,7 @@ them from one command, `spec`.
 Each method gives you two commands, `specfold` and its short alias `spec`.
 
 ```sh
-cargo install specfold                        # with Rust
+cargo install specfold                        # with Rust 1.88 or later
 npm install --save-dev @modootoday/specfold   # in a JavaScript project; run with npx spec
 ```
 
