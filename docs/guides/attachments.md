@@ -41,7 +41,9 @@ path = "~/specfold-store"    # `~` is expanded
 ```
 
 A command store runs argv templates; `{src}` and `{dst}` are local paths, `{key}` is the object
-key. `exists` is optional and succeeds (exit 0) when the object is there:
+key. `exists` is optional and succeeds (exit 0) when the object is there. `spec attach` uploads
+every file before it copies anything into the bundle; a failing command exits 3 and leaves the
+bundle as it was:
 
 ```toml
 [files.store]

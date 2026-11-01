@@ -101,6 +101,16 @@ pub fn plan(c: &Corpus, doc: &Doc, sources: &[PathBuf], into: &str, place: Where
 
 pub fn apply(c: &Corpus, doc: &Doc, plan: &Plan) -> Result<()> {
     let root = &c.cfg.root;
+    // C249: every upload goes from the source first; the bundle is touched only once all of them
+    // succeeded, so a failed put leaves the repository as it was.
+    let stored: Vec<&Planned> = plan.files.iter().filter(|f| f.store == "store").collect();
+    if !stored.is_empty() {
+        let s = store::open(&c.cfg)?.context("no [files.store] is configured")?;
+        for f in &stored {
+            s.put(Path::new(&f.source), &f.sha256)
+                .with_context(|| format!("{} was not attached; nothing in the repository changed", f.source))?;
+        }
+    }
     let main = match &plan.to_bundle {
         Some((from, to)) => {
             std::fs::create_dir_all(root.join(to).parent().unwrap_or(root))?;
@@ -123,8 +133,6 @@ pub fn apply(c: &Corpus, doc: &Doc, plan: &Plan) -> Result<()> {
             std::fs::copy(&f.source, &dst).with_context(|| format!("cannot copy {} to {}", f.source, dst.display()))?;
         }
         if f.store == "store" {
-            let s = store::open(&c.cfg)?.context("no [files.store] is configured")?;
-            s.put(&dst, &f.sha256)?;
             ignored.push(f.path.clone());
         }
     }
