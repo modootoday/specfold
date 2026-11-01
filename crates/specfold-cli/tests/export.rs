@@ -592,5 +592,7 @@ fn c252_export_refuses_a_document_that_is_not_utf8() {
     let (code, v) = r.json(&["export", "markdown", "--target", "mkdocs", "--out", &out.display().to_string()]);
     assert_eq!(code, 3, "{v}");
     assert!(v["error"].as_str().unwrap().contains("checkout.sot.md"), "{v}");
+    // C253: the next is a command that runs, not an iconv without its source encoding.
+    assert_eq!(v["next"], "spec explain S1", "{v}");
     assert!(!out.exists(), "nothing written");
 }
