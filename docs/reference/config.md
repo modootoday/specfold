@@ -41,7 +41,7 @@ default, so nothing changes until it is set.
 
 | table | controls |
 | --- | --- |
-| `[check]` | baseline, strict paths, rule severity, `extra_keys`, `count_paths`, `link_ignore`, `d1` (`"all"`, the default, or `"specific"`: rule D1 asks only the most specific document governing a changed file) |
+| `[check]` | baseline, strict paths, rule severity, `extra_keys`, `count_paths`, `link_ignore`, `d1` (`"all"`, the default, or `"specific"`: rule D1 asks only the most specific document governing a changed file), `remote_status` (`true`: rule L3 warns when a relation names a `<remote>:<id>` that is superseded, archived or rejected there, with the successor to point at) |
 | `[[check.override]]` | `paths` (globs), `rule`, `level` (`off`, `warn`, `error`): the rule's level for findings in those files, applied after `[check.severity]`; the last matching entry wins |
 | `[[guards]]` | named checks over files and commit messages (rule U1) |
 | `[[plugins]]` | external programs speaking `specfold.plugin.v1` |

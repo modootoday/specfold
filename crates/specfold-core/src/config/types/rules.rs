@@ -56,6 +56,10 @@ pub struct CheckSection {
     /// `severity`; the last matching entry wins.
     #[serde(default, rename = "override")]
     pub overrides: Vec<CheckOverride>,
+    /// F2: rule L3 warns when a relation names a remote document that is superseded, archived
+    /// or rejected there. Off by default.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub remote_status: bool,
 }
 
 /// One `[[check.override]]` entry: `rule` at `level` under the `paths` globs.
