@@ -179,9 +179,10 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
         }
         None => (report.findings, 0, 0),
     };
-    specfold_core::trace::phase("baseline", t);
+    let t = specfold_core::trace::phase("baseline", t);
     let list = if only.is_empty() { list } else { list.into_iter().filter(|f| only.contains(&f.path)).collect() };
     let (list, others) = super::owners::widen(&s, a, list, base.as_ref(), &opts)?;
+    specfold_core::trace::phase("other-owners", t);
     let (errors, warnings) = findings::counts(&list);
     let fails = failing(&list, &a.fail_on);
     let ms = started.elapsed().as_millis();

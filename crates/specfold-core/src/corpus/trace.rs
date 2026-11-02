@@ -3,7 +3,7 @@
 use std::sync::OnceLock;
 use std::time::Instant;
 
-fn enabled() -> bool {
+pub fn enabled() -> bool {
     static ON: OnceLock<bool> = OnceLock::new();
     *ON.get_or_init(|| std::env::var_os("SPECFOLD_TRACE").is_some())
 }

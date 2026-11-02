@@ -65,7 +65,7 @@ always wins; without a mapping nothing changes.
 
 | table | controls |
 | --- | --- |
-| `[check]` | baseline, strict paths, rule severity, `extra_keys`, `count_paths`, `link_ignore`, `d1` (`"all"`, the default, or `"specific"`: rule D1 asks only the most specific document governing a changed file), `remote_status` (`true`: rule L3 warns when a relation names a `<remote>:<id>` that is superseded, archived or rejected there, with the successor to point at) |
+| `[check]` | baseline (one file for every owner under this spec.toml: `spec mv` rewrites a moved document's entries in place, also when it moves to another owner; a submodule or remote with its own spec.toml keeps its own baseline, which this repository never writes), strict paths, rule severity, `extra_keys`, `count_paths`, `link_ignore`, `d1` (`"all"`, the default, or `"specific"`: rule D1 asks only the most specific document governing a changed file), `remote_status` (`true`: rule L3 warns when a relation names a `<remote>:<id>` that is superseded, archived or rejected there, with the successor to point at) |
 | `[[check.override]]` | `paths` (globs), `rule`, `level` (`off`, `warn`, `error`): the rule's level for findings in those files, applied after `[check.severity]`; the last matching entry wins |
 | `[[guards]]` | named checks over files and commit messages (rule U1) |
 | `[[plugins]]` | external programs speaking `specfold.plugin.v1` |
@@ -78,9 +78,11 @@ always wins; without a mapping nothing changes.
 
 ## Cache
 
-Scan, file-hash and guard results are cached per repository path outside the repository: `$SPECFOLD_CACHE`, else `$XDG_CACHE_HOME/specfold`, `%LOCALAPPDATA%\specfold`, `~/Library/Caches/specfold` or `~/.cache/specfold`. Losing it only costs one slower run. The directory stays bounded on its own: at most once an hour a run removes files unused for 30 days and then the least recently used ones while it holds more than 64 MB; deleting it by hand is always safe.
+Scan, file-hash, guard and L6 citation results are cached per repository path outside the repository: `$SPECFOLD_CACHE`, else `$XDG_CACHE_HOME/specfold`, `%LOCALAPPDATA%\specfold`, `~/Library/Caches/specfold` or `~/.cache/specfold`. Losing it only costs one slower run. The directory stays bounded on its own: at most once an hour a run removes files unused for 30 days and then the least recently used ones while it holds more than 64 MB; deleting it by hand is always safe.
 
-To see where a slow run spends its time, set `SPECFOLD_TRACE=1`: stderr lists the scan phases, the graph, the scope, each rule (they run in parallel, so rule times overlap), baseline matching and output.
+To see where a slow run spends its time, set `SPECFOLD_TRACE=1`: stderr lists the scan phases, the graph, the scope, each rule (they run in parallel, so rule times overlap), baseline matching, other owners' findings and output. Within L6 it lists the file walk, how many files were read from disk, from the index (`git show`, staged runs) or reused from the cache, with bytes and read time, each remote corpus loaded and the matching time; within X1 the selection, the command run and the five slowest commands.
+
+L6 keeps, for whole-tree runs, each cited file's references keyed by its size and modification time. A file is read again when either changes, when it was modified in the last two seconds, when an editor buffer covers it, or when a path in it may now name a document (a new document or alias); staged and ranged runs read the index or the changed lines and are not cached.
 
 ## Example
 

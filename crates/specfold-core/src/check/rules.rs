@@ -4,6 +4,7 @@ mod asset_refs;
 mod assets;
 mod attachments;
 mod cites;
+mod cites_scan;
 mod commands;
 mod counts;
 mod drift;

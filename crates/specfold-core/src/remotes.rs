@@ -123,9 +123,14 @@ pub fn load(cfg: &Config, name: &str) -> Option<Arc<Loaded>> {
             if !dir.is_dir() {
                 return None;
             }
+            let start = std::time::Instant::now();
             let rc = Config::discover(&dir).ok()?;
             let corpus = Corpus::load(rc, &LoadOptions { include_local: false });
             let graph = Graph::build(&corpus);
+            if crate::corpus::trace::enabled() {
+                let ms = start.elapsed().as_secs_f64() * 1000.0;
+                eprintln!("specfold:   remote {name:<12} {ms:>7.1} ms, {} documents", corpus.docs.len());
+            }
             Some(Arc::new(Loaded { corpus, graph }))
         })
         .clone()

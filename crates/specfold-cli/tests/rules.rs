@@ -615,6 +615,17 @@ fn b2_trace_lists_phases_rules_baseline_and_output() {
     }
     let quiet = r.spec().args(["check"]).env_remove("SPECFOLD_TRACE").output().unwrap();
     assert!(!String::from_utf8_lossy(&quiet.stderr).contains("specfold: rule"));
+    // N2/N3: a staged check and a verify run show their phases too.
+    let o = r.spec().args(["check", "--staged"]).env("SPECFOLD_TRACE", "1").output().unwrap();
+    let err = String::from_utf8_lossy(&o.stderr);
+    for want in ["specfold: scope", "specfold: baseline", "specfold: other-owners"] {
+        assert!(err.contains(want), "{want} missing: {err}");
+    }
+    let o = r.spec().args(["verify"]).env("SPECFOLD_TRACE", "1").output().unwrap();
+    let err = String::from_utf8_lossy(&o.stderr);
+    for want in ["specfold: scan", "specfold: X1 select", "specfold: X1 commands", "specfold: rule X1"] {
+        assert!(err.contains(want), "{want} missing: {err}");
+    }
 }
 
 #[test]
@@ -689,4 +700,54 @@ fn check_override_sets_a_rule_level_by_path() {
     let after = l8(&r);
     assert_eq!(after.len(), 1, "blog's L8 is off: {after:?}");
     assert!(after[0].0.starts_with("services/shop/") && after[0].1 == "error", "{after:?}");
+}
+
+/// B2: whole-tree L6 runs keep each cited file's references in the cache; an edited file, or a
+/// cached file holding a path that now names a document, is read again.
+#[test]
+fn b2_l6_cache_reuses_unchanged_files_and_never_hides_a_finding() {
+    let r = common::repo();
+    r.write("spec.toml", &(r.read("spec.toml") + "[cites]\npaths = [\"services/**/*.rs\"]\n"));
+    let sot = r.new_doc("sot", "services/shop/src", "Cart totals");
+    let file = "services/shop/src/a.rs";
+    let old = |r: &common::Repo, stamp: &str| {
+        let ok = std::process::Command::new("find")
+            .args(["services", "-name", "*.rs", "-exec", "touch", "-d", stamp, "{}", "+"])
+            .current_dir(r.path())
+            .status()
+            .unwrap();
+        assert!(ok.success());
+    };
+    r.write(file, &format!("// [[{sot}]]\n// later: .spec/sot/later.sot.md\n"));
+    old(&r, "2020-01-01 00:00:00");
+    let run = |r: &common::Repo| {
+        let o = r.spec().args(["check", "--rule", "L6", "--json"]).env("SPECFOLD_TRACE", "1").output().unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&o.stdout).unwrap();
+        (
+            v["errors"].as_u64().unwrap() + v["warnings"].as_u64().unwrap(),
+            String::from_utf8_lossy(&o.stderr).to_string(),
+        )
+    };
+    let (n, err) = run(&r);
+    assert_eq!(n, 0, "{err}");
+    assert!(err.contains("L6 files     3 (disk 3, git 0, cached 0)"), "{err}");
+    assert!(err.contains("L6 list") && err.contains("L6 judge"), "{err}");
+    let (n, err) = run(&r);
+    assert_eq!(n, 0, "{err}");
+    assert!(err.contains("(disk 0, git 0, cached 3)"), "{err}");
+    // A path in the file that now names a document: the stored result cannot be reused.
+    r.write(
+        ".spec/sot/later.sot.md",
+        "---\nid: sot:ws/later\ntitle: Later\nstatus: draft\ncreated: 2026-11-02\nupdated: 2026-11-02\n---\n\n# Later\n\n## Rule\n\n## Why\n\n## Verification\n",
+    );
+    let (n, err) = run(&r);
+    assert_eq!(n, 1, "the path cite is reported: {err}");
+    assert!(err.contains("(disk 1, git 0, cached 2)"), "{err}");
+    // An edit with a new stamp is read again.
+    // Every stamp changes here, so every file is read again.
+    r.write(file, "// [[sot:shop/gone]]\n");
+    old(&r, "2020-01-02 00:00:00");
+    let (n, err) = run(&r);
+    assert_eq!(n, 1, "{err}");
+    assert!(err.contains("(disk 3, git 0, cached 0)"), "{err}");
 }

@@ -62,9 +62,11 @@ impl Rule for VerifyPasses {
         if !ctx.opts.run_commands {
             return;
         }
+        let start = std::time::Instant::now();
         let mut jobs = vec![];
         let mut owners = vec![];
-        for i in selected(ctx) {
+        let picked = selected(ctx);
+        for &i in &picked {
             let d = &ctx.corpus.docs[i];
             if d.status().as_deref() != Some("active") {
                 continue;
@@ -74,7 +76,11 @@ impl Rule for VerifyPasses {
                 owners.push((i, cmd));
             }
         }
+        let start =
+            crate::corpus::trace::phase(&format!("X1 select ({} docs, {} jobs)", picked.len(), jobs.len()), start);
         let outcomes = runner::run(&ctx.corpus.cfg.root, &jobs, &settings(ctx));
+        crate::corpus::trace::phase("X1 commands", start);
+        trace_slowest(&jobs, &outcomes);
         for ((i, cmd), o) in owners.iter().zip(&outcomes) {
             out.extend(report("X1", ctx, &ctx.corpus.docs[*i], "verify", cmd, o));
         }
@@ -104,5 +110,21 @@ impl Rule for VerifyDeclared {
                 );
             }
         }
+    }
+}
+
+/// The slowest commands, for `SPECFOLD_TRACE`.
+fn trace_slowest(jobs: &[Job], outcomes: &[Outcome]) {
+    if !crate::corpus::trace::enabled() {
+        return;
+    }
+    let mut seen = std::collections::BTreeMap::new();
+    for (j, o) in jobs.iter().zip(outcomes) {
+        seen.entry(j.cmd.as_str()).or_insert(o.elapsed);
+    }
+    let mut v: Vec<_> = seen.into_iter().collect();
+    v.sort_by_key(|x| std::cmp::Reverse(x.1));
+    for (cmd, t) in v.into_iter().take(5) {
+        eprintln!("specfold:   X1 {:>9.1} ms  {cmd}", t.as_secs_f64() * 1000.0);
     }
 }
