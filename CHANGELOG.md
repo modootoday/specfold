@@ -5,6 +5,10 @@ Release notes for each version are also on
 
 ## Unreleased
 
+## 0.5.0 - 2026-11-02
+
+0.5.0 adds a pre-push hook (`spec hook install`), per-path rule levels (`[[check.override]]`), `[check] d1 = "specific"`, per-commit checks (`spec check --commits`), submodule and remote document support, private roots for public repositories and finer tracing. A staged or ranged check now reports links left pointing at deleted documents, a write's undo no longer uses `git stash`, and several refusals and exit codes are stricter; see Behavior changes.
+
 ### Upgrade notes
 
 Every new key below is opt-in; with none of them set, results stay the same apart from the fixes
@@ -53,6 +57,8 @@ spec.toml; `[check] remote_status = true` when you depend on documents in `[remo
 
 ### Fixed
 
+- `spec fix --write` rewrites every citation of a path on one line (`X p.md Y p.md`, `[[p.md|a]] … [[p.md|b]]`); it fixed only the first, so the next `spec check` failed again (C261).
+- A `--write` run from a subfolder without `-C` gives an undo (and shell `next`) that starts with `cd <up to the root> &&`, so it works where it was typed; it named root-relative paths that removed nothing or failed there (C262).
 - `spec check --commits <sha>` on a repository's first commit checks it against the empty tree; it failed (exit 2, `cannot read commit`) because that commit has no parent (C260).
 - `spec edit` on a superseded document points at the document now in force (`spec edit <successor> …`, or `spec new <type> --from <successor> --write` when it is active) instead of a second `--from` of the old one (C246).
 - `spec guard --write-baseline --yes` prints `next: git add <the written baseline files>`, shell-quoted, instead of a `<baseline files>` placeholder (C247).
