@@ -52,6 +52,28 @@ pub struct CheckSection {
     /// overview governing a whole tree stays quiet when a narrower document covers the file.
     #[serde(default)]
     pub d1: D1Scope,
+    /// `[[check.override]]`: a rule's level for findings in files matching `paths`, after
+    /// `severity`; the last matching entry wins.
+    #[serde(default, rename = "override")]
+    pub overrides: Vec<CheckOverride>,
+}
+
+/// One `[[check.override]]` entry: `rule` at `level` under the `paths` globs.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct CheckOverride {
+    pub paths: Vec<String>,
+    pub rule: String,
+    pub level: Level,
+}
+
+/// A rule level in `[[check.override]]`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Level {
+    Off,
+    Warn,
+    Error,
 }
 
 /// `[check] d1`: which governing documents rule D1 asks about a changed file.

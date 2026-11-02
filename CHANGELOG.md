@@ -18,6 +18,7 @@ Release notes for each version are also on
 - A preview from `spec new` or `spec set` without `--write` ends its text with a `NOT WRITTEN: …` line after `next:`, and JSON gains `preview: true` beside `written: false`, so a reader of the last line cannot take it for a write; the exit code stays 0 (E1).
 - Rule I3 lets the alias table grow in a `spec check --changed <base>` range when a commit in it carries the trailer `Specfold-Import: yes`, so an import needs no environment variable in CI; `SPECFOLD_IMPORT=1` still works, and `spec import` names the trailer (E8).
 - `[check] d1 = "specific"` makes rule D1 ask only the most specific document governing a changed file, so an overview or census governing a whole tree no longer warns beside the narrower document; the default `"all"` keeps the 0.4 behavior, and an unknown value is refused when spec.toml loads (C2).
+- `[[check.override]]` with `paths`, `rule` and `level` (`off`, `warn`, `error`) sets a rule's level for findings in files under those globs, after `[check.severity]`; the last matching entry wins, and its globs are checked when spec.toml loads (D2).
 
 ### Fixed
 

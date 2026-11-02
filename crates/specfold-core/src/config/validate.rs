@@ -31,6 +31,9 @@ pub fn pattern_problem(raw: &RawConfig) -> Option<(String, String)> {
         ("[owners] retired".into(), &raw.owners.retired),
         ("[owners] pending".into(), &raw.owners.pending),
     ];
+    for o in &raw.check.overrides {
+        globs.push((format!("[[check.override]] rule {} paths", o.rule), &o.paths));
+    }
     for g in &raw.guards {
         globs.push((format!("guard '{}' paths", g.name), &g.paths));
         globs.push((format!("guard '{}' exclude", g.name), &g.exclude));
