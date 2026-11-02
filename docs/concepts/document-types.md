@@ -46,7 +46,7 @@ new decision is a new document that supersedes the old one, so history stays rea
 ## Change the set
 
 Projects can disable, change or add types in `spec.toml` under `[types.<name>]`: key, form,
-statuses, fields, template and transitions. `spec schema <type>` prints a type's front matter.
+statuses, fields, template and transitions. `spec schema <type>` prints a type's front matter and its `statuses:` line, each status with the ones it may move to; `spec set --help` lists the built-in types' status values.
 
 ```console
 $ spec schema adr

@@ -949,3 +949,17 @@ fn e2_undo_leaves_the_shared_stash_alone() {
     assert!(st.stdout.is_empty(), "{}", String::from_utf8_lossy(&st.stdout));
     assert_eq!(stash(&r), before);
 }
+
+#[test]
+fn e4_set_help_and_schema_list_the_status_values() {
+    let r = common::repo();
+    let (code, help) = r.text(&["set", "--help"]);
+    assert_eq!(code, 0);
+    assert!(help.contains("adr: draft, active, superseded, rejected"), "{help}");
+    assert!(help.contains("spec schema <type>"), "{help}");
+    let (code, text) = r.text(&["schema", "adr"]);
+    assert_eq!(code, 0);
+    assert!(text.contains("statuses: draft -> active, rejected;"), "{text}");
+    let (_, j) = r.json(&["schema", "adr"]);
+    assert_eq!(j["status_moves"][0], "draft -> active, rejected", "{j}");
+}
