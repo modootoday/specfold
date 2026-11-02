@@ -903,3 +903,34 @@ fn c261_fix_l2_rewrites_every_citation_of_a_path_on_one_line() {
     let (code, v) = r.json(&["check", "--rule", "L2"]);
     assert_eq!(code, 0, "one fix run is enough: {v}");
 }
+
+#[test]
+fn p1_leaves_a_submodule_governs_out_of_the_owner_and_mv_settles_it() {
+    let r = common::repo();
+    r.new_doc("sot", "services/shop", "Anchor");
+    r.commit("anchor");
+    let sha = String::from_utf8(
+        std::process::Command::new("git").args(["rev-parse", "HEAD"]).current_dir(r.path()).output().unwrap().stdout,
+    )
+    .unwrap();
+    r.git(&["update-index", "--add", "--cacheinfo", &format!("160000,{},vendor/commerce", sha.trim())]);
+    r.write(
+        ".spec/sot/mixed.sot.md",
+        "---\nid: sot:ws/mixed\ntitle: Mixed\nstatus: draft\ncreated: 2026-11-02\nupdated: 2026-11-02\nrel:\n  governs: [services/shop/src, vendor/commerce]\n---\n\n# Mixed\n\n## Rule\n\n## Why\n\n## Verification\n",
+    );
+    // No commit: `git add -A` would drop the gitlink, whose directory is not checked out.
+    let (code, v) = r.json(&["check", "--rule", "P1"]);
+    assert_eq!(code, 1, "{v}");
+    let s = v.to_string();
+    assert!(s.contains("belongs to shop") && s.contains("spec mv sot:ws/mixed --write"), "{s}");
+    let (code, v) = r.json(&["mv", "sot:ws/mixed", "--write", "--yes"]);
+    assert_eq!(code, 0, "{v}");
+    let (code, v) = r.json(&["check", "--rule", "P1"]);
+    assert_eq!(code, 0, "{v}");
+    let args = ["new", "sot", "--governs", "services/shop/src", "--governs", "vendor/commerce", "--title", "Two"];
+    let (code, v) = r.json(&[&args[..], &["--write"]].concat());
+    assert_eq!(code, 0, "{v}");
+    assert!(v["id"].as_str().unwrap().starts_with("sot:shop/"), "{v}");
+    let (_, e) = r.text(&["explain", "P1"]);
+    assert!(e.contains("submodule") && e.contains("baseline"), "{e}");
+}

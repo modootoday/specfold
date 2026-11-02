@@ -35,7 +35,9 @@ pub fn plan(c: &Corpus, idx: usize, req: &Move) -> Result<(Moved, Plan)> {
     let current = c.owners.by_id(&d.id.owner).ok_or_else(|| anyhow!("owner {} no longer exists", d.id.owner))?;
     let owner = match &req.owner {
         Some(o) => c.owners.by_id(o).or_else(|| c.owners.by_path(o)).ok_or_else(|| anyhow!("no owner '{o}'"))?,
-        None => placement::decide(&c.owners, &d.rel().remove("governs").unwrap_or_default(), current).owner,
+        None => {
+            placement::decide_local(&c.cfg, &c.owners, &d.rel().remove("governs").unwrap_or_default(), current).owner
+        }
     };
     let slug = req.slug.clone().unwrap_or_else(|| d.slug.clone());
     if !stamp::is_slug(&slug) {

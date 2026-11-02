@@ -5,6 +5,14 @@ Release notes for each version are also on
 
 ## Unreleased
 
+### Behavior changes
+
+- Since 0.5.0, P1 leaves governs inside another project (a submodule, a remote checked out in the repository, or `<remote>:<path>`) out of the owner decision. A document governing such a path beside its own code, for example `apps/billing` and the submodule `packages/commerce`, now belongs to the narrower owner (`billing`, not the root) and P1 reports it where 0.4.0 did not. Fix: `spec mv <id> --write` moves it to that owner and its `[check] baseline` entries follow. `spec explain P1` says so. 0.5.0 listed this only under Added.
+
+### Fixed
+
+- `spec mv <id> --write` (P1's fix) and `spec new` decide the owner the way P1 does, leaving governs inside another project out; `mv` reported success and moved nothing, so P1 stayed, and `new` placed such a document where P1 then failed it (C263).
+
 ## 0.5.0 - 2026-11-02
 
 0.5.0 adds a pre-push hook (`spec hook install`), per-path rule levels (`[[check.override]]`), `[check] d1 = "specific"`, per-commit checks (`spec check --commits`), submodule and remote document support, private roots for public repositories and finer tracing. A staged or ranged check now reports links left pointing at deleted documents, a write's undo no longer uses `git stash`, and several refusals and exit codes are stricter; see Behavior changes.
