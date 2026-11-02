@@ -73,11 +73,18 @@ fn targets(ctx: &Ctx, files: &Files) -> Vec<(String, Option<BTreeSet<usize>>)> {
         .collect()
 }
 
-fn judge(ctx: &Ctx, path: &str, line: usize, written: &str, target: &str, by_path: bool) -> Option<Finding> {
+/// Remote lookups already made in this run: each touches the filesystem, and a target is often
+/// cited many times (B2).
+type Memo = HashMap<String, crate::remotes::Remote>;
+
+fn judge(ctx: &Ctx, memo: &mut Memo, at: (&str, usize), written: &str, target: &str, by_path: bool) -> Option<Finding> {
+    let (path, line) = at;
     let id_of = |idx: usize| ctx.corpus.docs[idx].id.to_string();
     if !by_path {
         use crate::remotes::Remote;
-        let problem = match crate::remotes::resolve(&ctx.corpus.cfg, target) {
+        let found =
+            memo.entry(target.to_string()).or_insert_with(|| crate::remotes::resolve(&ctx.corpus.cfg, target)).clone();
+        let problem = match found {
             Remote::Local => None,
             Remote::Absent { .. } | Remote::Found { .. } => return None,
             Remote::Missing { name, id } => Some(format!("{written} names no document in the remote {name} ({id})")),
@@ -140,6 +147,7 @@ impl Rule for CitesOutside {
         };
         let history: Vec<Regex> = cfg.history.iter().filter_map(|r| Regex::new(r).ok()).collect();
         let spec_paths = path_cite_re(ctx.corpus.cfg.spec_dir());
+        let mut memo = Memo::new();
         for (path, only) in targets(ctx, &files) {
             let Some(text) = ctx.current(&path) else { continue };
             for (n, line) in text.lines().enumerate() {
@@ -151,7 +159,7 @@ impl Rule for CitesOutside {
                 for c in wiki_re().captures_iter(line) {
                     let target = c[1].trim().to_string();
                     seen.insert(target.clone());
-                    out.extend(judge(ctx, &path, no, &c[0], &target, false));
+                    out.extend(judge(ctx, &mut memo, (&path, no), &c[0], &target, false));
                 }
                 let tokens = spec_paths.find_iter(line).chain(path_token_re().find_iter(line));
                 for m in tokens {
@@ -161,7 +169,7 @@ impl Rule for CitesOutside {
                     }
                     let known = ctx.graph.by_path.contains_key(t) || ctx.graph.by_alias.contains_key(t);
                     if known {
-                        out.extend(judge(ctx, &path, no, t, t, true));
+                        out.extend(judge(ctx, &mut memo, (&path, no), t, t, true));
                     }
                 }
             }

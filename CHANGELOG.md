@@ -37,6 +37,7 @@ Release notes for each version are also on
 - `spec show <id> --in <repo>` reads a document from another repository, read-only (same as `-C <repo>`; `--root` also accepted); otherwise `<prefix>:<id>` resolves through [remotes], then the `[prefix]` table of the user-level roots.toml, and an unknown prefix is an error naming it.
 - `[check] remote_status = true`: rule L3 warns when a relation names a remote document that is superseded, archived or rejected in its repository, and names the successor. Off by default.
 - A public repository with no spec.toml can keep its documents in a private directory mapped in a user-level roots.toml (`$SPECFOLD_ROOTS` or `~/.config/specfold/roots.toml`); commands run in the repository read and write there and nothing is written in the public tree.
+- B2: `SPECFOLD_TRACE=1` now also times the scope, each rule, baseline matching and output; L6 looks up each remote citation target once per run.
 
 ### Changed
 

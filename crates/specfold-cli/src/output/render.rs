@@ -42,6 +42,13 @@ fn window<T: Clone>(items: &[T], page: &Page, paged: bool, size: impl Fn(&T) -> 
 }
 
 pub fn render(o: &Output, fmt: Format, page: &Page) -> String {
+    let t = std::time::Instant::now();
+    let out = render_inner(o, fmt, page);
+    specfold_core::trace::phase("output", t);
+    out
+}
+
+fn render_inner(o: &Output, fmt: Format, page: &Page) -> String {
     let (shown, more, cut) = window(&o.items, page, o.paged, |i| match fmt {
         Format::Text => i.text.len(),
         _ => i.json.to_string().len(),
