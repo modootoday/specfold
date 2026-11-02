@@ -19,7 +19,7 @@ impl Rule for GovernedCodeDrift {
         &RuleInfo {
             id: "D1",
             title: "changed code moves its governing document",
-            explain: "In a staged or ranged run (`spec check --staged`, `--changed`), each changed file that is not a document is matched against the explicit `rel.governs` globs of active, committed documents. A document whose governed code changed is expected to change in the same range, or to be named by a `change` note that changes in the range; otherwise this warning lists the changed paths. Documents that govern only through their owner directory are not asked, and a full run never reports D1. Deleted files and the old paths of renamed files count as changed. Update the document (or its `verified_at`), or write a change note that links it: `spec new change --title … --depends-on <id> --write` (a `[[<id>]]` link in its body works too). See it with `spec check --staged --rule D1`.",
+            explain: "In a staged or ranged run (`spec check --staged`, `--changed`), each changed file that is not a document is matched against the explicit `rel.governs` globs of active, committed documents. A document whose governed code changed is expected to change in the same range, or to be named by a `change` note that changes in the range; otherwise this warning lists the changed paths. Documents that govern only through their owner directory are not asked, and a full run never reports D1. Deleted files and the old paths of renamed files count as changed. With `[check] d1 = \"specific\"` only the most specific of the documents governing a file are asked, so an overview governing a whole tree (`governs: [services]`) is not asked about a file a narrower document governs. Update the document (or its `verified_at`), or write a change note that links it: `spec new change --title … --depends-on <id> --write` (a `[[<id>]]` link in its body works too). See it with `spec check --staged --rule D1`.",
             on_commit: true,
         }
     }
@@ -35,14 +35,23 @@ impl Rule for GovernedCodeDrift {
         let gone: Vec<String> = ctx.scope.gone.iter().map(|p| format!("{p} (removed)")).collect();
         let changed = ctx.scope.paths.iter().map(|p| (p.as_str(), p.as_str()));
         let removed = ctx.scope.gone.iter().zip(&gone).map(|(p, shown)| (p.as_str(), shown.as_str()));
+        let specific = c.cfg.raw.check.d1_specific();
         for (p, shown) in changed.chain(removed).filter(|(p, _)| !own.contains(&p.to_string())) {
-            for g in governing(c, p) {
-                let d = &c.docs[g.idx];
-                let explicit = d.rel().get("governs").is_some_and(|v| !v.is_empty());
-                if explicit && d.tier == Tier::Committed && d.status().as_deref() == Some("active") && !skipped(d, "D1")
-                {
-                    drift.entry(g.idx).or_default().push(shown);
-                }
+            let asked: Vec<_> = governing(c, p)
+                .into_iter()
+                .filter(|g| {
+                    let d = &c.docs[g.idx];
+                    let explicit = d.rel().get("governs").is_some_and(|v| !v.is_empty());
+                    explicit
+                        && d.tier == Tier::Committed
+                        && d.status().as_deref() == Some("active")
+                        && !skipped(d, "D1")
+                })
+                .collect();
+            // `governing` lists the narrowest claims first.
+            let top = asked.first().map(|g| g.specificity).unwrap_or(0);
+            for g in asked.into_iter().filter(|g| !specific || g.specificity == top) {
+                drift.entry(g.idx).or_default().push(shown);
             }
         }
         for (idx, paths) in drift {

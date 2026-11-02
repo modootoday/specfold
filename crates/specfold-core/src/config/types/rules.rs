@@ -47,9 +47,28 @@ pub struct CheckSection {
     /// (`../generated/**`) and against the repository path it resolves to (`site/api/**`).
     #[serde(default)]
     pub link_ignore: Vec<String>,
+    /// Which documents rule D1 asks about a changed file: "all" (default) every active document
+    /// whose explicit governs covers it, "specific" only the most specific of them, so an
+    /// overview governing a whole tree stays quiet when a narrower document covers the file.
+    #[serde(default)]
+    pub d1: D1Scope,
+}
+
+/// `[check] d1`: which governing documents rule D1 asks about a changed file.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum D1Scope {
+    #[default]
+    All,
+    Specific,
 }
 
 impl CheckSection {
+    /// Whether rule D1 asks only the most specific governing documents (`d1 = "specific"`).
+    pub fn d1_specific(&self) -> bool {
+        self.d1 == D1Scope::Specific
+    }
+
     /// Whether `key` is allowed on every type by `extra_keys`.
     pub fn extra_key(&self, key: &str) -> bool {
         self.extra_keys.iter().any(|p| match p.strip_suffix('*') {

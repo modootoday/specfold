@@ -97,6 +97,10 @@ the changed paths, including deleted files and the old paths of renames. Documen
 through their owner directory are not asked. To clear it, update the document (or its `verified_at`)
 or link a change note: `spec new change --title … --depends-on <id> --write` (several: `--depends-on a,b`, or `--depends-on-file ids.txt` with one id per line).
 
+An overview or census that governs a whole tree (`governs: [services]`) is asked about every file
+below it, beside the narrower document. `[check] d1 = "specific"` asks only the most specific
+documents governing each file; the default `"all"` keeps asking every one.
+
 ## Visibility
 
 | rule | checks that |
