@@ -36,6 +36,7 @@ description: The spec.toml tables and what each one controls.
 | table | controls |
 | --- | --- |
 | `[check]` | baseline, strict paths, rule severity, `extra_keys`, `count_paths`, `link_ignore`, `d1` (`"all"`, the default, or `"specific"`: rule D1 asks only the most specific document governing a changed file) |
+| `[[check.override]]` | `paths` (globs), `rule`, `level` (`off`, `warn`, `error`): the rule's level for findings in those files, applied after `[check.severity]`; the last matching entry wins |
 | `[[guards]]` | named checks over files and commit messages (rule U1) |
 | `[[plugins]]` | external programs speaking `specfold.plugin.v1` |
 | `[translations]` | translations paired by place: `layout`, `languages`, `source_lang`, `strict` (rule R2) |
@@ -65,6 +66,11 @@ extra_keys = ["team", "review_*"]
 count_paths = ["README.md", "docs/**/*.md"]
 link_ignore = ["site/api/**"]   # rule L8 skips links to these paths
 d1 = "specific"                 # D1 skips an overview when a narrower document governs the file
+
+[[check.override]]
+paths = ["services/legacy/**"]  # no L8 under the legacy tree
+rule = "L8"
+level = "off"
 
 [translations]
 layout = "suffix"   # guide:shop/setup-ko translates guide:shop/setup

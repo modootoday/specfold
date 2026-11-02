@@ -572,3 +572,41 @@ fn import_trailer_lets_the_alias_table_grow() {
     let (_, v) = r.json(&["check", "--changed", "HEAD~1"]);
     assert!(!i3(&v), "the trailer allows growth: {v}");
 }
+
+/// D2(a): `[[check.override]]` sets a rule's level for files under some paths only.
+#[test]
+fn check_override_sets_a_rule_level_by_path() {
+    let r = common::repo();
+    let shop = r.new_doc("sot", "services/shop", "Cart rules");
+    let blog = r.new_doc("sot", "services/blog", "Blog rules");
+    for id in [&shop, &blog] {
+        let p = path_of(&r, id);
+        let t = r.read(&p);
+        r.write(&p, &format!("{t}\nSee [the api](missing-api.md).\n"));
+    }
+    let l8 = |r: &common::Repo| -> Vec<(String, String)> {
+        let (_, v) = r.json(&["check", "--rule", "L8"]);
+        let mut out: Vec<(String, String)> = v["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|f| f["rule"] == "L8")
+            .map(|f| (f["path"].as_str().unwrap().to_string(), f["severity"].as_str().unwrap().to_string()))
+            .collect();
+        out.sort();
+        out
+    };
+    let before = l8(&r);
+    assert_eq!(before.len(), 2, "{before:?}");
+    assert!(before.iter().all(|(_, s)| s == "warn"), "{before:?}");
+    let toml = r.read("spec.toml");
+    r.write(
+        "spec.toml",
+        &format!(
+            "{toml}\n[[check.override]]\npaths = [\"services/shop/**\"]\nrule = \"L8\"\nlevel = \"error\"\n\n[[check.override]]\npaths = [\"services/blog/**\"]\nrule = \"L8\"\nlevel = \"off\"\n"
+        ),
+    );
+    let after = l8(&r);
+    assert_eq!(after.len(), 1, "blog's L8 is off: {after:?}");
+    assert!(after[0].0.starts_with("services/shop/") && after[0].1 == "error", "{after:?}");
+}
