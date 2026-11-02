@@ -5,19 +5,24 @@ Release notes for each version are also on
 
 ## Unreleased
 
-### Upgrade notes (draft)
+### Upgrade notes
 
-- Nothing changes until you set a new key; every addition below is opt-in. Recommended after upgrading:
-- ```toml
-- [check]
-- d1 = "specific"   # D1 asks only the most specific document governing a changed file
-- ```
-- Also worth a look: `spec hook install` (preview) then `--write` for a pre-push gate on
-- `spec check --owners --changed`; `[spec] submodule_remotes = true` when submodules carry their own
-- spec.toml; `[check] remote_status = true` when you depend on documents in `[remotes]`.
+Every new key below is opt-in; with none of them set, results stay the same apart from the fixes
+listed under Behavior changes. Recommended after upgrading:
+
+```toml
+[check]
+d1 = "specific"   # D1 asks only the most specific document governing a changed file
+```
+
+Also worth a look: `spec hook install` (preview) then `--write` for a pre-push gate on
+`spec check --owners --changed`; `[spec] submodule_remotes = true` when submodules carry their own
+spec.toml; `[check] remote_status = true` when you depend on documents in `[remotes]`; and
+`~/.config/specfold/roots.toml` to keep a public repository's documents in a private root.
 
 ### Behavior changes
 
+- A staged or ranged `spec check` that deletes documents now reports links left pointing at them (L1); before, such a commit passed with dangling links (N2).
 - `spec new --from <id>` and `spec set <doc> rel.supersedes+=<id>` refuse (exit 2, nothing written, preview included) when another document already supersedes `<id>`, naming that successor: a second one failed T1 (C246).
 - `spec export markdown` refuses (exit 2, also with `--dry-run` and `--yes`, nothing written) when `--out` already holds a file at a path it would write that no earlier export listed, naming it under `not_exported`: such a file was overwritten without notice (C251).
 - `spec export` refuses (exit 3, nothing written) when an exported document's file is not UTF-8 text, naming the file; it was exported with an empty body (C252).

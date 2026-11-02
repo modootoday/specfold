@@ -9,7 +9,10 @@ use specfold_core::check::rules::catalog;
 use specfold_core::plugins;
 
 const CONFIG_HELP: &[(&str, &str)] = &[
-    ("[spec] schema, dir", "Format version (1) and the name of each owner's document directory (.spec)."),
+    (
+        "[spec] schema, dir, submodule_remotes",
+        "Format version (1), the name of each owner's document directory (.spec), and whether submodules that carry their own spec.toml are read as remotes named after their directory (off unless set).",
+    ),
     (
         "[owners] root, kinds, manifests, retired",
         "The root owner id; owner kinds as pattern + id template ({1}, {2} …) + manifest requirement; the manifest list; directories whose code is gone.",
@@ -47,8 +50,8 @@ const CONFIG_HELP: &[(&str, &str)] = &[
         "Thresholds for stale, stalled and draft documents, open-item markers, and the types whose anchors must be cited (coverage).",
     ),
     (
-        "[check] baseline, strict, severity, extra_keys, count_paths",
-        "A committed file of known findings so only new ones fail (spec check --write-baseline), paths that never get a baseline, per-rule levels (error, warn, off), and frontmatter keys every type may carry (rule S1; `review_*` allows a prefix), and Markdown files outside documents whose spec:count markers are checked (rule N1; `README.md`, `docs/**/*.md`).",
+        "[check] baseline, strict, severity, extra_keys, count_paths, d1, remote_status",
+        "A committed file of known findings so only new ones fail (spec check --write-baseline), paths that never get a baseline, per-rule levels (error, warn, off), and frontmatter keys every type may carry (rule S1; `review_*` allows a prefix), and Markdown files outside documents whose spec:count markers are checked (rule N1; `README.md`, `docs/**/*.md`). d1 = \"specific\" asks only the most specific governing documents (D1); remote_status = true warns when a relation names a superseded or archived document in a remote (L3).",
     ),
     (
         "[verify] timeout_ms, jobs, serial, full_run_on, shell",
@@ -68,7 +71,7 @@ const CONFIG_HELP: &[(&str, &str)] = &[
     ),
     (
         "[remotes.<name>] path",
-        "Another repository already on disk (a sibling checkout, a submodule, a CI checkout) whose documents are named <name>:<id> in references and relations. Read-only: L1 and L3 check those targets when the directory exists and skip them when it does not; spec show and spec resolve read them. A name equal to a type name is not a remote.",
+        "Another repository already on disk (a sibling checkout, a submodule, a CI checkout) whose documents are named <name>:<id> in references and relations. Read-only: L1 and L3 check those targets when the directory exists and skip them when it does not; spec show and spec resolve read them. A name equal to a type name is not a remote. Id prefixes and a private root for a repository without spec.toml can also come from the user-level ~/.config/specfold/roots.toml ($SPECFOLD_ROOTS).",
     ),
     (
         "[translations] layout, languages, source_lang, strict",
