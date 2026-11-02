@@ -25,6 +25,7 @@ Release notes for each version are also on
 - `[spec] submodule_remotes = true` registers submodules that carry their own spec.toml as read-only remotes (`child:<id>`), and `spec context` shows the submodule's owner and documents for paths inside it. Off by default.
 - `spec show <id> --in <repo>` reads a document from another repository, read-only (same as `-C <repo>`); `<remote>:<id>` through [remotes] remains the prefix registry.
 - `[check] remote_status = true`: rule L3 warns when a relation names a remote document that is superseded, archived or rejected in its repository, and names the successor. Off by default.
+- A public repository with no spec.toml can keep its documents in a private directory mapped in a user-level roots.toml (`$SPECFOLD_ROOTS` or `~/.config/specfold/roots.toml`); commands run in the repository read and write there and nothing is written in the public tree.
 
 ### Changed
 

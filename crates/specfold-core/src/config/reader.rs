@@ -32,6 +32,20 @@ impl Config {
             dir = d.parent();
         }
         let root = vcs::git_root(&start).unwrap_or(start);
+        // F1: a public repository whose documents live in a mapped private directory.
+        if let Some(private) = super::private_root::mapped(&root) {
+            let toml = private.join(CONFIG_FILE);
+            if toml.is_file() {
+                return Self::load(&toml);
+            }
+            bail!(
+                "{} is mapped to {} in {}, which has no {CONFIG_FILE}; next: spec -C {} init --write",
+                root.display(),
+                private.display(),
+                super::private_root::file().unwrap_or_default().display(),
+                private.display()
+            );
+        }
         Ok(Self::from_raw(root, RawConfig::default(), true))
     }
 
