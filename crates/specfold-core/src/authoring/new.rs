@@ -104,7 +104,7 @@ pub fn plan(c: &Corpus, g: &Graph, req: &NewDoc) -> Result<(Created, Plan)> {
     }
     let req = &owned;
     let root_owner = c.owners.root();
-    let decision = placement::decide(&c.owners, &req.governs, root_owner);
+    let decision = placement::decide_local(&c.cfg, &c.owners, &req.governs, root_owner);
     let (owner, reason) = match &req.owner {
         Some(o) => {
             let ow = c.owners.by_id(o).or_else(|| c.owners.by_path(o)).ok_or_else(|| anyhow!("no owner '{o}'"))?;

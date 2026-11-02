@@ -124,6 +124,11 @@ documents governing each file; the default `"all"` keeps asking every one.
 | **E1** | recorded attachments carry a matching hash |
 | **E2** | stored attachments exist in the store |
 
+P1 leaves governs inside another project (a submodule, a remote checked out in the repository, or
+`<remote>:<path>`) out of the owner decision. Since 0.5.0, a document governing such a path beside
+its own code can therefore belong to a narrower owner than in 0.4.0, and P1 reports it. Run
+`spec mv <id> --write`: the document moves to that owner and its `[check] baseline` entries follow.
+
 ## Retired layouts
 
 | rule | checks that |

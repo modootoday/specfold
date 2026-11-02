@@ -14,7 +14,7 @@ impl Rule for OwnerMatches {
         &RuleInfo {
             id: "P1",
             title: "documents live with the owner of the code they govern",
-            explain: "A document belongs in the spec directory of the narrowest owner that contains every path in its rel.governs (a public owner's documents go to its private companion; a retired owner's to the root). When code moves, `spec mv <id>` moves the document and rewrites every reference to it.",
+            explain: "A document belongs in the spec directory of the narrowest owner that contains every path in its rel.governs (a public owner's documents go to its private companion; a retired owner's to the root). Governs inside another project (a submodule, a remote checked out in the repository, or `<remote>:<path>`) are left out of the decision since 0.5.0, so a document that governed such a path beside its own code may now belong to a narrower owner. When code moves, or P1 asks, `spec mv <id> --write` moves the document, rewrites every reference to it and carries its `[check] baseline` entries along.",
             on_commit: true,
         }
     }
@@ -27,12 +27,10 @@ impl Rule for OwnerMatches {
             }
             let Some(current) = owners.by_id(&d.id.owner) else { continue };
             let all = d.rel().remove("governs").unwrap_or_default();
-            let governs: Vec<String> =
-                all.iter().filter(|g| !crate::remotes::is_external(&ctx.corpus.cfg, g)).cloned().collect();
-            if governs.is_empty() && !all.is_empty() {
+            if !all.is_empty() && all.iter().all(|g| crate::remotes::is_external(&ctx.corpus.cfg, g)) {
                 continue;
             }
-            let decision = placement::decide(owners, &governs, current);
+            let decision = placement::decide_local(&ctx.corpus.cfg, owners, &all, current);
             if decision.owner.id != current.id {
                 out.push(
                     Finding::error(

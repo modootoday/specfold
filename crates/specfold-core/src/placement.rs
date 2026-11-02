@@ -3,4 +3,4 @@
 pub mod owner;
 pub mod paths;
 
-pub use owner::{Decision, decide, literal_base};
+pub use owner::{Decision, decide, decide_local, literal_base};
