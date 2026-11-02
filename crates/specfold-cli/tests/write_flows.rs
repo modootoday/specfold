@@ -749,12 +749,13 @@ fn c214_fix_refuses_targets_check_would_refuse() {
     let dir = std::path::Path::new(&path).parent().unwrap().to_string_lossy().to_string();
     let typo = path.replace(".md", ".mdx");
     let bad_line = format!("{path}:abc");
-    for t in ["nope.md", typo.as_str(), dir.as_str(), bad_line.as_str()] {
+    // B2: a folder with no documents is refused; one with documents names them, as in check.
+    for t in ["nope.md", typo.as_str(), "services/blog", bad_line.as_str()] {
         let (code, v) = r.json(&["fix", t]);
         assert_eq!(code, 2, "{t}: {v}");
     }
     let line = format!("{path}:1");
-    for t in [path.as_str(), id.as_str(), line.as_str()] {
+    for t in [path.as_str(), id.as_str(), line.as_str(), dir.as_str()] {
         assert_eq!(r.json(&["fix", t]).0, 0, "{t}");
     }
 }
