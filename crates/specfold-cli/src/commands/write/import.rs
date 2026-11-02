@@ -121,7 +121,7 @@ pub fn run(g: &Global, a: &ImportArgs) -> Result<Output> {
     Ok(o.field("undo", undo.clone())
         .foot(format!("{} change(s) written", p.plan.changes.len() + 1))
         .foot(format!("undo: {undo}"))
-        .foot(format!("imported; commit with SPECFOLD_IMPORT=1 so the alias table may grow ({alias_file})"))
+        .foot(format!("imported; give the commit the trailer `Specfold-Import: yes` (git commit --trailer Specfold-Import:yes) so the alias table may grow ({alias_file})"))
         .next("spec check && spec fix --rule L1 --rule L2 --write"))
 }
 
