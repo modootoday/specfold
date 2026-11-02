@@ -14,7 +14,7 @@ impl Rule for OwnerMatches {
         &RuleInfo {
             id: "P1",
             title: "documents live with the owner of the code they govern",
-            explain: "A document belongs in the spec directory of the narrowest owner that contains every path in its rel.governs (a public owner's documents go to its private companion; a retired owner's to the root). Governs inside another project (a submodule, a remote checked out in the repository, or `<remote>:<path>`) are left out of the decision since 0.5.0, so a document that governed such a path beside its own code may now belong to a narrower owner. When code moves, or P1 asks, `spec mv <id> --write` moves the document, rewrites every reference to it and carries its `[check] baseline` entries along.",
+            explain: "A document belongs in the spec directory of the narrowest owner that contains every path in its rel.governs (a public owner's documents go to its private companion; a retired owner's to the root). Governs inside another project (a submodule, a remote checked out in the repository, or `<remote>:<path>`) are left out of the decision since 0.5.0, so a document that governed such a path beside its own code may now belong to a narrower owner. When code moves, or P1 asks, `spec mv <id> --owner <owner> --write` (the fix P1 prints; since 0.5.1 plain `spec mv <id> --write` decides the same owner) moves the document, rewrites every reference to it and carries its `[check] baseline` entries along.",
             on_commit: true,
         }
     }
@@ -39,7 +39,11 @@ impl Rule for OwnerMatches {
                         1,
                         format!("belongs to {} ({}), not {}", decision.owner.id, decision.reason, current.id),
                     )
-                    .fix_cmd(format!("spec mv {} --write", crate::shell::word(&d.id))),
+                    .fix_cmd(format!(
+                        "spec mv {} --owner {} --write",
+                        crate::shell::word(&d.id),
+                        crate::shell::word(&decision.owner.id)
+                    )),
                 );
             }
         }

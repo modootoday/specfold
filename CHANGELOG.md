@@ -7,7 +7,7 @@ Release notes for each version are also on
 
 ### Behavior changes
 
-- Since 0.5.0, P1 leaves governs inside another project (a submodule, a remote checked out in the repository, or `<remote>:<path>`) out of the owner decision. A document governing such a path beside its own code, for example `apps/billing` and the submodule `packages/commerce`, now belongs to the narrower owner (`billing`, not the root) and P1 reports it where 0.4.0 did not. Fix: `spec mv <id> --write` moves it to that owner and its `[check] baseline` entries follow. `spec explain P1` says so. 0.5.0 listed this only under Added.
+- Since 0.5.0, P1 leaves governs inside another project (a submodule, a remote checked out in the repository, or `<remote>:<path>`) out of the owner decision. A document governing such a path beside its own code, for example `apps/billing` and the submodule `packages/commerce`, now belongs to the narrower owner (`billing`, not the root) and P1 reports it where 0.4.0 did not. Fix: `spec mv <id> --owner <owner> --write`, as P1 now prints it, moves it to that owner and its `[check] baseline` entries follow. `spec explain P1` says so. 0.5.0 listed this only under Added.
 
 ### Changed
 
@@ -17,7 +17,7 @@ Release notes for each version are also on
 
 ### Fixed
 
-- `spec mv <id> --write` (P1's fix) and `spec new` decide the owner the way P1 does, leaving governs inside another project out; `mv` reported success and moved nothing, so P1 stayed, and `new` placed such a document where P1 then failed it (C263).
+- `spec mv <id> --write` (P1's fix) and `spec new` decide the owner the way P1 does, leaving governs inside another project out; `mv` reported success and moved nothing, so P1 stayed, and `new` placed such a document where P1 then failed it (C263, N4). P1's fix now names the owner (`--owner <owner>`), so it also works with 0.5.0. `spec mv` says how many other documents citing the moved one it rewrote and that files outside documents are left to L6; the alias table only has rows already pointing at the old id retargeted.
 
 ## 0.5.0 - 2026-11-02
 

@@ -127,7 +127,7 @@ documents governing each file; the default `"all"` keeps asking every one.
 P1 leaves governs inside another project (a submodule, a remote checked out in the repository, or
 `<remote>:<path>`) out of the owner decision. Since 0.5.0, a document governing such a path beside
 its own code can therefore belong to a narrower owner than in 0.4.0, and P1 reports it. Run
-`spec mv <id> --write`: the document moves to that owner and its `[check] baseline` entries follow.
+`spec mv <id> --owner <owner> --write`, as P1 prints it (on 0.5.0 the `--owner` is needed; from 0.5.1 plain `spec mv <id> --write` picks the same owner): the document moves to that owner and its `[check] baseline` entries follow.
 
 ## Retired layouts
 

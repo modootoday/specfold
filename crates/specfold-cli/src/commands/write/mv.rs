@@ -28,7 +28,10 @@ pub fn run(g: &Global, a: &MvArgs) -> Result<Output> {
         .field("to", moved.to.clone())
         .field("path", moved.path.clone())
         .field("references", moved.references)
-        .head(format!("{} -> {}  ({} referring document(s) rewritten)", moved.from, moved.to, moved.references));
+        .head(format!(
+            "{} -> {}  ({} other document(s) citing it rewritten; files outside documents are not: spec check --rule L6)",
+            moved.from, moved.to, moved.references
+        ));
     let old_path = s.corpus.docs[idx].path.clone();
     let mut o = o;
     let mut cited = 0;
