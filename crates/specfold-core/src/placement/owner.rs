@@ -66,6 +66,25 @@ pub fn decide<'a>(owners: &'a Owners, governs: &[String], current: &'a Owner) ->
     Decision { owner: stored, reason }
 }
 
+/// C263: `decide` over the governs inside this repository. Governs into another project (a
+/// submodule, a remote checked out here, `<remote>:<path>`) are left out, as P1 leaves them out,
+/// so `spec new` and `spec mv` place a document where P1 expects it.
+pub fn decide_local<'a>(
+    cfg: &crate::config::Config,
+    owners: &'a Owners,
+    governs: &[String],
+    current: &'a Owner,
+) -> Decision<'a> {
+    let local: Vec<String> = governs.iter().filter(|g| !crate::remotes::is_external(cfg, g)).cloned().collect();
+    if local.is_empty() && !governs.is_empty() {
+        return Decision {
+            owner: owners.storage_owner(current),
+            reason: "governs only paths in other projects; stays with its owner".into(),
+        };
+    }
+    decide(owners, &local, current)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -97,23 +116,4 @@ mod tests {
         assert_eq!(literal_base("services/shop/src/*.rs"), "services/shop/src");
         assert_eq!(literal_base("services/shop/s*"), "services/shop");
     }
-}
-
-/// C263: `decide` over the governs inside this repository. Governs into another project (a
-/// submodule, a remote checked out here, `<remote>:<path>`) are left out, as P1 leaves them out,
-/// so `spec new` and `spec mv` place a document where P1 expects it.
-pub fn decide_local<'a>(
-    cfg: &crate::config::Config,
-    owners: &'a Owners,
-    governs: &[String],
-    current: &'a Owner,
-) -> Decision<'a> {
-    let local: Vec<String> = governs.iter().filter(|g| !crate::remotes::is_external(cfg, g)).cloned().collect();
-    if local.is_empty() && !governs.is_empty() {
-        return Decision {
-            owner: owners.storage_owner(current),
-            reason: "governs only paths in other projects; stays with its owner".into(),
-        };
-    }
-    decide(owners, &local, current)
 }
