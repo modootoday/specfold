@@ -90,7 +90,7 @@ impl Rule for AliasTableFrozen {
         &RuleInfo {
             id: "I3",
             title: "the alias table gains no rows",
-            explain: "The alias table maps identifiers from before an import to current ids. It is written once by `spec import` and only shrinks after that; new documents never need an alias. A range whose base has no table is the import itself and passes; set SPECFOLD_IMPORT=1 when a later import adds rows.",
+            explain: "The alias table maps identifiers from before an import to current ids. It is written once by `spec import` and only shrinks after that; new documents never need an alias. A range whose base has no table is the import itself and passes; when a later import adds rows, give that commit the trailer `Specfold-Import: yes` (or set SPECFOLD_IMPORT=1 for the run).",
             on_commit: true,
         }
     }
@@ -100,6 +100,7 @@ impl Rule for AliasTableFrozen {
         if matches!(ctx.scope.range, Range::All)
             || !ctx.scope.paths.contains(file)
             || std::env::var_os("SPECFOLD_IMPORT").is_some()
+            || import_trailer(ctx)
         {
             return;
         }
@@ -109,5 +110,38 @@ impl Rule for AliasTableFrozen {
         if before > 0 && now > before {
             out.push(Finding::error("I3", file, 1, format!("alias table grew from {before} to {now} rows")));
         }
+    }
+}
+
+/// Whether a commit in a `--changed <base>` range carries the trailer `Specfold-Import: yes`,
+/// which marks it as an import the alias table may grow in. Staged runs have no message yet.
+fn import_trailer(ctx: &Ctx) -> bool {
+    let Range::Changed(base) = &ctx.scope.range else { return false };
+    let Some(commits) = crate::workspace::vcs::commits(&ctx.corpus.cfg.root, &format!("{base}..HEAD")) else {
+        return false;
+    };
+    commits.iter().any(|c| has_import_trailer(&c.message))
+}
+
+/// A `Specfold-Import: yes` line (key case-insensitive, value `yes` or `true`) in a message.
+pub fn has_import_trailer(message: &str) -> bool {
+    message.lines().any(|l| {
+        l.split_once(':').is_some_and(|(k, v)| {
+            k.trim().eq_ignore_ascii_case("specfold-import")
+                && matches!(v.trim().to_ascii_lowercase().as_str(), "yes" | "true")
+        })
+    })
+}
+
+#[cfg(test)]
+mod trailer_tests {
+    use super::has_import_trailer;
+
+    #[test]
+    fn import_trailer_is_recognised() {
+        assert!(has_import_trailer("import docs\n\nSpecfold-Import: yes\n"));
+        assert!(has_import_trailer("x\n\nspecfold-import: True"));
+        assert!(!has_import_trailer("x\n\nSpecfold-Import: no"));
+        assert!(!has_import_trailer("mentions Specfold-Import in prose"));
     }
 }

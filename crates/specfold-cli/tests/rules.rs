@@ -554,3 +554,21 @@ fn c4_ranged_check_prints_the_base_and_head_it_compared() {
     assert_eq!(j["range"]["head"], "index", "{j}");
     assert!(r.json(&["check"]).1.get("range").is_none());
 }
+
+/// E8: a commit with the trailer `Specfold-Import: yes` may grow the alias table, as SPECFOLD_IMPORT=1 does.
+#[test]
+fn import_trailer_lets_the_alias_table_grow() {
+    let r = common::repo();
+    let a = r.new_doc("sot", "services/shop", "Cart rules");
+    let b = r.new_doc("sot", "services/blog", "Blog rules");
+    r.write(".spec/_aliases.tsv", &format!("# old\tnew\nOLD-1\t{a}\n"));
+    r.commit("import");
+    r.write(".spec/_aliases.tsv", &format!("# old\tnew\nOLD-1\t{a}\nOLD-2\t{b}\n"));
+    r.commit("more aliases");
+    let i3 = |v: &serde_json::Value| v["items"].to_string().contains("\"I3\"");
+    let (_, v) = r.json(&["check", "--changed", "HEAD~1"]);
+    assert!(i3(&v), "without the trailer the table is frozen: {v}");
+    r.git(&["commit", "-q", "--amend", "-m", "more aliases\n\nSpecfold-Import: yes"]);
+    let (_, v) = r.json(&["check", "--changed", "HEAD~1"]);
+    assert!(!i3(&v), "the trailer allows growth: {v}");
+}
