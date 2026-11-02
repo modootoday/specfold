@@ -83,10 +83,10 @@ impl Scope {
                 (p.into_iter().collect(), sub, Some(base.clone()))
             }
             Range::Commit(sha) => {
-                let r = format!("{sha}^..{sha}");
+                let r = vcs::commit_diff(root, sha);
                 let p = vcs::changed_in_range(root, &r)
                     .ok_or_else(|| anyhow!("cannot read commit {sha}; next: git log --oneline"))?;
-                (p.into_iter().collect(), vcs::Expansion::default(), Some(format!("{sha}^")))
+                (p.into_iter().collect(), vcs::Expansion::default(), Some(vcs::parent_or_empty(root, sha)))
             }
         };
         // C1: a moved pointer whose inside was read is not itself a change.
@@ -100,7 +100,7 @@ impl Scope {
             Range::Staged => vcs::gone(root, None).unwrap_or_default().into_iter().collect(),
             Range::Changed(base) => vcs::gone(root, Some(base)).unwrap_or_default().into_iter().collect(),
             Range::Commit(sha) => {
-                vcs::gone(root, Some(&format!("{sha}^..{sha}"))).unwrap_or_default().into_iter().collect()
+                vcs::gone(root, Some(&vcs::commit_diff(root, sha))).unwrap_or_default().into_iter().collect()
             }
         };
         let mut touched = BTreeSet::new();
