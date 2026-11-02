@@ -54,6 +54,10 @@ const CONFIG_HELP: &[(&str, &str)] = &[
         "A committed file of known findings so only new ones fail (spec check --write-baseline), paths that never get a baseline, per-rule levels (error, warn, off), and frontmatter keys every type may carry (rule S1; `review_*` allows a prefix), and Markdown files outside documents whose spec:count markers are checked (rule N1; `README.md`, `docs/**/*.md`). d1 = \"specific\" asks only the most specific governing documents (D1); remote_status = true warns when a relation names a superseded or archived document in a remote (L3).",
     ),
     (
+        "[[check.override]] paths, rule, level",
+        "A rule's level (off, warn, error) for findings in files under the given globs, applied after [check] severity; the last matching entry wins.",
+    ),
+    (
         "[verify] timeout_ms, jobs, serial, full_run_on, shell",
         "How spec verify runs commands: the default deadline, parallel workers, regexes for heavy commands run one at a time, paths whose change runs every check (an edit of spec.toml that touches only [remotes] or [check] baseline does not; a full run says why on stderr), and the shell (sh unless set, bash for bash syntax).",
     ),
