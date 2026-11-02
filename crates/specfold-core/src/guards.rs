@@ -36,19 +36,30 @@ fn select<'a>(cfg: &'a Config, names: &[String]) -> Result<Vec<&'a GuardDef>> {
         .collect()
 }
 
-fn scan_one(cfg: &Config, g: &GuardDef, range: Option<&GuardRange>) -> Result<scan::Scanned> {
+fn scan_one(cfg: &Config, g: &GuardDef, range: Option<&GuardRange>, net: bool) -> Result<scan::Scanned> {
     let c = compile::compile(cfg, g)?;
     prove::prove(g, &c)?;
     let r = range.cloned().unwrap_or_else(|| GuardRange::parse(&g.range));
-    scan::run(cfg, g, &c, &range::resolve(&cfg.root, &r, &c.bases)?)
+    let mut resolved = range::resolve(&cfg.root, &r, &c.bases)?;
+    // F3: `--net` judges a range by its end only; versions a later commit takes back are skipped.
+    if net {
+        resolved.passing.clear();
+    }
+    scan::run(cfg, g, &c, &resolved)
 }
 
 /// Runs the named guards (all of them when `names` is empty). A guard without an explicit range
 /// uses its own default; a guard with a baseline reports only hits the baseline does not hold.
 pub fn run(cfg: &Config, names: &[String], range: Option<&GuardRange>) -> Result<Vec<Finding>> {
+    run_net(cfg, names, range, false)
+}
+
+/// [`run`], with `net` judging a range by its net change: what its end holds, not what an
+/// intermediate commit wrote and a later one took back (F3).
+pub fn run_net(cfg: &Config, names: &[String], range: Option<&GuardRange>, net: bool) -> Result<Vec<Finding>> {
     let mut out = vec![];
     for g in select(cfg, names)? {
-        let found = scan_one(cfg, g, range)?.findings;
+        let found = scan_one(cfg, g, range, net)?.findings;
         match &g.baseline {
             Some(rel) => match baseline::load_file(&cfg.root, rel)? {
                 Some(b) => out.extend(baseline::hold_with(&b, found, &[]).findings),
@@ -75,7 +86,7 @@ pub fn write_baselines(cfg: &Config, names: &[String], write: bool) -> Result<Ve
             }
             continue;
         };
-        let scanned = scan_one(cfg, g, Some(&GuardRange::All))?;
+        let scanned = scan_one(cfg, g, Some(&GuardRange::All), false)?;
         let b = baseline::measure_with(&cfg.root, &scanned.findings, &[], |p| {
             !own.iter().any(|o| o.as_str() == p) && scanned.files.iter().any(|f| f == p)
         })?;

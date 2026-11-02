@@ -63,7 +63,8 @@ pub fn run(g: &Global, a: &GuardArgs) -> Result<Output> {
     let names: Vec<String> = a.names.iter().filter(|n| *n != BUILTIN || configured(n)).cloned().collect();
     let builtin = asked_builtin || (a.names.is_empty() && !cfg.raw.guards.iter().any(|g| g.secrets));
     let mut unread = None;
-    let mut list = if names.is_empty() && asked_builtin { vec![] } else { guards::run(&cfg, &names, range.as_ref())? };
+    let mut list =
+        if names.is_empty() && asked_builtin { vec![] } else { guards::run_net(&cfg, &names, range.as_ref(), a.net)? };
     if builtin {
         let (hits, note) = builtin_hits(g, range.as_ref())?;
         unread = note;
