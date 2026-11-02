@@ -63,6 +63,16 @@ fn inner_changes(sub: &Path, old_mode: &str, old: &str, new: &str) -> Vec<String
     listed.map(split_nul).unwrap_or_default()
 }
 
+/// Repository-relative paths of every gitlink (submodule) the index records.
+pub fn gitlinks(root: &Path) -> Vec<String> {
+    let Some(out) = git(root, &["ls-files", "-s", "-z"]) else { return vec![] };
+    split_nul(out)
+        .into_iter()
+        .filter(|e| e.starts_with("160000 "))
+        .filter_map(|e| e.split_once('\t').map(|(_, p)| p.to_string()))
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

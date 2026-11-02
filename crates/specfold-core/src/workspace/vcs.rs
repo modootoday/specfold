@@ -16,5 +16,5 @@ pub use history::{CommitText, Revision, commits, commits_since, history, last_ch
 pub use passing::{Passing, passing, range_end};
 pub use refs::{head, is_ancestor_of_head, resolve, upstream};
 pub use repo::{git_root, is_repo};
-pub use submodules::{Side, submodule_changes};
+pub use submodules::{Side, gitlinks, submodule_changes};
 pub use tracked::{blob_id, committed, ignored, past_blobs, tracked};

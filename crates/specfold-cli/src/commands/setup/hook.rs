@@ -1,7 +1,8 @@
-//! `spec hook print`: snippets for the hook manager you use. specfold never installs hooks.
+//! `spec hook print`: snippets for the hook manager you use. `spec hook install`: the git
+//! pre-push hook, written only with --write and never over another tool's hook.
 
 use crate::cli::args::{global::Global, setup::HookArgs};
-use crate::output::Output;
+use crate::output::{Code, Output};
 use anyhow::{Result, bail};
 
 /// C126: the push check compares with the upstream, else with where HEAD left the default
@@ -31,9 +32,65 @@ fn snippet(target: &str) -> Option<(String, String)> {
     })
 }
 
-pub fn run(_g: &Global, a: &HookArgs) -> Result<Output> {
-    if a.action != "print" {
-        bail!("only `spec hook print` exists; specfold does not install hooks itself");
+/// The pre-push hook `spec hook install` writes: the push check, failing only on the owners the
+/// push touches (D1).
+pub(crate) fn pre_push() -> String {
+    format!(
+        "#!/bin/sh\n# installed by spec hook install\n{}\n",
+        PUSH.replace("spec check --changed", "spec check --owners --changed")
+    )
+}
+
+fn install(g: &Global, a: &HookArgs) -> Result<Output> {
+    let dir = match &g.dir {
+        Some(d) => d.clone(),
+        None => std::env::current_dir()?,
+    };
+    let out = std::process::Command::new("git")
+        .arg("-C")
+        .arg(&dir)
+        .args(["rev-parse", "--git-path", "hooks/pre-push"])
+        .output()?;
+    if !out.status.success() {
+        bail!("not inside a git repository; next: git init");
+    }
+    let path = dir.join(String::from_utf8_lossy(&out.stdout).trim());
+    let text = pre_push();
+    let shown = path.display().to_string();
+    let o = Output::new("hook").unpaged().field("file", shown.clone()).field("content", text.clone());
+    match std::fs::read_to_string(&path) {
+        Ok(old) if old == text => {
+            return Ok(o.field("written", false).foot(format!("{shown}: already installed")).next("git push"));
+        }
+        Ok(_) => {
+            return Ok(o
+                .field("written", false)
+                .code(Code::Refused)
+                .foot(format!("{shown} exists and is not this hook; left alone; next: spec hook print --for git (add the push line by hand)"))
+                .next("spec hook print --for git"));
+        }
+        Err(_) => {}
+    }
+    if !a.write {
+        return Ok(o.head(format!("# {shown}")).foot(text).preview().next("spec hook install --write"));
+    }
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(&path, &text)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755))?;
+    }
+    Ok(o.field("written", true).foot(format!("wrote {shown}")).next("git push"))
+}
+
+pub fn run(g: &Global, a: &HookArgs) -> Result<Output> {
+    match a.action.as_str() {
+        "print" => {}
+        "install" => return install(g, a),
+        other => bail!("unknown hook action '{other}'; next: spec hook print --for git, or spec hook install"),
     }
     let Some((file, text)) = snippet(&a.target) else {
         bail!("unknown hook manager '{}' (git, pre-commit, lefthook, husky)", a.target)

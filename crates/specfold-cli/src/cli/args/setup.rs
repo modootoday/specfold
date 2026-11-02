@@ -40,13 +40,19 @@ pub struct AgentsArgs {
 }
 
 #[derive(Debug, Clone, Args)]
-#[command(after_help = "Examples:\n  spec hook print --for git\n  spec hook print --for pre-commit")]
+#[command(
+    after_help = "Examples:\n  spec hook print --for git\n  spec hook print --for pre-commit\n  spec hook install            # preview the pre-push hook\n  spec hook install --write    # write .git/hooks/pre-push"
+)]
 pub struct HookArgs {
-    /// Only `print` exists: specfold never installs hooks itself.
+    /// `print` shows a snippet for a hook manager; `install` writes the git pre-push hook
+    /// (a preview without --write; an existing hook of another tool is left alone).
     pub action: String,
-    /// git, pre-commit, lefthook or husky.
+    /// git, pre-commit, lefthook or husky (print only).
     #[arg(long = "for", default_value = "git")]
     pub target: String,
+    /// With install: write the hook.
+    #[arg(long)]
+    pub write: bool,
 }
 
 #[derive(Debug, Clone, Args)]

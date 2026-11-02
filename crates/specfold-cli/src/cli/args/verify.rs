@@ -21,6 +21,10 @@ pub struct CheckArgs {
     /// Compare against this revision (pre-push).
     #[arg(long, value_name = "BASE")]
     pub changed: Option<String>,
+    /// With --changed or --staged: fail on every error of the owners the change touches; errors of
+    /// other owners are reported (owner, path, submodule) without failing.
+    #[arg(long)]
+    pub owners: bool,
     /// Only these rules (repeatable).
     #[arg(long = "rule", id = "rule")]
     pub rules: Vec<String>,
