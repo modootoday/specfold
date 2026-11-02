@@ -569,7 +569,7 @@ fn c183_a_write_over_uncommitted_edits_keeps_a_copy_the_undo_restores() {
     let ok = std::process::Command::new("sh").arg("-c").arg(&undo).current_dir(r.path()).status().unwrap();
     assert!(ok.success() && r.read(&p) == mine, "the undo gives back the edited file, not HEAD");
     let (_, v) = r.json(&["edit", &clean, "--append", "--text", "x", "--write"]);
-    assert!(v["undo"].as_str().unwrap().starts_with("git stash push"), "a clean file keeps the stash: {v}");
+    assert!(v["undo"].as_str().unwrap().starts_with("git restore -- "), "a clean file comes back from git: {v}");
 }
 
 #[test]
@@ -625,7 +625,7 @@ fn c192_dir_into_a_subfolder_reads_paths_like_cd_and_its_undo_works() {
     let (_, s) = run(&["show", &id]);
     assert!(s.to_string().contains("services/shop/src"), "governs is rebased to the root: {s}");
     let undo = v["undo"].as_str().unwrap().to_string();
-    assert!(undo.starts_with(&format!("git -C {name} ")), "{undo}");
+    assert!(undo.starts_with(&format!("cd {name} && rm -rf -- ")), "{undo}");
     let st = std::process::Command::new("sh").arg("-c").arg(&undo).current_dir(&out).status().unwrap();
     assert!(st.success());
     assert_ne!(run(&["show", &id]).0, 0, "the undo removed the new file");
@@ -657,7 +657,7 @@ fn c196_audit_records_take_a_slug_for_a_title_without_ascii_words() {
         r.json(&["audit", "record", "--from", "review.md", "--title", "분기 감사", "--slug", "q-audit", "--write"]);
     assert_eq!(code, 0, "{v}");
     assert!(v["path"].as_str().unwrap().contains("q-audit"), "{v}");
-    assert!(v["undo"].as_str().unwrap().starts_with("git stash push"), "{v}");
+    assert!(v["undo"].as_str().unwrap().starts_with("rm -rf -- "), "{v}");
     let (code, v) = r.json(&["audit", "--record", "--title", "분기 감사", "--slug", "q-two"]);
     assert_eq!(code, 0, "{v}");
     assert_eq!(r.json(&["audit", "--record", "--title", "x", "--slug", "Bad_Slug"]).0, 2);
@@ -915,4 +915,37 @@ fn e3_mv_keeps_quotes_in_unrelated_and_referring_documents() {
     assert_eq!(r.read(&bp), before.0, "unrelated document rewritten");
     let new_id = v["to"].as_str().unwrap();
     assert_eq!(r.read(&pp), before.1.replace(sot.as_str(), new_id), "referring document changed beyond the reference");
+}
+
+/// E2: an undo never touches the stash every worktree shares: a created file is removed and a
+/// committed file comes back from git, while someone else's stash entry stays where it was.
+#[test]
+fn e2_undo_leaves_the_shared_stash_alone() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    r.commit("doc");
+    r.write("services/blog/src/main.rs", "fn main() { other(); }\n");
+    r.git(&["stash", "push", "-q", "--", "services/blog/src/main.rs"]);
+    let stash = |r: &common::Repo| {
+        let o = std::process::Command::new("git").args(["stash", "list"]).current_dir(r.path()).output().unwrap();
+        String::from_utf8_lossy(&o.stdout).into_owned()
+    };
+    let before = stash(&r);
+    assert_eq!(before.lines().count(), 1);
+    let run = |undo: &str| {
+        assert!(!undo.contains("stash"), "{undo}");
+        let ok = std::process::Command::new("sh").args(["-c", undo]).current_dir(r.path()).status().unwrap();
+        assert!(ok.success(), "{undo}");
+    };
+    let (code, v) = r.json(&["set", &id, "title=Basket", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    run(v["undo"].as_str().unwrap());
+    let (code, v) = r.json(&["new", "plan", "--governs", "services/shop", "--title", "Ship", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    let made = v["path"].as_str().unwrap().to_string();
+    run(v["undo"].as_str().unwrap());
+    assert!(!r.path().join(&made).exists(), "{made}");
+    let st = std::process::Command::new("git").args(["status", "--porcelain"]).current_dir(r.path()).output().unwrap();
+    assert!(st.stdout.is_empty(), "{}", String::from_utf8_lossy(&st.stdout));
+    assert_eq!(stash(&r), before);
 }

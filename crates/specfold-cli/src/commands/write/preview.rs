@@ -274,8 +274,8 @@ pub fn finish_bounded(
     Ok((finish(o, plan, root, go, &rerun)?, go))
 }
 
-/// CLI-5: a git command that takes back what a write changed, new files included; it keeps the
-/// changes in a stash, so the undo itself can be undone with `git stash pop`.
+/// CLI-5: a command that takes back what a write changed: `rm -rf` for files it created and
+/// `git restore` for tracked files (E2: never the stash, which every worktree shares).
 /// A file moved here instead of deleted comes back with a copy, since git may never have had it.
 pub const TRASH: &str = ".specfold/trash";
 
@@ -289,7 +289,7 @@ pub struct Saved {
     pub dirty: Vec<String>,
 }
 
-/// C183: tracked files a plan updates that already differ from HEAD. A `git stash` undo would
+/// C183: tracked files a plan updates that already differ from HEAD. A `git restore` undo would
 /// take the user's own edits away with spec's, so these are copied to the trash instead.
 pub fn dirty_writes(plan: &Plan, root: &Path) -> Vec<String> {
     let tracked: std::collections::HashSet<String> =
@@ -417,9 +417,16 @@ pub fn undo(plan: &Plan, root: &Path, kept: &Saved) -> String {
         }
         parts.push(format!("mv -- {} {}", w(to), w(from)));
     }
-    if !paths.is_empty() {
-        let words: Vec<String> = paths.iter().map(|p| w(p)).collect();
-        parts.push(format!("git stash push --include-untracked -- {}", words.join(" ")));
+    // E2: no stash (shared by every worktree): tracked files come back from the index, and
+    // files this write created are removed.
+    let (old_files, made): (Vec<&String>, Vec<&String>) = paths.iter().partition(|p| is_tracked(p));
+    if !made.is_empty() {
+        let words: Vec<String> = made.iter().map(|p| w(p)).collect();
+        parts.push(format!("rm -rf -- {}", words.join(" ")));
+    }
+    if !old_files.is_empty() {
+        let words: Vec<String> = old_files.iter().map(|p| w(p)).collect();
+        parts.push(format!("git restore -- {}", words.join(" ")));
     }
     for t in &trash {
         parts.push(format!("cp -Rp {}/. .", w(t)));

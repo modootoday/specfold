@@ -12,6 +12,7 @@ Release notes for each version are also on
 - `spec export` refuses (exit 3, nothing written) when an exported document's file is not UTF-8 text, naming the file; it was exported with an empty body (C252).
 - A failing store command (`[files.store] kind = "command"`) exits 3 (environment) instead of 2; with nothing on stderr the message names the command and its exit status (C250).
 
+- A write's `undo` no longer uses `git stash`, which every worktree of a repository shares: files the write created are removed with `rm -rf --` and tracked files come back with `git restore --`; uncommitted edits are still copied back from `.specfold/trash` (E2).
 ### Fixed
 
 - `spec edit` on a superseded document points at the document now in force (`spec edit <successor> …`, or `spec new <type> --from <successor> --write` when it is active) instead of a second `--from` of the old one (C246).
