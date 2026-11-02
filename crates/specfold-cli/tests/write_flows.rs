@@ -983,3 +983,22 @@ fn e6_depends_on_takes_a_comma_list_and_a_file() {
     let (code, v) = r.json(&["new", "change", "--title", "Missing", "--depends-on-file", "nope.txt", "--write"]);
     assert_ne!(code, 0, "{v}");
 }
+
+#[test]
+fn c262_write_from_a_subfolder_without_dir_gives_an_undo_that_works_there() {
+    let r = common::repo();
+    r.new_doc("sot", "services/shop/src", "Cart");
+    r.commit("doc");
+    let sub = r.path().join("services/shop");
+    let o = r.spec().current_dir(&sub).args(["new", "plan", "--title", "Sub", "--write", "--json"]).output().unwrap();
+    assert_eq!(o.status.code(), Some(0));
+    let v: serde_json::Value = serde_json::from_slice(&o.stdout).unwrap();
+    let undo = v["undo"].as_str().unwrap().to_string();
+    assert!(undo.starts_with("cd ../.. && rm -rf -- .spec/"), "{undo}");
+    let id = v["id"].as_str().unwrap().to_string();
+    let st = std::process::Command::new("sh").arg("-c").arg(&undo).current_dir(&sub).status().unwrap();
+    assert!(st.success());
+    assert_ne!(r.spec().args(["show", &id]).output().unwrap().status.code(), Some(0), "the undo removed the file");
+    let (_, root) = r.json(&["new", "plan", "--title", "Top", "--write"]);
+    assert!(root["undo"].as_str().unwrap().starts_with("rm -rf -- "), "{root}");
+}
