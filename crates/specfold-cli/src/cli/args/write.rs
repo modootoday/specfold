@@ -315,7 +315,7 @@ impl NewArgs {
     }
 }
 
-/// E4: `spec set --help` lists the status values of the built-in types and where to see a
+/// E4: the help of the set command lists the status values of the built-in types and where to see a
 /// project's own.
 fn set_help() -> String {
     format!(
