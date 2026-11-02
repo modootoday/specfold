@@ -15,11 +15,20 @@ description: Run spec check before each commit and in continuous integration.
 2. **Add it yourself** to the hook manager you already use.
 3. **Run the full check in CI**, with guards over the pushed range.
 
+Without a hook manager, `spec hook install` previews the git pre-push hook and
+`spec hook install --write` writes it (`.git/hooks/pre-push`, executable); an existing hook of
+another tool is left alone (exit 4). The hook runs `spec check --owners --changed <upstream>`:
+in a repository holding several projects, only errors in the owners the push touches fail it;
+errors other owners already hold are listed per owner (with the submodule they sit in) without
+failing.
+
 ## Commands
 
 ```console
 $ spec hook print --for lefthook
 $ spec check --staged -q
+$ spec hook install --write
+$ spec check --changed origin/main --owners
 $ spec check
 $ spec guard --range origin/main..HEAD
 ```

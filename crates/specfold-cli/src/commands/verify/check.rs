@@ -157,12 +157,16 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
     let s = session::open(g)?;
     let files: Vec<String> = a.files.iter().chain(&a.stdin_path).cloned().collect();
     let only = documents_named(&s, &files, a.stdin_path.as_deref())?;
-    let range = range_of(a);
     let commands = crate::cli::describe::commands().into_iter().map(|c| c.name).collect();
     let opts =
         Options { run_commands: a.run_commands, external: a.external, online: a.online, guards: a.guards, commands };
-    let report =
-        check::run(&s.corpus, &s.graph, range, &opts, &Selection { only: a.rules.clone(), skip: a.skip.clone() })?;
+    let report = check::run(
+        &s.corpus,
+        &s.graph,
+        range_of(a),
+        &opts,
+        &Selection { only: a.rules.clone(), skip: a.skip.clone() },
+    )?;
     if a.write_baseline {
         return write_baseline(&s, a, &report.findings);
     }
@@ -175,6 +179,7 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
         None => (report.findings, 0, 0),
     };
     let list = if only.is_empty() { list } else { list.into_iter().filter(|f| only.contains(&f.path)).collect() };
+    let (list, others) = super::owners::widen(&s, a, list, base.as_ref(), &opts)?;
     let (errors, warnings) = findings::counts(&list);
     let fails = failing(&list, &a.fail_on);
     let ms = started.elapsed().as_millis();
@@ -212,19 +217,7 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
     if a.format != "text" {
         return ci_output(g, a, o, &list, errors, warnings, fails, &s.corpus.cfg.root);
     }
-    let o = if a.summary {
-        by_rule.iter().fold(o, |o, (r, (e, w))| {
-            o.item(
-                serde_json::json!({"rule": r, "errors": e, "warnings": w}),
-                format!("{r}  {e} error(s), {w} warning(s)"),
-            )
-        })
-    } else if a.errors_only {
-        let errs: Vec<Finding> = list.iter().filter(|f| f.severity == Severity::Error).cloned().collect();
-        findings::push_all(o, &errs)
-    } else {
-        findings::push_all(o, &list)
-    };
+    let o = list_items(o, a, &by_rule, &list);
     // A staged or ranged run that changes no document still checks the changed code (D1, U1).
     let place = if report.docs_checked == 0 && (a.staged || a.changed.is_some()) {
         "in the changed files (no document changed)".to_string()
@@ -235,6 +228,7 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
     let o =
         o.foot(format!("{errors} error(s), {warnings} warning(s){in_cfg} {place}{held} · {:.2}s", ms as f64 / 1000.0));
     let o = checked.iter().fold(o, |o, (_, line)| o.foot(line.clone()));
+    let o = super::owners::annotate(o, &s.corpus.cfg.root, &others);
     let mut o = excluded
         .iter()
         .fold(o, |o, (r, n)| o.foot(format!("{r}: {n} error(s) left out of the exit code by --fail-on")));
@@ -471,5 +465,27 @@ fn range_of(a: &CheckArgs) -> Range {
         (Some(base), _) => Range::Changed(base.clone()),
         (None, true) => Range::Staged,
         (None, false) => Range::All,
+    }
+}
+
+/// The items of a text run: per-rule counts, errors only, or every finding.
+fn list_items(
+    o: Output,
+    a: &CheckArgs,
+    by_rule: &std::collections::BTreeMap<String, (usize, usize)>,
+    list: &[Finding],
+) -> Output {
+    if a.summary {
+        by_rule.iter().fold(o, |o, (r, (e, w))| {
+            o.item(
+                serde_json::json!({"rule": r, "errors": e, "warnings": w}),
+                format!("{r}  {e} error(s), {w} warning(s)"),
+            )
+        })
+    } else if a.errors_only {
+        let errs: Vec<Finding> = list.iter().filter(|f| f.severity == Severity::Error).cloned().collect();
+        findings::push_all(o, &errs)
+    } else {
+        findings::push_all(o, list)
     }
 }
