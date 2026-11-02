@@ -601,3 +601,20 @@ fn c252_export_refuses_a_document_that_is_not_utf8() {
     let (_, v) = r.json(&["explain", "S1"]);
     assert!(v.to_string().contains("iconv -f <encoding> -t UTF-8 <file>"), "{v}");
 }
+
+#[cfg(unix)]
+#[test]
+fn c259_export_refuses_a_dangling_link_as_out_in_preview_and_write() {
+    let r = corpus();
+    let link = r.path().join("../c259-dang");
+    std::os::unix::fs::symlink("c259-nowhere", &link).unwrap();
+    let o = link.display().to_string();
+    for extra in [&["--dry-run"][..], &["--yes"][..]] {
+        let (code, v) = r.json(&[&["export", "markdown", "--target", "obsidian", "--out", &o][..], extra].concat());
+        assert_eq!(code, 2, "{extra:?}: {v}");
+        assert!(v["error"].as_str().unwrap().contains("c259-dang"), "{v}");
+        assert!(v["next"].as_str().unwrap().starts_with("mkdir -p "), "{v}");
+    }
+    assert!(!r.path().join("../c259-nowhere").exists(), "nothing written");
+    std::fs::remove_file(&link).unwrap();
+}
