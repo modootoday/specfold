@@ -536,3 +536,21 @@ fn d2_baseline_follows_mv_and_its_lowering_hint_is_optional() {
     let next = v["next"].as_str().unwrap_or_default();
     assert!(next.starts_with("spec check --write-baseline") && next.contains("optional"), "{v}");
 }
+
+#[test]
+fn c4_ranged_check_prints_the_base_and_head_it_compared() {
+    let r = common::repo();
+    r.write("a.txt", "a\n");
+    r.commit("one");
+    let head = std::process::Command::new("git").arg("-C").arg(r.path()).args(["rev-parse", "HEAD"]).output().unwrap();
+    let head = String::from_utf8_lossy(&head.stdout).trim().to_string();
+    let (_, text) = r.text(&["check", "--changed", "HEAD"]);
+    assert!(text.contains(&format!("checked: HEAD ({})..working tree", &head[..12])), "{text}");
+    assert!(text.contains(&format!("rerun: spec check --changed {}", &head[..12])), "{text}");
+    let (_, j) = r.json(&["check", "--changed", "HEAD"]);
+    assert_eq!(j["range"]["base_commit"], head.as_str(), "{j}");
+    assert_eq!(j["range"]["head"], "working tree", "{j}");
+    let (_, j) = r.json(&["check", "--staged"]);
+    assert_eq!(j["range"]["head"], "index", "{j}");
+    assert!(r.json(&["check"]).1.get("range").is_none());
+}

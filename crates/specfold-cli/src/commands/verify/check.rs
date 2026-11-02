@@ -146,11 +146,7 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
     let s = session::open(g)?;
     let files: Vec<String> = a.files.iter().chain(&a.stdin_path).cloned().collect();
     let only = documents_named(&s, &files, a.stdin_path.as_deref())?;
-    let range = match (&a.changed, a.staged) {
-        (Some(base), _) => Range::Changed(base.clone()),
-        (None, true) => Range::Staged,
-        (None, false) => Range::All,
-    };
+    let range = range_of(a);
     let commands = crate::cli::describe::commands().into_iter().map(|c| c.name).collect();
     let opts =
         Options { run_commands: a.run_commands, external: a.external, online: a.online, guards: a.guards, commands };
@@ -182,6 +178,8 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
         .field("docs_total", s.corpus.docs.len())
         .field("rules", report.rules_run.clone())
         .field("elapsed_ms", ms as u64);
+    let checked = checked_range(&s.corpus.cfg.root, a);
+    o = checked.iter().fold(o, |o, (json, _)| o.field("range", json.clone()));
     if !excluded.is_empty() {
         o = o.field(
             "not_failing",
@@ -225,6 +223,7 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
     let in_cfg = if cfg_warns > 0 { format!(" (+{cfg_warns} in spec.toml)") } else { String::new() };
     let o =
         o.foot(format!("{errors} error(s), {warnings} warning(s){in_cfg} {place}{held} · {:.2}s", ms as f64 / 1000.0));
+    let o = checked.iter().fold(o, |o, (_, line)| o.foot(line.clone()));
     let mut o = excluded
         .iter()
         .fold(o, |o, (r, n)| o.foot(format!("{r}: {n} error(s) left out of the exit code by --fail-on")));
@@ -411,6 +410,11 @@ fn ci_output(
     let mut out = Output::new("check").unpaged();
     out.summary = o.summary;
     let out = doc.trim_end_matches('\n').lines().fold(out, |o, l| o.head(l));
+    // C4: the plain-text formats name the range too; sarif, gitlab and rdjson stay pure JSON.
+    let out = match checked_range(root, a) {
+        Some((_, line)) if matches!(a.format.as_str(), "github" | "editor") => out.head(line),
+        _ => out,
+    };
     Ok(if fails > 0 { out.code(Code::Findings) } else { out })
 }
 
@@ -420,5 +424,41 @@ fn held_note(held: bool, known: usize) -> String {
         format!(" · {known} more error(s) held by the baseline (--no-baseline shows them)")
     } else {
         String::new()
+    }
+}
+
+/// C4: the base..head a `--changed`/`--staged` run compared, as JSON and a foot line holding
+/// the resolved commits, so the same check can be rerun locally on the exact base.
+fn checked_range(root: &std::path::Path, a: &CheckArgs) -> Option<(serde_json::Value, String)> {
+    use specfold_core::workspace::vcs;
+    let (base, head) = match (&a.changed, a.staged) {
+        (Some(b), _) => (b.clone(), "working tree"),
+        (None, true) => ("HEAD".to_string(), "index"),
+        (None, false) => return None,
+    };
+    let base_commit = vcs::resolve(root, &base);
+    let head_commit = vcs::head(root);
+    let short = |c: &Option<String>| c.as_deref().map(|c| c.chars().take(12).collect::<String>());
+    let line = format!(
+        "checked: {base} ({})..{head} (HEAD {}); rerun: spec check {}",
+        short(&base_commit).unwrap_or_else(|| "unresolved".into()),
+        short(&head_commit).unwrap_or_else(|| "none".into()),
+        match (&a.changed, &base_commit) {
+            (Some(_), Some(c)) => format!("--changed {}", &c[..c.len().min(12)]),
+            (Some(b), None) => format!("--changed {b}"),
+            _ => "--staged".to_string(),
+        }
+    );
+    let json = serde_json::json!({
+        "base": base, "base_commit": base_commit, "head": head, "head_commit": head_commit,
+    });
+    Some((json, line))
+}
+
+fn range_of(a: &CheckArgs) -> Range {
+    match (&a.changed, a.staged) {
+        (Some(base), _) => Range::Changed(base.clone()),
+        (None, true) => Range::Staged,
+        (None, false) => Range::All,
     }
 }

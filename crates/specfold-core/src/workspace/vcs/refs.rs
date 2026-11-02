@@ -10,6 +10,13 @@ pub fn head(root: &Path) -> Option<String> {
     Some(String::from_utf8_lossy(&out).trim().to_string())
 }
 
+/// The full hash `rev` names, None when git does not know it (C4).
+pub fn resolve(root: &Path, rev: &str) -> Option<String> {
+    let out = git(root, &["rev-parse", "--verify", "--quiet", &format!("{rev}^{{commit}}")])?;
+    let s = String::from_utf8_lossy(&out).trim().to_string();
+    if s.is_empty() { None } else { Some(s) }
+}
+
 /// The upstream of the current branch, used as the default push range base.
 pub fn upstream(root: &Path) -> Option<String> {
     let out = git(root, &["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"])?;
