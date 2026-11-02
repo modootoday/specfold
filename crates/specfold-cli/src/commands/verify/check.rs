@@ -233,7 +233,10 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
     }
     let (has_fix, fix_next) = fix_next(&s, a, &list);
     Ok(match (fails, has_fix) {
-        (0, _) if lowerable > 0 => o.next("spec check --write-baseline"),
+        // D2: optional; rewriting only lowers the counts, nothing is wrong.
+        (0, _) if lowerable > 0 => o.next(format!(
+            "spec check --write-baseline  # optional: only lowers the baseline, {lowerable} entr(ies) now hold fewer errors"
+        )),
         (0, _) if !excluded.is_empty() => {
             let (rule, n) = excluded.iter().next().map(|(r, n)| (r.clone(), *n)).unwrap_or_default();
             o.next(format!("spec explain {rule}  # {n} error(s) left out of the exit code"))

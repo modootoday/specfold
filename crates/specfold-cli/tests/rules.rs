@@ -511,3 +511,28 @@ fn c237_verify_config_mistakes_are_reported_not_ignored() {
     assert!(v.to_string().contains("shell 'no-such-shell-c237'"), "{v}");
     assert_eq!(v["next"].as_str().unwrap_or(""), "spec doctor", "{v}");
 }
+
+/// D2: baseline entries follow `spec mv`, and the lower-the-baseline hint says it is optional.
+#[test]
+fn d2_baseline_follows_mv_and_its_lowering_hint_is_optional() {
+    let r = common::repo();
+    r.write("spec.toml", &(r.read("spec.toml") + "[check]\nbaseline = \"spec-baseline.json\"\n"));
+    let id = r.new_doc("sot", "services/shop/src", "Old rule");
+    let p = path_of(&r, &id);
+    r.write(&p, &(r.read(&p) + "\nSee [[sot:nope/nope]].\n"));
+    r.commit("old pile");
+    assert_eq!(r.json(&["check", "--write-baseline", "--yes"]).0, 0);
+    r.commit("baseline");
+    let (code, v) = r.json(&["mv", &id, "--slug", "moved", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    r.commit("moved");
+    let (code, v) = r.json(&["check"]);
+    assert_eq!((code, v["baselined"].as_u64(), v["lowerable"].as_u64()), (0, Some(1), Some(0)), "{v}");
+    assert!(!v["next"].as_str().unwrap_or_default().contains("--write-baseline"), "{v}");
+    let to = path_of(&r, "sot:shop/moved");
+    r.write(&to, &r.read(&to).replace("\nSee [[sot:nope/nope]].\n", "\n"));
+    let (code, v) = r.json(&["check"]);
+    assert_eq!(code, 0, "{v}");
+    let next = v["next"].as_str().unwrap_or_default();
+    assert!(next.starts_with("spec check --write-baseline") && next.contains("optional"), "{v}");
+}
