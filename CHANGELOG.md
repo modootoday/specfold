@@ -3,7 +3,9 @@
 Release notes for each version are also on
 [GitHub releases](https://github.com/modootoday/specfold/releases).
 
-## Unreleased
+## 0.5.1 - 2026-11-03
+
+0.5.1 fixes P1's suggested move: since 0.5.0 P1 leaves governs inside a submodule or another project out of the owner decision, but `spec mv` and `spec new` did not, so the suggested `spec mv` moved nothing. P1's fix now names the owner, `mv` and `new` decide as P1 does, `spec fix` rewrites a bare path and its wikilink on one line in one run, and L6 caches the references of unchanged files for faster whole-tree checks, with finer `SPECFOLD_TRACE` timings.
 
 ### Behavior changes
 
