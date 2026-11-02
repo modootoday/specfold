@@ -24,6 +24,10 @@ $ spec check --new        # documents not in the last commit
 $ spec check --summary    # findings per rule; -q lists errors only
 ```
 
+A staged or ranged run looks at the documents that changed and the documents that link to them.
+When the change deletes documents, one pass over all links also brings in the documents still
+linking to a deleted one, so **L1** reports them before the commit.
+
 `spec explain <rule>` says why a rule exists and how to fix it. The full list is in
 [Rules](../reference/rules.md).
 

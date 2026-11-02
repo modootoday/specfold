@@ -39,6 +39,34 @@ pub struct Scope {
     pub submodules_missing: Vec<String>,
 }
 
+/// The slug a document file carries: `sot/cart.sot.md` and `sot/cart/index.md` give `cart`.
+fn slug_of(p: &str) -> Option<&str> {
+    let mut parts = p.rsplit('/');
+    let file = parts.next()?;
+    let stem = file.split('.').next()?;
+    if stem == "index" || stem == "README" { parts.next() } else { Some(stem) }
+}
+
+/// Documents with a relation or link that now resolves to nothing and names a deleted slug or path.
+fn dangling(c: &Corpus, g: &Graph, slugs: &BTreeSet<&str>) -> Vec<usize> {
+    use crate::graph::{DOC_RELATIONS, Resolution};
+    let names = |t: &str| {
+        let t = t.split('#').next().unwrap_or(t).trim_end_matches('/');
+        let last = t.rsplit(['/', ':']).next().unwrap_or(t);
+        slugs.contains(last) || slug_of(t).is_some_and(|s| slugs.contains(s))
+    };
+    let missing = |t: &str| names(t) && matches!(g.resolve(t), Resolution::Missing);
+    let mut out = vec![];
+    for (i, d) in c.docs.iter().enumerate() {
+        let rel = d.rel().into_iter().filter(|(k, _)| DOC_RELATIONS.contains(&k.as_str())).flat_map(|(_, ts)| ts);
+        let mut targets = rel.chain(d.links.iter().map(|l| l.item.clone()));
+        if targets.any(|t| missing(&t)) {
+            out.push(i);
+        }
+    }
+    out
+}
+
 impl Scope {
     pub fn build(c: &Corpus, g: &Graph, range: Range) -> Result<Self> {
         let root = &c.cfg.root;
@@ -89,6 +117,12 @@ impl Scope {
             for e in g.edges_to(i) {
                 with_neighbours.insert(e.from);
             }
+        }
+        // N2: a deleted document is no longer in the corpus, so its citers cannot be found
+        // through edges; one pass over every link finds the ones that now point nowhere.
+        let slugs: BTreeSet<&str> = gone.iter().filter(|p| p.ends_with(".md")).filter_map(|p| slug_of(p)).collect();
+        if !slugs.is_empty() {
+            with_neighbours.extend(dangling(c, g, &slugs));
         }
         Ok(Scope { range, paths, in_submodules, touched, with_neighbours, base, gone, submodules_missing: sub.missing })
     }

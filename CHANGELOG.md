@@ -42,6 +42,7 @@ Release notes for each version are also on
 
 - D1 reads a moved submodule pointer as the files changed inside it; the pointer path itself no longer counts as a change. When the submodule objects are missing, the whole directory counts and D1 warns: next: git submodule update.
 - N1: `spec mv` to another owner keeps the document's baseline entries held under the new path (regression test).
+- N2: `spec check --staged` (and ranged runs) on a change that deletes documents now reports links left pointing at them (L1), found in one pass over the links; unrelated old dangling links stay out of scope.
 
 ### Fixed
 
