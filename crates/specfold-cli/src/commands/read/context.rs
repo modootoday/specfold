@@ -7,6 +7,7 @@ use anyhow::Result;
 use serde_json::json;
 use specfold_core::graph::query;
 use specfold_core::model::lifecycle;
+use specfold_core::remotes;
 use std::collections::BTreeSet;
 
 pub fn run(g: &Global, a: &ContextArgs) -> Result<Output> {
@@ -16,6 +17,10 @@ pub fn run(g: &Global, a: &ContextArgs) -> Result<Output> {
     let mut first: Option<String> = None;
     for p in &a.paths {
         let rel = session::governed_path(&s, p)?;
+        if let Some((name, inner)) = remotes::submodule_at(&s.corpus.cfg, &rel) {
+            o = remote(o, &s.corpus.cfg, &rel, &name, &inner, a.all);
+            continue;
+        }
         let owner = s.corpus.owners.containing(&rel);
         o = o.head(format!("{rel}  (owner {})", owner.id));
         for gv in query::governing(&s.corpus, &rel) {
@@ -44,6 +49,9 @@ pub fn run(g: &Global, a: &ContextArgs) -> Result<Output> {
             specfold_core::shell::word(specfold_core::workspace::escape_glob(&p))
         )));
     }
+    if first.is_none() {
+        return Ok(o);
+    }
     // C172: only a sot has a `rule` section; any other type is shown whole.
     let id = first.unwrap_or_default();
     let next = if id.starts_with("sot:") {
@@ -52,4 +60,28 @@ pub fn run(g: &Global, a: &ContextArgs) -> Result<Output> {
         format!("spec show {}", specfold_core::shell::word(&id))
     };
     Ok(o.next(next))
+}
+
+/// A1: a path inside a submodule registered as a remote is owned there; its documents are read,
+/// never written, from that checkout.
+fn remote(mut o: Output, cfg: &specfold_core::config::Config, rel: &str, name: &str, inner: &str, all: bool) -> Output {
+    let Some(l) = remotes::load(cfg, name) else {
+        return o.head(format!("{rel}  (remote {name}, not checked out; next: git submodule update --init)"));
+    };
+    let owner = l.corpus.owners.containing(inner);
+    o = o.head(format!("{rel}  (owner {name}:{}, read-only remote; write inside the submodule)", owner.id));
+    for gv in query::governing(&l.corpus, inner) {
+        let d = &l.corpus.docs[gv.idx];
+        let status = d.status().unwrap_or_default();
+        if !all && !lifecycle::is_current(&status) {
+            continue;
+        }
+        let id = format!("{name}:{}", d.id);
+        let text = format!("  {:<34} {:<9} {}", id, status, d.title.clone().unwrap_or_default());
+        o = o.item(
+            json!({"id": id, "title": d.title, "status": status, "path": format!("{}/{}", cfg.raw.remotes.get(name).map(|r| r.path.as_str()).unwrap_or(""), d.path), "path_queried": rel, "governs": gv.pattern, "remote": name}),
+            text,
+        );
+    }
+    o
 }

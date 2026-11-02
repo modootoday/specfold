@@ -11,11 +11,15 @@ pub struct SpecSection {
     /// Directory name that holds an owner's documents.
     #[serde(default = "defaults::spec_dir")]
     pub dir: String,
+    /// A1: register each submodule that has its own spec.toml as a read-only remote named after
+    /// the submodule (its last path segment). Off by default; an explicit `[remotes]` entry wins.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub submodule_remotes: bool,
 }
 
 impl Default for SpecSection {
     fn default() -> Self {
-        SpecSection { schema: defaults::schema(), dir: defaults::spec_dir() }
+        SpecSection { schema: defaults::schema(), dir: defaults::spec_dir(), submodule_remotes: false }
     }
 }
 
@@ -53,4 +57,7 @@ pub struct RemoteRoot {
     /// on disk among `path` and these is used.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub paths: Vec<String>,
+    /// Registered from `.gitmodules` by `[spec] submodule_remotes`, not written in spec.toml.
+    #[serde(skip)]
+    pub auto: bool,
 }

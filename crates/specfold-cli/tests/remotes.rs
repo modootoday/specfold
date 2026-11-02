@@ -204,3 +204,24 @@ fn governs_into_another_project_is_external_for_p1_and_l5() {
     assert_eq!(v["errors"], 0, "{v}");
     assert_eq!(v["warnings"], 0, "{v}");
 }
+
+#[test]
+fn a_submodule_with_its_own_spec_toml_is_a_read_only_remote_when_asked() {
+    let child = common::repo();
+    let rule = child.new_doc("sot", "services/shop/src", "Child rule");
+    child.write("services/shop/src/a.rs", "fn a() {}\n");
+    child.commit("child");
+    let app = common::repo();
+    let url = child.path().to_str().unwrap();
+    app.git(&["-c", "protocol.file.allow=always", "submodule", "add", "-q", url, "vendor/child"]);
+    let me = app.new_doc("guide", "services/shop", "Uses child");
+    let p = app.json(&["resolve", &me]).1["path"].as_str().unwrap().to_string();
+    app.write(&p, &(app.read(&p) + &format!("\nSee [[child:{rule}]].\n")));
+    assert_eq!(app.json(&["check", "--rule", "L1"]).1["errors"], 1, "off by default");
+    app.write("spec.toml", &app.read("spec.toml").replace("schema = 1\n", "schema = 1\nsubmodule_remotes = true\n"));
+    let (code, v) = app.json(&["check", "--rule", "L1"]);
+    assert_eq!((code, v["errors"].as_u64()), (0, Some(0)), "{v}");
+    let (code, t) = app.text(&["context", "vendor/child/services/shop/src/a.rs"]);
+    assert_eq!(code, 0, "{t}");
+    assert!(t.contains("owner child:shop, read-only remote") && t.contains(&format!("child:{rule}")), "{t}");
+}
