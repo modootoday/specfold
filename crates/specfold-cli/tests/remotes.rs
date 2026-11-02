@@ -189,3 +189,18 @@ fn a_translation_cannot_start_from_a_remote_source() {
     assert_ne!(code, 0, "{v}");
     assert!(v.to_string().contains("never copies from"), "{v}");
 }
+
+#[test]
+fn governs_into_another_project_is_external_for_p1_and_l5() {
+    let app = common::repo();
+    let cfg = app.read("spec.toml");
+    app.write("spec.toml", &format!("{cfg}[remotes.child]\npath = \"../nowhere\"\npaths = [\"vendor/child\"]\n"));
+    let me = app.new_doc("sot", "services/shop", "Uses child code");
+    for g in ["rel.governs+=vendor/child/src", "rel.governs+=child:src/lib.rs"] {
+        let (code, v) = app.json(&["set", &me, g, "--write"]);
+        assert_eq!(code, 0, "{v}");
+    }
+    let (_, v) = app.json(&["check", "--rule", "P1", "--rule", "L5"]);
+    assert_eq!(v["errors"], 0, "{v}");
+    assert_eq!(v["warnings"], 0, "{v}");
+}

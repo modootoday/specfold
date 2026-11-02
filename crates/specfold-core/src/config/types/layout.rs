@@ -49,4 +49,8 @@ pub struct ExternalRoot {
 pub struct RemoteRoot {
     /// The other repository's root (its spec.toml or git root), relative to this one or `~`.
     pub path: String,
+    /// More places it may be checked out (a sibling here, a submodule in CI); the first directory
+    /// on disk among `path` and these is used.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub paths: Vec<String>,
 }

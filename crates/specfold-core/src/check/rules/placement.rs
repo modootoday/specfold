@@ -26,7 +26,12 @@ impl Rule for OwnerMatches {
                 continue;
             }
             let Some(current) = owners.by_id(&d.id.owner) else { continue };
-            let governs = d.rel().remove("governs").unwrap_or_default();
+            let all = d.rel().remove("governs").unwrap_or_default();
+            let governs: Vec<String> =
+                all.iter().filter(|g| !crate::remotes::is_external(&ctx.corpus.cfg, g)).cloned().collect();
+            if governs.is_empty() && !all.is_empty() {
+                continue;
+            }
             let decision = placement::decide(owners, &governs, current);
             if decision.owner.id != current.id {
                 out.push(

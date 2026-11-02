@@ -64,9 +64,45 @@ pub fn split<'a>(cfg: &Config, text: &'a str) -> Option<(&'a str, &'a str)> {
     (cfg.raw.remotes.contains_key(name) && cfg.registry.get(name).is_none()).then_some((name, rest))
 }
 
-/// The remote's directory.
+/// The remote's directory: the first of `path` and `paths` on disk, else `path`.
 pub fn dir(cfg: &Config, name: &str) -> Option<PathBuf> {
-    cfg.raw.remotes.get(name).map(|r| cfg.expand_path(&r.path))
+    let r = cfg.raw.remotes.get(name)?;
+    let first = cfg.expand_path(&r.path);
+    Some(r.paths.iter().map(|p| cfg.expand_path(p)).find(|p| p.is_dir()).filter(|_| !first.is_dir()).unwrap_or(first))
+}
+
+/// A governed path that belongs to another project: written `<remote>:<path>`, or inside a
+/// submodule (gitlink) or a remote checked out within this repository. P1 and L5 leave it out;
+/// D1 still matches changes under it.
+pub fn is_external(cfg: &Config, governs: &str) -> bool {
+    if split(cfg, governs).is_some() {
+        return true;
+    }
+    let g = governs.trim_start_matches("./").trim_end_matches('/');
+    let under = |p: &str| {
+        let p = p.trim_start_matches("./").trim_end_matches('/');
+        !p.is_empty() && (g == p || g.starts_with(&format!("{p}/")))
+    };
+    inner_projects(cfg).iter().any(|p| under(p))
+}
+
+/// Submodule paths and remotes checked out inside this repository, once per root.
+fn inner_projects(cfg: &Config) -> Vec<String> {
+    static C: OnceLock<Mutex<HashMap<PathBuf, Vec<String>>>> = OnceLock::new();
+    let mut c = C.get_or_init(Default::default).lock().unwrap_or_else(|e| e.into_inner());
+    c.entry(cfg.root.clone())
+        .or_insert_with(|| {
+            let mut v = crate::workspace::vcs::gitlinks(&cfg.root);
+            for r in cfg.raw.remotes.values() {
+                for p in std::iter::once(&r.path).chain(&r.paths) {
+                    if !p.starts_with("..") && !p.starts_with('/') && !p.starts_with('~') {
+                        v.push(p.clone());
+                    }
+                }
+            }
+            v
+        })
+        .clone()
 }
 
 /// Loads the remote corpus once per process; `None` when the directory is absent.
@@ -195,8 +231,17 @@ mod tests {
             "---\nid: guide:root/setup\ntitle: Setup\nstatus: active\n---\n\n# Setup\n\n## Install {#install}\n",
         );
         let mut raw = RawConfig::default();
-        raw.remotes.insert("org".into(), crate::config::types::RemoteRoot { path: shared.to_string_lossy().into() });
-        raw.remotes.insert("gone".into(), crate::config::types::RemoteRoot { path: "/nonexistent/x".into() });
+        raw.remotes.insert(
+            "org".into(),
+            crate::config::types::RemoteRoot { path: shared.to_string_lossy().into(), paths: vec![] },
+        );
+        raw.remotes.insert(
+            "gone".into(),
+            crate::config::types::RemoteRoot {
+                path: "/nonexistent/x".into(),
+                paths: vec![shared.to_string_lossy().into()],
+            },
+        );
         let cfg = Config::from_raw(tmp.path().join("app"), raw, false);
         assert_eq!(resolve(&cfg, "guide:x/y"), Remote::Local);
         match resolve(&cfg, "org:guide:root/setup#install") {
@@ -205,6 +250,7 @@ mod tests {
         }
         assert!(matches!(resolve(&cfg, "org:guide:root/nope"), Remote::Missing { .. }));
         assert!(matches!(resolve(&cfg, "org:guide:root/setup#zzz"), Remote::MissingAnchor { .. }));
-        assert!(matches!(resolve(&cfg, "gone:guide:a/b"), Remote::Absent { .. }));
+        assert!(matches!(resolve(&cfg, "gone:guide:root/setup"), Remote::Found { .. }), "a later candidate path");
+        assert!(is_external(&cfg, "org:src/lib.rs") && !is_external(&cfg, "src/lib.rs"));
     }
 }
