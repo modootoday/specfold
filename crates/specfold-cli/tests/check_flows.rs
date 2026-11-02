@@ -849,3 +849,39 @@ fn b2_check_takes_a_folder_and_refuses_one_without_documents() {
     assert_eq!(code, 2, "{v}");
     assert!(v.to_string().contains("a folder with no documents"), "{v}");
 }
+
+/// C2: `[check] d1 = "specific"` asks only the narrowest governing document; the default asks all.
+#[test]
+fn d1_specific_leaves_an_overview_quiet() {
+    let r = common::repo();
+    let wide = r.new_doc("sot", "services", "Services overview");
+    let narrow = r.new_doc("sot", "services/shop", "Cart rules");
+    for id in [&wide, &narrow] {
+        assert_eq!(r.json(&["set", id, "status=active", "--write"]).0, 0);
+    }
+    r.commit("rules");
+    r.write("services/shop/src/cart/total.rs", "fn total() { 1 }\n");
+    r.git(&["add", "-A"]);
+    let asked = |r: &common::Repo| -> Vec<String> {
+        let (_, v) = r.json(&["check", "--staged", "--rule", "D1"]);
+        let mut m: Vec<String> = v["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|f| f["rule"] == "D1")
+            .map(|f| f["message"].as_str().unwrap().to_string())
+            .collect();
+        m.sort();
+        m
+    };
+    let all = asked(&r);
+    assert_eq!(all.len(), 2, "default asks every governing document: {all:?}");
+    let toml = r.read("spec.toml");
+    r.write("spec.toml", &toml.replacen("[aliases]", "[check]\nd1 = \"specific\"\n\n[aliases]", 1));
+    r.git(&["add", "-A"]);
+    let one = asked(&r);
+    assert_eq!(one.len(), 1, "{one:?}");
+    assert!(one[0].contains(&narrow), "{one:?}");
+    r.write("spec.toml", &toml.replacen("[aliases]", "[check]\nd1 = \"some\"\n\n[aliases]", 1));
+    assert_ne!(r.json(&["check"]).0, 0, "an unknown d1 value is refused");
+}

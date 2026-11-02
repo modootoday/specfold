@@ -35,7 +35,7 @@ description: The spec.toml tables and what each one controls.
 
 | table | controls |
 | --- | --- |
-| `[check]` | baseline, strict paths, rule severity, `extra_keys`, `count_paths`, `link_ignore` |
+| `[check]` | baseline, strict paths, rule severity, `extra_keys`, `count_paths`, `link_ignore`, `d1` (`"all"`, the default, or `"specific"`: rule D1 asks only the most specific document governing a changed file) |
 | `[[guards]]` | named checks over files and commit messages (rule U1) |
 | `[[plugins]]` | external programs speaking `specfold.plugin.v1` |
 | `[translations]` | translations paired by place: `layout`, `languages`, `source_lang`, `strict` (rule R2) |
@@ -64,6 +64,7 @@ manifest = false
 extra_keys = ["team", "review_*"]
 count_paths = ["README.md", "docs/**/*.md"]
 link_ignore = ["site/api/**"]   # rule L8 skips links to these paths
+d1 = "specific"                 # D1 skips an overview when a narrower document governs the file
 
 [translations]
 layout = "suffix"   # guide:shop/setup-ko translates guide:shop/setup
