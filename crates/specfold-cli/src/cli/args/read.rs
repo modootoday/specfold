@@ -52,8 +52,9 @@ pub struct FindArgs {
 pub struct ShowArgs {
     /// An id, alias, path, or unique slug.
     pub doc: String,
-    /// Read the document from another repository, read-only (the same as `-C <repo>`).
-    #[arg(long = "in", value_name = "REPO", conflicts_with = "dir")]
+    /// Read the document from another repository, read-only (the same as `-C <repo>`; `--root` is accepted too).
+    /// Without it, a `<prefix>:<id>` is looked up in [remotes] and then the user-level roots.toml.
+    #[arg(long = "in", alias = "root", value_name = "REPO", conflicts_with = "dir")]
     pub in_repo: Option<std::path::PathBuf>,
     /// Only the section with this heading or anchor.
     #[arg(long)]

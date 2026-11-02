@@ -115,6 +115,10 @@ impl Config {
                 raw.remotes.entry(name).or_insert(crate::config::types::RemoteRoot { path, paths: vec![], auto: true });
             }
         }
+        for (name, dir) in super::private_root::prefixes() {
+            let path = dir.to_string_lossy().into_owned();
+            raw.remotes.entry(name).or_insert(crate::config::types::RemoteRoot { path, paths: vec![], auto: false });
+        }
         let registry = Registry::new(&raw.types);
         Config { root, raw, registry, implicit }
     }

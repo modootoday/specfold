@@ -1,11 +1,15 @@
 //! F1: documents for a public repository kept in a private directory outside it. A user-level
 //! file maps the repository to that directory; nothing is written inside the public tree.
 //!
+//! It also names other repositories by id prefix (F2), read like `[remotes]`.
+//!
 //! ```toml
 //! # ~/.config/specfold/roots.toml (or $SPECFOLD_ROOTS)
 //! [[root]]
 //! repo = "~/src/public-lib"
 //! spec = "~/notes/public-lib-spec"
+//! [prefix]
+//! lib = "~/src/other-lib"   # spec show lib:<id>
 //! ```
 
 use super::paths;
@@ -16,6 +20,9 @@ use std::path::{Path, PathBuf};
 struct Roots {
     #[serde(default)]
     root: Vec<Entry>,
+    /// F2: id prefix → repository root, read-only (`[prefix] lib = "~/src/lib"`).
+    #[serde(default)]
+    prefix: std::collections::BTreeMap<String, String>,
 }
 
 #[derive(Deserialize)]
@@ -36,10 +43,20 @@ pub fn file() -> Option<PathBuf> {
     Some(base.join("specfold/roots.toml"))
 }
 
+fn read() -> Option<Roots> {
+    toml::from_str(&std::fs::read_to_string(file()?).ok()?).ok()
+}
+
+/// F2: the id prefixes of the user-level file, as (prefix, absolute root).
+pub fn prefixes() -> Vec<(String, PathBuf)> {
+    read()
+        .map(|r| r.prefix.into_iter().map(|(k, v)| (k, paths::expand(Path::new("/"), &v))).collect())
+        .unwrap_or_default()
+}
+
 /// The private root mapped to the repository at `repo`, when the mapping file names it.
 pub fn mapped(repo: &Path) -> Option<PathBuf> {
-    let text = std::fs::read_to_string(file()?).ok()?;
-    let roots: Roots = toml::from_str(&text).ok()?;
+    let roots = read()?;
     let canon = |p: &Path| p.canonicalize().ok();
     let me = canon(repo)?;
     roots.root.into_iter().find_map(|e| {

@@ -243,6 +243,17 @@ pub fn resolve(s: &Session, text: &str) -> Result<usize> {
                 .collect();
             match near.len() {
                 0 if text.contains('/') && !text.contains(':') => bail!("'{text}' names no document"),
+                0 if text.matches(':').count() >= 2
+                    && text.split(':').next().is_some_and(|p| s.corpus.cfg.registry.get(p).is_none()) =>
+                {
+                    let p = text.split(':').next().unwrap_or_default();
+                    let file = specfold_core::config::private_root::file().unwrap_or_default();
+                    bail!(
+                        "unknown id prefix '{p}': not in [remotes] nor [prefix] of {}; next: spec show {} --root <repo>",
+                        file.display(),
+                        &text[p.len() + 1..]
+                    )
+                }
                 0 => {
                     // Words of a title or slug find it where an id prefix does not.
                     let words = if text.chars().all(|c| c.is_ascii_alphanumeric() || "-_:/.".contains(c)) {
