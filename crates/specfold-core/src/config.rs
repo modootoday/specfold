@@ -3,6 +3,7 @@
 pub mod cache_gc;
 pub mod defaults;
 pub mod paths;
+pub mod private_root;
 pub mod reader;
 pub mod starter;
 pub mod types;

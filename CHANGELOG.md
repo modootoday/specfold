@@ -5,6 +5,19 @@ Release notes for each version are also on
 
 ## Unreleased
 
+### Upgrade notes (draft)
+
+Nothing changes until you set a new key; every addition below is opt-in. Recommended after upgrading:
+
+```toml
+[check]
+d1 = "specific"   # D1 asks only the most specific document governing a changed file
+```
+
+Also worth a look: `spec hook install` (preview) then `--write` for a pre-push gate on
+`spec check --owners --changed`; `[spec] submodule_remotes = true` when submodules carry their own
+spec.toml; `[check] remote_status = true` when you depend on documents in `[remotes]`.
+
 ### Behavior changes
 
 - `spec new --from <id>` and `spec set <doc> rel.supersedes+=<id>` refuse (exit 2, nothing written, preview included) when another document already supersedes `<id>`, naming that successor: a second one failed T1 (C246).
@@ -23,8 +36,9 @@ Release notes for each version are also on
 - `spec check --commits <sha>...` checks each commit on its own (the files it changed, read as they are now) and counts per commit the new errors against those the baseline holds.
 - `[remotes.<name>] paths` lists more places a remote may be checked out; the first on disk wins. Governs into another project (`<remote>:<path>`, a submodule, or a remote checked out inside the repository) are external: P1 and L5 skip them, D1 still matches them.
 - `[spec] submodule_remotes = true` registers submodules that carry their own spec.toml as read-only remotes (`child:<id>`), and `spec context` shows the submodule's owner and documents for paths inside it. Off by default.
-- `spec show <id> --in <repo>` reads a document from another repository, read-only (same as `-C <repo>`); `<remote>:<id>` through [remotes] remains the prefix registry.
+- `spec show <id> --in <repo>` reads a document from another repository, read-only (same as `-C <repo>`; `--root` also accepted); otherwise `<prefix>:<id>` resolves through [remotes], then the `[prefix]` table of the user-level roots.toml, and an unknown prefix is an error naming it.
 - `[check] remote_status = true`: rule L3 warns when a relation names a remote document that is superseded, archived or rejected in its repository, and names the successor. Off by default.
+- A public repository with no spec.toml can keep its documents in a private directory mapped in a user-level roots.toml (`$SPECFOLD_ROOTS` or `~/.config/specfold/roots.toml`); commands run in the repository read and write there and nothing is written in the public tree.
 
 ### Changed
 

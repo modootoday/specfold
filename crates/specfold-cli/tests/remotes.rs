@@ -246,3 +246,47 @@ fn another_repository_is_read_with_show_in_and_a_retired_remote_target_warns_whe
     assert_eq!(code, 0, "{t}");
     assert!(t.contains("is superseded in its repository") && t.contains(&format!("rel.depends_on+=org:{new}")), "{t}");
 }
+
+#[test]
+fn a_public_repository_mapped_to_a_private_root_resolves_ids_and_writes_nothing_in_its_tree() {
+    let private = common::repo();
+    let id = private.new_doc("guide", "services/shop", "Private note");
+    let public = tempfile::tempdir().unwrap();
+    let pubdir = public.path().join("lib");
+    std::fs::create_dir_all(&pubdir).unwrap();
+    assert!(std::process::Command::new("git").args(["init", "-q"]).current_dir(&pubdir).status().unwrap().success());
+    let roots = public.path().join("roots.toml");
+    let run = |args: &[&str]| {
+        let out = private.spec().current_dir(&pubdir).env("SPECFOLD_ROOTS", &roots).args(args).output().unwrap();
+        (out.status.code().unwrap_or(-1), String::from_utf8_lossy(&out.stdout).into_owned())
+    };
+    assert_ne!(run(&["show", &id]).0, 0, "unmapped: the public repository has no such document");
+    let text = format!("[[root]]\nrepo = \"{}\"\nspec = \"{}\"\n", pubdir.display(), private.path().display());
+    std::fs::write(&roots, text).unwrap();
+    let (code, t) = run(&["show", &id]);
+    assert!(code == 0 && t.contains("Private note"), "{t}");
+    let (code, t) = run(&["new", "guide", "--title", "Another", "--owner", "shop", "--write"]);
+    assert_eq!(code, 0, "{t}");
+    let names: Vec<_> = std::fs::read_dir(&pubdir).unwrap().map(|e| e.unwrap().file_name()).collect();
+    assert_eq!(names, vec![std::ffi::OsString::from(".git")], "nothing written in the public tree");
+}
+
+#[test]
+fn an_id_prefix_resolves_from_the_user_level_roots_file_and_an_unknown_one_is_named() {
+    let other = common::repo();
+    let id = other.new_doc("guide", "services/shop", "Over there");
+    let app = common::repo();
+    let roots = app.path().join("roots.toml");
+    let run = |args: &[&str]| {
+        let out = app.spec().env("SPECFOLD_ROOTS", &roots).args(args).output().unwrap();
+        let both = String::from_utf8_lossy(&out.stdout).into_owned() + &String::from_utf8_lossy(&out.stderr);
+        (out.status.code().unwrap_or(-1), both)
+    };
+    std::fs::write(&roots, format!("[prefix]\nlib = \"{}\"\n", other.path().display())).unwrap();
+    let (code, t) = run(&["show", &format!("lib:{id}")]);
+    assert!(code == 0 && t.contains("Over there"), "{t}");
+    let (code, t) = run(&["show", &format!("zz:{id}")]);
+    assert!(code == 2 && t.contains("unknown id prefix 'zz'") && t.contains("--root <repo>"), "{t}");
+    let (code, t) = run(&["show", &id, "--root", other.path().to_str().unwrap()]);
+    assert!(code == 0 && t.contains("Over there"), "{t}");
+}

@@ -26,6 +26,30 @@ An explicit `[remotes.<name>]` of the same name wins. `spec context` on a path i
 submodule shows that project's owner and documents; write them from inside the submodule. Off by
 default, so nothing changes until it is set.
 
+### A private root for a public repository
+
+A repository with no spec.toml can keep its documents in a private directory outside its tree.
+List it in the user-level file `$SPECFOLD_ROOTS`, else `$XDG_CONFIG_HOME/specfold/roots.toml`, else
+`~/.config/specfold/roots.toml`:
+
+```toml
+[[root]]
+repo = "~/src/public-lib"
+spec = "~/notes/public-lib-spec"   # holds its own spec.toml (spec -C <dir> init --write)
+
+[prefix]
+lib = "~/src/other-lib"   # spec show lib:<id>, read-only
+```
+
+`spec show <id> --root <repo>` (or `--in`) reads another repository explicitly and wins; otherwise
+`<prefix>:<id>` is looked up in `[remotes]`, then in `[prefix]` here. An unknown prefix is an
+error naming it; no path is guessed. A mapped repository whose private directory lacks spec.toml
+is an error too, never a fallback to a `.spec` in the public tree.
+
+Run inside the public repository, every command reads and writes the private directory, so ids
+resolve there and nothing is written in the public tree. A spec.toml in the repository itself
+always wins; without a mapping nothing changes.
+
 ## Documents
 
 | table | controls |
