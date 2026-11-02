@@ -223,7 +223,7 @@ pub fn finish(mut o: Output, plan: &Plan, root: &Path, write: bool, rerun: &str)
                 dirty.join(", ")
             ));
         }
-        Ok(o.field("written", false).foot("preview only; nothing was written").next(rerun.to_string()))
+        Ok(o.foot("preview only; nothing was written").next(rerun.to_string()).preview())
     }
 }
 

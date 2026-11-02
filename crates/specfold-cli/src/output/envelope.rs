@@ -38,6 +38,8 @@ pub struct Output {
     /// Lines printed after the items in text mode.
     pub foot: Vec<String>,
     pub next: Option<String>,
+    /// A line printed after `next:` in text mode, so it is the last thing a reader sees.
+    pub last: Option<String>,
 }
 
 impl Output {
@@ -51,6 +53,7 @@ impl Output {
             paged: true,
             foot: vec![],
             next: None,
+            last: None,
         }
     }
 
@@ -76,6 +79,16 @@ impl Output {
 
     pub fn next(mut self, cmd: impl Into<String>) -> Self {
         self.next = Some(cmd.into());
+        self
+    }
+
+    /// Marks a preview: JSON gets `written: false` and `preview: true`, and text ends with a
+    /// NOT WRITTEN line after `next:` so a script or agent reading only the tail cannot miss it.
+    /// The exit code stays 0: a preview is a successful run.
+    pub fn preview(mut self) -> Self {
+        self.summary.insert("written".into(), Value::Bool(false));
+        self.summary.insert("preview".into(), Value::Bool(true));
+        self.last = Some("NOT WRITTEN: preview only; rerun with --write to apply".into());
         self
     }
 

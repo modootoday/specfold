@@ -58,6 +58,9 @@ pub fn render(o: &Output, fmt: Format, page: &Page) -> String {
             if let Some(n) = &o.next {
                 lines.push(format!("next: {n}"));
             }
+            if let Some(l) = &o.last {
+                lines.push(l.clone());
+            }
             let mut s = lines.join("\n");
             if !s.is_empty() {
                 s.push('\n');
