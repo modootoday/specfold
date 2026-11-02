@@ -20,6 +20,7 @@ Release notes for each version are also on
 - `[check] d1 = "specific"` makes rule D1 ask only the most specific document governing a changed file, so an overview or census governing a whole tree no longer warns beside the narrower document; the default `"all"` keeps the 0.4 behavior, and an unknown value is refused when spec.toml loads (C2).
 - `[[check.override]]` with `paths`, `rule` and `level` (`off`, `warn`, `error`) sets a rule's level for findings in files under those globs, after `[check.severity]`; the last matching entry wins, and its globs are checked when spec.toml loads (D2).
 - `spec hook install` previews, and with `--write` writes, the git pre-push hook; an existing hook of another tool is refused (exit 4). `spec check --owners` (with `--changed`/`--staged`) fails only on errors of the owners the change touches and reports other owners' errors (owner, path, submodule) in `other_owners` without failing.
+- `spec check --commits <sha>...` checks each commit on its own (the files it changed, read as they are now) and counts per commit the new errors against those the baseline holds.
 
 ### Fixed
 

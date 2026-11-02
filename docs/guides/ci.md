@@ -22,6 +22,9 @@ in a repository holding several projects, only errors in the owners the push tou
 errors other owners already hold are listed per owner (with the submodule they sit in) without
 failing.
 
+`spec check --commits <sha>...` checks each commit on its own: the files it changed, read as
+they are now, with a line per commit counting new errors against those the baseline holds.
+
 ## Commands
 
 ```console
@@ -29,6 +32,7 @@ $ spec hook print --for lefthook
 $ spec check --staged -q
 $ spec hook install --write
 $ spec check --changed origin/main --owners
+$ spec check --commits HEAD~2 HEAD~1 HEAD
 $ spec check
 $ spec guard --range origin/main..HEAD
 ```

@@ -4,7 +4,7 @@ use clap::Args;
 
 #[derive(Debug, Clone, Args)]
 #[command(
-    after_help = "Examples:\n  spec check --staged          # pre-commit\n  spec check --changed origin/main\n  spec check --rule L1 --rule L2 --json\n  spec check --new              # which documents were just recognised\n  spec check --summary          # findings per rule\n  spec check -q                 # errors only\n  spec check docs/a.md --format editor  # one file, for an editor on save\n  spec check --stdin-path docs/a.md --format editor < buffer  # unsaved text\n  spec check --rule N1          # counts in spec:count markers"
+    after_help = "Examples:\n  spec check --staged          # pre-commit\n  spec check --changed origin/main\n  spec check --commits HEAD~2 HEAD  # each commit on its own\n  spec check --rule L1 --rule L2 --json\n  spec check --new              # which documents were just recognised\n  spec check --summary          # findings per rule\n  spec check -q                 # errors only\n  spec check docs/a.md --format editor  # one file, for an editor on save\n  spec check --stdin-path docs/a.md --format editor < buffer  # unsaved text\n  spec check --rule N1          # counts in spec:count markers"
 )]
 pub struct CheckArgs {
     /// Only report findings in these files, folders (the documents under them) or document ids (an editor checking the file it saved). Every
@@ -25,6 +25,10 @@ pub struct CheckArgs {
     /// other owners are reported (owner, path, submodule) without failing.
     #[arg(long)]
     pub owners: bool,
+    /// Check each of these commits on its own: the files it changed (`<sha>^..<sha>`), read as
+    /// they are now, with errors counted per commit as new or held by the baseline.
+    #[arg(long, num_args = 1.., value_name = "SHA", conflicts_with_all = ["staged", "changed", "write_baseline", "owners"])]
+    pub commits: Vec<String>,
     /// Only these rules (repeatable).
     #[arg(long = "rule", id = "rule")]
     pub rules: Vec<String>,

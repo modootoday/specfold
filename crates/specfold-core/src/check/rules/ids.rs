@@ -116,8 +116,12 @@ impl Rule for AliasTableFrozen {
 /// Whether a commit in a `--changed <base>` range carries the trailer `Specfold-Import: yes`,
 /// which marks it as an import the alias table may grow in. Staged runs have no message yet.
 fn import_trailer(ctx: &Ctx) -> bool {
-    let Range::Changed(base) = &ctx.scope.range else { return false };
-    let Some(commits) = crate::workspace::vcs::commits(&ctx.corpus.cfg.root, &format!("{base}..HEAD")) else {
+    let range = match &ctx.scope.range {
+        Range::Changed(base) => format!("{base}..HEAD"),
+        Range::Commit(sha) => format!("{sha}^..{sha}"),
+        _ => return false,
+    };
+    let Some(commits) = crate::workspace::vcs::commits(&ctx.corpus.cfg.root, &range) else {
         return false;
     };
     commits.iter().any(|c| has_import_trailer(&c.message))

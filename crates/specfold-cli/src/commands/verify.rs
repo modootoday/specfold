@@ -2,6 +2,7 @@
 
 pub mod census;
 pub mod check;
+pub mod commits;
 pub mod doctor;
 pub mod guard;
 pub mod owners;

@@ -63,6 +63,7 @@ fn targets(ctx: &Ctx, files: &Files) -> Vec<(String, Option<BTreeSet<usize>>)> {
         }
         Range::Staged => vcs::added_lines(root, None),
         Range::Changed(base) => vcs::added_lines(root, Some(base)),
+        Range::Commit(sha) => vcs::added_lines(root, Some(&format!("{sha}^..{sha}"))),
     };
     let added: HashMap<String, Vec<usize>> = added.unwrap_or_default();
     added

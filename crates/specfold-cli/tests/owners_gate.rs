@@ -1,4 +1,5 @@
-//! D1: the push gate of a repository holding several projects (`check --owners`, `hook install`).
+//! D1 and C3: the push gate of a repository holding several projects (`check --owners`,
+//! `hook install`) and `check --commits`.
 
 mod common;
 
@@ -46,4 +47,23 @@ fn hook_install_previews_writes_and_refuses_foreign_hooks() {
     let (code, _) = r.json(&["hook", "install", "--write"]);
     assert_eq!(code, 4);
     assert_eq!(r.read(".git/hooks/pre-push"), "#!/bin/sh\nother-tool\n");
+}
+
+#[test]
+fn commits_are_checked_one_by_one() {
+    let r = common::repo();
+    let shop = r.new_doc("sot", "services/shop", "Cart");
+    r.commit("good");
+    break_id(&r, &shop);
+    r.commit("bad");
+    r.write("services/shop/src/extra.rs", "fn x() {}\n");
+    r.commit("code only");
+    let (code, v) = r.json(&["check", "--commits", "HEAD~1", "--rule", "S2"]);
+    assert_eq!(code, 1, "{v}");
+    assert_eq!(v["commits"][0]["errors"], 1, "{v}");
+    let (code, v) = r.json(&["check", "--commits", "HEAD~1", "HEAD", "--rule", "S2"]);
+    assert_eq!(code, 1, "{v}");
+    assert_eq!(v["commits"][1]["errors"], 0, "a code-only commit holds no document error: {v}");
+    let (code, _) = r.json(&["check", "--commits", "nope"]);
+    assert_ne!(code, 0);
 }
