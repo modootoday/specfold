@@ -899,8 +899,10 @@ fn e3_mv_keeps_quotes_in_unrelated_and_referring_documents() {
     let path = |id: &str| r.json(&["resolve", id]).1["path"].as_str().unwrap().to_string();
     let quote = |p: &str| {
         let t = r.read(p);
-        let t =
-            t.lines().map(|l| if l.starts_with("title: ") { format!("title: '{}'", &l[7..]) } else { l.to_string() });
+        let t = t.lines().map(|l| match l.strip_prefix("title: ") {
+            Some(t) => format!("title: '{t}'"),
+            None => l.to_string(),
+        });
         r.write(p, &(t.collect::<Vec<_>>().join("\n") + "\n"));
     };
     let (bp, pp) = (path(&blog), path(&plan));
