@@ -158,7 +158,7 @@ pub fn execute(argv: Vec<String>) -> Executed {
             let mut out = Output::error(schema_name.as_deref().unwrap_or("spec"), code, &first, Some(next));
             // C229: the next command runs where -C pointed, as on every other path.
             if let Some(d) = typed_dir(&argv).filter(|d| !d.is_empty()) {
-                with_dirs(&mut out, &quote(&d), &quote(&d));
+                with_dirs(&mut out, &quote(&d), &quote(&d), true);
             }
             return Executed {
                 output: out,
@@ -229,6 +229,9 @@ pub fn execute(argv: Vec<String>) -> Executed {
     let mut output = output;
     if let Some(d) = &shown_dir {
         with_dir(&mut output, d, &cli.global);
+    } else if let Some(up) = up_to_root(&cli.global) {
+        // C262: from a subfolder, shell commands in undo and next still name root paths.
+        with_dirs(&mut output, "", &specfold_core::shell::quote(&up), false);
     }
     Executed { output, format, page, raw: None, serve_mcp: false }
 }
@@ -241,7 +244,16 @@ fn with_dir(o: &mut Output, dir: &std::path::Path, g: &crate::cli::args::global:
     let abs = g.dir.clone().unwrap_or_default();
     let root = crate::commands::session::config_quiet(g).ok().map(|c| root_as_typed(dir, &abs, &c.root));
     let r = root.map(|r| specfold_core::shell::quote(&r.display().to_string())).unwrap_or_else(|| w.clone());
-    with_dirs(o, &w, &r);
+    with_dirs(o, &w, &r, true);
+}
+
+/// `..`, `../..` … from the current directory up to the repository root, when it is below it.
+fn up_to_root(g: &crate::cli::args::global::Global) -> Option<String> {
+    let cwd = std::env::current_dir().ok()?.canonicalize().ok()?;
+    let root = crate::commands::session::config_quiet(g).ok()?.root.canonicalize().ok()?;
+    let below = cwd.strip_prefix(&root).ok()?;
+    let n = below.components().count();
+    (n > 0).then(|| vec![".."; n].join("/"))
 }
 
 /// The repository root written the way -C was: `my repo/src` gives `my repo`, `.` when -C is
@@ -263,7 +275,11 @@ fn root_as_typed(dir: &std::path::Path, abs: &std::path::Path, root: &std::path:
     }
 }
 
-fn with_dirs(o: &mut Output, w: &str, r: &str) {
+/// `spec` commands get `-C <w>` only when `spec_too` (from a subfolder spec finds the root itself).
+fn with_dirs(o: &mut Output, w: &str, r: &str, spec_too: bool) {
+    let dir_cmd = |c: &str, w: &str, r: &str| {
+        if !spec_too && c.starts_with("spec ") { c.to_string() } else { dir_cmd(c, w, r) }
+    };
     o.next = o.next.as_deref().map(|n| dir_cmd(n, w, r));
     if let Some(serde_json::Value::String(u)) = o.summary.get_mut("undo") {
         *u = dir_cmd(u, w, r);
@@ -273,7 +289,7 @@ fn with_dirs(o: &mut Output, w: &str, r: &str) {
             *f = format!("undo: {}", dir_cmd(u, w, r));
         }
     }
-    let spec_c = format!("spec -C {w} ");
+    let spec_c = if spec_too { format!("spec -C {w} ") } else { "spec ".into() };
     for it in &mut o.items {
         if let Some(serde_json::Value::String(c)) = it.json.get_mut("fix").and_then(|f| f.get_mut("cmd")) {
             *c = dir_cmd(c, w, r);
