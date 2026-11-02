@@ -270,6 +270,27 @@ fn remote_problem(ctx: &Ctx, text: &str, rel: Option<(&str, &str)>) -> Option<Op
     })
 }
 
+/// F2 (`[check] remote_status`): a relation that names a remote document retired there.
+fn remote_status(ctx: &Ctx, d: &crate::model::Doc, line: usize, kind: &str, t: &str, out: &mut Vec<Finding>) {
+    if !ctx.corpus.cfg.raw.check.remote_status || kind == "supersedes" {
+        return;
+    }
+    let Some((status, by)) = crate::remotes::status(&ctx.corpus.cfg, t) else { return };
+    if !matches!(status.as_str(), "superseded" | "archived" | "rejected") {
+        return;
+    }
+    let next = match by {
+        Some(new) => format!("next: spec set {} rel.{kind}-={t} rel.{kind}+={new} --write", d.id),
+        None => format!("next: spec set {} rel.{kind}-={t} --write", d.id),
+    };
+    out.push(Finding::warn(
+        "L3",
+        &d.path,
+        line,
+        format!("rel.{kind} target {t} is {status} in its repository; {next}"),
+    ));
+}
+
 /// The types a relation may point at; `None` means any type, `Some(&[])` means the same type.
 fn allowed_targets(kind: &str) -> Option<&'static [&'static str]> {
     match kind {
@@ -327,7 +348,7 @@ impl Rule for RelationsResolve {
                                 .with_candidates(ids(ctx, &list)),
                         ),
                         _ => match remote_problem(ctx, &t, Some((&kind, &d.id.ty))) {
-                            Some(None) => {}
+                            Some(None) => remote_status(ctx, d, line, &kind, &t, out),
                             Some(Some(m)) => {
                                 out.push(Finding::error("L3", &d.path, line, format!("rel.{kind} target {t} {m}")))
                             }

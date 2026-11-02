@@ -23,6 +23,8 @@ Release notes for each version are also on
 - `spec check --commits <sha>...` checks each commit on its own (the files it changed, read as they are now) and counts per commit the new errors against those the baseline holds.
 - `[remotes.<name>] paths` lists more places a remote may be checked out; the first on disk wins. Governs into another project (`<remote>:<path>`, a submodule, or a remote checked out inside the repository) are external: P1 and L5 skip them, D1 still matches them.
 - `[spec] submodule_remotes = true` registers submodules that carry their own spec.toml as read-only remotes (`child:<id>`), and `spec context` shows the submodule's owner and documents for paths inside it. Off by default.
+- `spec show <id> --in <repo>` reads a document from another repository, read-only (same as `-C <repo>`); `<remote>:<id>` through [remotes] remains the prefix registry.
+- `[check] remote_status = true`: rule L3 warns when a relation names a remote document that is superseded, archived or rejected in its repository, and names the successor. Off by default.
 
 ### Changed
 

@@ -10,6 +10,10 @@ pub fn dispatch(cli: &Cli) -> Result<Output> {
     match &cli.cmd {
         Cmd::Context(a) => read::context::run(g, a),
         Cmd::Find(a) => read::find::run(g, a),
+        Cmd::Show(a) if a.in_repo.is_some() => {
+            let g = crate::cli::args::global::Global { dir: a.in_repo.clone(), ..g.clone() };
+            read::show::run(&g, a)
+        }
         Cmd::Show(a) => read::show::run(g, a),
         Cmd::Resolve(a) => read::resolve::run(g, a),
         Cmd::Graph(a) => read::graph::run(g, a),

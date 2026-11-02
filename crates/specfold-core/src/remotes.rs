@@ -170,6 +170,17 @@ pub fn rev(cfg: &Config, text: &str) -> Option<(String, String)> {
         _ => None,
     }
 }
+/// F2: the status of the remote document `<name>:<id>` and, when another document there
+/// supersedes it, that document's id (`<name>:<id>`).
+pub fn status(cfg: &Config, text: &str) -> Option<(String, Option<String>)> {
+    let (name, rest) = split(cfg, text)?;
+    let l = load(cfg, name)?;
+    let Resolution::Doc { idx, .. } = l.graph.resolve(rest) else { return None };
+    let me = l.corpus.docs[idx].id.to_string();
+    let by = l.corpus.docs.iter().find(|d| d.rel().get("supersedes").is_some_and(|v| v.contains(&me)));
+    Some((l.corpus.docs[idx].status().unwrap_or_default(), by.map(|d| format!("{name}:{}", d.id))))
+}
+
 /// A document in this repository or a remote that names another repository's document.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Consumer {

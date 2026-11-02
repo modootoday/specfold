@@ -225,3 +225,24 @@ fn a_submodule_with_its_own_spec_toml_is_a_read_only_remote_when_asked() {
     assert_eq!(code, 0, "{t}");
     assert!(t.contains("owner child:shop, read-only remote") && t.contains(&format!("child:{rule}")), "{t}");
 }
+
+#[test]
+fn another_repository_is_read_with_show_in_and_a_retired_remote_target_warns_when_asked() {
+    let shared = common::repo();
+    let old = shared.new_doc("guide", "services/shop", "Old setup");
+    let app = common::repo();
+    let dir = shared.path().to_string_lossy().to_string();
+    let (code, t) = app.text(&["show", &old, "--in", &dir]);
+    assert!(code == 0 && t.contains("Old setup"), "{t}");
+    app.write("spec.toml", &format!("{}[remotes.org]\npath = \"{dir}\"\n", app.read("spec.toml")));
+    let me = app.new_doc("guide", "services/shop", "Uses it");
+    assert_eq!(app.json(&["set", &me, &format!("rel.depends_on+=org:{old}"), "--write"]).0, 0);
+    let new = shared.new_doc("guide", "services/shop", "New setup");
+    assert_eq!(shared.json(&["set", &new, &format!("rel.supersedes+={old}"), "--write"]).0, 0);
+    assert_eq!(shared.json(&["set", &old, "status=superseded", "--write"]).0, 0, "{}", shared.json(&["show", &old]).1);
+    assert_eq!(app.json(&["check", "--rule", "L3"]).1["warnings"], 0, "off by default");
+    app.write("spec.toml", &format!("{}[check]\nremote_status = true\n", app.read("spec.toml")));
+    let (code, t) = app.text(&["check", "--rule", "L3"]);
+    assert_eq!(code, 0, "{t}");
+    assert!(t.contains("is superseded in its repository") && t.contains(&format!("rel.depends_on+=org:{new}")), "{t}");
+}
