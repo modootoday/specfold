@@ -94,3 +94,19 @@ fn a_moved_gitlink_asks_only_documents_governing_what_changed_inside() {
         "{t}"
     );
 }
+
+#[test]
+fn c260_a_root_commit_is_checked_against_the_empty_tree() {
+    let r = common::repo();
+    r.new_doc("sot", "services/shop", "Cart");
+    r.commit("first doc");
+    let out = std::process::Command::new("git")
+        .args(["rev-list", "--max-parents=0", "HEAD"])
+        .current_dir(r.path())
+        .output()
+        .unwrap();
+    let root = String::from_utf8(out.stdout).unwrap().trim().to_string();
+    let (code, v) = r.json(&["check", "--commits", &root]);
+    assert_eq!(code, 0, "a root commit has no parent but is still a commit: {v}");
+    assert_eq!(v["commits"][0]["errors"], 0, "{v}");
+}

@@ -17,6 +17,30 @@ pub fn resolve(root: &Path, rev: &str) -> Option<String> {
     if s.is_empty() { None } else { Some(s) }
 }
 
+/// The tree git diffs a root commit against.
+const EMPTY_TREE: &str = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
+
+/// What `sha` is diffed against: its first parent, or the empty tree for a root commit (C260).
+pub fn parent_or_empty(root: &Path, sha: &str) -> String {
+    match resolve(root, &format!("{sha}^")) {
+        Some(_) => format!("{sha}^"),
+        None => EMPTY_TREE.to_string(),
+    }
+}
+
+/// The diff range of one commit, `sha^..sha`, or from the empty tree for a root commit (C260).
+pub fn commit_diff(root: &Path, sha: &str) -> String {
+    format!("{}..{sha}", parent_or_empty(root, sha))
+}
+
+/// The log range of one commit: `sha^..sha`, or `sha` alone for a root commit (C260).
+pub fn commit_log(root: &Path, sha: &str) -> String {
+    match resolve(root, &format!("{sha}^")) {
+        Some(_) => format!("{sha}^..{sha}"),
+        None => sha.to_string(),
+    }
+}
+
 /// The upstream of the current branch, used as the default push range base.
 pub fn upstream(root: &Path) -> Option<String> {
     let out = git(root, &["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"])?;

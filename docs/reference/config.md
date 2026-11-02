@@ -71,7 +71,7 @@ always wins; without a mapping nothing changes.
 | `[[plugins]]` | external programs speaking `specfold.plugin.v1` |
 | `[translations]` | translations paired by place: `layout`, `languages`, `source_lang`, `strict` (rule R2) |
 | `[audit]` | thresholds for stale, stalled and draft documents; `coverage_types` lists types whose `{#ANCHOR}` headings must each be cited (`spec audit --kind coverage`) |
-| `[verify]` | deadline, parallel jobs and shell for `spec verify` |
+| `[verify]` | `timeout_ms` (deadline per command), `jobs`, `serial` (regexes for heavy commands run one at a time), `full_run_on` (paths whose change runs every command; a spec.toml edit that touches only `[remotes]`, `[prefix]` or `[check] baseline` does not count) and `shell` for `spec verify` |
 | `[cites]` | files outside documents whose citations rule L6 checks |
 | `[write]` | `max_files`: mv, fix, sync and import need `--yes` to write more files than this at once (default 50; 0 = no bound) |
 | `[mcp]` | `redact`: hide secrets in what `spec mcp` returns (on by default) |

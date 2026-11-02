@@ -53,6 +53,7 @@ spec.toml; `[check] remote_status = true` when you depend on documents in `[remo
 
 ### Fixed
 
+- `spec check --commits <sha>` on a repository's first commit checks it against the empty tree; it failed (exit 2, `cannot read commit`) because that commit has no parent (C260).
 - `spec edit` on a superseded document points at the document now in force (`spec edit <successor> …`, or `spec new <type> --from <successor> --write` when it is active) instead of a second `--from` of the old one (C246).
 - `spec guard --write-baseline --yes` prints `next: git add <the written baseline files>`, shell-quoted, instead of a `<baseline files>` placeholder (C247).
 - `spec guard --write-baseline --yes` with several guards measures them all before writing any baseline and does not count this run's own baseline files as uncommitted: it wrote the first and refused the second, leaving a partial write; `next` lists every written file (C254).
