@@ -66,6 +66,9 @@ impl GuardCache {
         let file = dir.map(|d| d.join(format!("guard-{}-{safe}.json", hex(&place[..8]))));
         let def = serde_json::to_string(g).unwrap_or_default();
         let key = hex(&Sha256::digest(format!("{def}\n{terms}").as_bytes()));
+        if let Some(f) = &file {
+            crate::config::cache_gc::touch(f);
+        }
         let stored = file
             .as_ref()
             .and_then(|f| std::fs::read(f).ok())

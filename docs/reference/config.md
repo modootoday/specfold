@@ -45,6 +45,10 @@ description: The spec.toml tables and what each one controls.
 | `[write]` | `max_files`: mv, fix, sync and import need `--yes` to write more files than this at once (default 50; 0 = no bound) |
 | `[mcp]` | `redact`: hide secrets in what `spec mcp` returns (on by default) |
 
+## Cache
+
+Scan, file-hash and guard results are cached per repository path outside the repository: `$SPECFOLD_CACHE`, else `$XDG_CACHE_HOME/specfold`, `%LOCALAPPDATA%\specfold`, `~/Library/Caches/specfold` or `~/.cache/specfold`. Losing it only costs one slower run. The directory stays bounded on its own: at most once an hour a run removes files unused for 30 days and then the least recently used ones while it holds more than 64 MB; deleting it by hand is always safe.
+
 ## Example
 
 ```toml

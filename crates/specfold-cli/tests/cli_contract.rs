@@ -1581,3 +1581,21 @@ fn c164_mv_to_the_same_place_is_no_change() {
     let (_, t) = r.text(&["mv", &d, "--slug", &slug, "--write"]);
     assert!(t.contains("no change") && !t.contains("undo:"), "{t}");
 }
+
+#[test]
+fn b4_cache_drops_files_unused_for_30_days() {
+    let r = common::repo();
+    let cache = r.path().join(".cache");
+    std::fs::create_dir_all(&cache).unwrap();
+    let old = std::time::SystemTime::now() - std::time::Duration::from_secs(31 * 24 * 3600);
+    for name in ["scan-0123456789abcdef.json", "guard-0123456789abcdef-x.json"] {
+        std::fs::write(cache.join(name), b"{}").unwrap();
+        std::fs::File::options().append(true).open(cache.join(name)).unwrap().set_modified(old).unwrap();
+    }
+    assert_eq!(r.text(&["check"]).0, 0);
+    assert!(!cache.join("scan-0123456789abcdef.json").exists());
+    assert!(!cache.join("guard-0123456789abcdef-x.json").exists());
+    let scans =
+        std::fs::read_dir(&cache).unwrap().flatten().filter(|e| e.file_name().to_string_lossy().starts_with("scan-"));
+    assert_eq!(scans.count(), 1, "this repository's own scan cache stays");
+}
