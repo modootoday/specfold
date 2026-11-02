@@ -96,5 +96,5 @@ fn release_notes_use_the_changelog_section_then_commit_subjects() {
     std::fs::copy(root.join("CHANGELOG.md"), t.path().join("CHANGELOG.md")).unwrap();
     assert!(!run_notes(t.path(), version).trim().is_empty(), "CHANGELOG has no ## {version} section");
     // No section for the version: the commit subjects since the previous tag.
-    assert_eq!(run_notes(t.path(), "0.5.0"), "- second change\n");
+    assert_eq!(run_notes(t.path(), "9.9.9"), "- second change\n");
 }
