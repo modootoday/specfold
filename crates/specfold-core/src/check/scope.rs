@@ -35,30 +35,37 @@ pub struct Scope {
     pub base: Option<String>,
     /// Paths the change deletes or renames away; they are not in `paths`.
     pub gone: BTreeSet<String>,
+    /// Moved gitlinks whose submodule objects are missing; they stand for the whole directory.
+    pub submodules_missing: Vec<String>,
 }
 
 impl Scope {
     pub fn build(c: &Corpus, g: &Graph, range: Range) -> Result<Self> {
         let root = &c.cfg.root;
-        let (mut paths, in_submodules, base): (BTreeSet<String>, BTreeSet<String>, _) = match &range {
-            Range::All => (BTreeSet::new(), BTreeSet::new(), None),
+        let (mut paths, sub, base): (BTreeSet<String>, vcs::Expansion, _) = match &range {
+            Range::All => (BTreeSet::new(), vcs::Expansion::default(), None),
             Range::Staged => {
                 let p = vcs::staged(root).ok_or_else(|| anyhow!("--staged needs a git repository"))?;
-                let sub = vcs::submodule_changes(root, vcs::Side::Staged);
-                (p.into_iter().collect(), sub.into_iter().collect(), Some("HEAD".to_string()))
+                let sub = vcs::expand_submodules(root, vcs::Side::Staged);
+                (p.into_iter().collect(), sub, Some("HEAD".to_string()))
             }
             Range::Changed(base) => {
                 let p = vcs::changed_since(root, base).ok_or_else(|| anyhow!("cannot diff against {base}"))?;
-                let sub = vcs::submodule_changes(root, vcs::Side::Since(base));
-                (p.into_iter().collect(), sub.into_iter().collect(), Some(base.clone()))
+                let sub = vcs::expand_submodules(root, vcs::Side::Since(base));
+                (p.into_iter().collect(), sub, Some(base.clone()))
             }
             Range::Commit(sha) => {
                 let r = format!("{sha}^..{sha}");
                 let p = vcs::changed_in_range(root, &r)
                     .ok_or_else(|| anyhow!("cannot read commit {sha}; next: git log --oneline"))?;
-                (p.into_iter().collect(), BTreeSet::new(), Some(format!("{sha}^")))
+                (p.into_iter().collect(), vcs::Expansion::default(), Some(format!("{sha}^")))
             }
         };
+        // C1: a moved pointer whose inside was read is not itself a change.
+        for g in &sub.expanded {
+            paths.remove(g);
+        }
+        let in_submodules: BTreeSet<String> = sub.files.into_iter().collect();
         paths.extend(in_submodules.iter().cloned());
         let gone: BTreeSet<String> = match &range {
             Range::All => BTreeSet::new(),
@@ -83,7 +90,7 @@ impl Scope {
                 with_neighbours.insert(e.from);
             }
         }
-        Ok(Scope { range, paths, in_submodules, touched, with_neighbours, base, gone })
+        Ok(Scope { range, paths, in_submodules, touched, with_neighbours, base, gone, submodules_missing: sub.missing })
     }
 
     pub fn is_all(&self) -> bool {

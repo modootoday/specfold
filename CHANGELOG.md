@@ -23,6 +23,10 @@ Release notes for each version are also on
 - `spec check --commits <sha>...` checks each commit on its own (the files it changed, read as they are now) and counts per commit the new errors against those the baseline holds.
 - `[remotes.<name>] paths` lists more places a remote may be checked out; the first on disk wins. Governs into another project (`<remote>:<path>`, a submodule, or a remote checked out inside the repository) are external: P1 and L5 skip them, D1 still matches them.
 
+### Changed
+
+- D1 reads a moved submodule pointer as the files changed inside it; the pointer path itself no longer counts as a change. When the submodule objects are missing, the whole directory counts and D1 warns: next: git submodule update.
+
 ### Fixed
 
 - `spec edit` on a superseded document points at the document now in force (`spec edit <successor> …`, or `spec new <type> --from <successor> --write` when it is active) instead of a second `--from` of the old one (C246).

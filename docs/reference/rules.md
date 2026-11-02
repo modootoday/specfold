@@ -97,6 +97,11 @@ the changed paths, including deleted files and the old paths of renames. Documen
 through their owner directory are not asked. To clear it, update the document (or its `verified_at`)
 or link a change note: `spec new change --title … --depends-on <id> --write` (several: `--depends-on a,b`, or `--depends-on-file ids.txt` with one id per line).
 
+A moved submodule pointer (gitlink) is read as the files that changed inside the submodule between
+the old and new commits, so a README-only bump does not ask a document that governs `vendor/src`.
+When the submodule is not checked out or lacks either commit, the pointer stands for the whole
+directory and D1 adds a warning: `submodule objects missing; … next: git submodule update`.
+
 An overview or census that governs a whole tree (`governs: [services]`) is asked about every file
 below it, beside the narrower document. `[check] d1 = "specific"` asks only the most specific
 documents governing each file; the default `"all"` keeps asking every one.
