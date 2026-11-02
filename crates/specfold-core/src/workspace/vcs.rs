@@ -14,7 +14,7 @@ pub use changes::{added_lines, changed_in_range, changed_since, gone, show, show
 pub use first_add::first_commit_stamp;
 pub use history::{CommitText, Revision, commits, commits_since, history, last_change};
 pub use passing::{Passing, passing, range_end};
-pub use refs::{head, is_ancestor_of_head, upstream};
+pub use refs::{head, is_ancestor_of_head, resolve, upstream};
 pub use repo::{git_root, is_repo};
 pub use submodules::{Side, submodule_changes};
 pub use tracked::{blob_id, committed, ignored, past_blobs, tracked};
