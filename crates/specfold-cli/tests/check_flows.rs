@@ -79,6 +79,25 @@ fn stale_path_cites_get_a_fix_and_mv_rewrites_them() {
 }
 
 #[test]
+fn c257_fix_l2_keeps_one_pair_of_brackets_and_the_label() {
+    let r = common::repo();
+    let sot = r.new_doc("sot", "services/shop", "Cart rules");
+    let adr = r.new_doc("adr", "services/shop", "Cart totals");
+    let (_, v) = r.json(&["show", &sot]);
+    let sot_path = v["path"].as_str().unwrap().to_string();
+    let (_, v) = r.json(&["show", &adr]);
+    let adr_path = v["path"].as_str().unwrap().to_string();
+    let text = r.read(&adr_path) + &format!("\nAlso [[{sot_path}]].\nAnd [[{sot_path}|one]].\n");
+    r.write(&adr_path, &text);
+    let (code, v) = r.json(&["fix", "--rule", "L2", "--write", "--yes"]);
+    assert_eq!(code, 0, "{v}");
+    let after = r.read(&adr_path);
+    assert!(after.contains(&format!("Also [[{sot}]].")), "{after}");
+    assert!(after.contains(&format!("And [[{sot}|one]].")), "{after}");
+    assert!(!after.contains("[[[["), "{after}");
+}
+
+#[test]
 fn check_new_lists_documents_not_in_the_last_commit() {
     let r = common::repo();
     let id = r.new_doc("adr", "services/shop", "Fresh idea");
