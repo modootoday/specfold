@@ -886,3 +886,31 @@ fn c248_first_local_doc_gets_an_rm_undo() {
     let undo = v["undo"].as_str().unwrap();
     assert!(undo.starts_with("rm -f -- "), "{v}");
 }
+
+/// E3: mv leaves documents it does not need to change byte for byte, and in a referring
+/// document changes only the reference, keeping quotes elsewhere.
+#[test]
+fn e3_mv_keeps_quotes_in_unrelated_and_referring_documents() {
+    let r = common::repo();
+    let sot = r.new_doc("sot", "services/shop", "Cart");
+    let blog = r.new_doc("sot", "services/blog", "Blog rules");
+    let plan = r.new_doc("plan", "services/shop", "Ship");
+    assert_eq!(r.json(&["set", &plan, &format!("rel.depends_on+={sot}"), "--write"]).0, 0);
+    let path = |id: &str| r.json(&["resolve", id]).1["path"].as_str().unwrap().to_string();
+    let quote = |p: &str| {
+        let t = r.read(p);
+        let t =
+            t.lines().map(|l| if l.starts_with("title: ") { format!("title: '{}'", &l[7..]) } else { l.to_string() });
+        r.write(p, &(t.collect::<Vec<_>>().join("\n") + "\n"));
+    };
+    let (bp, pp) = (path(&blog), path(&plan));
+    quote(&bp);
+    quote(&pp);
+    r.commit("quoted");
+    let before = (r.read(&bp), r.read(&pp));
+    let (code, v) = r.json(&["mv", &sot, "--slug", "basket", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(r.read(&bp), before.0, "unrelated document rewritten");
+    let new_id = v["to"].as_str().unwrap();
+    assert_eq!(r.read(&pp), before.1.replace(sot.as_str(), new_id), "referring document changed beyond the reference");
+}

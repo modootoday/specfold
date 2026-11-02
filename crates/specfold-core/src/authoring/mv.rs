@@ -92,7 +92,8 @@ pub fn plan(c: &Corpus, idx: usize, req: &Move) -> Result<(Moved, Plan)> {
             }
             let is_main = file == &other.path;
             if is_main {
-                body = edit::rewrite(&body, |m| {
+                // E3: only the fields that change are written; quoting elsewhere stays.
+                body = edit::rewrite_keeping(&body, &[(old_s.as_str(), new_s.as_str())], |m| {
                     refs::rewrite_rel(m, &old_s, &new_s);
                     if j == idx {
                         m.insert("id".into(), Value::String(new_s.clone()));

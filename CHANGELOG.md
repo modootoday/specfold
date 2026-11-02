@@ -23,6 +23,7 @@ Release notes for each version are also on
 - `spec fix --rule L2` rewrites a path written as a reference, `[[path]]` or `[[path|label]]`, to `[[id]]` or `[[id|label]]`; it wrote `[[[[id]]]]`. `spec mv` rewrites such cites the same way (C257).
 - A path that does not exist yet (`new --governs`, `context`) given from a subfolder resolves in that subfolder; it was taken from the repository root, so the document governed a path that did not exist. Paths outside the repository are still refused (C258).
 - `spec export markdown --out` refuses a symbolic link to a missing folder (exit 2, also in preview), naming the link and a `mkdir -p` for its target; the preview passed and the write failed with exit 3 without a path (C259).
+- `spec mv` writes only what changes: documents that need no rewrite are left byte for byte, and a referring document's frontmatter keeps its quoting and order, with only the reference renamed; it re-rendered every document's frontmatter and dropped quotes (E3).
 - The first `spec new --local --write` in a repository where `.spec.local/` was not yet ignored prints an `rm -f` undo; the `git stash` undo it printed did nothing once the exclude was written (C248).
 - `spec attach` with a store uploads every file before copying anything into the bundle, so a failed upload leaves the bundle and the document as they were (C249).
 
