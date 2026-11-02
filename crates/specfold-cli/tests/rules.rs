@@ -603,6 +603,20 @@ fn n3_full_run_on_skips_neutral_config_edits_and_says_why_it_ran_fully() {
     assert!(err.contains("full verify run: spec.toml changed and matches [verify] full_run_on"), "{err}");
 }
 
+/// B2: SPECFOLD_TRACE splits a check into scan, scope, per-rule, baseline and output timings.
+#[test]
+fn b2_trace_lists_phases_rules_baseline_and_output() {
+    let r = common::repo();
+    r.new_doc("sot", "services/shop/src", "Traced");
+    let o = r.spec().args(["check"]).env("SPECFOLD_TRACE", "1").output().unwrap();
+    let err = String::from_utf8_lossy(&o.stderr);
+    for want in ["specfold: scan", "specfold: scope", "specfold: rule L6", "specfold: baseline", "specfold: output"] {
+        assert!(err.contains(want), "{want} missing: {err}");
+    }
+    let quiet = r.spec().args(["check"]).env_remove("SPECFOLD_TRACE").output().unwrap();
+    assert!(!String::from_utf8_lossy(&quiet.stderr).contains("specfold: rule"));
+}
+
 #[test]
 fn c4_ranged_check_prints_the_base_and_head_it_compared() {
     let r = common::repo();

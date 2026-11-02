@@ -170,6 +170,7 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
     if a.write_baseline {
         return write_baseline(&s, a, &report.findings);
     }
+    let t = std::time::Instant::now();
     let base = if a.no_baseline { None } else { baseline::load(&s.corpus)? };
     let (list, known, lowerable) = match &base {
         Some(b) => {
@@ -178,6 +179,7 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
         }
         None => (report.findings, 0, 0),
     };
+    specfold_core::trace::phase("baseline", t);
     let list = if only.is_empty() { list } else { list.into_iter().filter(|f| only.contains(&f.path)).collect() };
     let (list, others) = super::owners::widen(&s, a, list, base.as_ref(), &opts)?;
     let (errors, warnings) = findings::counts(&list);

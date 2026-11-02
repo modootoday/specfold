@@ -80,6 +80,8 @@ always wins; without a mapping nothing changes.
 
 Scan, file-hash and guard results are cached per repository path outside the repository: `$SPECFOLD_CACHE`, else `$XDG_CACHE_HOME/specfold`, `%LOCALAPPDATA%\specfold`, `~/Library/Caches/specfold` or `~/.cache/specfold`. Losing it only costs one slower run. The directory stays bounded on its own: at most once an hour a run removes files unused for 30 days and then the least recently used ones while it holds more than 64 MB; deleting it by hand is always safe.
 
+To see where a slow run spends its time, set `SPECFOLD_TRACE=1`: stderr lists the scan phases, the graph, the scope, each rule (they run in parallel, so rule times overlap), baseline matching and output.
+
 ## Example
 
 ```toml

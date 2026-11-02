@@ -25,7 +25,9 @@ pub struct Report {
 }
 
 pub fn run(c: &Corpus, g: &Graph, range: Range, opts: &Options, sel: &Selection) -> Result<Report> {
+    let t = std::time::Instant::now();
     let scope = Scope::build(c, g, range)?;
+    let t = crate::trace::phase("scope", t);
     let ctx = Ctx { corpus: c, graph: g, scope: &scope, opts };
     let staged = matches!(scope.range, Range::Staged);
     let rules: Vec<_> = catalog()
@@ -41,7 +43,9 @@ pub fn run(c: &Corpus, g: &Graph, range: Range, opts: &Options, sel: &Selection)
         .par_iter()
         .flat_map(|r| {
             let mut out = vec![];
+            let t = std::time::Instant::now();
             r.run(&ctx, &mut out);
+            crate::trace::rule(r.info().id, t);
             out
         })
         .collect();
@@ -50,7 +54,9 @@ pub fn run(c: &Corpus, g: &Graph, range: Range, opts: &Options, sel: &Selection)
         let loaded = plugins::load(&c.cfg);
         plugins::rules::run(&ctx, &loaded, &mut findings);
     }
+    let t = crate::trace::phase("rules", t);
     let mut findings = super::severity::apply(c, findings);
+    crate::trace::phase("severity", t);
     // A secret comes first among findings of its level: it is what to fix before anything else,
     // and an attachment that changed because of it (E1) should not be re-attached first.
     let secret = |f: &Finding| f.rule == "U2" || (f.rule == "U1" && f.message.starts_with("[secrets]"));

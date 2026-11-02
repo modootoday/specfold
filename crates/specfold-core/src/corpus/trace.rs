@@ -8,6 +8,13 @@ fn enabled() -> bool {
     *ON.get_or_init(|| std::env::var_os("SPECFOLD_TRACE").is_some())
 }
 
+/// Prints how long one rule took (rules run in parallel, so these overlap).
+pub fn rule(id: &str, start: Instant) {
+    if enabled() {
+        eprintln!("specfold: rule {id:<7} {:>7.1} ms", start.elapsed().as_secs_f64() * 1000.0);
+    }
+}
+
 /// Prints how long a phase took since `start` and returns a new start.
 pub fn phase(name: &str, start: Instant) -> Instant {
     if enabled() {
