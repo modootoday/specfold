@@ -21,6 +21,7 @@ Release notes for each version are also on
 - The editing guide puts a table in `Steps` before its `spec edit --row` example, which failed (exit 2, no table) on the template plan the guide creates, and runs the whole-body replacement last (C255).
 - `spec explain S1` says how to convert a file that is not UTF-8 (`iconv -f <encoding> -t UTF-8 <file>`), as the non-UTF-8 export refusal and the export guide promise (C256).
 - `spec fix --rule L2` rewrites a path written as a reference, `[[path]]` or `[[path|label]]`, to `[[id]]` or `[[id|label]]`; it wrote `[[[[id]]]]`. `spec mv` rewrites such cites the same way (C257).
+- A path that does not exist yet (`new --governs`, `context`) given from a subfolder resolves in that subfolder; it was taken from the repository root, so the document governed a path that did not exist. Paths outside the repository are still refused (C258).
 - The first `spec new --local --write` in a repository where `.spec.local/` was not yet ignored prints an `rm -f` undo; the `git stash` undo it printed did nothing once the exclude was written (C248).
 - `spec attach` with a store uploads every file before copying anything into the bundle, so a failed upload leaves the bundle and the document as they were (C249).
 

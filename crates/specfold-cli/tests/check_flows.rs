@@ -98,6 +98,28 @@ fn c257_fix_l2_keeps_one_pair_of_brackets_and_the_label() {
 }
 
 #[test]
+fn c258_a_missing_path_from_a_subfolder_resolves_in_that_subfolder() {
+    let r = common::repo();
+    let sub = r.path().join("services/shop/src");
+    let run = |args: &[&str]| {
+        let out = r.spec().current_dir(&sub).args(args).arg("--json").output().unwrap();
+        (out.status.code().unwrap_or(-1), serde_json::from_slice::<serde_json::Value>(&out.stdout).unwrap())
+    };
+    let (code, v) = run(&["new", "sot", "--governs", "cart/new.rs", "--title", "New file", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    let (_, s) = r.json(&["show", v["id"].as_str().unwrap()]);
+    assert!(s.to_string().contains("services/shop/src/cart/new.rs"), "{s}");
+    let (code, v) = run(&["new", "sot", "--governs", "newdir/deeper/x.rs", "--title", "Deeper", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    let (_, s) = r.json(&["show", v["id"].as_str().unwrap()]);
+    assert!(s.to_string().contains("services/shop/src/newdir/deeper/x.rs"), "{s}");
+    for outside in ["../../../../nowhere/x.rs", "/nowhere-c258/x.rs"] {
+        let (code, v) = run(&["new", "sot", "--governs", outside, "--title", "Out", "--write"]);
+        assert_eq!(code, 2, "{outside}: {v}");
+    }
+}
+
+#[test]
 fn check_new_lists_documents_not_in_the_last_commit() {
     let r = common::repo();
     let id = r.new_doc("adr", "services/shop", "Fresh idea");
