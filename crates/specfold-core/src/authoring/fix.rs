@@ -25,7 +25,8 @@ fn replace_on_line(text: &str, line: usize, from: &str, to: &str) -> Option<Stri
     if !l.contains(from) {
         return None;
     }
-    *l = l.replacen(from, to, 1);
+    // C261: findings on one line are one finding, so every occurrence is fixed at once.
+    *l = l.replace(from, to);
     Some(lines.concat())
 }
 
