@@ -31,7 +31,7 @@ Release notes for each version are also on
 The user cache directory (`~/.cache/specfold`, `$SPECFOLD_CACHE`) no longer grows without bound: a file is touched when read, and at most once an hour a run removes files unused for 30 days, temporary files a crashed run left, and then the least recently used ones while the directory holds more than 64 MB (B4).
 `spec guard --range <r> --net` judges a range by its net change: a version one commit writes and a later commit in the range takes back is skipped (it still enters history, so the default stays per commit). A gitlink (submodule pointer) a range moves is no longer read as file content (F3).
 `spec new --depends-on` takes a comma list (`--depends-on a,b`), and `--depends-on-file <path>` reads the ids one per line (blank lines and `#` comments skipped, `-` for stdin); duplicates collapse (E6).
-`spec check <folder>` reports the documents under that folder, and a folder with none is refused with a next step instead of reading as an empty, passing check (B2).
+`spec check <folder>` reports the documents under that folder, and a folder with none is refused with a next step instead of reading as an empty, passing check; `spec fix <folder>` follows (B2).
 - The first `spec new --local --write` in a repository where `.spec.local/` was not yet ignored prints an `rm -f` undo; the `git stash` undo it printed did nothing once the exclude was written (C248).
 - `spec attach` with a store uploads every file before copying anything into the bundle, so a failed upload leaves the bundle and the document as they were (C249).
 
