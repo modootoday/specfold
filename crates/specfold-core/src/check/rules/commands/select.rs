@@ -25,7 +25,9 @@ pub fn selected(ctx: &Ctx) -> Vec<usize> {
         return all();
     }
     let full: Vec<_> = ctx.corpus.cfg.raw.verify.full_run_on.iter().filter_map(|p| matcher(p)).collect();
-    if ctx.scope.paths.iter().any(|p| full.iter().any(|m| m.is_match(p))) {
+    let hit = ctx.scope.paths.iter().find(|p| full.iter().any(|m| m.is_match(p)) && !neutral_config_edit(ctx, p));
+    if let Some(p) = hit {
+        say_full_run(ctx, p);
         return all();
     }
     let mut out: Vec<usize> =
@@ -45,4 +47,44 @@ pub fn selected(ctx: &Ctx) -> Vec<usize> {
     out.sort();
     out.dedup();
     out
+}
+
+/// Keys of spec.toml that never change which commands run or what they report (N3).
+const NEUTRAL: &[&[&str]] = &[&["remotes"], &["prefix"], &["check", "baseline"]];
+
+/// Whether `path` is the configuration file and its edit touches only neutral keys.
+fn neutral_config_edit(ctx: &Ctx, path: &str) -> bool {
+    if path != "spec.toml" {
+        return false;
+    }
+    let parse = |t: Option<String>| t.and_then(|t| t.parse::<toml::Table>().ok()).map(strip);
+    match (parse(ctx.previous(path)), parse(ctx.current(path))) {
+        (Some(a), Some(b)) => a == b,
+        _ => false,
+    }
+}
+
+fn strip(mut t: toml::Table) -> toml::Table {
+    for keys in NEUTRAL {
+        match keys {
+            [k] => {
+                t.remove(*k);
+            }
+            [s, k] => {
+                if let Some(toml::Value::Table(sub)) = t.get_mut(*s) {
+                    sub.remove(*k);
+                }
+            }
+            _ => {}
+        }
+    }
+    t
+}
+
+/// One line on stderr saying why every verify command runs, printed once per process.
+fn say_full_run(ctx: &Ctx, path: &str) {
+    static ONCE: std::sync::Once = std::sync::Once::new();
+    if ctx.opts.run_commands {
+        ONCE.call_once(|| eprintln!("spec: full verify run: {path} changed and matches [verify] full_run_on"));
+    }
 }

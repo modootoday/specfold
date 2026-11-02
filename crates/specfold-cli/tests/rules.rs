@@ -579,6 +579,30 @@ fn n2_staged_deletion_reports_links_left_pointing_at_the_deleted_document() {
     assert!(!items.iter().any(|i| i["path"] == o.as_str()), "an unrelated old dangling link stays out of scope: {v}");
 }
 
+/// N3: a spec.toml edit to keys that cannot change results does not trigger full_run_on; any other edit does, and says why.
+#[cfg(unix)]
+#[test]
+fn n3_full_run_on_skips_neutral_config_edits_and_says_why_it_ran_fully() {
+    let r = common::repo();
+    let base = r.read("spec.toml") + "[verify]\nfull_run_on = [\"spec.toml\"]\n";
+    r.write("spec.toml", &base);
+    let id = r.new_doc("sot", "services/blog/src", "Always fails");
+    edit(&r, &id, "status: draft", "status: active\nverify:\n  - \"false\"");
+    r.commit("rule");
+    let run = || {
+        let o = r.spec().args(["verify", "--changed", "HEAD", "--json"]).output().unwrap();
+        (o.status.code().unwrap_or(-1), String::from_utf8_lossy(&o.stderr).to_string())
+    };
+    r.write("spec.toml", &format!("{base}[remotes]\n"));
+    let (code, err) = run();
+    assert_eq!(code, 0, "a [remotes]-only edit runs nothing: {err}");
+    assert!(!err.contains("full verify run"), "{err}");
+    r.write("spec.toml", &base.replace("[verify]\n", "[verify]\ntimeout_ms = 60000\n"));
+    let (code, err) = run();
+    assert_eq!(code, 1, "{err}");
+    assert!(err.contains("full verify run: spec.toml changed and matches [verify] full_run_on"), "{err}");
+}
+
 #[test]
 fn c4_ranged_check_prints_the_base_and_head_it_compared() {
     let r = common::repo();
