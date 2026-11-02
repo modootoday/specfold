@@ -253,6 +253,32 @@ const BUILTIN: [Spec<'static>; 11] = [
     },
 ];
 
+/// E4: a type's statuses with where each may move, e.g. `draft -> active, archived`, initial first.
+pub fn status_lines(t: &TypeDef) -> Vec<String> {
+    let mut order: Vec<&String> = t.statuses.iter().filter(|s| **s == t.initial).collect();
+    order.extend(t.statuses.iter().filter(|s| **s != t.initial));
+    order
+        .into_iter()
+        .map(|from| {
+            let to: Vec<&str> =
+                t.statuses.iter().filter(|s| *s != from && t.transition_allowed(from, s)).map(|s| s.as_str()).collect();
+            if to.is_empty() { format!("{from} (final)") } else { format!("{from} -> {}", to.join(", ")) }
+        })
+        .collect()
+}
+
+/// E4: built-in types grouped by their status list, one line each, for `spec set --help`.
+pub fn builtin_status_help() -> String {
+    let mut groups: Vec<(Vec<String>, Vec<String>)> = vec![];
+    for t in builtin() {
+        match groups.iter_mut().find(|(st, _)| *st == t.statuses) {
+            Some((_, names)) => names.push(t.name.clone()),
+            None => groups.push((t.statuses.clone(), vec![t.name.clone()])),
+        }
+    }
+    groups.iter().map(|(st, names)| format!("  {}: {}", names.join(", "), st.join(", "))).collect::<Vec<_>>().join("\n")
+}
+
 pub fn builtin() -> Vec<TypeDef> {
     BUILTIN.into_iter().map(TypeDef::from).collect()
 }

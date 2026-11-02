@@ -26,6 +26,7 @@ Release notes for each version are also on
 - `spec export markdown --out` refuses a symbolic link to a missing folder (exit 2, also in preview), naming the link and a `mkdir -p` for its target; the preview passed and the write failed with exit 3 without a path (C259).
 - `spec mv` writes only what changes: documents that need no rewrite are left byte for byte, and a referring document's frontmatter keeps its quoting and order, with only the reference renamed; it re-rendered every document's frontmatter and dropped quotes (E3).
 - `spec mv` moves the document's `[check] baseline` entries to its new path (a bundle's too), so its known errors stay held; they showed up as new. The `--write-baseline` next after fixed errors is marked optional, as it only lowers the baseline (D2).
+`spec set --help` lists the status values of each built-in type, and `spec schema <type>` prints a `statuses:` line (JSON `status_moves`) with the statuses each one may move to (E4).
 - The first `spec new --local --write` in a repository where `.spec.local/` was not yet ignored prints an `rm -f` undo; the `git stash` undo it printed did nothing once the exclude was written (C248).
 - `spec attach` with a store uploads every file before copying anything into the bundle, so a failed upload leaves the bundle and the document as they were (C249).
 

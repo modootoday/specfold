@@ -56,7 +56,7 @@ pub struct NewArgs {
 
 #[derive(Debug, Clone, Args)]
 #[command(
-    after_help = "Examples:\n  spec set adr:shop/20260101000000 status=active --write\n  spec set plan:shop/20260101000000 phase=P3 rel.implements+=sot:shop/cart --write\n  spec set sot:shop/cart tags-=draft --write\n  spec set sot:shop/cart rel.affects= --write   # delete a key\n  spec set sot:shop/cart verified_at=HEAD --write   # pin: audit flags any later commit to the governed code\n  spec set guide:docs/ko-setup --source-rev --write   # after re-translating: record the source it now matches"
+    after_help = set_help()
 )]
 pub struct SetArgs {
     /// An id, alias, path, or unique slug.
@@ -310,4 +310,14 @@ impl NewArgs {
     pub fn title(&self) -> &str {
         self.title.as_deref().or(self.title_text.as_deref()).unwrap_or_default()
     }
+}
+
+/// E4: `spec set --help` lists the status values of the built-in types and where to see a
+/// project's own.
+fn set_help() -> String {
+    format!(
+        "{}\n\nStatus values (built-in types; `spec schema <type>` shows each move and a project's own types):\n{}",
+        "Examples:\n  spec set adr:shop/20260101000000 status=active --write\n  spec set plan:shop/20260101000000 phase=P3 rel.implements+=sot:shop/cart --write\n  spec set sot:shop/cart tags-=draft --write\n  spec set sot:shop/cart rel.affects= --write   # delete a key\n  spec set sot:shop/cart verified_at=HEAD --write   # pin: audit flags any later commit to the governed code\n  spec set guide:docs/ko-setup --source-rev --write   # after re-translating: record the source it now matches",
+        specfold_core::model::doctype::builtin_status_help()
+    )
 }

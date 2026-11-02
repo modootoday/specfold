@@ -84,6 +84,8 @@ pub fn run(g: &Global, a: &SchemaArgs) -> Result<Output> {
                         .map(|m| m.keys().cloned().collect::<Vec<_>>().join(", "))
                         .unwrap_or_default()
                 ))
+                .field("status_moves", specfold_core::model::doctype::status_lines(t))
+                .foot(format!("statuses: {}", specfold_core::model::doctype::status_lines(t).join("; ")))
                 .foot("translations: lang: ko, rel.translation_of: [<source id>], source_rev: sha256:<12 hex>")
                 .next(format!("spec new {} --title '…' --write", t.name)))
         }
