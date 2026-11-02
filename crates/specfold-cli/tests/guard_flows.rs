@@ -109,3 +109,39 @@ fn c254_two_guard_baselines_are_written_together() {
     // A rerun with both files still uncommitted is not refused.
     assert_eq!(r.json(&["guard", "--write-baseline", "--yes"]).0, 0);
 }
+
+/// F3: `--net` judges a range by what its end holds; a gitlink pointer is never read as content.
+#[test]
+fn f3_guard_net_range_and_gitlinks() {
+    let r = common::repo();
+    let toml = r.read("spec.toml") + "[[guards]]\nname = \"pub\"\ndeny_terms = [\"acme-internal\"]\n";
+    r.write("spec.toml", &toml);
+    r.commit("guard");
+    r.git(&["checkout", "-q", "-b", "feat"]);
+    r.write("notes.md", "plain\nacme-internal plans\n");
+    r.commit("notes");
+    r.write("notes.md", "plain\n");
+    r.commit("clean up");
+    assert_eq!(r.json(&["guard", "pub", "--range", "main..feat"]).0, 1, "per commit, the version is pushed");
+    let (code, v) = r.json(&["guard", "pub", "--range", "main..feat", "--net"]);
+    assert_eq!(code, 0, "net over the range nothing changed: {v}");
+    r.write("notes.md", "plain\nacme-internal again\n");
+    r.commit("again");
+    assert_eq!(r.json(&["guard", "pub", "--range", "main..feat", "--net"]).0, 1, "the end holds it");
+
+    // A gitlink pointing at a commit whose text holds the term, then moved away.
+    let rev = |x: &str| {
+        let o = std::process::Command::new("git").arg("-C").arg(r.path()).args(["rev-parse", x]).output().unwrap();
+        String::from_utf8_lossy(&o.stdout).trim().to_string()
+    };
+    r.git(&["checkout", "-q", "main"]);
+    r.git(&["commit", "-q", "--allow-empty", "-m", "acme-internal message"]);
+    let (inner, base) = (rev("HEAD"), rev("HEAD"));
+    r.git(&["update-index", "--add", "--cacheinfo", &format!("160000,{inner},vendor/lib")]);
+    r.git(&["commit", "-qm", "pin"]);
+    let first = rev("HEAD~3");
+    r.git(&["update-index", "--cacheinfo", &format!("160000,{first},vendor/lib")]);
+    r.git(&["commit", "-qm", "repin"]);
+    let (code, v) = r.json(&["guard", "pub", "--range", &format!("{base}..HEAD")]);
+    assert_eq!(code, 0, "a gitlink pointer is not file content: {v}");
+}

@@ -29,6 +29,7 @@ Release notes for each version are also on
 `spec set --help` lists the status values of each built-in type, and `spec schema <type>` prints a `statuses:` line (JSON `status_moves`) with the statuses each one may move to (E4).
 `spec check --changed <base>` and `--staged` print the base..head they compared with the resolved commits and a `rerun:` command, and JSON gains `range` (`base`, `base_commit`, `head`, `head_commit`), so a CI gate can be reproduced locally (C4).
 The user cache directory (`~/.cache/specfold`, `$SPECFOLD_CACHE`) no longer grows without bound: a file is touched when read, and at most once an hour a run removes files unused for 30 days, temporary files a crashed run left, and then the least recently used ones while the directory holds more than 64 MB (B4).
+`spec guard --range <r> --net` judges a range by its net change: a version one commit writes and a later commit in the range takes back is skipped (it still enters history, so the default stays per commit). A gitlink (submodule pointer) a range moves is no longer read as file content (F3).
 - The first `spec new --local --write` in a repository where `.spec.local/` was not yet ignored prints an `rm -f` undo; the `git stash` undo it printed did nothing once the exclude was written (C248).
 - `spec attach` with a store uploads every file before copying anything into the bundle, so a failed upload leaves the bundle and the document as they were (C249).
 

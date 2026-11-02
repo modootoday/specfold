@@ -83,7 +83,7 @@ pub struct VerifyArgs {
 
 #[derive(Debug, Clone, Args)]
 #[command(
-    after_help = "Examples:\n  spec guard                       # every guard, each with its own range\n  spec guard public-surface --range origin/main..HEAD\n  spec guard --staged"
+    after_help = "Examples:\n  spec guard                       # every guard, each with its own range\n  spec guard public-surface --range origin/main..HEAD\n  spec guard public-surface --range origin/main..HEAD --net   # only what the range's end holds\n  spec guard --staged"
 )]
 pub struct GuardArgs {
     /// Guards to run; all when empty.
@@ -94,6 +94,9 @@ pub struct GuardArgs {
     /// A git range, or `push` for upstream..HEAD.
     #[arg(long)]
     pub range: Option<String>,
+    /// With --range: judge the range by its net change, skipping versions a later commit in it takes back (they still enter history).
+    #[arg(long, requires = "range")]
+    pub net: bool,
     /// Scan the whole working tree (old name: --all).
     #[arg(long = "tree", alias = "all")]
     pub tree: bool,

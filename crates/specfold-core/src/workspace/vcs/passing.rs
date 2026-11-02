@@ -40,6 +40,11 @@ fn written(root: &Path, range: &str) -> Vec<(String, String, String)> {
     for line in String::from_utf8_lossy(&out).lines() {
         if let Some(raw) = line.strip_prefix(':') {
             let Some((meta, path)) = raw.split_once('\t') else { continue };
+            // F3: a gitlink (mode 160000) names a submodule commit, not file content; the
+            // submodule's own history is its own repository's to guard.
+            if meta.split_whitespace().nth(1) == Some("160000") {
+                continue;
+            }
             if let Some(blob) = meta.split_whitespace().nth(3) {
                 rows.push((commit.clone(), path.to_string(), blob.to_string()));
             }

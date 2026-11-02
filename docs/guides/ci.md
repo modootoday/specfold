@@ -26,7 +26,7 @@ $ spec guard --range origin/main..HEAD
 
 `spec guard --range A..B` reads the files as they are at `B` (HEAD when `B` is left out), not
 as they are checked out, and also reads every version a commit inside the range wrote: a value
-one commit adds and a later one removes is still pushed, so it still fails the guard.
+one commit adds and a later one removes is still pushed, so it still fails the guard. `--net` judges the range by its end instead, for a branch whose history is squashed or rewritten before it leaves; a gitlink (submodule pointer) is never read as content, the submodule's own guard covers it.
 
 `spec check` exits 1 on errors, so any CI system can gate on it. `--summary` gives findings per
 rule, and `--json` gives one object for tooling.
