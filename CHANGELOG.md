@@ -7,16 +7,14 @@ Release notes for each version are also on
 
 ### Upgrade notes (draft)
 
-Nothing changes until you set a new key; every addition below is opt-in. Recommended after upgrading:
-
-```toml
-[check]
-d1 = "specific"   # D1 asks only the most specific document governing a changed file
-```
-
-Also worth a look: `spec hook install` (preview) then `--write` for a pre-push gate on
-`spec check --owners --changed`; `[spec] submodule_remotes = true` when submodules carry their own
-spec.toml; `[check] remote_status = true` when you depend on documents in `[remotes]`.
+- Nothing changes until you set a new key; every addition below is opt-in. Recommended after upgrading:
+- ```toml
+- [check]
+- d1 = "specific"   # D1 asks only the most specific document governing a changed file
+- ```
+- Also worth a look: `spec hook install` (preview) then `--write` for a pre-push gate on
+- `spec check --owners --changed`; `[spec] submodule_remotes = true` when submodules carry their own
+- spec.toml; `[check] remote_status = true` when you depend on documents in `[remotes]`.
 
 ### Behavior changes
 
@@ -43,6 +41,7 @@ spec.toml; `[check] remote_status = true` when you depend on documents in `[remo
 ### Changed
 
 - D1 reads a moved submodule pointer as the files changed inside it; the pointer path itself no longer counts as a change. When the submodule objects are missing, the whole directory counts and D1 warns: next: git submodule update.
+- N1: `spec mv` to another owner keeps the document's baseline entries held under the new path (regression test).
 
 ### Fixed
 
