@@ -267,7 +267,7 @@ pub fn status_lines(t: &TypeDef) -> Vec<String> {
         .collect()
 }
 
-/// E4: built-in types grouped by their status list, one line each, for `spec set --help`.
+/// E4: built-in types grouped by their status list, one line each, for the help of the set command.
 pub fn builtin_status_help() -> String {
     let mut groups: Vec<(Vec<String>, Vec<String>)> = vec![];
     for t in builtin() {
