@@ -963,3 +963,22 @@ fn e4_set_help_and_schema_list_the_status_values() {
     let (_, j) = r.json(&["schema", "adr"]);
     assert_eq!(j["status_moves"][0], "draft -> active, rejected", "{j}");
 }
+
+#[test]
+fn e6_depends_on_takes_a_comma_list_and_a_file() {
+    let r = common::repo();
+    let a = r.new_doc("sot", "services/shop", "Cart");
+    let b = r.new_doc("sot", "services/blog", "Posts");
+    let (code, v) = r.json(&["new", "change", "--title", "Both", "--depends-on", &format!("{a},{b}"), "--write"]);
+    assert_eq!(code, 0, "{v}");
+    let text = r.read(v["path"].as_str().unwrap());
+    assert!(text.contains(&a) && text.contains(&b), "{text}");
+    r.write("deps.txt", &format!("# what this note updates\n{a}\n\n{b}  # blog\n{a}\n"));
+    let (code, v) = r.json(&["new", "change", "--title", "From file", "--depends-on-file", "deps.txt", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    let text = r.read(v["path"].as_str().unwrap());
+    assert!(text.contains(&a) && text.contains(&b), "{text}");
+    assert_eq!(text.matches(&a).count(), 1, "duplicates collapse: {text}");
+    let (code, v) = r.json(&["new", "change", "--title", "Missing", "--depends-on-file", "nope.txt", "--write"]);
+    assert_ne!(code, 0, "{v}");
+}

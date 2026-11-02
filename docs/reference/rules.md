@@ -95,7 +95,7 @@ against the explicit `rel.governs` of active, committed documents; a document wh
 must change in the same range, or be named by a `change` note that does. Otherwise D1 warns with
 the changed paths, including deleted files and the old paths of renames. Documents that govern only
 through their owner directory are not asked. To clear it, update the document (or its `verified_at`)
-or link a change note: `spec new change --title … --depends-on <id> --write`.
+or link a change note: `spec new change --title … --depends-on <id> --write` (several: `--depends-on a,b`, or `--depends-on-file ids.txt` with one id per line).
 
 ## Visibility
 

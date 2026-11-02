@@ -37,6 +37,9 @@ fn rerun(a: &NewArgs) -> String {
             cmd.push_str(&format!(" {}", opt(flag, v)));
         }
     }
+    if let Some(p) = &a.depends_on_file {
+        cmd.push_str(&format!(" {}", opt("--depends-on-file", p)));
+    }
     for (flag, on) in [(" --local", a.local), (" --bundle", a.bundle)] {
         if on {
             cmd.push_str(flag);
@@ -74,7 +77,7 @@ fn create(g: &Global, a: &NewArgs) -> Result<Output> {
         bundle: a.bundle,
         key: None,
         body: None,
-        depends_on: a.depends_on.clone(),
+        depends_on: depends_on(a)?,
     };
     let (mut created, mut plan) = new::plan(&s.corpus, &s.graph, &req)?;
     // C206: a timestamp id is reserved with create-new before the write; a clash with a run in
@@ -293,4 +296,23 @@ fn declare_path(kind: AssetKind, path: &str) -> String {
         p = p.rsplit_once('/').map_or("", |(d, _)| d);
     }
     p.to_string()
+}
+
+/// E6: `--depends-on` values (comma lists already split) and the ids `--depends-on-file` lists.
+fn depends_on(a: &NewArgs) -> Result<Vec<String>> {
+    let mut ids: Vec<String> = a.depends_on.iter().map(|v| v.trim().to_string()).filter(|v| !v.is_empty()).collect();
+    if let Some(p) = &a.depends_on_file {
+        let text = if p == "-" {
+            std::io::read_to_string(std::io::stdin())?
+        } else {
+            std::fs::read_to_string(p).map_err(|e| {
+                anyhow::anyhow!("cannot read --depends-on-file {p}: {e}; next: list one id per line in that file")
+            })?
+        };
+        let lines = text.lines().map(|l| l.split('#').next().unwrap_or("")).flat_map(|l| l.split(','));
+        ids.extend(lines.map(str::trim).filter(|l| !l.is_empty()).map(str::to_string));
+    }
+    let mut seen = std::collections::HashSet::new();
+    ids.retain(|i| seen.insert(i.clone()));
+    Ok(ids)
 }

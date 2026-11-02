@@ -20,9 +20,12 @@ pub struct NewArgs {
     /// Code this document rules; decides where it is stored.
     #[arg(long)]
     pub governs: Vec<String>,
-    /// A document this one depends on (rel.depends_on), e.g. what a change note updates. Repeatable.
-    #[arg(long, value_name = "ID")]
+    /// A document this one depends on (rel.depends_on), e.g. what a change note updates. Repeatable, or a comma list.
+    #[arg(long, value_name = "ID", value_delimiter = ',')]
     pub depends_on: Vec<String>,
+    /// Read --depends-on ids from a file, one per line (blank lines and `#` comments skipped; `-` reads stdin).
+    #[arg(long, value_name = "PATH")]
+    pub depends_on_file: Option<String>,
     /// Store with this owner instead of the computed one.
     #[arg(long)]
     pub owner: Option<String>,
