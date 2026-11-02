@@ -559,6 +559,26 @@ fn n1_baseline_follows_mv_to_another_owner() {
     assert!(v["by_rule"].get("L1").is_none(), "the moved L1 finding stays held: {v}");
 }
 
+/// N2: a staged change that only deletes documents still reports links left pointing at them.
+#[test]
+fn n2_staged_deletion_reports_links_left_pointing_at_the_deleted_document() {
+    let r = common::repo();
+    let gone = r.new_doc("sot", "services/shop/src", "Gone rule");
+    let keep = r.new_doc("sot", "services/shop/src/cart", "Kept rule");
+    let other = r.new_doc("sot", "services/shop/src/cart/total.rs", "Unrelated rule");
+    let k = path_of(&r, &keep);
+    r.write(&k, &(r.read(&k) + &format!("\nSee [[{gone}]].\n")));
+    let o = path_of(&r, &other);
+    r.write(&o, &(r.read(&o) + "\nSee [[sot:shop/never-existed]].\n"));
+    r.commit("docs");
+    r.git(&["rm", "-q", &path_of(&r, &gone)]);
+    let (code, v) = r.json(&["check", "--staged"]);
+    assert_eq!(code, 1, "{v}");
+    let items = v["items"].as_array().cloned().unwrap_or_default();
+    assert!(items.iter().any(|i| i["rule"] == "L1" && i["path"] == k.as_str()), "{v}");
+    assert!(!items.iter().any(|i| i["path"] == o.as_str()), "an unrelated old dangling link stays out of scope: {v}");
+}
+
 #[test]
 fn c4_ranged_check_prints_the_base_and_head_it_compared() {
     let r = common::repo();
