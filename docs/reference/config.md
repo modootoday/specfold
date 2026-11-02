@@ -13,12 +13,18 @@ description: The spec.toml tables and what each one controls.
 
 | table | controls |
 | --- | --- |
-| `[spec]` | format version and the document directory name (`.spec`) |
+| `[spec]` | format version, the document directory name (`.spec`), and `submodule_remotes` |
 | `[owners]` | the root owner, owner patterns, manifests and retired directories |
 | `[public]` | published paths that hold no documents, and where their documents go |
 | `[local]` | the git-ignored directory for drafts and private notes |
 | `[external.<name>]` | directories outside the repository whose citations are checked |
 | `[remotes.<name>]` | other repositories on disk whose documents are named `<name>:<id>`, read-only |
+
+`[spec] submodule_remotes = true` registers each `.gitmodules` submodule that has its own
+`spec.toml` as a read-only remote named after its last path segment (`vendor/child` → `child:<id>`).
+An explicit `[remotes.<name>]` of the same name wins. `spec context` on a path inside such a
+submodule shows that project's owner and documents; write them from inside the submodule. Off by
+default, so nothing changes until it is set.
 
 ## Documents
 

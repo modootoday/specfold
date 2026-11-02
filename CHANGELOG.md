@@ -22,6 +22,7 @@ Release notes for each version are also on
 - `spec hook install` previews, and with `--write` writes, the git pre-push hook; an existing hook of another tool is refused (exit 4). `spec check --owners` (with `--changed`/`--staged`) fails only on errors of the owners the change touches and reports other owners' errors (owner, path, submodule) in `other_owners` without failing.
 - `spec check --commits <sha>...` checks each commit on its own (the files it changed, read as they are now) and counts per commit the new errors against those the baseline holds.
 - `[remotes.<name>] paths` lists more places a remote may be checked out; the first on disk wins. Governs into another project (`<remote>:<path>`, a submodule, or a remote checked out inside the repository) are external: P1 and L5 skip them, D1 still matches them.
+- `[spec] submodule_remotes = true` registers submodules that carry their own spec.toml as read-only remotes (`child:<id>`), and `spec context` shows the submodule's owner and documents for paths inside it. Off by default.
 
 ### Changed
 

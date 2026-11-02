@@ -86,6 +86,15 @@ pub fn is_external(cfg: &Config, governs: &str) -> bool {
     inner_projects(cfg).iter().any(|p| under(p))
 }
 
+/// A1: the auto-registered submodule remote whose directory holds `rel`, and the path inside it.
+pub fn submodule_at(cfg: &Config, rel: &str) -> Option<(String, String)> {
+    cfg.raw.remotes.iter().filter(|(_, r)| r.auto).find_map(|(name, r)| {
+        let p = r.path.trim_end_matches('/');
+        let inner = if rel == p { "" } else { rel.strip_prefix(p)?.strip_prefix('/')? };
+        Some((name.clone(), inner.to_string()))
+    })
+}
+
 /// Submodule paths and remotes checked out inside this repository, once per root.
 fn inner_projects(cfg: &Config) -> Vec<String> {
     static C: OnceLock<Mutex<HashMap<PathBuf, Vec<String>>>> = OnceLock::new();
@@ -233,13 +242,14 @@ mod tests {
         let mut raw = RawConfig::default();
         raw.remotes.insert(
             "org".into(),
-            crate::config::types::RemoteRoot { path: shared.to_string_lossy().into(), paths: vec![] },
+            crate::config::types::RemoteRoot { path: shared.to_string_lossy().into(), paths: vec![], auto: false },
         );
         raw.remotes.insert(
             "gone".into(),
             crate::config::types::RemoteRoot {
                 path: "/nonexistent/x".into(),
                 paths: vec![shared.to_string_lossy().into()],
+                auto: false,
             },
         );
         let cfg = Config::from_raw(tmp.path().join("app"), raw, false);
