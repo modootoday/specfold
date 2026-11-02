@@ -275,11 +275,7 @@ fn asset(s: &session::Session, a: &NewArgs, kind: AssetKind) -> Result<Output> {
         ));
     }
     if !a.write {
-        return Ok(o
-            .field("text", text)
-            .field("written", false)
-            .foot("preview only; nothing was written")
-            .next(rerun(a)));
+        return Ok(o.field("text", text).foot("preview only; nothing was written").next(rerun(a)).preview());
     }
     if let Some(dir) = full.parent() {
         std::fs::create_dir_all(dir).with_context(|| format!("cannot create {}", dir.display()))?;

@@ -52,7 +52,7 @@ pub struct NewArgs {
     /// Preview what would be created (the default without --write).
     #[arg(long)]
     pub dry_run: bool,
-    /// Write the document (otherwise a preview).
+    /// Write the document (otherwise a preview that ends with NOT WRITTEN and exits 0).
     #[arg(long, conflicts_with = "dry_run")]
     pub write: bool,
 }
@@ -79,7 +79,7 @@ pub struct SetArgs {
     /// Preview the change (the default without --write).
     #[arg(long)]
     pub dry_run: bool,
-    /// Write the change (otherwise a preview).
+    /// Write the change (otherwise a preview that ends with NOT WRITTEN and exits 0).
     #[arg(long, conflicts_with = "dry_run")]
     pub write: bool,
     /// Archive a plan although some of its tasks are still open.

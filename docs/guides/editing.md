@@ -8,7 +8,8 @@ redirect_from: [/editing/]
 
 > [!TIP]
 > Every write command, `new` and `set` included, previews until `--write` (`--dry-run` previews
-> too); the preview ends with the same command and `--write`. Sealed and closed documents are
+> too); the preview ends with the same command and `--write`, then a `NOT WRITTEN` line (JSON
+> `written: false`, `preview: true`; exit 0). Sealed and closed documents are
 > refused.
 
 ## Create

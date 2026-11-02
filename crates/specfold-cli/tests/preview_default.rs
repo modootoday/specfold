@@ -192,3 +192,24 @@ fn a_superseded_document_gets_one_successor_and_points_to_it() {
     let (code, c) = r.json(&["check"]);
     assert_eq!(code, 0, "one successor each: {c}");
 }
+
+/// E1: a preview stays exit 0, but its last text line says NOT WRITTEN and JSON says preview.
+#[test]
+fn previews_end_with_not_written_and_writes_do_not() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart rules");
+    for a in
+        [vec!["new", "sot", "--governs", "services/blog", "--title", "Blog"], vec!["set", id.as_str(), "tags+=money"]]
+    {
+        let out = r.spec().args(&a).output().unwrap();
+        assert_eq!(out.status.code(), Some(0));
+        let t = String::from_utf8_lossy(&out.stdout);
+        assert!(t.trim_end().lines().last().unwrap_or("").starts_with("NOT WRITTEN"), "{t}");
+        let (code, v) = r.json(&a);
+        assert_eq!(code, 0);
+        assert_eq!((&v["written"], &v["preview"]), (&Value::Bool(false), &Value::Bool(true)), "{v}");
+    }
+    let out = r.spec().args(["set", id.as_str(), "tags+=money", "--write"]).output().unwrap();
+    let t = String::from_utf8_lossy(&out.stdout);
+    assert!(!t.contains("NOT WRITTEN"), "{t}");
+}

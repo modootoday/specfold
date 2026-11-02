@@ -11,8 +11,12 @@ Release notes for each version are also on
 - `spec export markdown` refuses (exit 2, also with `--dry-run` and `--yes`, nothing written) when `--out` already holds a file at a path it would write that no earlier export listed, naming it under `not_exported`: such a file was overwritten without notice (C251).
 - `spec export` refuses (exit 3, nothing written) when an exported document's file is not UTF-8 text, naming the file; it was exported with an empty body (C252).
 - A failing store command (`[files.store] kind = "command"`) exits 3 (environment) instead of 2; with nothing on stderr the message names the command and its exit status (C250).
-
 - A write's `undo` no longer uses `git stash`, which every worktree of a repository shares: files the write created are removed with `rm -rf --` and tracked files come back with `git restore --`; uncommitted edits are still copied back from `.specfold/trash` (E2).
+
+### Added
+
+- A preview from `spec new` or `spec set` without `--write` ends its text with a `NOT WRITTEN: …` line after `next:`, and JSON gains `preview: true` beside `written: false`, so a reader of the last line cannot take it for a write; the exit code stays 0 (E1).
+
 ### Fixed
 
 - `spec edit` on a superseded document points at the document now in force (`spec edit <successor> …`, or `spec new <type> --from <successor> --write` when it is active) instead of a second `--from` of the old one (C246).
@@ -26,12 +30,12 @@ Release notes for each version are also on
 - `spec export markdown --out` refuses a symbolic link to a missing folder (exit 2, also in preview), naming the link and a `mkdir -p` for its target; the preview passed and the write failed with exit 3 without a path (C259).
 - `spec mv` writes only what changes: documents that need no rewrite are left byte for byte, and a referring document's frontmatter keeps its quoting and order, with only the reference renamed; it re-rendered every document's frontmatter and dropped quotes (E3).
 - `spec mv` moves the document's `[check] baseline` entries to its new path (a bundle's too), so its known errors stay held; they showed up as new. The `--write-baseline` next after fixed errors is marked optional, as it only lowers the baseline (D2).
-`spec set --help` lists the status values of each built-in type, and `spec schema <type>` prints a `statuses:` line (JSON `status_moves`) with the statuses each one may move to (E4).
-`spec check --changed <base>` and `--staged` print the base..head they compared with the resolved commits and a `rerun:` command, and JSON gains `range` (`base`, `base_commit`, `head`, `head_commit`), so a CI gate can be reproduced locally (C4).
-The user cache directory (`~/.cache/specfold`, `$SPECFOLD_CACHE`) no longer grows without bound: a file is touched when read, and at most once an hour a run removes files unused for 30 days, temporary files a crashed run left, and then the least recently used ones while the directory holds more than 64 MB (B4).
-`spec guard --range <r> --net` judges a range by its net change: a version one commit writes and a later commit in the range takes back is skipped (it still enters history, so the default stays per commit). A gitlink (submodule pointer) a range moves is no longer read as file content (F3).
-`spec new --depends-on` takes a comma list (`--depends-on a,b`), and `--depends-on-file <path>` reads the ids one per line (blank lines and `#` comments skipped, `-` for stdin); duplicates collapse (E6).
-`spec check <folder>` reports the documents under that folder, and a folder with none is refused with a next step instead of reading as an empty, passing check; `spec fix <folder>` follows (B2).
+- `spec set --help` lists the status values of each built-in type, and `spec schema <type>` prints a `statuses:` line (JSON `status_moves`) with the statuses each one may move to (E4).
+- `spec check --changed <base>` and `--staged` print the base..head they compared with the resolved commits and a `rerun:` command, and JSON gains `range` (`base`, `base_commit`, `head`, `head_commit`), so a CI gate can be reproduced locally (C4).
+- The user cache directory (`~/.cache/specfold`, `$SPECFOLD_CACHE`) no longer grows without bound: a file is touched when read, and at most once an hour a run removes files unused for 30 days, temporary files a crashed run left, and then the least recently used ones while the directory holds more than 64 MB (B4).
+- `spec guard --range <r> --net` judges a range by its net change: a version one commit writes and a later commit in the range takes back is skipped (it still enters history, so the default stays per commit). A gitlink (submodule pointer) a range moves is no longer read as file content (F3).
+- `spec new --depends-on` takes a comma list (`--depends-on a,b`), and `--depends-on-file <path>` reads the ids one per line (blank lines and `#` comments skipped, `-` for stdin); duplicates collapse (E6).
+- `spec check <folder>` reports the documents under that folder, and a folder with none is refused with a next step instead of reading as an empty, passing check; `spec fix <folder>` follows (B2).
 - The first `spec new --local --write` in a repository where `.spec.local/` was not yet ignored prints an `rm -f` undo; the `git stash` undo it printed did nothing once the exclude was written (C248).
 - `spec attach` with a store uploads every file before copying anything into the bundle, so a failed upload leaves the bundle and the document as they were (C249).
 
