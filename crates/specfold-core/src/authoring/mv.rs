@@ -117,6 +117,14 @@ pub fn plan(c: &Corpus, idx: usize, req: &Move) -> Result<(Moved, Plan)> {
             }
         }
     }
+    // D2: baseline entries follow the moved file or bundle, so its known errors stay held.
+    let (from_path, to_path) = match &d.dir {
+        Some(bundle) => (bundle.clone(), new_main.rsplit_once('/').map(|x| x.0.to_string()).unwrap_or_default()),
+        None => (d.path.clone(), new_main.clone()),
+    };
+    if let Some((rel, text)) = crate::check::baseline::follow_move(c, &from_path, &to_path)? {
+        plan.write(rel, text, false);
+    }
     if let Some(file) = &c.aliases.file
         && let Ok(text) = std::fs::read_to_string(c.cfg.root.join(file))
     {

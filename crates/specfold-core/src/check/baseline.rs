@@ -124,6 +124,35 @@ pub fn load(c: &Corpus) -> Result<Option<Baseline>> {
     }
 }
 
+/// D2: the check baseline with every key on `old` (a file, or a bundle folder and what is under
+/// it) moved to `new`, rendered as written; None when there is no baseline or nothing to move.
+pub fn follow_move(c: &Corpus, old: &str, new: &str) -> Result<Option<(String, String)>> {
+    let (Some(rel), Some(mut b)) = (c.cfg.raw.check.baseline.clone(), load(c)?) else { return Ok(None) };
+    let mut moved = false;
+    b.counts = std::mem::take(&mut b.counts).into_iter().fold(BTreeMap::new(), |mut acc, (k, n)| {
+        let k = match k.split_once('\t') {
+            Some((rule, path)) => match moved_path(path, old, new) {
+                Some(p) => {
+                    moved = true;
+                    format!("{rule}\t{p}")
+                }
+                None => k,
+            },
+            None => k,
+        };
+        *acc.entry(k).or_default() += n;
+        acc
+    });
+    Ok(moved.then(|| serde_json::to_string_pretty(&b).map(|t| (rel, t + "\n"))).transpose()?)
+}
+
+fn moved_path(path: &str, old: &str, new: &str) -> Option<String> {
+    if path == old {
+        return Some(new.to_string());
+    }
+    path.strip_prefix(old).filter(|r| r.starts_with('/')).map(|r| format!("{new}{r}"))
+}
+
 pub fn hold(c: &Corpus, b: &Baseline, findings: Vec<Finding>) -> Held {
     hold_with(b, findings, &matchers(&c.cfg.raw.check.strict))
 }
@@ -154,5 +183,8 @@ mod tests {
         write_file(tmp.path(), "spec-baseline.json", &b).unwrap();
         let loaded = load_file(tmp.path(), "spec-baseline.json").unwrap().unwrap();
         assert_eq!(loaded.counts["L1\ta.md"], 2);
+        assert_eq!(moved_path("a/b.md", "a/b.md", "c/d.md").as_deref(), Some("c/d.md"));
+        assert_eq!(moved_path("a/b/x.md", "a/b", "c/d").as_deref(), Some("c/d/x.md"));
+        assert_eq!(moved_path("a/bc.md", "a/b", "c/d"), None);
     }
 }
