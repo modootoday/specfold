@@ -37,6 +37,9 @@ impl HashCache {
         let key = Sha256::digest(root.to_string_lossy().as_bytes());
         let name: String = key[..8].iter().map(|b| format!("{b:02x}")).collect();
         let file = dir.map(|d| d.join(format!("hashes-{name}.json")));
+        if let Some(f) = &file {
+            crate::config::cache_gc::touch(f);
+        }
         let stored = file
             .as_ref()
             .and_then(|f| std::fs::read(f).ok())

@@ -1,5 +1,6 @@
 //! Project configuration (spec.toml).
 
+pub mod cache_gc;
 pub mod defaults;
 pub mod paths;
 pub mod reader;

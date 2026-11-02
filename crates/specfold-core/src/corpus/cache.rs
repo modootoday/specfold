@@ -49,6 +49,12 @@ impl ScanCache {
             let key = Sha256::digest(cfg.root.to_string_lossy().as_bytes());
             d.join(format!("scan-{}.json", super::scan::hex(&key[..8])))
         });
+        if let Some(f) = &file
+            && let Some(d) = f.parent()
+        {
+            crate::config::cache_gc::prune(d);
+            crate::config::cache_gc::touch(f);
+        }
         let stored = file
             .as_ref()
             .and_then(|f| std::fs::read(f).ok())
