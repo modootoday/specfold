@@ -386,6 +386,9 @@ impl Rule for GovernsExists {
                 continue;
             }
             for g in d.rel().remove("governs").unwrap_or_default() {
+                if crate::remotes::is_external(&ctx.corpus.cfg, &g) {
+                    continue;
+                }
                 let base = g.split(['*', '?', '[', '{']).next().unwrap_or("").trim_end_matches('/');
                 let base = if g.contains(['*', '?', '[', '{']) {
                     base.rsplit_once('/').map(|x| x.0).unwrap_or(base)

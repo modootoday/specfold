@@ -78,6 +78,7 @@ languages = ["ko", "ja"]
 
 [remotes.org]
 path = "../shared-decisions"   # [[org:adr:root/20261030000000]] names a document there
+paths = ["vendor/shared"]      # also tried, in order, when path is not on disk
 
 [files]
 inline_max_bytes = 1048576     # larger attachments go to the store
@@ -86,3 +87,7 @@ inline_max_bytes = 1048576     # larger attachments go to the store
 kind = "dir"                   # or "command" with put/get/exists, e.g.
 path = "~/specfold-store"      # put = ["rclone", "copyto", "{src}", "remote:bucket/{key}"]
 ```
+
+A `rel.governs` entry that belongs to another project (written `<remote>:<path>`, or under a
+submodule or a remote checked out inside this repository) is external: P1 and L5 leave it out,
+and a document governing only such paths stays where it is. D1 still matches changes under it.
