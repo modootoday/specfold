@@ -27,6 +27,7 @@ pub fn dispatch(cli: &Cli) -> Result<Output> {
         Cmd::Attach(a) => files::attach::run(g, a),
         Cmd::Fetch(a) => files::fetch::run(g, a),
         Cmd::Files(a) => files::list::run(g, a),
+        Cmd::Check(a) if !a.commits.is_empty() => verify::commits::run(g, a),
         Cmd::Check(a) => verify::check::run(g, a),
         Cmd::Verify(a) => verify::verify::run(g, a),
         Cmd::Guard(a) => verify::guard::run(g, a),

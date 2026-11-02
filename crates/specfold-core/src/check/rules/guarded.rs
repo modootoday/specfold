@@ -26,6 +26,7 @@ impl Rule for GuardsPass {
             Range::All => GuardRange::All,
             Range::Staged => GuardRange::Staged,
             Range::Changed(base) => GuardRange::Push(Some(format!("{base}..HEAD"))),
+            Range::Commit(sha) => GuardRange::Push(Some(format!("{sha}^..{sha}"))),
         };
         match guards::run(&ctx.corpus.cfg, &[], Some(&range)) {
             Ok(f) => out.extend(f),

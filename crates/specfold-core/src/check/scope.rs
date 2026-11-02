@@ -15,6 +15,8 @@ pub enum Range {
     Staged,
     /// Working tree and untracked files against a base revision (pre-push).
     Changed(String),
+    /// What one commit changed (`<sha>^..<sha>`), judged on the files as they are now (C3).
+    Commit(String),
 }
 
 #[derive(Debug, Clone)]
@@ -50,12 +52,21 @@ impl Scope {
                 let sub = vcs::submodule_changes(root, vcs::Side::Since(base));
                 (p.into_iter().collect(), sub.into_iter().collect(), Some(base.clone()))
             }
+            Range::Commit(sha) => {
+                let r = format!("{sha}^..{sha}");
+                let p = vcs::changed_in_range(root, &r)
+                    .ok_or_else(|| anyhow!("cannot read commit {sha}; next: git log --oneline"))?;
+                (p.into_iter().collect(), BTreeSet::new(), Some(format!("{sha}^")))
+            }
         };
         paths.extend(in_submodules.iter().cloned());
         let gone: BTreeSet<String> = match &range {
             Range::All => BTreeSet::new(),
             Range::Staged => vcs::gone(root, None).unwrap_or_default().into_iter().collect(),
             Range::Changed(base) => vcs::gone(root, Some(base)).unwrap_or_default().into_iter().collect(),
+            Range::Commit(sha) => {
+                vcs::gone(root, Some(&format!("{sha}^..{sha}"))).unwrap_or_default().into_iter().collect()
+            }
         };
         let mut touched = BTreeSet::new();
         if !matches!(range, Range::All) {
