@@ -9,6 +9,12 @@ Release notes for each version are also on
 
 - Since 0.5.0, P1 leaves governs inside another project (a submodule, a remote checked out in the repository, or `<remote>:<path>`) out of the owner decision. A document governing such a path beside its own code, for example `apps/billing` and the submodule `packages/commerce`, now belongs to the narrower owner (`billing`, not the root) and P1 reports it where 0.4.0 did not. Fix: `spec mv <id> --write` moves it to that owner and its `[check] baseline` entries follow. `spec explain P1` says so. 0.5.0 listed this only under Added.
 
+### Changed
+
+- L6 reads cited files in parallel and, for whole-tree runs, reuses each unchanged file's references from the cache (B2). A file is read again whenever it changed or a path in it may now name a document, so a cached run reports what an uncached one would.
+- `SPECFOLD_TRACE` splits L6 into listing, reads (disk, index or cache, with bytes and time), remote corpus loads and matching, X1 into selection, commands and the slowest commands, and times the other-owners pass of `spec check`.
+- Documented that `[check] baseline` is one file per spec.toml, shared by every owner in it (N1).
+
 ### Fixed
 
 - `spec mv <id> --write` (P1's fix) and `spec new` decide the owner the way P1 does, leaving governs inside another project out; `mv` reported success and moved nothing, so P1 stayed, and `new` placed such a document where P1 then failed it (C263).

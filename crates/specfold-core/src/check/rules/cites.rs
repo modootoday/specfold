@@ -2,17 +2,19 @@
 //! files) still resolve. Old paths keep spreading through text agents read, so a moved or
 //! retired target is reported where it is cited, not only inside documents.
 
+use super::cites_scan::{self, Patterns, Source};
 use crate::check::context::Ctx;
 use crate::check::finding::Finding;
 use crate::check::rule::{Rule, RuleInfo};
 use crate::check::scope::Range;
+use crate::corpus::trace;
 use crate::graph::Resolution;
 use crate::markdown::body::{path_cite_re, wiki_re};
 use crate::workspace::owners::{PathMatch, matcher};
 use crate::workspace::vcs;
 use ignore::WalkBuilder;
 use regex::Regex;
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::OnceLock;
 
 pub struct CitesOutside;
@@ -147,32 +149,36 @@ impl Rule for CitesOutside {
         };
         let history: Vec<Regex> = cfg.history.iter().filter_map(|r| Regex::new(r).ok()).collect();
         let spec_paths = path_cite_re(ctx.corpus.cfg.spec_dir());
+        let start = std::time::Instant::now();
+        let list = targets(ctx, &files);
+        if trace::enabled() {
+            eprintln!("specfold:   L6 list      {:>7.1} ms, {} files", ms(start), list.len());
+        }
+        let pats = Patterns { wiki: wiki_re(), spec_paths: &spec_paths, token: path_token_re(), history: &history };
+        let known = |t: &str| ctx.graph.by_path.contains_key(t) || ctx.graph.by_alias.contains_key(t);
+        let names: HashSet<u64> =
+            ctx.graph.by_path.keys().chain(ctx.graph.by_alias.keys()).map(|k| cites_scan::token_hash(k)).collect();
+        let src = match ctx.scope.range {
+            Range::Staged => Source::Staged(&ctx.scope.in_submodules),
+            _ => Source::Disk,
+        };
+        let extracts = cites_scan::run(&ctx.corpus.cfg, &list, src, &pats, &known, &names);
+        let start = std::time::Instant::now();
         let mut memo = Memo::new();
-        for (path, only) in targets(ctx, &files) {
-            let Some(text) = ctx.current(&path) else { continue };
-            for (n, line) in text.lines().enumerate() {
-                let no = n + 1;
-                if only.as_ref().is_some_and(|set| !set.contains(&no)) || history.iter().any(|h| h.is_match(line)) {
-                    continue;
-                }
-                let mut seen = BTreeSet::new();
-                for c in wiki_re().captures_iter(line) {
-                    let target = c[1].trim().to_string();
-                    seen.insert(target.clone());
-                    out.extend(judge(ctx, &mut memo, (&path, no), &c[0], &target, false));
-                }
-                let tokens = spec_paths.find_iter(line).chain(path_token_re().find_iter(line));
-                for m in tokens {
-                    let t = m.as_str().trim_end_matches(['.', ',', ':', ';']);
-                    if !seen.insert(t.to_string()) {
-                        continue;
-                    }
-                    let known = ctx.graph.by_path.contains_key(t) || ctx.graph.by_alias.contains_key(t);
-                    if known {
-                        out.extend(judge(ctx, &mut memo, (&path, no), t, t, true));
-                    }
-                }
+        for ((path, _), ex) in list.iter().zip(extracts) {
+            for (no, written, target) in &ex.wiki {
+                out.extend(judge(ctx, &mut memo, (path, *no), written, target, false));
+            }
+            for (no, t) in ex.tokens.iter().filter(|(_, t)| known(t)) {
+                out.extend(judge(ctx, &mut memo, (path, *no), t, t, true));
             }
         }
+        if trace::enabled() {
+            eprintln!("specfold:   L6 judge     {:>7.1} ms, {} remote targets", ms(start), memo.len());
+        }
     }
+}
+
+fn ms(start: std::time::Instant) -> f64 {
+    start.elapsed().as_secs_f64() * 1000.0
 }
