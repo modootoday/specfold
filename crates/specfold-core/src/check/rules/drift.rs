@@ -28,6 +28,16 @@ impl Rule for GovernedCodeDrift {
         if ctx.scope.is_all() {
             return;
         }
+        for g in &ctx.scope.submodules_missing {
+            out.push(Finding::warn(
+                "D1",
+                g,
+                1,
+                format!(
+                    "{g}: submodule objects missing; the whole directory counts as changed; next: git submodule update"
+                ),
+            ));
+        }
         let c = ctx.corpus;
         let own: BTreeSet<&String> =
             c.docs.iter().flat_map(|d| std::iter::once(&d.path).chain(&d.chapters).chain(&d.bundle_files)).collect();

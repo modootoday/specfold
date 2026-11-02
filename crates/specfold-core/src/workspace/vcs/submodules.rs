@@ -18,14 +18,30 @@ const ZERO: &str = "0000000000000000000000000000000000000000";
 /// Repository-relative paths changed inside submodules whose gitlink this change adds or moves.
 /// A submodule that is not checked out, or that lacks either commit, adds nothing.
 pub fn submodule_changes(root: &Path, side: Side) -> Vec<String> {
+    expand(root, side).files
+}
+
+/// C1: what the moved gitlinks of a change stand for.
+#[derive(Debug, Default)]
+pub struct Expansion {
+    /// Repository-relative files changed inside the submodules.
+    pub files: Vec<String>,
+    /// Gitlinks whose old..new was read, so the pointer itself need not count as a change.
+    pub expanded: Vec<String>,
+    /// Gitlinks whose checkout or commits are missing; the pointer stands for the whole directory.
+    pub missing: Vec<String>,
+}
+
+/// Every moved gitlink of a change, expanded into the files changed inside it where possible.
+pub fn expand(root: &Path, side: Side) -> Expansion {
     let mut args = vec!["diff", "--raw", "-z", "--no-abbrev", "--diff-filter=AM"];
     match side {
         Side::Staged => args.push("--cached"),
         Side::Since(base) => args.push(base),
     }
-    let Some(out) = git(root, &args) else { return vec![] };
+    let Some(out) = git(root, &args) else { return Expansion::default() };
     let fields = split_nul(out);
-    let mut files = vec![];
+    let mut e = Expansion::default();
     for pair in fields.chunks(2) {
         let [meta, path] = pair else { continue };
         let parts: Vec<&str> = meta.trim_start_matches(':').split(' ').collect();
@@ -34,22 +50,26 @@ pub fn submodule_changes(root: &Path, side: Side) -> Vec<String> {
             continue;
         }
         let sub = root.join(path);
-        if !sub.join(".git").exists() {
-            continue;
+        let inner = if sub.join(".git").exists() { inner_changes(&sub, old_mode, old, new) } else { None };
+        match inner {
+            Some(files) => {
+                e.files.extend(files.into_iter().map(|f| format!("{path}/{f}")));
+                e.expanded.push(path.clone());
+            }
+            None => e.missing.push(path.clone()),
         }
-        files.extend(inner_changes(&sub, old_mode, old, new).into_iter().map(|f| format!("{path}/{f}")));
     }
-    files.sort();
-    files.dedup();
-    files
+    e.files.sort();
+    e.files.dedup();
+    e
 }
 
 /// Files changed inside one submodule between the recorded commit and the new one; a working-tree
 /// side has no recorded commit, so the checkout's HEAD stands for it.
-fn inner_changes(sub: &Path, old_mode: &str, old: &str, new: &str) -> Vec<String> {
+fn inner_changes(sub: &Path, old_mode: &str, old: &str, new: &str) -> Option<Vec<String>> {
     let head;
     let new = if new == ZERO {
-        let Some(out) = git(sub, &["rev-parse", "HEAD"]) else { return vec![] };
+        let out = git(sub, &["rev-parse", "HEAD"])?;
         head = String::from_utf8_lossy(&out).trim().to_string();
         head.as_str()
     } else {
@@ -60,7 +80,7 @@ fn inner_changes(sub: &Path, old_mode: &str, old: &str, new: &str) -> Vec<String
     } else {
         git(sub, &["diff", "--name-only", "-z", "--diff-filter=ACMR", old, new])
     };
-    listed.map(split_nul).unwrap_or_default()
+    listed.map(split_nul)
 }
 
 /// Repository-relative paths of every gitlink (submodule) the index records.
@@ -113,6 +133,10 @@ mod tests {
         run(&outer, &["add", "libs/lib"]);
         assert_eq!(submodule_changes(&outer, Side::Staged), vec!["libs/lib/.spec/adr/new.md".to_string()]);
         assert_eq!(submodule_changes(&outer, Side::Since("HEAD")), vec!["libs/lib/.spec/adr/new.md".to_string()]);
+        assert_eq!(expand(&outer, Side::Staged).expanded, vec!["libs/lib".to_string()]);
+        std::fs::remove_file(sub.join(".git")).unwrap();
+        let e = expand(&outer, Side::Staged);
+        assert_eq!((e.files.len(), e.missing), (0, vec!["libs/lib".to_string()]));
     }
 
     #[test]

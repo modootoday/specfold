@@ -67,3 +67,30 @@ fn commits_are_checked_one_by_one() {
     let (code, _) = r.json(&["check", "--commits", "nope"]);
     assert_ne!(code, 0);
 }
+
+#[test]
+fn a_moved_gitlink_asks_only_documents_governing_what_changed_inside() {
+    let lib = common::repo();
+    lib.write("src/a.rs", "fn a() {}\n");
+    lib.commit("lib");
+    let r = common::repo();
+    let url = lib.path().to_str().unwrap();
+    r.git(&["-c", "protocol.file.allow=always", "submodule", "add", "-q", url, "services/shop/vendor"]);
+    let id = r.new_doc("sot", "services/shop", "Vendor code");
+    assert_eq!(r.json(&["set", &id, "rel.governs+=services/shop/vendor/src", "--write"]).0, 0);
+    r.commit("pin vendor");
+    let sub = r.path().join("services/shop/vendor");
+    std::fs::write(sub.join("README.md"), "readme\n").unwrap();
+    for args in [vec!["add", "README.md"], vec!["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "r"]] {
+        assert!(std::process::Command::new("git").args(&args).current_dir(&sub).status().unwrap().success());
+    }
+    let (_, v) = r.json(&["check", "--changed", "HEAD", "--rule", "D1"]);
+    assert_eq!(v["warnings"], 0, "a README change inside the submodule asks nothing: {v}");
+    r.git(&["add", "services/shop/vendor"]);
+    std::fs::remove_file(sub.join(".git")).unwrap();
+    let (_, t) = r.text(&["check", "--staged", "--rule", "D1"]);
+    assert!(
+        t.contains("submodule objects missing; the whole directory counts as changed; next: git submodule update"),
+        "{t}"
+    );
+}
