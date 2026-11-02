@@ -304,7 +304,7 @@ fn cli5_writes_list_changes_and_an_undo() {
     let (r, _, adr) = populated();
     let (code, v) = r.json(&["edit", &adr, "--section", "Decision", "--text", "Use cards.", "--write"]);
     assert_eq!(code, 0, "{v}");
-    assert!(v["undo"].as_str().unwrap().starts_with("git stash push --include-untracked -- "), "{v}");
+    assert!(v["undo"].as_str().unwrap().starts_with("git restore -- "), "{v}");
     let (_, text) = r.text(&["edit", &adr, "--section", "Decision", "--text", "Use cash.", "--write"]);
     // C183: the first write left the file with uncommitted edits, so the undo copies it back.
     assert!(text.contains("undo: cp -Rp .specfold/trash/"), "{text}");
@@ -666,7 +666,7 @@ fn c121_import_write_lists_files_and_an_undo_that_works() {
     let changes = v["changes"].to_string();
     assert!(changes.contains(".spec/_aliases.tsv") && changes.contains("adr"), "{v}");
     let undo = v["undo"].as_str().unwrap().to_string();
-    assert!(undo.starts_with("git stash push"), "{undo}");
+    assert!(undo.starts_with("rm -rf -- ") && !undo.contains("stash"), "{undo}");
     let ok = std::process::Command::new("sh").args(["-c", &undo]).current_dir(r.path()).status().unwrap();
     assert!(ok.success(), "{undo}");
     let o = std::process::Command::new("git").args(["status", "--porcelain"]).current_dir(r.path()).output().unwrap();
@@ -726,7 +726,7 @@ fn c123_import_undo_restores_committed_and_uncommitted_sources() {
     r2.write("docs/adr/0003-untracked.md", loose);
     let (_, t) = r2.text(&["import", "--map", "import.toml", "--apply", "--write"]);
     let line = t.lines().find_map(|l| l.trim().strip_prefix("undo: ")).unwrap_or_default();
-    assert!(line.contains(".specfold/trash/") && line.contains("git stash push"), "{t}");
+    assert!(line.contains(".specfold/trash/") && !line.contains("stash"), "{t}");
 }
 
 fn find_file(dir: &std::path::Path, name: &str) -> Option<std::path::PathBuf> {
@@ -1551,7 +1551,7 @@ fn c163_dir_reaches_shell_next_undo_and_fix_hints() {
     r.commit("doc");
     let (code, v) = from_sub(&r, &["set", &d, "title=Basket", "--write"]);
     assert_eq!(code, 0, "{v}");
-    assert!(v["undo"].as_str().unwrap().starts_with("git -C .. stash push --include-untracked -- "), "{v}");
+    assert!(v["undo"].as_str().unwrap().starts_with("git -C .. restore -- "), "{v}");
     let (code, v) = from_sub(&r, &["export", "markdown", "--target", "obsidian", "--out", "outdir"]);
     assert_eq!(code, 0, "{v}");
     let next = v["next"].as_str().unwrap();
