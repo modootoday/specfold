@@ -79,6 +79,47 @@ fn stale_path_cites_get_a_fix_and_mv_rewrites_them() {
 }
 
 #[test]
+fn c257_fix_l2_keeps_one_pair_of_brackets_and_the_label() {
+    let r = common::repo();
+    let sot = r.new_doc("sot", "services/shop", "Cart rules");
+    let adr = r.new_doc("adr", "services/shop", "Cart totals");
+    let (_, v) = r.json(&["show", &sot]);
+    let sot_path = v["path"].as_str().unwrap().to_string();
+    let (_, v) = r.json(&["show", &adr]);
+    let adr_path = v["path"].as_str().unwrap().to_string();
+    let text = r.read(&adr_path) + &format!("\nAlso [[{sot_path}]].\nAnd [[{sot_path}|one]].\n");
+    r.write(&adr_path, &text);
+    let (code, v) = r.json(&["fix", "--rule", "L2", "--write", "--yes"]);
+    assert_eq!(code, 0, "{v}");
+    let after = r.read(&adr_path);
+    assert!(after.contains(&format!("Also [[{sot}]].")), "{after}");
+    assert!(after.contains(&format!("And [[{sot}|one]].")), "{after}");
+    assert!(!after.contains("[[[["), "{after}");
+}
+
+#[test]
+fn c258_a_missing_path_from_a_subfolder_resolves_in_that_subfolder() {
+    let r = common::repo();
+    let sub = r.path().join("services/shop/src");
+    let run = |args: &[&str]| {
+        let out = r.spec().current_dir(&sub).args(args).arg("--json").output().unwrap();
+        (out.status.code().unwrap_or(-1), serde_json::from_slice::<serde_json::Value>(&out.stdout).unwrap())
+    };
+    let (code, v) = run(&["new", "sot", "--governs", "cart/new.rs", "--title", "New file", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    let (_, s) = r.json(&["show", v["id"].as_str().unwrap()]);
+    assert!(s.to_string().contains("services/shop/src/cart/new.rs"), "{s}");
+    let (code, v) = run(&["new", "sot", "--governs", "newdir/deeper/x.rs", "--title", "Deeper", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    let (_, s) = r.json(&["show", v["id"].as_str().unwrap()]);
+    assert!(s.to_string().contains("services/shop/src/newdir/deeper/x.rs"), "{s}");
+    for outside in ["../../../../nowhere/x.rs", "/nowhere-c258/x.rs"] {
+        let (code, v) = run(&["new", "sot", "--governs", outside, "--title", "Out", "--write"]);
+        assert_eq!(code, 2, "{outside}: {v}");
+    }
+}
+
+#[test]
 fn check_new_lists_documents_not_in_the_last_commit() {
     let r = common::repo();
     let id = r.new_doc("adr", "services/shop", "Fresh idea");

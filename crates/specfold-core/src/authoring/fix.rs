@@ -105,7 +105,10 @@ pub fn plan(c: &Corpus, findings: &[Finding], pick: Option<&Pick>) -> Result<(Pl
         match (&f.fix, f.rule.as_str()) {
             (Some(Fix::Replace { path, line, from, to }), _) => {
                 let Some(t) = read(&mut texts, path) else { continue };
-                if let Some(n) = replace_on_line(&t, *line, from, to) {
+                // C257: a path inside `[[...]]` takes the id alone, keeping the brackets and label.
+                let wiki = to.strip_suffix("]]").filter(|open| open.starts_with("[["));
+                let n = wiki.and_then(|open| replace_on_line(&t, *line, &format!("[[{from}"), open));
+                if let Some(n) = n.or_else(|| replace_on_line(&t, *line, from, to)) {
                     texts.insert(path.clone(), n);
                     applied += 1;
                 }

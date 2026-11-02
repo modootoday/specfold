@@ -13,6 +13,12 @@ pub fn rewrite_body(text: &str, old: &str, new: &str) -> String {
     .into_owned()
 }
 
+/// Cites `id` where `text` names `path`: a path already written as a reference, `[[path]]` or
+/// `[[path|label]]`, keeps its brackets and label instead of gaining a second pair (C257).
+pub fn cite_path_as_id(text: &str, path: &str, id: &str) -> String {
+    text.replace(&format!("[[{path}"), &format!("[[{id}")).replace(path, &format!("[[{id}]]"))
+}
+
 /// Whether a cited path names `path` (root-relative), ignoring leading `./` and `../`.
 pub fn same_path(cited: &str, path: &str) -> bool {
     let mut t = cited.trim_end_matches('/');

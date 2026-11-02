@@ -86,7 +86,7 @@ pub fn plan(c: &Corpus, idx: usize, req: &Move) -> Result<(Moved, Plan)> {
                 // Plain paths to the moved file break with the move; cite the new id instead (L2).
                 for cite in other.path_cites.iter().filter(|p| &p.path == file) {
                     if refs::same_path(&cite.item, &d.path) {
-                        body = body.replace(&cite.item, &format!("[[{new_s}]]"));
+                        body = refs::cite_path_as_id(&body, &cite.item, &new_s);
                     }
                 }
             }

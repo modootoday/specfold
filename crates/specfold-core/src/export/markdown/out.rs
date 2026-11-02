@@ -3,7 +3,7 @@
 use super::MANIFEST;
 use anyhow::{Context, Result, bail};
 use serde_json::Value;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// C221: `out` with its nearest existing folder resolved, so a symbolic link cannot hide a
 /// spec or git directory; the missing rest is appended as written.
@@ -37,6 +37,16 @@ pub fn check_out(out: &Path, root: &Path) -> Result<Vec<String>> {
     let root_real = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
     if root_real.starts_with(&real) {
         bail!("refusing to export into {}: it contains the repository", out.display());
+    }
+    // C259: a dangling link reads as missing but cannot be created as a folder; refuse in preview too.
+    if !out.exists() && out.symlink_metadata().is_ok() {
+        let to = std::fs::read_link(out).map(|t| t.display().to_string()).unwrap_or_default();
+        let target = out.parent().map_or_else(|| PathBuf::from(&to), |p| p.join(&to));
+        bail!(
+            "{} is a symbolic link to {to}, which does not exist; create that folder or give another --out; next: mkdir -p {}",
+            out.display(),
+            target.display()
+        );
     }
     if !out.exists() {
         return Ok(vec![]);

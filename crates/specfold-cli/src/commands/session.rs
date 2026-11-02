@@ -4,7 +4,7 @@ use crate::cli::args::global::Global;
 use anyhow::{Result, bail};
 use specfold_core::graph::Resolution;
 use specfold_core::{Config, Corpus, Graph, LoadOptions};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub struct Session {
     pub corpus: Corpus,
@@ -112,10 +112,29 @@ pub fn open_for(g: &Global, doc: &str) -> Result<(Session, String, Option<String
 pub fn repo_path(s: &Session, p: &str) -> String {
     let path = PathBuf::from(p);
     let abs = if path.is_absolute() { path } else { std::env::current_dir().map(|d| d.join(&path)).unwrap_or(path) };
-    match abs.canonicalize().ok().and_then(|a| a.strip_prefix(&s.corpus.cfg.root).ok().map(|r| r.to_path_buf())) {
+    match resolve_missing(&abs).and_then(|a| a.strip_prefix(&s.corpus.cfg.root).ok().map(|r| r.to_path_buf())) {
         Some(r) => r.to_string_lossy().replace('\\', "/"),
         None => p.trim_start_matches("./").trim_end_matches('/').to_string(),
     }
+}
+
+/// C258: a path that does not exist yet resolves from its nearest existing ancestor, so a new
+/// file named from a subfolder lands in that subfolder; `..` in the missing part is not resolved.
+fn resolve_missing(abs: &Path) -> Option<PathBuf> {
+    if let Ok(a) = abs.canonicalize() {
+        return Some(a);
+    }
+    let mut tail = Vec::new();
+    let mut cur = abs;
+    while let Some(parent) = cur.parent() {
+        let name = cur.file_name()?;
+        tail.push(name.to_os_string());
+        if let Ok(base) = parent.canonicalize() {
+            return Some(tail.iter().rev().fold(base, |p, c| p.join(c)));
+        }
+        cur = parent;
+    }
+    None
 }
 
 /// C130: a path a document can govern: inside the repository, below its root.
