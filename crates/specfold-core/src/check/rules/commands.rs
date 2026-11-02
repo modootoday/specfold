@@ -123,7 +123,7 @@ fn trace_slowest(jobs: &[Job], outcomes: &[Outcome]) {
         seen.entry(j.cmd.as_str()).or_insert(o.elapsed);
     }
     let mut v: Vec<_> = seen.into_iter().collect();
-    v.sort_by(|a, b| b.1.cmp(&a.1));
+    v.sort_by_key(|x| std::cmp::Reverse(x.1));
     for (cmd, t) in v.into_iter().take(5) {
         eprintln!("specfold:   X1 {:>9.1} ms  {cmd}", t.as_secs_f64() * 1000.0);
     }
