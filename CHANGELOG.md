@@ -5,6 +5,19 @@ Release notes for each version are also on
 
 ## Unreleased
 
+### Upgrade notes (draft)
+
+Nothing changes until you set a new key; every addition below is opt-in. Recommended after upgrading:
+
+```toml
+[check]
+d1 = "specific"   # D1 asks only the most specific document governing a changed file
+```
+
+Also worth a look: `spec hook install` (preview) then `--write` for a pre-push gate on
+`spec check --owners --changed`; `[spec] submodule_remotes = true` when submodules carry their own
+spec.toml; `[check] remote_status = true` when you depend on documents in `[remotes]`.
+
 ### Behavior changes
 
 - `spec new --from <id>` and `spec set <doc> rel.supersedes+=<id>` refuse (exit 2, nothing written, preview included) when another document already supersedes `<id>`, naming that successor: a second one failed T1 (C246).
