@@ -835,3 +835,17 @@ fn c204_t1_fix_for_a_draft_works_and_cross_type_is_no_successor() {
     assert!(!msgs.contains("superseded by"), "{msgs}");
     assert_eq!(r.json(&["set", &sot, "status=superseded", "--write"]).0, 2);
 }
+
+#[test]
+fn b2_check_takes_a_folder_and_refuses_one_without_documents() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    let (_, v) = r.json(&["show", &id]);
+    let path = v["path"].as_str().unwrap_or_default().to_string();
+    let dir = std::path::Path::new(&path).parent().unwrap().to_string_lossy().to_string();
+    let (code, v) = r.json(&["check", &dir]);
+    assert_eq!(code, 0, "{v}");
+    let (code, v) = r.json(&["check", "services/blog"]);
+    assert_eq!(code, 2, "{v}");
+    assert!(v.to_string().contains("a folder with no documents"), "{v}");
+}

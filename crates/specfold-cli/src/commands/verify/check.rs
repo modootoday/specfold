@@ -92,6 +92,17 @@ pub(crate) fn documents_named(s: &session::Session, files: &[String], stdin: Opt
             Ok(r) => r.to_string_lossy().replace('\\', "/"),
             Err(_) => session::repo_path(s, f),
         };
+        // B2: a folder names the documents under it; one with none is refused, not checked empty.
+        if std::path::Path::new(f).is_dir() {
+            let under =
+                |p: &str| rel.is_empty() || rel == "." || p.starts_with(&format!("{}/", rel.trim_end_matches('/')));
+            let docs: Vec<String> = s.corpus.docs.iter().filter(|d| under(&d.path)).map(|d| d.path.clone()).collect();
+            if docs.is_empty() {
+                bail!("{f}: a folder with no documents under it; next: spec check  # every document");
+            }
+            out.extend(docs);
+            continue;
+        }
         let known = s.corpus.docs.iter().any(|d| d.path == rel || d.chapters.iter().any(|c| c == &rel));
         if !known && !std::path::Path::new(f).exists() {
             // Anything that is not a Markdown path is read the way `spec resolve` reads it: an id,
