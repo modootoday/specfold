@@ -537,6 +537,28 @@ fn d2_baseline_follows_mv_and_its_lowering_hint_is_optional() {
     assert!(next.starts_with("spec check --write-baseline") && next.contains("optional"), "{v}");
 }
 
+/// N1: moving a document to another owner keeps its baseline entries held under the new id.
+#[test]
+fn n1_baseline_follows_mv_to_another_owner() {
+    let r = common::repo();
+    r.write("spec.toml", &(r.read("spec.toml") + "[check]\nbaseline = \"spec-baseline.json\"\n"));
+    let id = r.new_doc("sot", "services/shop/src", "Old rule");
+    let p = path_of(&r, &id);
+    r.write(&p, &(r.read(&p) + "\nSee [[sot:nope/nope]].\n"));
+    r.commit("old pile");
+    assert_eq!(r.json(&["check", "--write-baseline", "--yes"]).0, 0);
+    r.commit("baseline");
+    let (code, v) = r.json(&["mv", &id, "--owner", "ws", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    r.commit("moved");
+    let base = r.read("spec-baseline.json");
+    assert!(!base.contains(&p) && base.contains("\"L1\\t.spec/"), "{base}");
+    let (code, v) = r.json(&["check"]);
+    let _ = code;
+    assert_eq!((v["baselined"].as_u64(), v["lowerable"].as_u64()), (Some(1), Some(0)), "{v}");
+    assert!(v["by_rule"].get("L1").is_none(), "the moved L1 finding stays held: {v}");
+}
+
 #[test]
 fn c4_ranged_check_prints_the_base_and_head_it_compared() {
     let r = common::repo();
