@@ -109,7 +109,12 @@ pub fn plan(c: &Corpus, findings: &[Finding], pick: Option<&Pick>) -> Result<(Pl
                 // C257: a path inside `[[...]]` takes the id alone, keeping the brackets and label.
                 let wiki = to.strip_suffix("]]").filter(|open| open.starts_with("[["));
                 let n = wiki.and_then(|open| replace_on_line(&t, *line, &format!("[[{from}"), open));
-                if let Some(n) = n.or_else(|| replace_on_line(&t, *line, from, to)) {
+                // C264: the same path also written bare on that line is one finding, so it goes too.
+                let n = match n {
+                    Some(n) => Some(replace_on_line(&n, *line, from, to).unwrap_or(n)),
+                    None => replace_on_line(&t, *line, from, to),
+                };
+                if let Some(n) = n {
                     texts.insert(path.clone(), n);
                     applied += 1;
                 }

@@ -893,13 +893,18 @@ fn c261_fix_l2_rewrites_every_citation_of_a_path_on_one_line() {
     let adr = r.new_doc("adr", "services/shop", "Cart totals");
     let path_of = |id: &str| r.json(&["show", id]).1["path"].as_str().unwrap().to_string();
     let (sot_path, adr_path) = (path_of(&sot), path_of(&adr));
-    let text = r.read(&adr_path) + &format!("\nX {sot_path} Y {sot_path}.\nA [[{sot_path}|a]] B [[{sot_path}|b]].\n");
+    let text = r.read(&adr_path)
+        + &format!(
+            "\nX {sot_path} Y {sot_path}.\nA [[{sot_path}|a]] B [[{sot_path}|b]].\nM {sot_path} and [[{sot_path}|w]].\n"
+        );
     r.write(&adr_path, &text);
     let (code, v) = r.json(&["fix", "--rule", "L2", "--write", "--yes"]);
     assert_eq!(code, 0, "{v}");
     let after = r.read(&adr_path);
     assert!(!after.contains(&sot_path), "{after}");
     assert!(after.contains(&format!("A [[{sot}|a]] B [[{sot}|b]].")), "{after}");
+    // C264: a bare path and a wikilink to it on one line are both rewritten.
+    assert!(after.contains(&format!("M [[{sot}]] and [[{sot}|w]].")), "{after}");
     let (code, v) = r.json(&["check", "--rule", "L2"]);
     assert_eq!(code, 0, "one fix run is enough: {v}");
 }
@@ -922,7 +927,7 @@ fn p1_leaves_a_submodule_governs_out_of_the_owner_and_mv_settles_it() {
     let (code, v) = r.json(&["check", "--rule", "P1"]);
     assert_eq!(code, 1, "{v}");
     let s = v.to_string();
-    assert!(s.contains("belongs to shop") && s.contains("spec mv sot:ws/mixed --write"), "{s}");
+    assert!(s.contains("belongs to shop") && s.contains("spec mv sot:ws/mixed --owner shop --write"), "{s}");
     let (code, v) = r.json(&["mv", "sot:ws/mixed", "--write", "--yes"]);
     assert_eq!(code, 0, "{v}");
     let (code, v) = r.json(&["check", "--rule", "P1"]);

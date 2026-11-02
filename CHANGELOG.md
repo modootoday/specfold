@@ -18,6 +18,7 @@ Release notes for each version are also on
 ### Fixed
 
 - `spec mv <id> --write` (P1's fix) and `spec new` decide the owner the way P1 does, leaving governs inside another project out; `mv` reported success and moved nothing, so P1 stayed, and `new` placed such a document where P1 then failed it (C263, N4). P1's fix now names the owner (`--owner <owner>`), so it also works with 0.5.0. `spec mv` says how many other documents citing the moved one it rewrote and that files outside documents are left to L6; the alias table only has rows already pointing at the old id retargeted.
+- `spec fix --write` rewrites a path written both bare and as `[[path|label]]` on one line in one run; it fixed only the wikilink and `spec check` failed again on the bare path (C264).
 
 ## 0.5.0 - 2026-11-02
 
