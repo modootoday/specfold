@@ -32,7 +32,7 @@ pub fn run(g: &Global, a: &EditArgs) -> Result<Output> {
             t
         }
         (None, Some(p)) => {
-            std::fs::read_to_string(session::arg_path(g, p)).with_context(|| format!("reading {}", p.display()))?
+            std::fs::read_to_string(s.loc.arg_path(p)).with_context(|| format!("reading {}", p.display()))?
         }
         (None, None) => {
             use std::io::IsTerminal;

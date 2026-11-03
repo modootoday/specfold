@@ -11,7 +11,9 @@ pub fn dispatch(cli: &Cli) -> Result<Output> {
         Cmd::Context(a) => read::context::run(g, a),
         Cmd::Find(a) => read::find::run(g, a),
         Cmd::Show(a) if a.in_repo.is_some() => {
-            let g = crate::cli::args::global::Global { dir: a.in_repo.clone(), ..g.clone() };
+            let loc =
+                a.in_repo.as_deref().map(|d| std::sync::Arc::new(crate::commands::session::location(g).in_repo(d)));
+            let g = crate::cli::args::global::Global { dir: a.in_repo.clone(), loc, ..g.clone() };
             read::show::run(&g, a)
         }
         Cmd::Show(a) => read::show::run(g, a),

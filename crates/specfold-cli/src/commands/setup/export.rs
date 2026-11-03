@@ -111,7 +111,7 @@ pub fn run(g: &Global, a: &ExportArgs) -> Result<Output> {
     };
     let params = json!({
         "format": format,
-        "out": a.out.as_ref().map(|p| session::arg_path(g, p).display().to_string()),
+        "out": a.out.as_ref().map(|p| s.loc.arg_path(p).display().to_string()),
         "docs": docs,
         "edges": export::payload::edges(&s.corpus, &s.graph, &only),
     });
@@ -191,8 +191,8 @@ fn built_in(g: &Global, a: &ExportArgs) -> Result<Output> {
     }
     let s = session::open(g)?;
     // C161: read and written from -C; shown as typed, so the next commands keep working.
-    let out_path = session::arg_path(g, out);
-    let previous = markdown::check_out(&out_path, &s.corpus.cfg.root).map_err(|e| {
+    let out_path = s.loc.arg_path(out);
+    let previous = markdown::check_out(&out_path, &s.loc.cwd.join(&out_path), &s.corpus.cfg.root).map_err(|e| {
         let m = e.to_string();
         if !(m.contains("not empty") || m.contains("not a directory")) {
             return e;

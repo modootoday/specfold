@@ -65,7 +65,8 @@ fn create(g: &Global, a: &NewArgs) -> Result<Output> {
     if let Some(kind) = asset_kind(&s, &ty) {
         return asset(&s, a, kind);
     }
-    let governs: Vec<String> = a.governs.iter().map(|p| session::governed_path(&s, p)).collect::<Result<_>>()?;
+    let governs: Vec<String> =
+        a.governs.iter().map(|p| s.loc.governed_path(&s.corpus.cfg, p)).collect::<Result<_>>()?;
     let mut req = NewDoc {
         ty: ty.clone(),
         title: a.title().to_string(),
@@ -78,7 +79,7 @@ fn create(g: &Global, a: &NewArgs) -> Result<Output> {
         key: None,
         body: None,
         depends_on: depends_on(a)?,
-        here: session::here(&s),
+        here: s.loc.here(&s.corpus.cfg),
     };
     let (mut created, mut plan) = new::plan(&s.corpus, &s.graph, &req)?;
     // C206: a timestamp id is reserved with create-new before the write; a clash with a run in

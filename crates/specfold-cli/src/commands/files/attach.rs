@@ -69,7 +69,7 @@ pub fn run(g: &Global, a: &AttachArgs) -> Result<Output> {
     } else {
         attach::Where::Auto
     };
-    let files: Vec<std::path::PathBuf> = a.files.iter().map(|p| session::arg_path(g, p)).collect();
+    let files: Vec<std::path::PathBuf> = a.files.iter().map(|p| s.loc.arg_path(p)).collect();
     let plan = attach::plan(&s.corpus, d, &files, &a.into, place)?;
     // C143: every next keeps --into, so it attaches where the preview showed.
     let into =

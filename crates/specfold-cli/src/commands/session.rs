@@ -3,13 +3,18 @@
 use crate::cli::args::global::Global;
 use anyhow::{Result, bail};
 use specfold_core::graph::Resolution;
-use specfold_core::paths::{real_with_missing_tail, rel_of};
 use specfold_core::{Config, Corpus, Graph, LoadOptions};
 use std::path::PathBuf;
+use std::sync::Arc;
+
+mod location;
+pub use location::Location;
 
 pub struct Session {
     pub corpus: Corpus,
     pub graph: Graph,
+    /// Where the command runs, with this session's spec root.
+    pub loc: Location,
 }
 
 /// The configuration. `[types.<name>]` tables that look like typos are warned about on standard
@@ -63,29 +68,35 @@ pub fn hold_config_warnings() {
 /// C160/C162: characters that end a line, YAML 1.1 included (NEL, LS, PS).
 pub const LINE_BREAKS: [char; 5] = ['\n', '\r', '\u{85}', '\u{2028}', '\u{2029}'];
 
-/// C161: a relative path argument is read from -C/--dir, as if started there; absolute ones as is.
-pub fn arg_path(g: &Global, p: &std::path::Path) -> PathBuf {
-    match &g.dir {
-        Some(d) if p.is_relative() && p.as_os_str() != "-" => d.join(p),
-        _ => p.to_path_buf(),
+/// The location of the command `g` runs, read once per command (-C, the process directory).
+pub fn location(g: &Global) -> Location {
+    match &g.loc {
+        Some(l) => l.without_config(),
+        None => Location::at(g, g.dir.clone()),
     }
 }
 
+/// The location `execute` builds once per command, with the configuration it found.
+pub fn discover(g: &Global, dir_as_typed: Option<PathBuf>) -> Arc<Location> {
+    Arc::new(Location::at(g, dir_as_typed).discovered())
+}
+
+/// The configuration, found once per command: from the command's location when it holds one.
 pub fn config_quiet(g: &Global) -> Result<Config> {
-    let dir = match &g.dir {
-        Some(d) => d.clone(),
-        None => std::env::current_dir()?,
-    };
-    Config::discover(&dir)
+    if let Some(cfg) = g.loc.as_ref().and_then(|l| l.config()) {
+        return Ok(cfg.clone());
+    }
+    Config::discover(&location(g).start()?)
 }
 
 pub fn open(g: &Global) -> Result<Session> {
     let cfg = config(g)?;
+    let loc = location(g).rooted(&cfg);
     let corpus = Corpus::load(cfg, &LoadOptions { include_local: !g.no_local });
     let t = std::time::Instant::now();
     let graph = Graph::build(&corpus);
     specfold_core::trace::phase("graph", t);
-    Ok(Session { corpus, graph })
+    Ok(Session { corpus, graph, loc })
 }
 
 /// The session that holds `doc`: this repository, or for `<remote>:<id>` the remote repository
@@ -100,73 +111,16 @@ pub fn open_for(g: &Global, doc: &str) -> Result<(Session, String, Option<String
                 dir.display()
             );
         }
-        let corpus = Corpus::load(Config::discover(&dir)?, &LoadOptions { include_local: false });
+        let remote = Config::discover(&dir)?;
+        let loc = location(g).for_remote(&remote.root);
+        let corpus = Corpus::load(remote, &LoadOptions { include_local: false });
         let graph = Graph::build(&corpus);
-        return Ok((Session { corpus, graph }, rest.to_string(), Some(name.to_string())));
+        return Ok((Session { corpus, graph, loc }, rest.to_string(), Some(name.to_string())));
     }
+    let loc = location(g).rooted(&cfg);
     let corpus = Corpus::load(cfg, &LoadOptions { include_local: !g.no_local });
     let graph = Graph::build(&corpus);
-    Ok((Session { corpus, graph }, doc.to_string(), None))
-}
-
-/// A path given on the command line, made relative to the repository root.
-pub fn repo_path(s: &Session, p: &str) -> String {
-    let path = PathBuf::from(p);
-    let abs = if path.is_absolute() { path } else { std::env::current_dir().map(|d| d.join(&path)).unwrap_or(path) };
-    // C258: a path that does not exist yet resolves from its nearest existing ancestor, so a new
-    // file named from a subfolder lands in that subfolder.
-    match real_with_missing_tail(&abs).and_then(|a| rel_of(&s.corpus.cfg.root, &a)) {
-        Some(r) => r,
-        None => p.trim_start_matches("./").trim_end_matches('/').to_string(),
-    }
-}
-
-/// The directory the command runs in (after -C), relative to the repository root, or through
-/// its public path inside a mapped public repository (E1); `None` at the root or outside it.
-pub fn here(s: &Session) -> Option<String> {
-    use specfold_core::config::clone_path::{self, ClonePath};
-    let cwd = std::env::current_dir().ok()?.canonicalize().ok()?;
-    let root = s.corpus.cfg.root.canonicalize().ok()?;
-    let rel = match rel_of(&root, &cwd) {
-        Some(r) => r,
-        None => match clone_path::locate(&s.corpus.cfg, &cwd) {
-            ClonePath::Mapped(rel) => rel,
-            _ => return None,
-        },
-    };
-    (!rel.is_empty()).then_some(rel)
-}
-
-/// E1: a code path. Typed inside a public repository that roots.toml maps to this spec root, it
-/// is read below the `[public]` path that repository is a copy of, not from the spec root.
-pub fn code_path(s: &Session, p: &str) -> Result<String> {
-    use specfold_core::config::clone_path::{self, ClonePath};
-    let cfg = &s.corpus.cfg;
-    let path = PathBuf::from(p);
-    let abs = if path.is_absolute() { path } else { std::env::current_dir()?.join(path) };
-    let Some(abs) = real_with_missing_tail(&abs).filter(|a| !a.starts_with(&cfg.root)) else {
-        return Ok(repo_path(s, p));
-    };
-    match clone_path::locate(cfg, &abs) {
-        ClonePath::Outside => Ok(repo_path(s, p)),
-        ClonePath::Mapped(rel) => Ok(rel),
-        ClonePath::Unmapped { rel, .. } if cfg.root.join(&rel).exists() => Ok(rel),
-        ClonePath::Unmapped { clone, rel } => bail!(
-            "'{p}' is {rel} in {}, which {} maps to {}, but no [public] path there is named for that repository and {rel} does not exist under the spec root; add public = \"<its [public] path>\" to that [[root]] entry, or give the path as the spec root names it; next: spec explain config",
-            clone.display(),
-            specfold_core::config::private_root::file().unwrap_or_default().display(),
-            cfg.root.display()
-        ),
-    }
-}
-
-/// C130: a path a document can govern: inside the repository, below its root.
-pub fn governed_path(s: &Session, p: &str) -> Result<String> {
-    let rel = code_path(s, p)?;
-    if p.trim().is_empty() || rel.is_empty() || rel.starts_with('/') || rel.split('/').any(|c| c == "..") {
-        bail!("'{p}' is not a path inside the repository; give a file or folder below {}", s.corpus.cfg.root.display());
-    }
-    Ok(rel)
+    Ok((Session { corpus, graph, loc }, doc.to_string(), None))
 }
 
 /// C148/C153: a filter value no document can have is a typo, not an empty result.
@@ -220,7 +174,7 @@ pub fn resolve(s: &Session, text: &str) -> Result<usize> {
     if same.len() > 1 {
         bail!("'{text}' is held by {} files: {}; name one by its path", same.len(), same.join(", "));
     }
-    let rel = repo_path(s, text);
+    let rel = s.loc.repo_path(text);
     for candidate in [text.to_string(), rel] {
         match s.graph.resolve(&candidate) {
             Resolution::Doc { idx, .. } | Resolution::MissingAnchor { idx, .. } => return Ok(idx),
@@ -334,6 +288,7 @@ pub fn example_doc_for(argv: &[String], prefer_ty: Option<&str>) -> Option<Strin
         max_bytes: None,
         dir,
         no_local: argv.iter().any(|a| a == "--no-local"),
+        loc: None,
     };
     let s = open(&g).ok()?;
     example_doc(&s, prefer_ty)

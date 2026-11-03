@@ -208,7 +208,7 @@ fn impact(s: &Session, a: &GraphArgs, t: &str, mut o: Output) -> Result<Output> 
 fn governs_query(s: &Session, t: &str, mut o: Output) -> Result<Output> {
     let c = &s.corpus;
     let id = |i: usize| c.docs[i].id.to_string();
-    let rel = session::code_path(s, t)?;
+    let rel = s.loc.code_path(&s.corpus.cfg, t)?;
     for gv in query::governing(c, &rel) {
         o = o.item(
             json!({"id": id(gv.idx), "pattern": gv.pattern, "status": c.docs[gv.idx].status()}),

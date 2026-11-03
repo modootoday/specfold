@@ -27,6 +27,9 @@ pub struct Global {
     /// Leave out the git-ignored local documents.
     #[arg(long, global = true)]
     pub no_local: bool,
+    /// Where the command runs, built once per command by `execute` (not a flag).
+    #[arg(skip)]
+    pub loc: Option<std::sync::Arc<crate::commands::session::Location>>,
 }
 
 /// C152: `--limit 0` would show nothing and point at itself; a page holds at least one item.

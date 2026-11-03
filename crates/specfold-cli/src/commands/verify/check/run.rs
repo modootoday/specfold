@@ -26,7 +26,7 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
     check_rule_names("--rule", &a.rules)?;
     check_rule_names("--skip", &a.skip)?;
     if let Some(p) = &a.stdin_path {
-        overlay_stdin(p)?;
+        overlay_stdin(&session::location(g), p)?;
     }
     // C116: config warnings are a line each and not findings, so -q shows them too.
     session::show_config_warnings();

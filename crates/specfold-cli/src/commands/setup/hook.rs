@@ -42,10 +42,7 @@ pub(crate) fn pre_push() -> String {
 }
 
 fn install(g: &Global, a: &HookArgs) -> Result<Output> {
-    let dir = match &g.dir {
-        Some(d) => d.clone(),
-        None => std::env::current_dir()?,
-    };
+    let dir = crate::commands::session::location(g).start()?;
     let out = std::process::Command::new("git")
         .arg("-C")
         .arg(&dir)

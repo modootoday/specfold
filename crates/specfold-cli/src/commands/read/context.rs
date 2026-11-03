@@ -16,7 +16,7 @@ pub fn run(g: &Global, a: &ContextArgs) -> Result<Output> {
     let mut seen = BTreeSet::new();
     let mut first: Option<String> = None;
     for p in &a.paths {
-        let rel = session::governed_path(&s, p)?;
+        let rel = s.loc.governed_path(&s.corpus.cfg, p)?;
         if let Some((name, inner)) = remotes::submodule_at(&s.corpus.cfg, &rel) {
             o = remote(o, &s.corpus.cfg, &rel, &name, &inner, a.all);
             continue;

@@ -57,9 +57,10 @@ fn owner_like(s: &str) -> bool {
 
 /// `spec init --upgrade`: reads the file as text, since an old file may not parse.
 fn upgrade(g: &Global, a: &InitArgs) -> Result<Output> {
-    let mut dir = match &g.dir {
-        Some(d) => d.canonicalize()?,
-        None => std::env::current_dir()?,
+    let loc = session::location(g);
+    let mut dir = match &loc.dir_as_typed {
+        Some(_) => loc.cwd.canonicalize()?,
+        None => loc.start()?,
     };
     let path = loop {
         let p = dir.join("spec.toml");

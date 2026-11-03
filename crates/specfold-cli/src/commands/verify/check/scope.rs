@@ -2,7 +2,6 @@
 //! commit range.
 
 use crate::cli::args::verify::CheckArgs;
-use crate::commands::paths::absolute;
 use crate::session;
 use anyhow::{Result, bail};
 use specfold_core::check::{self, Range};
@@ -47,8 +46,8 @@ pub(crate) fn documents_named(s: &session::Session, files: &[String], stdin: Opt
                 ),
             }
         }
-        let abs = absolute(std::path::Path::new(f));
-        let rel = paths::rel_of(&s.corpus.cfg.root, &abs).unwrap_or_else(|| session::repo_path(s, f));
+        let abs = s.loc.absolute(std::path::Path::new(f));
+        let rel = paths::rel_of(&s.corpus.cfg.root, &abs).unwrap_or_else(|| s.loc.repo_path(f));
         // B2: a folder names the documents under it; one with none is refused, not checked empty.
         if std::path::Path::new(f).is_dir() {
             let under = |p: &str| rel.is_empty() || rel == "." || paths::is_below(p, rel.trim_end_matches('/'));
@@ -100,8 +99,8 @@ pub(crate) fn documents_named(s: &session::Session, files: &[String], stdin: Opt
 }
 
 /// `--stdin-path`: standard input stands in for that file's contents.
-pub(super) fn overlay_stdin(p: &str) -> Result<()> {
-    let abs = absolute(std::path::Path::new(p));
+pub(super) fn overlay_stdin(loc: &session::Location, p: &str) -> Result<()> {
+    let abs = loc.absolute(std::path::Path::new(p));
     let mut text = String::new();
     std::io::Read::read_to_string(&mut std::io::stdin(), &mut text)?;
     specfold_core::corpus::overlay::set(abs, text);

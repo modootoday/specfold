@@ -2,7 +2,7 @@
 //! diagnostics only. Each open, change or save puts the buffer in the overlay and checks the file.
 
 use crate::cli::args::global::Global;
-use crate::commands::paths;
+use crate::commands::session::Location;
 use crate::commands::verify::findings;
 use crate::output::ci;
 use serde_json::{Value, json};
@@ -93,7 +93,7 @@ fn utf16(s: &str, b: usize) -> usize {
 /// One quickfix per diagnostic that carries a replacement, edited against the buffer text.
 pub fn code_actions(uri: &str, path: Option<&Path>, params: &Value) -> Vec<Value> {
     let Some(path) = path else { return vec![] };
-    let Ok(text) = overlay::read(&paths::absolute(path)) else { return vec![] };
+    let Ok(text) = overlay::read(&Location::process().absolute(path)) else { return vec![] };
     let diags = params.pointer("/context/diagnostics").and_then(Value::as_array).cloned().unwrap_or_default();
     let mut out = vec![];
     for d in &diags {
@@ -269,11 +269,14 @@ pub struct Server {
     root: Option<PathBuf>,
     /// The last full check and the disk/buffer stamp it was made at.
     cache: Option<((u64, u64), Vec<Finding>)>,
+    /// The process directory: buffer paths are read from it.
+    loc: Location,
 }
 
 impl Server {
     pub fn new(global: Global) -> Self {
-        Server { global, root: None, cache: None }
+        // No cached configuration: each check reads spec.toml afresh.
+        Server { global: Global { loc: None, ..global }, root: None, cache: None, loc: Location::process() }
     }
 
     fn root(&mut self) -> Option<PathBuf> {
@@ -286,7 +289,7 @@ impl Server {
     /// The diagnostics for one document, or an empty list when it is not part of the corpus.
     pub fn diagnostics(&mut self, path: &Path) -> Vec<Value> {
         let Some(root) = self.root() else { return vec![] };
-        let abs = paths::absolute(path);
+        let abs = self.loc.absolute(path);
         let Some(rel) = specfold_core::paths::rel_of(&root, &abs) else { return vec![] };
         let key = (disk_stamp(&root), overlay::stamp());
         let fresh = std::env::var_os("SPEC_LSP_NO_CACHE").is_some();
@@ -416,7 +419,7 @@ impl Server {
                 .map(str::to_string),
             "textDocument/didSave" => params.get("text").and_then(Value::as_str).map(str::to_string),
             "textDocument/didClose" => {
-                overlay::clear(&paths::absolute(&path));
+                overlay::clear(&self.loc.absolute(&path));
                 let clear = json!({"jsonrpc": "2.0", "method": "textDocument/publishDiagnostics",
                                    "params": {"uri": uri, "diagnostics": []}});
                 return (vec![clear], false);
@@ -424,9 +427,9 @@ impl Server {
             _ => return (vec![], method == "exit"),
         };
         match text {
-            Some(t) => overlay::set(paths::absolute(&path), t),
+            Some(t) => overlay::set(self.loc.absolute(&path), t),
             // A save without text: the disk is current again.
-            None if method == "textDocument/didSave" => overlay::clear(&paths::absolute(&path)),
+            None if method == "textDocument/didSave" => overlay::clear(&self.loc.absolute(&path)),
             None => {}
         }
         (vec![self.publish(&uri, &path)], false)

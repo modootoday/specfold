@@ -24,14 +24,24 @@ pub enum ClonePath {
 /// Locates `abs` (absolute, symbolic links resolved) when it lies in a repository that the
 /// user-level roots.toml maps to `cfg.root`.
 pub fn locate(cfg: &Config, abs: &Path) -> ClonePath {
-    let Some(clone) = existing_ancestor(abs).and_then(|d| vcs::git_root(&d)).and_then(|c| c.canonicalize().ok()) else {
-        return ClonePath::Outside;
-    };
-    let Some(m) = private_root::mapping(&clone) else { return ClonePath::Outside };
-    if m.spec.canonicalize().ok() != cfg.root.canonicalize().ok() {
-        return ClonePath::Outside;
+    match clone_of(cfg, abs) {
+        Some(clone) => locate_in(cfg, &clone, abs),
+        None => ClonePath::Outside,
     }
-    let Some(rel) = crate::paths::rel_of(&clone, abs) else { return ClonePath::Outside };
+}
+
+/// The repository holding `abs` (its canonical root) when roots.toml maps it to `cfg.root`.
+pub fn clone_of(cfg: &Config, abs: &Path) -> Option<PathBuf> {
+    let clone = existing_ancestor(abs).and_then(|d| vcs::git_root(&d)).and_then(|c| c.canonicalize().ok())?;
+    let m = private_root::mapping(&clone)?;
+    (m.spec.canonicalize().ok() == cfg.root.canonicalize().ok()).then_some(clone)
+}
+
+/// `abs` inside `clone`, a repository [`clone_of`] found, named the way the spec root names it.
+pub fn locate_in(cfg: &Config, clone: &Path, abs: &Path) -> ClonePath {
+    let Some(m) = private_root::mapping(clone) else { return ClonePath::Outside };
+    let Some(rel) = crate::paths::rel_of(clone, abs) else { return ClonePath::Outside };
+    let clone = clone.to_path_buf();
     match public_path(cfg, &clone, m.public.as_deref()) {
         Some(p) if rel.is_empty() => ClonePath::Mapped(p),
         Some(p) => ClonePath::Mapped(format!("{p}/{rel}")),

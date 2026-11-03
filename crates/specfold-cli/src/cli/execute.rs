@@ -198,14 +198,8 @@ pub fn execute(argv: Vec<String>) -> Executed {
     if let Some(output) = dir_is_file(&cli, &argv) {
         return Executed { output, format, page, raw: None, serve_mcp: false };
     }
-    // C192: -C is a chdir: relative paths, repository discovery and repo_path all start there.
-    // The typed value stays for the hints; the session gets the absolute directory.
     let shown_dir = cli.global.dir.clone();
-    if let Some(abs) = shown_dir.as_ref().and_then(|d| d.canonicalize().ok()).filter(|a| a.is_dir())
-        && std::env::set_current_dir(&abs).is_ok()
-    {
-        cli.global.dir = Some(abs);
-    }
+    let loc = enter(&mut cli.global);
     let output = match dispatch(&cli) {
         Ok(o) => o,
         Err(e) => {
@@ -228,51 +222,36 @@ pub fn execute(argv: Vec<String>) -> Executed {
     };
     let mut output = output;
     if let Some(d) = &shown_dir {
-        with_dir(&mut output, d, &cli.global);
-    } else if let Some(up) = up_to_root(&cli.global) {
+        with_dir(&mut output, d, &loc);
+    } else if let Some(up) = loc.up_to_root() {
         // C262: from a subfolder, shell commands in undo and next still name root paths.
         with_dirs(&mut output, "", &specfold_core::shell::quote(&up), false);
     }
     Executed { output, format, page, raw: None, serve_mcp: false }
 }
 
+/// C192: -C is a chdir: relative paths, repository discovery and repo_path all start there.
+/// The typed value stays for the hints; the command gets the absolute directory and its location.
+fn enter(g: &mut crate::cli::args::global::Global) -> std::sync::Arc<crate::commands::session::Location> {
+    let shown_dir = g.dir.clone();
+    if let Some(abs) = shown_dir.as_ref().and_then(|d| d.canonicalize().ok()).filter(|a| a.is_dir())
+        && std::env::set_current_dir(&abs).is_ok()
+    {
+        g.dir = Some(abs);
+    }
+    let loc = crate::commands::session::discover(g, shown_dir);
+    g.loc = Some(loc.clone());
+    loc
+}
+
 /// C161/C163: commands to paste work from where -C was typed: spec gets `-C <dir>`, git gets
 /// `git -C <dir>`, any other shell command `cd <dir> &&`.
-fn with_dir(o: &mut Output, dir: &std::path::Path, g: &crate::cli::args::global::Global) {
+fn with_dir(o: &mut Output, dir: &std::path::Path, loc: &crate::commands::session::Location) {
     let w = specfold_core::shell::quote(&dir.display().to_string());
     // C192: undo and fix name files from the repository root, so shell commands run there.
-    let abs = g.dir.clone().unwrap_or_default();
-    let root = crate::commands::session::config_quiet(g).ok().map(|c| root_as_typed(dir, &abs, &c.root));
+    let root = loc.root_as_typed();
     let r = root.map(|r| specfold_core::shell::quote(&r.display().to_string())).unwrap_or_else(|| w.clone());
     with_dirs(o, &w, &r, true);
-}
-
-/// `..`, `../..` … from the current directory up to the repository root, when it is below it.
-fn up_to_root(g: &crate::cli::args::global::Global) -> Option<String> {
-    let cwd = std::env::current_dir().ok()?.canonicalize().ok()?;
-    let root = crate::commands::session::config_quiet(g).ok()?.root.canonicalize().ok()?;
-    let below = cwd.strip_prefix(&root).ok()?;
-    let n = below.components().count();
-    (n > 0).then(|| vec![".."; n].join("/"))
-}
-
-/// The repository root written the way -C was: `my repo/src` gives `my repo`, `.` when -C is
-/// the root, otherwise the absolute root.
-fn root_as_typed(dir: &std::path::Path, abs: &std::path::Path, root: &std::path::Path) -> std::path::PathBuf {
-    let below = abs.strip_prefix(root).ok().map(|r| r.to_path_buf());
-    match below {
-        Some(b) if b.as_os_str().is_empty() => dir.to_path_buf(),
-        Some(b) => {
-            let mut up = dir.to_path_buf();
-            for _ in b.components() {
-                if !up.pop() {
-                    return root.to_path_buf();
-                }
-            }
-            if up.as_os_str().is_empty() { ".".into() } else { up }
-        }
-        None => root.to_path_buf(),
-    }
 }
 
 /// `spec` commands get `-C <w>` only when `spec_too` (from a subfolder spec finds the root itself).
