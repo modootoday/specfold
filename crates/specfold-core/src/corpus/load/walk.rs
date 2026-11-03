@@ -1,14 +1,14 @@
 //! Lists the files under a spec directory.
 
+use crate::config::Config;
 use crate::model::Tier;
-use ignore::WalkBuilder;
-use std::path::Path;
 
 /// Repository-relative paths of every file under `dir`. Committed roots honour `.gitignore`;
 /// the local root is ignored by git on purpose, so it is read as is.
-pub fn files(repo_root: &Path, dir: &str, tier: Tier) -> Vec<String> {
-    let mut b = WalkBuilder::new(repo_root.join(dir));
-    b.hidden(false).follow_links(false).require_git(false);
+pub fn files(cfg: &Config, dir: &str, tier: Tier) -> Vec<String> {
+    let repo_root = &cfg.root;
+    let mut b = crate::workspace::walk(cfg, &repo_root.join(dir));
+    b.follow_links(false).require_git(false);
     if tier == Tier::Local {
         b.standard_filters(false);
     }

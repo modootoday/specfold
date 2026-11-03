@@ -12,7 +12,6 @@ use crate::graph::Resolution;
 use crate::markdown::body::path_cite_re;
 use crate::workspace::owners::{PathMatch, matcher};
 use crate::workspace::vcs;
-use ignore::WalkBuilder;
 use regex::Regex;
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::OnceLock;
@@ -56,8 +55,7 @@ fn targets(ctx: &Ctx, files: &Files) -> Vec<(String, Option<BTreeSet<usize>>)> {
     let root = &ctx.corpus.cfg.root;
     let added = match &ctx.scope.range {
         Range::All => {
-            let outside = crate::workspace::nested::outside(&ctx.corpus.cfg);
-            let walk = WalkBuilder::new(root).hidden(false).filter_entry(outside).build().flatten();
+            let walk = crate::workspace::walk(&ctx.corpus.cfg, root).build().flatten();
             return walk
                 .filter(|e| e.file_type().is_some_and(|t| t.is_file()))
                 .filter_map(|e| crate::paths::rel_of(root, e.path()))

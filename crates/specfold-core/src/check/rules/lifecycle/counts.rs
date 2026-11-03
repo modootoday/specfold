@@ -7,7 +7,6 @@ use crate::check::rule::{Rule, RuleInfo};
 use crate::markdown::counts::{self, Marker};
 use crate::search::{self, Query};
 use crate::workspace::owners::matcher;
-use ignore::WalkBuilder;
 
 pub struct CountsMatch;
 
@@ -92,9 +91,7 @@ fn extra_files(ctx: &Ctx) -> Vec<String> {
     if !ctx.scope.is_all() {
         return ctx.scope.paths.iter().filter(|p| hit(p)).cloned().collect();
     }
-    WalkBuilder::new(&cfg.root)
-        .hidden(false)
-        .filter_entry(crate::workspace::nested::outside(cfg))
+    crate::workspace::walk(cfg, &cfg.root)
         .build()
         .flatten()
         .filter_map(|e| crate::paths::rel_of(&cfg.root, e.path()))

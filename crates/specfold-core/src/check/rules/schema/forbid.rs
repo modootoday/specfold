@@ -4,7 +4,6 @@ use crate::check::context::Ctx;
 use crate::check::finding::Finding;
 use crate::check::rule::{Rule, RuleInfo};
 use crate::workspace::owners::matcher;
-use ignore::WalkBuilder;
 use regex::Regex;
 
 pub struct Forbidden;
@@ -24,10 +23,8 @@ impl Rule for Forbidden {
         let paths: Vec<_> = cfg.raw.forbid.paths.iter().filter_map(|p| matcher(p).map(|m| (p.clone(), m))).collect();
         if !paths.is_empty() {
             let candidates: Vec<String> = if ctx.scope.is_all() {
-                WalkBuilder::new(&cfg.root)
-                    .hidden(false)
+                crate::workspace::walk(cfg, &cfg.root)
                     .require_git(false)
-                    .filter_entry(crate::workspace::nested::outside(cfg))
                     .build()
                     .flatten()
                     .filter_map(|e| crate::paths::rel_of(&cfg.root, e.path()))

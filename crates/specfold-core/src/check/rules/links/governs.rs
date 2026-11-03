@@ -23,7 +23,7 @@ impl Rule for GovernsExists {
                 continue;
             }
             for g in d.rel().remove("governs").unwrap_or_default() {
-                if crate::remotes::is_external(&ctx.corpus.cfg, &g) {
+                if crate::workspace::projects::is_external(&ctx.corpus.cfg, &g) {
                     continue;
                 }
                 let base = g.split(['*', '?', '[', '{']).next().unwrap_or("").trim_end_matches('/');

@@ -8,8 +8,7 @@ use crate::graph::Resolution;
 use crate::markdown::body;
 use crate::model::Tier;
 use crate::workspace::exposure::{self, Exposed};
-use crate::workspace::nested;
-use ignore::WalkBuilder;
+use crate::workspace::walk;
 
 pub struct NotInPublic;
 pub struct NoLocalCites;
@@ -44,9 +43,7 @@ impl Rule for NotInPublic {
             if !dir.is_dir() {
                 continue;
             }
-            let walk =
-                WalkBuilder::new(&dir).hidden(false).require_git(false).filter_entry(nested::outside(cfg)).build();
-            for e in walk.flatten() {
+            for e in walk(cfg, &dir).require_git(false).build().flatten() {
                 let Some(rel) = crate::paths::rel_of(&cfg.root, e.path()) else {
                     continue;
                 };
@@ -116,8 +113,7 @@ impl Rule for ExternalCites {
         let re = body::path_cite_re(cfg.spec_dir());
         for (name, ext) in &cfg.raw.external {
             let dir = cfg.expand_path(&ext.path);
-            for e in WalkBuilder::new(&dir).standard_filters(false).filter_entry(nested::outside(cfg)).build().flatten()
-            {
+            for e in walk(cfg, &dir).standard_filters(false).build().flatten() {
                 if !e.file_type().is_some_and(|t| t.is_file()) || e.path().extension().is_none_or(|x| x != "md") {
                     continue;
                 }

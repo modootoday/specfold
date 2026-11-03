@@ -62,7 +62,7 @@ pub fn annotate(o: Output, root: &std::path::Path, others: &Others) -> Output {
     if others.is_empty() {
         return o;
     }
-    let links = vcs::gitlinks(root);
+    let links = specfold_core::workspace::projects::submodules(root);
     let link_of = |p: &str| links.iter().find(|l| specfold_core::paths::is_under(p, l)).cloned();
     let json: serde_json::Map<_, _> = others
         .iter()

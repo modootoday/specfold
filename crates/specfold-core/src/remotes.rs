@@ -71,61 +71,6 @@ pub fn dir(cfg: &Config, name: &str) -> Option<PathBuf> {
     Some(r.paths.iter().map(|p| cfg.expand_path(p)).find(|p| p.is_dir()).filter(|_| !first.is_dir()).unwrap_or(first))
 }
 
-/// A governed path that belongs to another project: written `<remote>:<path>`, or inside a
-/// remote checked out within this repository, or inside a submodule no owner kind claims. P1 and
-/// L5 leave it out; D1 still matches it.
-pub fn is_external(cfg: &Config, governs: &str) -> bool {
-    if split(cfg, governs).is_some() {
-        return true;
-    }
-    let g = governs.trim_start_matches("./").trim_end_matches('/');
-    let under = |p: &str| {
-        let p = p.trim_start_matches("./").trim_end_matches('/');
-        !p.is_empty() && crate::paths::is_under(g, p)
-    };
-    inner_projects(cfg).iter().any(|p| under(p))
-}
-
-/// A1: the auto-registered submodule remote whose directory holds `rel`, and the path inside it.
-pub fn submodule_at(cfg: &Config, rel: &str) -> Option<(String, String)> {
-    cfg.raw.remotes.iter().filter(|(_, r)| r.auto).find_map(|(name, r)| {
-        let p = r.path.trim_end_matches('/');
-        let inner = if rel == p { "" } else { rel.strip_prefix(p)?.strip_prefix('/')? };
-        Some((name.clone(), inner.to_string()))
-    })
-}
-
-/// Whether the submodule at `path` is a project of its own rather than code of an owner here. A
-/// submodule an owner kind claims is that owner's code, with or without its own spec.toml (a
-/// product split into its own repository); any other submodule is vendored or another project.
-fn own_project(owners: &crate::workspace::Owners, path: &str) -> bool {
-    owners.by_path(path).is_none()
-}
-
-/// Projects inside this repository: submodules of their own and remotes checked out here, once
-/// per root.
-fn inner_projects(cfg: &Config) -> Vec<String> {
-    static C: OnceLock<Mutex<HashMap<PathBuf, Vec<String>>>> = OnceLock::new();
-    let mut c = C.get_or_init(Default::default).lock().unwrap_or_else(|e| e.into_inner());
-    c.entry(cfg.root.clone())
-        .or_insert_with(|| {
-            let owners = crate::workspace::Owners::discover(cfg);
-            let mut v: Vec<String> =
-                crate::workspace::vcs::gitlinks(&cfg.root).into_iter().filter(|p| own_project(&owners, p)).collect();
-            v.extend(cfg.raw.owners.nested_dirs().map(String::from));
-            // Submodules registered as remotes by `submodule_remotes` were judged above.
-            for r in cfg.raw.remotes.values().filter(|r| !r.auto) {
-                for p in std::iter::once(&r.path).chain(&r.paths) {
-                    if !p.starts_with("..") && !p.starts_with('/') && !p.starts_with('~') {
-                        v.push(p.clone());
-                    }
-                }
-            }
-            v
-        })
-        .clone()
-}
-
 /// Loads the remote corpus once per process; `None` when the directory is absent.
 pub fn load(cfg: &Config, name: &str) -> Option<Arc<Loaded>> {
     let dir = dir(cfg, name)?;
@@ -289,6 +234,7 @@ mod tests {
         assert!(matches!(resolve(&cfg, "org:guide:root/nope"), Remote::Missing { .. }));
         assert!(matches!(resolve(&cfg, "org:guide:root/setup#zzz"), Remote::MissingAnchor { .. }));
         assert!(matches!(resolve(&cfg, "gone:guide:root/setup"), Remote::Found { .. }), "a later candidate path");
-        assert!(is_external(&cfg, "org:src/lib.rs") && !is_external(&cfg, "src/lib.rs"));
+        let external = |g: &str| crate::workspace::projects::is_external(&cfg, g);
+        assert!(external("org:src/lib.rs") && !external("src/lib.rs"));
     }
 }

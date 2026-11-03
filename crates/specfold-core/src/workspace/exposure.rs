@@ -5,7 +5,6 @@
 use crate::config::Config;
 use crate::files::hash;
 use crate::workspace::owners::matcher;
-use ignore::WalkBuilder;
 use serde::Deserialize;
 use std::collections::BTreeMap;
 
@@ -140,7 +139,7 @@ fn detect(cfg: &Config, out: &mut Report) {
     if !(on("site-generators") || on("npm-files") || on("cargo-include")) {
         return;
     }
-    let walk = WalkBuilder::new(&cfg.root).hidden(false).filter_entry(super::nested::outside(cfg)).build();
+    let walk = super::walk(cfg, &cfg.root).build();
     for e in walk.flatten() {
         if !e.file_type().is_some_and(|t| t.is_file()) {
             continue;

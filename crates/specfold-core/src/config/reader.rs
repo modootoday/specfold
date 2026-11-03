@@ -67,12 +67,12 @@ impl Config {
 
     pub fn from_raw(root: PathBuf, mut raw: RawConfig, implicit: bool) -> Self {
         if raw.spec.submodule_remotes {
-            for (name, path) in submodule_specs(&root) {
+            for (name, path) in crate::workspace::projects::submodule_remotes(&root) {
                 raw.remotes.entry(name).or_insert(crate::config::types::RemoteRoot { path, paths: vec![], auto: true });
             }
         }
         // C1: a nested project is a remote whether or not submodule_remotes is set.
-        for (name, path) in crate::workspace::nested::remotes(&root, &raw.owners) {
+        for (name, path) in crate::workspace::projects::nested_remotes(&root, &raw.owners) {
             raw.remotes.entry(name).or_insert(crate::config::types::RemoteRoot { path, paths: vec![], auto: true });
         }
         for (name, dir) in super::private_root::prefixes() {
@@ -105,24 +105,6 @@ impl Config {
     pub fn expand_path(&self, p: &str) -> PathBuf {
         paths::expand(&self.root, p)
     }
-}
-
-/// Submodules listed in `.gitmodules` that carry their own spec.toml, as (remote name, path).
-fn submodule_specs(root: &Path) -> Vec<(String, String)> {
-    let Ok(text) = std::fs::read_to_string(root.join(".gitmodules")) else { return vec![] };
-    let mut out = vec![];
-    for line in text.lines() {
-        let Some((k, v)) = line.split_once('=') else { continue };
-        if k.trim() != "path" {
-            continue;
-        }
-        let path = v.trim().trim_matches('"').trim_end_matches('/').to_string();
-        let name = path.rsplit('/').next().unwrap_or(&path).to_string();
-        if !name.is_empty() && root.join(&path).join("spec.toml").is_file() {
-            out.push((name, path));
-        }
-    }
-    out
 }
 
 #[cfg(test)]

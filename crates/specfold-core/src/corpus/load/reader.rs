@@ -20,7 +20,7 @@ impl Corpus {
         }
         let mut pending = vec![];
         for root in &all_roots {
-            let files = walk::files(&cfg.root, &root.dir, root.tier);
+            let files = walk::files(&cfg, &root.dir, root.tier);
             pending.extend(assemble::group(&cfg, root, &files, &mut strays));
         }
         let t = trace::phase("walk", t);

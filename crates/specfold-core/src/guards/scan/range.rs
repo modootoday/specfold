@@ -2,7 +2,6 @@
 
 use crate::workspace::vcs;
 use anyhow::{Result, anyhow};
-use ignore::WalkBuilder;
 use std::path::Path;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -49,15 +48,8 @@ fn walk(root: &Path, bases: &[String]) -> Vec<String> {
         [] => vec![root.to_path_buf()],
         b => b.iter().map(|p| root.join(p)).filter(|p| p.exists()).collect(),
     };
-    let Some((first, rest)) = dirs.split_first() else { return vec![] };
-    let mut builder = WalkBuilder::new(first);
-    for d in rest {
-        builder.add(d);
-    }
-    let mut files: Vec<String> = builder
-        .hidden(false)
-        .require_git(false)
-        .filter_entry(|e| e.file_name() != ".git")
+    let Some(walk) = crate::workspace::walk_across(&dirs) else { return vec![] };
+    let mut files: Vec<String> = walk
         .build()
         .flatten()
         .filter(|e| e.file_type().is_some_and(|t| t.is_file()))

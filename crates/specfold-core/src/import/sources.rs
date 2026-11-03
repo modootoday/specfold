@@ -3,7 +3,6 @@
 
 use super::map::{ImportMap, SourceRule};
 use crate::workspace::owners::{PathMatch, matcher};
-use ignore::WalkBuilder;
 use regex::Regex;
 use std::collections::BTreeSet;
 use std::path::Path;
@@ -23,10 +22,8 @@ const MAIN_NAMES: &[&str] = &["index.md", "README.md", "readme.md", "00-index.md
 /// C211: sorted by path, so records sharing a date get their seconds in file-name order
 /// on every filesystem.
 fn all_files(root: &Path) -> Vec<String> {
-    let mut files: Vec<String> = WalkBuilder::new(root)
-        .hidden(false)
-        .require_git(false)
-        .filter_entry(|e| e.file_name() != ".git")
+    let Some(walk) = crate::workspace::walk_across(&[root.to_path_buf()]) else { return vec![] };
+    let mut files: Vec<String> = walk
         .build()
         .flatten()
         .filter(|e| e.file_type().is_some_and(|t| t.is_file()))

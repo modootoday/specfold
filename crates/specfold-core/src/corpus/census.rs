@@ -4,7 +4,6 @@
 use crate::corpus::Corpus;
 use crate::graph::{Graph, Resolution};
 use crate::workspace::owners::matcher;
-use ignore::WalkBuilder;
 use serde::Serialize;
 use std::collections::BTreeMap;
 
@@ -59,10 +58,8 @@ pub fn take(c: &Corpus, g: &Graph) -> Census {
     let legacy_paths = if forbid.is_empty() {
         0
     } else {
-        WalkBuilder::new(&c.cfg.root)
-            .hidden(false)
+        crate::workspace::walk(&c.cfg, &c.cfg.root)
             .require_git(false)
-            .filter_entry(crate::workspace::nested::outside(&c.cfg))
             .build()
             .flatten()
             .filter_map(|e| crate::paths::rel_of(&c.cfg.root, e.path()))

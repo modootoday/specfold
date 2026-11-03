@@ -5,7 +5,6 @@ use crate::config::Config;
 use crate::config::types::{AssetKind, AssetRoot};
 use crate::markdown::frontmatter::{self, Parsed};
 use crate::workspace::owners::{PathMatch, matcher};
-use ignore::WalkBuilder;
 use std::collections::BTreeSet;
 use std::path::Path;
 
@@ -43,9 +42,7 @@ fn files(cfg: &Config, def: &AssetRoot) -> Vec<String> {
         return vec![];
     }
     let mut out = vec![];
-    for e in
-        WalkBuilder::new(&start).hidden(false).filter_entry(crate::workspace::nested::outside(cfg)).build().flatten()
-    {
+    for e in crate::workspace::walk(cfg, &start).build().flatten() {
         if !e.file_type().is_some_and(|t| t.is_file()) {
             continue;
         }

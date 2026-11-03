@@ -27,7 +27,7 @@ impl Rule for OwnerMatches {
             }
             let Some(current) = owners.by_id(&d.id.owner) else { continue };
             let all = d.rel().remove("governs").unwrap_or_default();
-            if !all.is_empty() && all.iter().all(|g| crate::remotes::is_external(&ctx.corpus.cfg, g)) {
+            if !all.is_empty() && all.iter().all(|g| crate::workspace::projects::is_external(&ctx.corpus.cfg, g)) {
                 continue;
             }
             let decision = placement::decide_local(&ctx.corpus.cfg, owners, &all, current);
