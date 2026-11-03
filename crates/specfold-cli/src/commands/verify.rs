@@ -4,6 +4,7 @@ pub mod census;
 pub mod check;
 pub mod commits;
 pub mod doctor;
+pub mod findings;
 pub mod guard;
 pub mod owners;
 #[allow(clippy::module_inception)]

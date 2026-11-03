@@ -2,7 +2,8 @@
 //! diagnostics only. Each open, change or save puts the buffer in the overlay and checks the file.
 
 use crate::cli::args::global::Global;
-use crate::commands::verify::check;
+use crate::commands::paths;
+use crate::commands::verify::findings;
 use crate::output::ci;
 use serde_json::{Value, json};
 use specfold_core::check::finding::visible;
@@ -92,7 +93,7 @@ fn utf16(s: &str, b: usize) -> usize {
 /// One quickfix per diagnostic that carries a replacement, edited against the buffer text.
 pub fn code_actions(uri: &str, path: Option<&Path>, params: &Value) -> Vec<Value> {
     let Some(path) = path else { return vec![] };
-    let Ok(text) = overlay::read(&check::absolute(path)) else { return vec![] };
+    let Ok(text) = overlay::read(&paths::absolute(path)) else { return vec![] };
     let diags = params.pointer("/context/diagnostics").and_then(Value::as_array).cloned().unwrap_or_default();
     let mut out = vec![];
     for d in &diags {
@@ -285,7 +286,7 @@ impl Server {
     /// The diagnostics for one document, or an empty list when it is not part of the corpus.
     pub fn diagnostics(&mut self, path: &Path) -> Vec<Value> {
         let Some(root) = self.root() else { return vec![] };
-        let abs = check::absolute(path);
+        let abs = paths::absolute(path);
         let Ok(rel) = abs.strip_prefix(&root) else { return vec![] };
         let rel = rel.to_string_lossy().replace('\\', "/");
         let key = (disk_stamp(&root), overlay::stamp());
@@ -294,7 +295,7 @@ impl Server {
             if std::env::var_os("SPEC_LSP_TRACE").is_some() {
                 eprintln!("spec lsp: full check");
             }
-            let Ok(all) = check::all_findings(&self.global) else { return vec![] };
+            let Ok(all) = findings::all_findings(&self.global) else { return vec![] };
             self.cache = Some((key, all));
         }
         let all = self.cache.as_ref().map(|(_, l)| l.as_slice()).unwrap_or_default();
@@ -416,7 +417,7 @@ impl Server {
                 .map(str::to_string),
             "textDocument/didSave" => params.get("text").and_then(Value::as_str).map(str::to_string),
             "textDocument/didClose" => {
-                overlay::clear(&check::absolute(&path));
+                overlay::clear(&paths::absolute(&path));
                 let clear = json!({"jsonrpc": "2.0", "method": "textDocument/publishDiagnostics",
                                    "params": {"uri": uri, "diagnostics": []}});
                 return (vec![clear], false);
@@ -424,9 +425,9 @@ impl Server {
             _ => return (vec![], method == "exit"),
         };
         match text {
-            Some(t) => overlay::set(check::absolute(&path), t),
+            Some(t) => overlay::set(paths::absolute(&path), t),
             // A save without text: the disk is current again.
-            None if method == "textDocument/didSave" => overlay::clear(&check::absolute(&path)),
+            None if method == "textDocument/didSave" => overlay::clear(&paths::absolute(&path)),
             None => {}
         }
         (vec![self.publish(&uri, &path)], false)

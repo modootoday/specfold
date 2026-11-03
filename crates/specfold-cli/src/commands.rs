@@ -3,6 +3,7 @@
 pub mod audit;
 pub mod files;
 pub mod outbound;
+pub mod paths;
 pub mod read;
 pub mod session;
 pub mod setup;
