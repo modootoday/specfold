@@ -63,7 +63,7 @@ pub fn annotate(o: Output, root: &std::path::Path, others: &Others) -> Output {
         return o;
     }
     let links = vcs::gitlinks(root);
-    let link_of = |p: &str| links.iter().find(|l| p == l.as_str() || p.starts_with(&format!("{l}/"))).cloned();
+    let link_of = |p: &str| links.iter().find(|l| specfold_core::paths::is_under(p, l)).cloned();
     let json: serde_json::Map<_, _> = others
         .iter()
         .map(|(id, (p, n))| (id.clone(), serde_json::json!({"path": p, "errors": n, "gitlink": link_of(p)})))

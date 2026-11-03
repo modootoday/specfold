@@ -22,7 +22,7 @@ impl Owners {
         let rel = rel.trim_start_matches("./");
         self.list
             .iter()
-            .filter(|o| o.path.is_empty() || rel == o.path || rel.starts_with(&format!("{}/", o.path)))
+            .filter(|o| o.path.is_empty() || crate::paths::is_under(rel, &o.path))
             .max_by_key(|o| o.path.len())
             .unwrap_or(self.root())
     }

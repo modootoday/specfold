@@ -7,10 +7,7 @@ use crate::config::Config;
 pub fn outside(cfg: &Config) -> impl Fn(&ignore::DirEntry) -> bool + Send + Sync + 'static {
     let root = cfg.root.clone();
     let owners = cfg.raw.owners.clone();
-    move |e| {
-        let rel = e.path().strip_prefix(&root).map(|p| p.to_string_lossy().replace('\\', "/"));
-        rel.is_err() || rel.is_ok_and(|r| r.is_empty() || !owners.in_nested(&r))
-    }
+    move |e| crate::paths::rel_of(&root, e.path()).is_none_or(|r| r.is_empty() || !owners.in_nested(&r))
 }
 
 /// The nested projects that carry a spec.toml, as (remote name, path): the last path segment

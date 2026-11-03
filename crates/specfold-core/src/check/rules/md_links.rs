@@ -8,6 +8,7 @@ use crate::check::finding::Finding;
 use crate::check::rule::{Rule, RuleInfo};
 use crate::export::links::{MdLink, md_links, md_ref_defs};
 use crate::markdown::frontmatter::split;
+use crate::paths::normalize;
 use std::collections::BTreeSet;
 
 pub struct LocalLinks;
@@ -41,21 +42,6 @@ fn has_scheme(t: &str) -> bool {
 
 fn decode(p: &str) -> String {
     crate::markdown::link_dest::decode(p)
-}
-
-/// `a/b/../c` as `a/c`; None when it climbs out of the repository.
-fn normalize(p: &str) -> Option<String> {
-    let mut parts: Vec<&str> = vec![];
-    for seg in p.split('/') {
-        match seg {
-            "" | "." => {}
-            ".." => {
-                parts.pop()?;
-            }
-            s => parts.push(s),
-        }
-    }
-    Some(parts.join("/"))
 }
 
 /// The links of every file of one document, with the line each sits on.

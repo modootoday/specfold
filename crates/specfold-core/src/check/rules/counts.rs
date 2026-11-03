@@ -96,7 +96,7 @@ fn extra_files(ctx: &Ctx) -> Vec<String> {
         .hidden(false)
         .build()
         .flatten()
-        .filter_map(|e| e.path().strip_prefix(&cfg.root).ok().map(|p| p.to_string_lossy().replace('\\', "/")))
+        .filter_map(|e| crate::paths::rel_of(&cfg.root, e.path()))
         .filter(|p| hit(p))
         .collect()
 }

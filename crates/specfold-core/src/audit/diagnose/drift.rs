@@ -23,7 +23,7 @@ pub fn run(c: &Corpus, out: &mut Vec<Item>) {
     let synced: Vec<&str> =
         c.cfg.raw.assets.iter().filter(|r| r.copy_of.is_some()).map(|r| r.path.trim_end_matches('/')).collect();
     for a in skills.iter().filter(|a| !a.path.starts_with(CANONICAL)) {
-        let sync = synced.iter().any(|r| a.path.starts_with(&format!("{r}/")));
+        let sync = synced.iter().any(|r| crate::paths::is_below(&a.path, r));
         let (detail, next) = match canonical.get(a.stem.as_str()) {
             None => (
                 format!("skill '{}' has no source under .agents/skills", a.stem),
@@ -79,7 +79,7 @@ fn digest(root: &Path, skill_md: &str) -> Vec<u8> {
     files.sort();
     let mut h = Sha256::new();
     for f in files {
-        let rel = f.strip_prefix(&dir).unwrap_or(&f).to_string_lossy().replace('\\', "/");
+        let rel = crate::paths::rel_of(&dir, &f).unwrap_or_else(|| crate::paths::slash(&f));
         h.update(rel.as_bytes());
         h.update([0]);
         h.update(std::fs::read(&f).unwrap_or_default());

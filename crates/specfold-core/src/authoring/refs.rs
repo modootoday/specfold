@@ -1,5 +1,6 @@
 //! Rewriting references to a document when its id changes.
 
+use crate::paths::{normalize, relative_from_file as relative};
 use regex::Regex;
 use serde_json::{Map, Value};
 
@@ -47,32 +48,6 @@ pub fn rewrite_rel(map: &mut Map<String, Value>, old: &str, new: &str) -> bool {
         }
     }
     changed
-}
-
-/// `a/./b/../c` as `a/c`; `None` when it climbs above the root.
-fn normalize(path: &str) -> Option<String> {
-    let mut out: Vec<&str> = vec![];
-    for part in path.split('/') {
-        match part {
-            "" | "." => {}
-            ".." => {
-                out.pop()?;
-            }
-            p => out.push(p),
-        }
-    }
-    Some(out.join("/"))
-}
-
-/// The path of `to` written relative to the folder holding `from`.
-fn relative(from: &str, to: &str) -> String {
-    let base: Vec<&str> =
-        from.rsplit_once('/').map(|x| x.0).unwrap_or("").split('/').filter(|p| !p.is_empty()).collect();
-    let target: Vec<&str> = to.split('/').collect();
-    let common = base.iter().zip(&target).take_while(|(a, b)| a == b).count();
-    let mut parts: Vec<&str> = vec![".."; base.len() - common];
-    parts.extend(&target[common..]);
-    parts.join("/")
 }
 
 /// Rewrites local Markdown links in `file` that point at `old` so they point at `new`:

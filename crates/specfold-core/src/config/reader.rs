@@ -191,41 +191,14 @@ fn same_file_key(root: &Path, p: &str) -> String {
     // C194/C195: resolve the deepest part of the path that exists (symbolic links included)
     // before any lexical clean-up, then apply the rest; `lnk/sub/..` is judged where the
     // write would land. Kept root-relative so it compares with the lexical keys below.
-    if let Ok(croot) = root.canonicalize() {
-        let abs = root.join(p);
-        let comps: Vec<_> = abs.components().collect();
-        for k in (1..=comps.len()).rev() {
-            let Ok(mut out) = comps[..k].iter().collect::<std::path::PathBuf>().canonicalize() else {
-                continue;
-            };
-            for c in &comps[k..] {
-                match c {
-                    std::path::Component::ParentDir => {
-                        out.pop();
-                    }
-                    std::path::Component::Normal(n) => out.push(n),
-                    _ => {}
-                }
-            }
-            return match out.strip_prefix(&croot) {
-                Ok(r) => r.to_string_lossy().replace('\\', "/"),
-                Err(_) => out.to_string_lossy().into_owned(),
-            };
-        }
+    if let Ok(croot) = root.canonicalize()
+        && let Some(out) = crate::paths::real_with_lexical_tail(&root.join(p))
+    {
+        return crate::paths::rel_of(&croot, &out).unwrap_or_else(|| out.to_string_lossy().into_owned());
     }
     let p = Path::new(p);
     let rel = p.strip_prefix(root).unwrap_or(p);
-    let mut parts: Vec<&str> = vec![];
-    for c in rel.to_str().unwrap_or_default().split(['/', '\\']) {
-        match c {
-            "" | "." => {}
-            ".." if parts.last().is_some_and(|l| *l != "..") => {
-                parts.pop();
-            }
-            other => parts.push(other),
-        }
-    }
-    parts.join("/")
+    crate::paths::normalize_keeping_up(rel.to_str().unwrap_or_default())
 }
 
 #[cfg(test)]

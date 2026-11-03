@@ -147,7 +147,7 @@ fn detect(cfg: &Config, out: &mut Report) {
         }
         let name = e.file_name().to_string_lossy().to_string();
         let Some(dir) = e.path().parent().and_then(|p| p.strip_prefix(&cfg.root).ok()) else { continue };
-        let dir = dir.to_string_lossy().replace('\\', "/");
+        let dir = crate::paths::slash(dir);
         if on("site-generators") && SITE_FILES.contains(&name.as_str()) {
             let path = if dir.is_empty() { ".".to_string() } else { dir.clone() };
             out.exposed.push(Exposed { path, reason: format!("a site generator ({name})") });

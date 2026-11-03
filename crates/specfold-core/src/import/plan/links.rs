@@ -1,6 +1,7 @@
 //! Links between imported documents: replacements, canonical ids, and rewritten relative paths.
 
 use super::*;
+use crate::paths::{join, relative_from_dir};
 
 /// "superseded by X": the newer record, when this import names it, gets rel.supersedes to the
 /// older one; otherwise the row needs a decision, since check would report T1 after the import.
@@ -108,31 +109,6 @@ fn edit_frontmatter(plan: &mut Plan, path: &str, f: impl FnOnce(&mut Map<String,
     }
 }
 
-/// `a/b/c.md` relative to directory `a/x` → `../b/c.md`.
-pub(super) fn relative(from_dir: &str, to: &str) -> String {
-    let f: Vec<&str> = from_dir.split('/').filter(|s| !s.is_empty()).collect();
-    let t: Vec<&str> = to.split('/').filter(|s| !s.is_empty()).collect();
-    let common = f.iter().zip(&t).take_while(|(a, b)| a == b).count();
-    let mut parts: Vec<&str> = std::iter::repeat_n("..", f.len() - common).collect();
-    parts.extend(&t[common..]);
-    parts.join("/")
-}
-
-/// `docs/adr` + `../x/./y.md` → `docs/x/y.md`; None when it climbs above the root.
-pub(super) fn join(dir: &str, link: &str) -> Option<String> {
-    let mut parts: Vec<&str> = dir.split('/').filter(|s| !s.is_empty()).collect();
-    for seg in link.split('/') {
-        match seg {
-            "" | "." => {}
-            ".." => {
-                parts.pop()?;
-            }
-            s => parts.push(s),
-        }
-    }
-    Some(parts.join("/"))
-}
-
 fn dir_of(p: &str) -> &str {
     p.rsplit_once('/').map(|x| x.0).unwrap_or("")
 }
@@ -159,7 +135,7 @@ pub(super) fn rewrite_links(out: &mut ImportPlan, by_source: &BTreeMap<String, S
                     .flatten()
                     .and_then(|old| by_source.get(&old))
                     .and_then(|id| paths.get(id))
-                    .map(|p| relative(&new_dir, p))
+                    .map(|p| relative_from_dir(&new_dir, p))
             });
             *content = text;
             count += n;

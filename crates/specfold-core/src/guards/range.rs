@@ -61,7 +61,7 @@ fn walk(root: &Path, bases: &[String]) -> Vec<String> {
         .build()
         .flatten()
         .filter(|e| e.file_type().is_some_and(|t| t.is_file()))
-        .filter_map(|e| e.path().strip_prefix(root).ok().map(|p| p.to_string_lossy().replace('\\', "/")))
+        .filter_map(|e| crate::paths::rel_of(root, e.path()))
         .collect();
     let existing = vcs::tracked(root, bases).unwrap_or_default().into_iter().filter(|p| root.join(p).is_file());
     files.extend(existing);

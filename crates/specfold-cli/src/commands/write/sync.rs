@@ -26,7 +26,7 @@ pub fn run(g: &Global, a: &SyncArgs) -> Result<Output> {
     let conflicts = kind_conflicts(&cfg.root, &plan);
     if a.prune && !conflicts.is_empty() {
         plan.changes.retain(
-            |c| !matches!(c, Change::Move { from, .. } if conflicts.iter().any(|k| from.starts_with(&format!("{k}/")))),
+            |c| !matches!(c, Change::Move { from, .. } if conflicts.iter().any(|k| specfold_core::paths::is_below(from, k))),
         );
         for k in &conflicts {
             if !plan.changes.iter().any(|c| matches!(c, Change::Move { from, .. } if from == k)) {

@@ -32,7 +32,7 @@ pub(super) fn nearest_repo(root: &Path, path: &str) -> (PathBuf, String, String)
     let mut prefix = Path::new(path).parent();
     while let Some(dir) = prefix.filter(|d| !d.as_os_str().is_empty()) {
         if root.join(dir).join(".git").exists() {
-            let p = dir.to_string_lossy().replace('\\', "/");
+            let p = crate::paths::slash(dir);
             let rel = path.strip_prefix(&format!("{p}/")).unwrap_or(path).to_string();
             return (root.join(dir), rel, format!("{p}/"));
         }

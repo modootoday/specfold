@@ -9,20 +9,7 @@ use std::path::{Path, PathBuf};
 /// spec or git directory; the missing rest is appended as written.
 fn real_out(out: &Path) -> std::path::PathBuf {
     let abs = if out.is_absolute() { out.to_path_buf() } else { std::env::current_dir().unwrap_or_default().join(out) };
-    let mut rest = vec![];
-    let mut cur = abs.as_path();
-    loop {
-        if let Ok(c) = cur.canonicalize() {
-            return rest.iter().rev().fold(c, |acc, part| acc.join(part));
-        }
-        match (cur.parent(), cur.file_name()) {
-            (Some(parent), Some(name)) => {
-                rest.push(name.to_os_string());
-                cur = parent;
-            }
-            _ => return abs,
-        }
-    }
+    crate::paths::real_with_missing_tail(&abs).unwrap_or(abs)
 }
 
 /// Checks `out` can take an export (missing, empty or an earlier export, outside the repository

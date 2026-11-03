@@ -94,7 +94,7 @@ fn clean(p: &str, key: &str) -> Result<String> {
 }
 
 fn inside(a: &str, b: &str) -> bool {
-    a == b || a.starts_with(&format!("{b}/"))
+    crate::paths::is_under(a, b)
 }
 
 /// Refuses a path whose existing part passes through a symbolic link, which could lead outside.

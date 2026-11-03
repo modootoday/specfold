@@ -47,8 +47,7 @@ impl Rule for NotInPublic {
             let walk =
                 WalkBuilder::new(&dir).hidden(false).require_git(false).filter_entry(nested::outside(cfg)).build();
             for e in walk.flatten() {
-                let Some(rel) = e.path().strip_prefix(&cfg.root).ok().map(|r| r.to_string_lossy().replace('\\', "/"))
-                else {
+                let Some(rel) = crate::paths::rel_of(&cfg.root, e.path()) else {
                     continue;
                 };
                 let name = e.file_name().to_string_lossy();

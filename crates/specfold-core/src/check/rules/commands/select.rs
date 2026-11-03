@@ -37,7 +37,7 @@ pub fn selected(ctx: &Ctx) -> Vec<usize> {
         let governs = d.rel().get("governs").cloned().unwrap_or_default();
         let reached = ctx.scope.paths.iter().any(|p| {
             commands.iter().any(|c| c.contains(p.as_str()))
-                || (is_gitlink(ctx, p) && governs.iter().any(|g| g.starts_with(&format!("{p}/"))))
+                || (is_gitlink(ctx, p) && governs.iter().any(|g| crate::paths::is_below(g, p)))
         });
         if reached {
             out.push(i);

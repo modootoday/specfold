@@ -60,7 +60,7 @@ fn targets(ctx: &Ctx, files: &Files) -> Vec<(String, Option<BTreeSet<usize>>)> {
             let walk = WalkBuilder::new(root).hidden(false).filter_entry(outside).build().flatten();
             return walk
                 .filter(|e| e.file_type().is_some_and(|t| t.is_file()))
-                .filter_map(|e| e.path().strip_prefix(root).ok().map(|p| p.to_string_lossy().replace('\\', "/")))
+                .filter_map(|e| crate::paths::rel_of(root, e.path()))
                 .filter(|p| files.wants(ctx, p))
                 .map(|p| (p, None))
                 .collect();

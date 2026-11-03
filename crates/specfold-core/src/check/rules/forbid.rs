@@ -30,9 +30,7 @@ impl Rule for Forbidden {
                     .filter_entry(crate::workspace::nested::outside(cfg))
                     .build()
                     .flatten()
-                    .filter_map(|e| {
-                        e.path().strip_prefix(&cfg.root).ok().map(|p| p.to_string_lossy().replace('\\', "/"))
-                    })
+                    .filter_map(|e| crate::paths::rel_of(&cfg.root, e.path()))
                     .filter(|p| !p.is_empty())
                     .collect()
             } else {

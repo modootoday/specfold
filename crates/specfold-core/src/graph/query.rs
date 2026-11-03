@@ -26,9 +26,8 @@ pub fn governing(c: &Corpus, path: &str) -> Vec<Governing> {
         let globs = d.rel().remove("governs").unwrap_or_default();
         if globs.is_empty() {
             let Some(owner) = c.owners.by_id(&d.id.owner) else { continue };
-            let under = inside.is_some() && owner.path.starts_with(&format!("{path}/"));
-            if !owner.path.is_empty() && (path == owner.path || path.starts_with(&format!("{}/", owner.path)) || under)
-            {
+            let under = inside.is_some() && crate::paths::is_below(&owner.path, path);
+            if !owner.path.is_empty() && (crate::paths::is_under(path, &owner.path) || under) {
                 out.push(Governing { idx: i, pattern: format!("{}/**", owner.path), specificity: owner.path.len() });
             }
             continue;
@@ -50,7 +49,7 @@ pub fn governing(c: &Corpus, path: &str) -> Vec<Governing> {
 /// matches one of the files there.
 fn below_dir(g: &str, dir: &str, files: &[String]) -> bool {
     let lit = g.split(['*', '?', '[', '{']).next().unwrap_or("");
-    if lit.starts_with(&format!("{dir}/")) {
+    if crate::paths::is_below(lit, dir) {
         return true;
     }
     matcher(g).is_some_and(|m| files.iter().any(|f| m.is_match(f)))

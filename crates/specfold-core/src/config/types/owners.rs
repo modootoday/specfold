@@ -56,7 +56,7 @@ impl OwnersSection {
     /// Whether `rel` (a repository-relative path) is a nested project or inside one.
     pub fn in_nested(&self, rel: &str) -> bool {
         let rel = rel.trim_start_matches("./").trim_end_matches('/');
-        self.nested_dirs().any(|n| rel == n || rel.starts_with(&format!("{n}/")))
+        self.nested_dirs().any(|n| crate::paths::is_under(rel, n))
     }
 
     /// The nested project directories, without leading `./` or a trailing slash.

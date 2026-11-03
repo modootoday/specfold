@@ -31,8 +31,7 @@ pub fn locate(cfg: &Config, abs: &Path) -> ClonePath {
     if m.spec.canonicalize().ok() != cfg.root.canonicalize().ok() {
         return ClonePath::Outside;
     }
-    let Ok(below) = abs.strip_prefix(&clone) else { return ClonePath::Outside };
-    let rel = below.to_string_lossy().replace('\\', "/");
+    let Some(rel) = crate::paths::rel_of(&clone, abs) else { return ClonePath::Outside };
     match public_path(cfg, &clone, m.public.as_deref()) {
         Some(p) if rel.is_empty() => ClonePath::Mapped(p),
         Some(p) => ClonePath::Mapped(format!("{p}/{rel}")),

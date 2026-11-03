@@ -287,8 +287,7 @@ impl Server {
     pub fn diagnostics(&mut self, path: &Path) -> Vec<Value> {
         let Some(root) = self.root() else { return vec![] };
         let abs = paths::absolute(path);
-        let Ok(rel) = abs.strip_prefix(&root) else { return vec![] };
-        let rel = rel.to_string_lossy().replace('\\', "/");
+        let Some(rel) = specfold_core::paths::rel_of(&root, &abs) else { return vec![] };
         let key = (disk_stamp(&root), overlay::stamp());
         let fresh = std::env::var_os("SPEC_LSP_NO_CACHE").is_some();
         if fresh || self.cache.as_ref().is_none_or(|(k, _)| *k != key) {

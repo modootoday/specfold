@@ -48,7 +48,7 @@ pub fn run(g: &Global) -> Result<Output> {
         if let Some(n) =
             text.lines().position(|l| l.starts_with("<<<<<<< ") || l == "<<<<<<<" || l.starts_with(">>>>>>> "))
         {
-            let rel = f.strip_prefix(&root).unwrap_or(f).to_string_lossy().replace('\\', "/");
+            let rel = specfold_core::paths::rel_of(&root, f).unwrap_or_else(|| specfold_core::paths::slash(f));
             o = add(
                 o,
                 "conflict",

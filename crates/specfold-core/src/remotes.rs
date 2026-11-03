@@ -81,7 +81,7 @@ pub fn is_external(cfg: &Config, governs: &str) -> bool {
     let g = governs.trim_start_matches("./").trim_end_matches('/');
     let under = |p: &str| {
         let p = p.trim_start_matches("./").trim_end_matches('/');
-        !p.is_empty() && (g == p || g.starts_with(&format!("{p}/")))
+        !p.is_empty() && crate::paths::is_under(g, p)
     };
     inner_projects(cfg).iter().any(|p| under(p))
 }

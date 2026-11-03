@@ -363,10 +363,7 @@ pub fn undo(plan: &Plan, root: &Path, kept: &Saved) -> String {
         specfold_core::workspace::vcs::tracked(root, &[]).unwrap_or_default().into_iter().collect();
     // C233: a bundle document moves as its directory, which git never lists itself; it counts
     // as tracked when files under it are.
-    let under = |p: &str| {
-        let dir = format!("{p}/");
-        tracked.iter().any(|t| t.starts_with(&dir))
-    };
+    let under = |p: &str| tracked.iter().any(|t| specfold_core::paths::is_below(t, p));
     let is_tracked = |p: &str| tracked.contains(p) || under(p);
     let known = |p: &str| is_tracked(p) || root.join(p).exists();
     let mut paths: Vec<String> = vec![];
@@ -392,7 +389,7 @@ pub fn undo(plan: &Plan, root: &Path, kept: &Saved) -> String {
             Change::Copy { to, .. } => paths.push(to.clone()),
         }
     }
-    paths.retain(|p| known(p) && !back.iter().any(|(to, _)| to == p || p.starts_with(&format!("{to}/"))));
+    paths.retain(|p| known(p) && !back.iter().any(|(to, _)| specfold_core::paths::is_under(p, to)));
     paths.sort();
     paths.dedup();
     // C197: an ignored path (the local tier) is out of git's reach: what spec made there is removed.

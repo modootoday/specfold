@@ -23,6 +23,7 @@ pub mod guards;
 pub mod import;
 pub mod markdown;
 pub mod model;
+pub mod paths;
 pub mod placement;
 pub mod plugins;
 pub mod remotes;

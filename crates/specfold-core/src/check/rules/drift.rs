@@ -114,7 +114,7 @@ fn governs_inside(c: &crate::corpus::Corpus, note: usize, doc: usize) -> bool {
         mine.iter().any(|s| {
             let base = crate::placement::literal_base(s);
             crate::workspace::owners::matcher(s).is_some_and(|m| m.is_match(&p))
-                || (!base.is_empty() && (p == base || p.starts_with(&format!("{base}/"))))
+                || (!base.is_empty() && crate::paths::is_under(&p, &base))
         })
     })
 }

@@ -170,7 +170,7 @@ pub fn run(cfg: &Config, g: &GuardDef, c: &Compiled, range: &Resolved) -> Result
             out.push(hit(g, "spec.toml", 1, "scanned no file in its paths; a gate over nothing proves nothing (fix the paths, or set fail_if_empty = false until the first file exists)".into()));
         }
         // An empty checkout of a published path (a submodule never fetched) reads as clean.
-        for p in c.published.iter().filter(|p| !files.iter().any(|f| f.starts_with(&format!("{p}/")))) {
+        for p in c.published.iter().filter(|p| !files.iter().any(|f| crate::paths::is_below(f, p))) {
             out.push(hit(g, p, 1, "a published path yielded no file; is it checked out?".into()));
         }
     }

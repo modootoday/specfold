@@ -14,7 +14,7 @@ impl PathMatch {
     /// Whether a repository-relative path matches.
     pub fn is_match(&self, rel: &str) -> bool {
         match self {
-            PathMatch::Prefix(p) => rel == p || rel.starts_with(&format!("{p}/")),
+            PathMatch::Prefix(p) => crate::paths::is_under(rel, p),
             PathMatch::Glob(g) => g.is_match(rel),
         }
     }

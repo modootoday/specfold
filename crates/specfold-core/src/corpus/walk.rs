@@ -16,11 +16,11 @@ pub fn files(repo_root: &Path, dir: &str, tier: Tier) -> Vec<String> {
         .build()
         .flatten()
         .filter(|e| e.file_type().is_some_and(|t| t.is_file()))
-        .filter_map(|e| e.path().strip_prefix(repo_root).ok().map(|p| p.to_string_lossy().replace('\\', "/")))
+        .filter_map(|e| crate::paths::rel_of(repo_root, e.path()))
         .collect();
     for p in super::overlay::unsaved_under(&repo_root.join(dir)) {
-        if let Ok(r) = p.strip_prefix(repo_root) {
-            out.push(r.to_string_lossy().replace('\\', "/"));
+        if let Some(r) = crate::paths::rel_of(repo_root, &p) {
+            out.push(r);
         }
     }
     out.sort();

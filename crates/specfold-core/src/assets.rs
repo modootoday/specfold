@@ -109,8 +109,7 @@ fn files(root: &Path, def: &AssetRoot) -> Vec<String> {
         if !e.file_type().is_some_and(|t| t.is_file()) {
             continue;
         }
-        let Ok(rel) = e.path().strip_prefix(root) else { continue };
-        let rel = rel.to_string_lossy().replace('\\', "/");
+        let Some(rel) = crate::paths::rel_of(root, e.path()) else { continue };
         if want.is_match(&rel) && !exclude.iter().any(|m| m.is_match(&rel)) && shaped(def.kind, &rel) {
             out.push(rel);
         }

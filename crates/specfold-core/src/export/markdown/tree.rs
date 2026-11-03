@@ -6,6 +6,7 @@ use crate::export::links::{self, Link};
 use crate::graph::Graph;
 use crate::markdown::{body, frontmatter};
 use crate::model::{Tier, stamp::slugify};
+use crate::paths::relative_from_file;
 use anyhow::Result;
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -221,16 +222,6 @@ pub fn github_slug(heading: &str) -> String {
         .collect()
 }
 
-/// A relative link from `from` to `to`, both tree paths.
-fn relative(from: &str, to: &str) -> String {
-    let from_dir: Vec<&str> = from.split('/').collect::<Vec<_>>()[..from.matches('/').count()].to_vec();
-    let to_parts: Vec<&str> = to.split('/').collect();
-    let common = from_dir.iter().zip(&to_parts).take_while(|(a, b)| a == b).count();
-    let mut out: Vec<String> = vec!["..".into(); from_dir.len() - common];
-    out.extend(to_parts[common..].iter().map(|s| s.to_string()));
-    out.join("/")
-}
-
 fn rewrite(
     p: &Page,
     t: Target,
@@ -268,7 +259,7 @@ fn rewrite(
             }
             Target::Mkdocs | Target::Docusaurus => {
                 let a = l.anchor.as_ref().map(|a| format!("#{a}")).unwrap_or_default();
-                format!("[{text}]({}{a})", relative(&p.file, &q.file))
+                format!("[{text}]({}{a})", relative_from_file(&p.file, &q.file))
             }
             Target::GithubWiki => {
                 let a = heading.map(|h| format!("#{}", github_slug(&h))).unwrap_or_default();
@@ -371,8 +362,8 @@ mod tests {
     #[test]
     fn names_and_paths() {
         assert_eq!(safe_name("a:b/c"), "a-b-c");
-        assert_eq!(relative("shop/adr/a.md", "shop/sot/b.md"), "../sot/b.md");
-        assert_eq!(relative("shop/adr/a.md", "shop/adr/b.md"), "b.md");
+        assert_eq!(relative_from_file("shop/adr/a.md", "shop/sot/b.md"), "../sot/b.md");
+        assert_eq!(relative_from_file("shop/adr/a.md", "shop/adr/b.md"), "b.md");
         assert_eq!(github_slug("Cart Totals (v2)"), "cart-totals-v2");
         assert_eq!(strip_anchors("## Totals {#CO-1}\n```\n## x {#y}\n```\n"), "## Totals\n```\n## x {#y}\n```\n");
     }

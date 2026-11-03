@@ -6,6 +6,7 @@ use crate::commands::paths::absolute;
 use crate::session;
 use anyhow::{Result, bail};
 use specfold_core::check::{self, Range};
+use specfold_core::paths;
 
 /// `--fail-on` must name rules that exist, so a gate cannot silently wait on a rule that never fires.
 pub(super) fn check_fail_on(names: &[String]) -> Result<()> {
@@ -47,14 +48,10 @@ pub(crate) fn documents_named(s: &session::Session, files: &[String], stdin: Opt
             }
         }
         let abs = absolute(std::path::Path::new(f));
-        let rel = match abs.strip_prefix(&s.corpus.cfg.root) {
-            Ok(r) => r.to_string_lossy().replace('\\', "/"),
-            Err(_) => session::repo_path(s, f),
-        };
+        let rel = paths::rel_of(&s.corpus.cfg.root, &abs).unwrap_or_else(|| session::repo_path(s, f));
         // B2: a folder names the documents under it; one with none is refused, not checked empty.
         if std::path::Path::new(f).is_dir() {
-            let under =
-                |p: &str| rel.is_empty() || rel == "." || p.starts_with(&format!("{}/", rel.trim_end_matches('/')));
+            let under = |p: &str| rel.is_empty() || rel == "." || paths::is_below(p, rel.trim_end_matches('/'));
             let docs: Vec<String> = s.corpus.docs.iter().filter(|d| under(&d.path)).map(|d| d.path.clone()).collect();
             if docs.is_empty() {
                 bail!("{f}: a folder with no documents under it; next: spec check  # every document");
@@ -72,10 +69,9 @@ pub(crate) fn documents_named(s: &session::Session, files: &[String], stdin: Opt
                 continue;
             }
             if stdin == Some(f.as_str()) {
-                let parent = std::path::Path::new(&rel).parent().map(|p| p.to_string_lossy().replace('\\', "/"));
-                let sibling = s.corpus.docs.iter().find(|d| {
-                    std::path::Path::new(&d.path).parent().map(|p| p.to_string_lossy().replace('\\', "/")) == parent
-                });
+                let parent = std::path::Path::new(&rel).parent().map(paths::slash);
+                let sibling =
+                    s.corpus.docs.iter().find(|d| std::path::Path::new(&d.path).parent().map(paths::slash) == parent);
                 match sibling {
                     Some(d) => {
                         let kind = d.id.to_string().split(':').next().unwrap_or("").to_string();

@@ -30,7 +30,7 @@ fn all_files(root: &Path) -> Vec<String> {
         .build()
         .flatten()
         .filter(|e| e.file_type().is_some_and(|t| t.is_file()))
-        .filter_map(|e| e.path().strip_prefix(root).ok().map(|p| p.to_string_lossy().replace('\\', "/")))
+        .filter_map(|e| crate::paths::rel_of(root, e.path()))
         .collect();
     files.sort();
     files
@@ -39,8 +39,7 @@ fn all_files(root: &Path) -> Vec<String> {
 /// The main file, chapters and attachments of a directory, leaving out files an earlier rule
 /// already took (a nested bundle belongs to the rule that matched it first).
 fn inside<'a>(files: &'a [String], dir: &str, claimed: &BTreeSet<String>) -> Vec<&'a String> {
-    let prefix = format!("{dir}/");
-    files.iter().filter(|f| f.starts_with(&prefix) && !claimed.contains(*f)).collect()
+    files.iter().filter(|f| crate::paths::is_below(f, dir) && !claimed.contains(*f)).collect()
 }
 
 fn bundle(files: &[String], dir: &str, claimed: &BTreeSet<String>) -> Option<(String, Vec<String>, Vec<String>)> {
