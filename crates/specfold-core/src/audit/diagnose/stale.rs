@@ -2,9 +2,9 @@
 //! pinned with `verified_at: <commit>`, changed in any commit since the pin.
 
 use super::super::types::{Item, Kind};
-use crate::check::rules::support::quote;
 use crate::corpus::Corpus;
 use crate::model::stamp::days_between;
+use crate::shell::quote;
 use crate::workspace::vcs;
 
 pub fn run(c: &Corpus, docs: &[usize], out: &mut Vec<Item>) {

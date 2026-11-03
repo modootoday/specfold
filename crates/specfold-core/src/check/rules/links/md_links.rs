@@ -4,8 +4,8 @@
 
 use crate::check::context::Ctx;
 use crate::check::finding::Finding;
+use crate::check::rule::skipped;
 use crate::check::rule::{Rule, RuleInfo};
-use crate::check::rules::support::skipped;
 use crate::export::links::{MdLink, md_links, md_ref_defs};
 use crate::markdown::frontmatter::split;
 use crate::paths::normalize;

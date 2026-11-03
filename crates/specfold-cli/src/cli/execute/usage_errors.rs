@@ -141,7 +141,7 @@ fn clap_message(rendered: &str) -> String {
 fn nearest_command(argv: &[String]) -> Option<String> {
     let first = first_word(argv)?;
     let names: Vec<String> = crate::cli::describe::commands().into_iter().map(|c| c.name).collect();
-    crate::commands::setup::help::nearest(first, names.iter().map(|s| s.as_str())).map(str::to_string)
+    specfold_core::suggest::nearest_or_prefixed(first, names.iter().map(|s| s.as_str())).map(str::to_string)
 }
 
 /// An error that names its own way out keeps it as the one next command: `; next: <cmd>` as is,

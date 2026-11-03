@@ -3,8 +3,8 @@
 
 use crate::check::context::Ctx;
 use crate::check::finding::{Finding, Severity};
+use crate::check::rule::skipped;
 use crate::check::rule::{Rule, RuleInfo};
-use crate::check::rules::support::skipped;
 use crate::guards;
 use crate::model::Tier;
 

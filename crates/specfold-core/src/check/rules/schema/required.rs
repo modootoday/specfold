@@ -1,9 +1,8 @@
 //! S6: a status requires the fields its type names for it.
 
-use crate::check::context::Ctx;
+use crate::check::context::{Ctx, key_line};
 use crate::check::finding::Finding;
 use crate::check::rule::{Rule, RuleInfo};
-use crate::check::rules::support::key_line;
 
 pub struct RequiredByStatus;
 

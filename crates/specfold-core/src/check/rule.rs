@@ -16,3 +16,8 @@ pub trait Rule: Sync {
     fn info(&self) -> &RuleInfo;
     fn run(&self, ctx: &Ctx, out: &mut Vec<Finding>);
 }
+
+/// Rules a document opts out of with `check_skip: [L5, …]`, each needing a reason in the body.
+pub fn skipped(doc: &crate::model::Doc, rule: &str) -> bool {
+    doc.list_field("check_skip").iter().any(|r| r == rule)
+}

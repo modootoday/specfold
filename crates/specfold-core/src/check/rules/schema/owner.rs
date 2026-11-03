@@ -2,8 +2,8 @@
 
 use crate::check::context::Ctx;
 use crate::check::finding::Finding;
+use crate::check::rule::skipped;
 use crate::check::rule::{Rule, RuleInfo};
-use crate::check::rules::support::skipped;
 use crate::model::Tier;
 use crate::placement;
 

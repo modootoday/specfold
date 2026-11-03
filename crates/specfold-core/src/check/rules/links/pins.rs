@@ -1,10 +1,9 @@
 //! L7: a document that pins a remote document by content (`pins: {<remote>:<id>: sha256:…}`)
 //! is told when that document changes, using the same body hash as a translation's source_rev.
 
-use crate::check::context::Ctx;
+use crate::check::context::{Ctx, key_line};
 use crate::check::finding::Finding;
 use crate::check::rule::{Rule, RuleInfo};
-use crate::check::rules::support::key_line;
 use crate::translation;
 use crate::workspace::remotes::{self, Remote};
 

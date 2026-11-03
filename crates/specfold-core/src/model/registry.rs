@@ -99,7 +99,7 @@ pub fn suspect_overrides(overrides: &BTreeMap<String, TypeOverride>) -> Vec<Stri
         if builtin.contains(name) {
             continue;
         }
-        let near = crate::check::rules::support::nearest(name, builtin.iter().map(String::as_str))
+        let near = crate::suggest::nearest(name, builtin.iter().map(String::as_str))
             .or_else(|| builtin.iter().map(String::as_str).find(|b| name.strip_suffix('s') == Some(*b)));
         if o.enabled == Some(false) {
             let hint = near.map(|n| format!("; did you mean [types.{n}]?")).unwrap_or_default();
@@ -134,7 +134,7 @@ pub fn suspect_coverage(overrides: &BTreeMap<String, TypeOverride>, coverage: &[
         .iter()
         .filter(|c| !names.contains(&c.as_str()))
         .map(|c| {
-            let near = crate::check::rules::support::nearest(c, names.iter().copied())
+            let near = crate::suggest::nearest(c, names.iter().copied())
                 .map(|n| format!("; did you mean '{n}'?"))
                 .unwrap_or_default();
             format!(

@@ -1,9 +1,9 @@
 //! L5: governed paths exist.
 
-use crate::check::context::Ctx;
+use crate::check::context::{Ctx, key_line};
 use crate::check::finding::Finding;
+use crate::check::rule::skipped;
 use crate::check::rule::{Rule, RuleInfo};
-use crate::check::rules::support::{key_line, skipped};
 
 pub struct GovernsExists;
 

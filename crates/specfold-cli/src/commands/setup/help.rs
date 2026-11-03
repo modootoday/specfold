@@ -12,7 +12,7 @@ pub fn run(g: &Global, a: &HelpArgs) -> Result<Output> {
         Some(name) => {
             let c: Vec<_> = all.iter().filter(|c| &c.name == name).cloned().collect();
             if c.is_empty() {
-                let near = nearest(name, all.iter().map(|c| c.name.as_str()));
+                let near = specfold_core::suggest::nearest_or_prefixed(name, all.iter().map(|c| c.name.as_str()));
                 let hint = near.map(|n| format!("; did you mean '{n}'? (spec help {n})")).unwrap_or_default();
                 bail!("no command '{name}'{hint}");
             }
@@ -224,27 +224,4 @@ pub fn notes_markdown(notes: &str) -> Vec<String> {
         out.push("```".to_string());
     }
     out
-}
-
-/// The closest name by edit distance, if it is close enough to be a typo.
-pub fn nearest<'a>(want: &str, names: impl Iterator<Item = &'a str>) -> Option<&'a str> {
-    let dist = |a: &str, b: &str| {
-        let b: Vec<char> = b.chars().collect();
-        let mut row: Vec<usize> = (0..=b.len()).collect();
-        for (i, ca) in a.chars().enumerate() {
-            let mut prev = row[0];
-            row[0] = i + 1;
-            for j in 0..b.len() {
-                let cur = row[j + 1];
-                row[j + 1] = (prev + usize::from(ca != b[j])).min(row[j] + 1).min(cur + 1);
-                prev = cur;
-            }
-        }
-        row[b.len()]
-    };
-    names
-        .map(|n| (dist(want, n), n))
-        .filter(|(d, n)| *d <= 2.max(n.len() / 3) || n.starts_with(want))
-        .min_by_key(|(d, _)| *d)
-        .map(|(_, n)| n)
 }

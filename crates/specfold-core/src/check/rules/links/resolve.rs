@@ -3,10 +3,11 @@
 use super::targets::{ids, remote_problem};
 use crate::check::context::Ctx;
 use crate::check::finding::Finding;
+use crate::check::rule::skipped;
 use crate::check::rule::{Rule, RuleInfo};
-use crate::check::rules::support::{quote, skipped};
 use crate::graph::Resolution;
 use crate::model::RefText;
+use crate::shell::quote;
 
 pub struct LinksResolve;
 

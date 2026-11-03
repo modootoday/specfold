@@ -138,7 +138,7 @@ fn before_write(s: &session::Session, p: &import::ImportPlan, o: Output, map: &s
                     let ty = r.id.split(':').next().unwrap_or("");
                     let allowed = s.corpus.cfg.registry.get(ty).map(|t| t.statuses.clone()).unwrap_or_default();
                     let lower = old.to_lowercase();
-                    let to = crate::commands::setup::help::nearest(&lower, allowed.iter().map(String::as_str))
+                    let to = specfold_core::suggest::nearest_or_prefixed(&lower, allowed.iter().map(String::as_str))
                         .map(str::to_string)
                         .unwrap_or_else(|| format!("<{}>", allowed.join("|")));
                     let line = format!("{} = \"{to}\"", toml_key(&lower));

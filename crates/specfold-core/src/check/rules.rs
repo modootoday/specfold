@@ -5,7 +5,6 @@ mod lifecycle;
 mod links;
 mod registry;
 mod schema;
-pub(crate) mod support;
 
 pub use lifecycle::{is_date, overdue_exceptions};
 pub use registry::catalog;

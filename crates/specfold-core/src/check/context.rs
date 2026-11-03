@@ -43,3 +43,10 @@ impl Ctx<'_> {
         crate::corpus::overlay::read(&self.corpus.cfg.spec_home.join(path)).ok()
     }
 }
+
+/// The 1-based line of a top-level frontmatter key in a file, or 1.
+pub fn key_line(ctx: &Ctx, path: &str, key: &str) -> usize {
+    let Some(text) = ctx.current(path) else { return 1 };
+    let prefix = format!("{key}:");
+    text.lines().position(|l| l.starts_with(&prefix)).map(|i| i + 1).unwrap_or(1)
+}

@@ -1,9 +1,32 @@
 //! S1: the frontmatter parses and holds the common keys, and every other key is declared.
 
-use crate::check::context::Ctx;
+use crate::check::context::{Ctx, key_line};
 use crate::check::finding::Finding;
 use crate::check::rule::{Rule, RuleInfo};
-use crate::check::rules::support::{COMMON_KEYS, REQUIRED_KEYS, distance, key_line, quote};
+use crate::shell::quote;
+use crate::suggest::distance;
+
+/// Frontmatter keys every document may carry.
+const COMMON_KEYS: &[&str] = &[
+    "id",
+    "title",
+    "status",
+    "created",
+    "updated",
+    "owners",
+    "tags",
+    "aliases",
+    "rel",
+    "files",
+    "generated_by",
+    "check_skip",
+    "verified_at",
+    "lang",
+    "source_rev",
+    "review_by",
+    "pins",
+];
+const REQUIRED_KEYS: &[&str] = &["id", "title", "status", "created", "updated"];
 
 pub struct Frontmatter;
 

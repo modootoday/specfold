@@ -1,9 +1,8 @@
 //! Running a document's commands: the runner settings, each command's deadline, and a finding
 //! for a command that did not pass.
 
-use crate::check::context::Ctx;
+use crate::check::context::{Ctx, key_line};
 use crate::check::finding::Finding;
-use crate::check::rules::support::key_line;
 use crate::model::Doc;
 use crate::runner::{Job, Outcome, Settings, Verdict};
 use regex::Regex;

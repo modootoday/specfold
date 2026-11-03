@@ -1,10 +1,10 @@
 //! S4: a status is one its type allows, with the likely one named for a typo or a word from
 //! another tool.
 
-use crate::check::context::Ctx;
+use crate::check::context::{Ctx, key_line};
 use crate::check::finding::Finding;
 use crate::check::rule::{Rule, RuleInfo};
-use crate::check::rules::support::{key_line, nearest};
+use crate::suggest::nearest;
 
 pub struct StatusAllowed;
 

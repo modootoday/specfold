@@ -76,7 +76,7 @@ impl Rule for AliasesClean {
                         .fix_cmd(format!(
                             "spec fix --rule I2 --pick {} --write {}:1",
                             crate::shell::word(&ctx.corpus.docs[i].id),
-                            crate::check::rules::support::quote(&ctx.corpus.docs[i].path)
+                            crate::shell::quote(&ctx.corpus.docs[i].path)
                         )),
                     );
                 }

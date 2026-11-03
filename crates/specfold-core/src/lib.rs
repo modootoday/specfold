@@ -27,6 +27,7 @@ pub mod plugins;
 pub mod runner;
 pub mod search;
 pub mod shell;
+pub mod suggest;
 pub mod translation;
 pub mod workspace;
 

@@ -4,9 +4,9 @@
 use crate::check::context::Ctx;
 use crate::check::finding::Finding;
 use crate::check::rule::{Rule, RuleInfo};
-use crate::check::rules::support::quote;
 use crate::files::hash_cache::HashCache;
 use crate::files::{ignore_file, store};
+use crate::shell::quote;
 
 pub struct Registered;
 pub struct SizeLimit;

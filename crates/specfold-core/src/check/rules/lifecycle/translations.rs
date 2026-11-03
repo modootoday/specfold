@@ -1,10 +1,9 @@
 //! R1: a translation records the source body it was made from, and says when the source moved on.
 //! R2: a translation is where the `[translations]` layout expects it.
 
-use crate::check::context::Ctx;
+use crate::check::context::{Ctx, key_line};
 use crate::check::finding::{Finding, Severity};
 use crate::check::rule::{Rule, RuleInfo};
-use crate::check::rules::support::key_line;
 use crate::translation::{self, KEY, RELATION};
 
 pub struct TranslationsCurrent;

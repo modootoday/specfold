@@ -1,10 +1,9 @@
 //! T2, T3 and T4: what changed since the last commit: a status only moves forward, a sealed body
 //! stays as it was, and an edited body moves its `updated` date.
 
-use crate::check::context::Ctx;
+use crate::check::context::{Ctx, key_line};
 use crate::check::finding::Finding;
 use crate::check::rule::{Rule, RuleInfo};
-use crate::check::rules::support::key_line;
 use crate::markdown::frontmatter::{self, Parsed};
 use crate::model::stamp;
 use sha2::{Digest, Sha256};

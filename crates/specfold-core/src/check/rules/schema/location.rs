@@ -1,9 +1,8 @@
 //! S2 and S3: a document's id matches its path, and it sits where its type says.
 
-use crate::check::context::Ctx;
+use crate::check::context::{Ctx, key_line};
 use crate::check::finding::Finding;
 use crate::check::rule::{Rule, RuleInfo};
-use crate::check::rules::support::key_line;
 
 pub struct IdMatchesPath;
 pub struct Placement;

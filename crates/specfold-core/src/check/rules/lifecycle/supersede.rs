@@ -1,9 +1,8 @@
 //! T1: supersede claims pair up: the older document says what replaced it, and no chain loops.
 
-use crate::check::context::Ctx;
+use crate::check::context::{Ctx, key_line};
 use crate::check::finding::Finding;
 use crate::check::rule::{Rule, RuleInfo};
-use crate::check::rules::support::key_line;
 use crate::graph::query;
 
 pub struct SupersedePairs;

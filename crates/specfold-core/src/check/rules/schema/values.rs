@@ -1,10 +1,9 @@
 //! S8: a field a status requires holds a usable value: not a placeholder, of its declared kind
 //! (`[types.<t>] fields = { approvers = "people" }`), and not shared within a `distinct` group.
 
-use crate::check::context::Ctx;
+use crate::check::context::{Ctx, key_line};
 use crate::check::finding::Finding;
 use crate::check::rule::{Rule, RuleInfo};
-use crate::check::rules::support::key_line;
 use crate::graph::Resolution;
 use crate::model::doctype::FieldKind;
 use crate::model::stamp;

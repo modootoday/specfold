@@ -1,9 +1,8 @@
 //! S5: dates are dates, with a zone where they carry a time, and `updated` is not before `created`.
 
-use crate::check::context::Ctx;
+use crate::check::context::{Ctx, key_line};
 use crate::check::finding::Finding;
 use crate::check::rule::{Rule, RuleInfo};
-use crate::check::rules::support::key_line;
 use crate::model::stamp;
 
 pub struct Dates;
