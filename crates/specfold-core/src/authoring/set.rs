@@ -170,68 +170,7 @@ fn plan_with(c: &Corpus, idx: usize, assigns: &[Assign], successor_pending: bool
     let d = &c.docs[idx];
     let ty = c.cfg.registry.get(&d.id.ty).ok_or_else(|| anyhow!("unknown type {}", d.id.ty))?;
     for a in assigns {
-        if PROTECTED.contains(&a.key.as_str()) {
-            bail!(
-                "{} cannot be set by hand: id comes from the path (spec mv), created is fixed, files is managed by spec attach",
-                a.key
-            );
-        }
-        // C128: title is required (S1), so it can be changed but not emptied.
-        if a.key == "title" && matches!(a.op, Op::Set) && a.value.trim().is_empty() {
-            bail!("title is required and cannot be emptied; give a new one: spec set {} title='…' --write", d.id);
-        }
-        // C223: updated is required (S1) as well; `updated=` would delete it.
-        if a.key == "updated" && matches!(a.op, Op::Set) && a.value.trim().is_empty() {
-            bail!("updated is required and cannot be emptied; give a date: spec set {} updated=today --write", d.id);
-        }
-        if a.key == "rel.supersedes" && !matches!(a.op, Op::Remove) {
-            for v in a.value.split(',').map(|v| v.trim().trim_matches(['[', ']'])).filter(|v| !v.is_empty()) {
-                if let Some(old) = c.docs.iter().position(|o| o.id.to_string() == v && o.id.ty == d.id.ty) {
-                    super::successor::refuse_second(c, old, Some(idx))?;
-                }
-            }
-        }
-        if a.key == "status" {
-            if !ty.statuses.contains(&a.value) {
-                let from = d.status().unwrap_or_else(|| ty.initial.clone());
-                let reachable: Vec<&String> =
-                    ty.statuses.iter().filter(|s| **s != from && ty.transition_allowed(&from, s)).collect();
-                let pick = finishing_status(&a.value, &reachable);
-                let next = pick
-                    .map(|s| format!("; next: spec set {} status={s} --write", crate::suggest::shell::word(&d.id)))
-                    .unwrap_or_default();
-                bail!(
-                    "status '{}' is not allowed for {} (allowed: {}; from '{from}': {}){next}",
-                    a.value,
-                    ty.name,
-                    ty.statuses.join(", "),
-                    reachable.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(", ")
-                );
-            }
-            let from = d.status().unwrap_or_else(|| ty.initial.clone());
-            if !ty.transition_allowed(&from, &a.value) {
-                bail!(
-                    "status cannot move from '{from}' to '{}'; {}",
-                    a.value,
-                    move_hint(ty, &from, &a.value, &d.id.to_string())
-                );
-            }
-            // superseded without a successor is a T1 error the moment it is written.
-            let me = d.id.to_string();
-            let succeeded = c
-                .docs
-                .iter()
-                .filter(|o| o.id.ty == d.id.ty) // C204: L3 refuses a cross-type supersedes
-                .any(|o| o.rel().get("supersedes").is_some_and(|l| l.iter().any(|x| x.trim_matches(['[', ']']) == me)));
-            if a.value == "superseded" && !succeeded && !successor_pending {
-                let title = d.title.clone().unwrap_or_else(|| d.slug.replace('-', " ")).replace('\'', "");
-                let w = crate::suggest::shell::word(&me);
-                bail!(
-                    "nothing supersedes {me} yet, so status=superseded would fail T1; when a newer document replaces it, record that on the newer one with `spec set <newer-id> rel.supersedes+={w} --write` and run this again; otherwise write the successor, which marks this one superseded (edit the title); next: spec new {} --from {w} --title '{title}' --write",
-                    ty.name
-                );
-            }
-        }
+        refuse(c, idx, ty, a, successor_pending)?;
     }
     // A pin names a commit; HEAD is resolved now, since HEAD moves.
     let pinned: Vec<Assign>;
@@ -280,6 +219,75 @@ fn plan_with(c: &Corpus, idx: usize, assigns: &[Assign], successor_pending: bool
     let mut p = Plan::default();
     p.write(&d.path, new, false);
     Ok(p)
+}
+
+/// Why `a` cannot be written to document `idx`, if it cannot: a protected key, an emptied required
+/// key, a second successor, or a status the type does not allow or reach from here.
+fn refuse(c: &Corpus, idx: usize, ty: &crate::model::TypeDef, a: &Assign, successor_pending: bool) -> Result<()> {
+    let d = &c.docs[idx];
+    if PROTECTED.contains(&a.key.as_str()) {
+        bail!(
+            "{} cannot be set by hand: id comes from the path (spec mv), created is fixed, files is managed by spec attach",
+            a.key
+        );
+    }
+    // C128: title is required (S1), so it can be changed but not emptied.
+    if a.key == "title" && matches!(a.op, Op::Set) && a.value.trim().is_empty() {
+        bail!("title is required and cannot be emptied; give a new one: spec set {} title='…' --write", d.id);
+    }
+    // C223: updated is required (S1) as well; `updated=` would delete it.
+    if a.key == "updated" && matches!(a.op, Op::Set) && a.value.trim().is_empty() {
+        bail!("updated is required and cannot be emptied; give a date: spec set {} updated=today --write", d.id);
+    }
+    if a.key == "rel.supersedes" && !matches!(a.op, Op::Remove) {
+        for v in a.value.split(',').map(|v| v.trim().trim_matches(['[', ']'])).filter(|v| !v.is_empty()) {
+            if let Some(old) = c.docs.iter().position(|o| o.id.to_string() == v && o.id.ty == d.id.ty) {
+                super::successor::refuse_second(c, old, Some(idx))?;
+            }
+        }
+    }
+    if a.key == "status" {
+        if !ty.statuses.contains(&a.value) {
+            let from = d.status().unwrap_or_else(|| ty.initial.clone());
+            let reachable: Vec<&String> =
+                ty.statuses.iter().filter(|s| **s != from && ty.transition_allowed(&from, s)).collect();
+            let pick = finishing_status(&a.value, &reachable);
+            let next = pick
+                .map(|s| format!("; next: spec set {} status={s} --write", crate::suggest::shell::word(&d.id)))
+                .unwrap_or_default();
+            bail!(
+                "status '{}' is not allowed for {} (allowed: {}; from '{from}': {}){next}",
+                a.value,
+                ty.name,
+                ty.statuses.join(", "),
+                reachable.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(", ")
+            );
+        }
+        let from = d.status().unwrap_or_else(|| ty.initial.clone());
+        if !ty.transition_allowed(&from, &a.value) {
+            bail!(
+                "status cannot move from '{from}' to '{}'; {}",
+                a.value,
+                move_hint(ty, &from, &a.value, &d.id.to_string())
+            );
+        }
+        // superseded without a successor is a T1 error the moment it is written.
+        let me = d.id.to_string();
+        let succeeded = c
+            .docs
+            .iter()
+            .filter(|o| o.id.ty == d.id.ty) // C204: L3 refuses a cross-type supersedes
+            .any(|o| o.rel().get("supersedes").is_some_and(|l| l.iter().any(|x| x.trim_matches(['[', ']']) == me)));
+        if a.value == "superseded" && !succeeded && !successor_pending {
+            let title = d.title.clone().unwrap_or_else(|| d.slug.replace('-', " ")).replace('\'', "");
+            let w = crate::suggest::shell::word(&me);
+            bail!(
+                "nothing supersedes {me} yet, so status=superseded would fail T1; when a newer document replaces it, record that on the newer one with `spec set <newer-id> rel.supersedes+={w} --write` and run this again; otherwise write the successor, which marks this one superseded (edit the title); next: spec new {} --from {w} --title '{title}' --write",
+                ty.name
+            );
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]

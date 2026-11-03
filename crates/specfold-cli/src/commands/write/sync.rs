@@ -13,43 +13,10 @@ pub fn run(g: &Global, a: &SyncArgs) -> Result<Output> {
     let s = session::open(g)?;
     let cfg = &s.corpus.cfg;
     let (pairs, mut plan, unowned) = sync::plan(cfg, a.prune)?;
-    // C100: a pruned file may never have been committed, so git cannot bring it back; it moves
-    // to a trash directory specfold owns, and the undo copies it back.
-    let bin = format!("{}/{}", preview::TRASH, preview::STAMP);
-    for c in plan.changes.iter_mut() {
-        if let Change::Remove { path } = c {
-            *c = Change::Move { from: path.clone(), to: format!("{bin}/{path}") };
-        }
-    }
-    // C124: a path that is a folder on one side and a file on the other cannot be copied over.
-    // With --prune the copy's entry goes to the trash first; without it the run is refused.
-    let conflicts = kind_conflicts(&cfg.spec_home, &plan);
-    if a.prune && !conflicts.is_empty() {
-        plan.changes.retain(
-            |c| !matches!(c, Change::Move { from, .. } if conflicts.iter().any(|k| specfold_core::paths::is_below(from, k))),
-        );
-        for k in &conflicts {
-            if !plan.changes.iter().any(|c| matches!(c, Change::Move { from, .. } if from == k)) {
-                plan.changes.push(Change::Move { from: k.clone(), to: format!("{bin}/{k}") });
-            }
-        }
-        // Moves run before the copies that need their place.
-        plan.changes.sort_by_key(|c| !matches!(c, Change::Move { .. }));
-    }
+    let conflicts = to_trash(&cfg.spec_home, &mut plan, a.prune);
     let mut o = Output::new("sync").field("roots", pairs.len()).field("changes", plan.changes.len());
     if pairs.is_empty() {
-        let found: Vec<&str> =
-            [".agents", ".claude", ".cursor", ".github/copilot-instructions.md", "AGENTS.md", "CLAUDE.md"]
-                .into_iter()
-                .filter(|p| cfg.spec_home.join(p).exists())
-                .collect();
-        o = o.field("agent_files", json!(found));
-        if found.is_empty() {
-            return Ok(o
-                .head("no agent files found (.agents, .claude, .cursor, AGENTS.md, CLAUDE.md): nothing to sync")
-                .next("spec new skill <name> --write   # or add agent files, then declare a copy in spec.toml"));
-        }
-        return Ok(o.head(format!("agent files found ({}), but no copy is declared", found.join(", "))).next("declare a copy in spec.toml: [[assets]] kind = \"skill\", path = \".claude/skills\", copy_of = \".agents/skills\""));
+        return Ok(nothing_declared(o, cfg));
     }
     o = o.field("pairs", json!(pairs.iter().map(|p| json!({"source": p.source, "copy": p.copy})).collect::<Vec<_>>()));
     for p in &pairs {
@@ -120,6 +87,51 @@ pub fn run(g: &Global, a: &SyncArgs) -> Result<Output> {
     } else {
         o
     })
+}
+
+/// Removals become moves to the trash; with --prune, a copy entry of the other kind (C124) goes
+/// there first. Returns those kind conflicts.
+fn to_trash(root: &std::path::Path, plan: &mut specfold_core::authoring::Plan, prune: bool) -> Vec<String> {
+    // C100: a pruned file may never have been committed, so git cannot bring it back; it moves
+    // to a trash directory specfold owns, and the undo copies it back.
+    let bin = format!("{}/{}", preview::TRASH, preview::STAMP);
+    for c in plan.changes.iter_mut() {
+        if let Change::Remove { path } = c {
+            *c = Change::Move { from: path.clone(), to: format!("{bin}/{path}") };
+        }
+    }
+    // C124: a path that is a folder on one side and a file on the other cannot be copied over.
+    // With --prune the copy's entry goes to the trash first; without it the run is refused.
+    let conflicts = kind_conflicts(root, plan);
+    if prune && !conflicts.is_empty() {
+        plan.changes.retain(
+            |c| !matches!(c, Change::Move { from, .. } if conflicts.iter().any(|k| specfold_core::paths::is_below(from, k))),
+        );
+        for k in &conflicts {
+            if !plan.changes.iter().any(|c| matches!(c, Change::Move { from, .. } if from == k)) {
+                plan.changes.push(Change::Move { from: k.clone(), to: format!("{bin}/{k}") });
+            }
+        }
+        // Moves run before the copies that need their place.
+        plan.changes.sort_by_key(|c| !matches!(c, Change::Move { .. }));
+    }
+    conflicts
+}
+
+/// No copy is declared: say which agent files exist and how to declare one.
+fn nothing_declared(mut o: Output, cfg: &specfold_core::Config) -> Output {
+    let found: Vec<&str> =
+        [".agents", ".claude", ".cursor", ".github/copilot-instructions.md", "AGENTS.md", "CLAUDE.md"]
+            .into_iter()
+            .filter(|p| cfg.spec_home.join(p).exists())
+            .collect();
+    o = o.field("agent_files", json!(found));
+    if found.is_empty() {
+        return o
+            .head("no agent files found (.agents, .claude, .cursor, AGENTS.md, CLAUDE.md): nothing to sync")
+            .next("spec new skill <name> --write   # or add agent files, then declare a copy in spec.toml");
+    }
+    o.head(format!("agent files found ({}), but no copy is declared", found.join(", "))).next("declare a copy in spec.toml: [[assets]] kind = \"skill\", path = \".claude/skills\", copy_of = \".agents/skills\"")
 }
 
 /// Copy targets whose place is taken by the other kind: a folder where a file goes, or a file

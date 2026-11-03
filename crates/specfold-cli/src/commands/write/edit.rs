@@ -23,46 +23,12 @@ pub fn run(g: &Global, a: &EditArgs) -> Result<Output> {
     }
     check_section_name(a)?;
     let cells_only = a.row.is_some() && !a.cell.is_empty() && a.text.is_none() && a.file.is_none();
-    let text = match (&a.text, &a.file) {
-        _ if cells_only => String::new(),
-        (Some(t), _) => t.clone(),
-        (None, Some(p)) if p.as_os_str() == "-" => {
-            let mut t = String::new();
-            std::io::stdin().read_to_string(&mut t).context("reading standard input")?;
-            t
-        }
-        (None, Some(p)) => {
-            std::fs::read_to_string(s.loc.arg_path(p)).with_context(|| format!("reading {}", p.display()))?
-        }
-        (None, None) => {
-            use std::io::IsTerminal;
-            if std::io::stdin().is_terminal() {
-                anyhow::bail!("give --text or --file, or pipe the text in (spec edit ... < body.md)");
-            }
-            let mut t = String::new();
-            std::io::stdin().read_to_string(&mut t).context("reading standard input")?;
-            if t.is_empty() {
-                anyhow::bail!("standard input was empty; give --text or --file, or pipe the text in");
-            }
-            t
-        }
-    };
+    let text = read_text(&s, a, cells_only)?;
     let cells: String = a.cell.join("\n");
     let path = &s.corpus.docs[idx].path;
     crate::commands::outbound::refuse_redacted(&s.corpus.cfg.spec_home, path, &format!("{text}\n{cells}"))?;
     let mode = if a.append { Mode::Append } else { Mode::Replace };
-    let row = match &a.row {
-        None => None,
-        Some(key) => {
-            let mut set = vec![];
-            for c in &a.cell {
-                let Some((k, v)) = c.split_once('=') else { anyhow::bail!("--cell wants COLUMN=VALUE, got '{c}'") };
-                set.push((k.trim().to_string(), v.trim().to_string()));
-            }
-            let row = if set.is_empty() { Some(text.trim().to_string()) } else { None };
-            Some(RowChange { key: key.clone(), set, row, add: a.append })
-        }
-    };
+    let row = row_change(a, &text)?;
     let e = Edit {
         section: a.section.clone(),
         new_section: a.new_section.clone(),
@@ -105,6 +71,61 @@ pub fn run(g: &Global, a: &EditArgs) -> Result<Output> {
     if more > 0 {
         o = o.head(format!("  … {more} more line(s)"));
     }
+    let rerun = rerun(a, cells_only);
+    let o = preview::finish(o, &out.plan, &s.corpus.cfg.spec_home, a.write, &rerun)?;
+    Ok(if a.write {
+        o.next(format!("spec check  # then: spec show {}", specfold_core::suggest::shell::word(&id)))
+    } else {
+        o
+    })
+}
+
+/// The text to write: --text, --file (`-` for standard input), or what is piped in.
+fn read_text(s: &session::Session, a: &EditArgs, cells_only: bool) -> Result<String> {
+    Ok(match (&a.text, &a.file) {
+        _ if cells_only => String::new(),
+        (Some(t), _) => t.clone(),
+        (None, Some(p)) if p.as_os_str() == "-" => {
+            let mut t = String::new();
+            std::io::stdin().read_to_string(&mut t).context("reading standard input")?;
+            t
+        }
+        (None, Some(p)) => {
+            std::fs::read_to_string(s.loc.arg_path(p)).with_context(|| format!("reading {}", p.display()))?
+        }
+        (None, None) => {
+            use std::io::IsTerminal;
+            if std::io::stdin().is_terminal() {
+                anyhow::bail!("give --text or --file, or pipe the text in (spec edit ... < body.md)");
+            }
+            let mut t = String::new();
+            std::io::stdin().read_to_string(&mut t).context("reading standard input")?;
+            if t.is_empty() {
+                anyhow::bail!("standard input was empty; give --text or --file, or pipe the text in");
+            }
+            t
+        }
+    })
+}
+
+/// `--row` with its `--cell` values, or the row text itself when no cell is given.
+fn row_change(a: &EditArgs, text: &str) -> Result<Option<RowChange>> {
+    Ok(match &a.row {
+        None => None,
+        Some(key) => {
+            let mut set = vec![];
+            for c in &a.cell {
+                let Some((k, v)) = c.split_once('=') else { anyhow::bail!("--cell wants COLUMN=VALUE, got '{c}'") };
+                set.push((k.trim().to_string(), v.trim().to_string()));
+            }
+            let row = if set.is_empty() { Some(text.trim().to_string()) } else { None };
+            Some(RowChange { key: key.clone(), set, row, add: a.append })
+        }
+    })
+}
+
+/// The command that applies this preview: every flag as given, the text's source, --write.
+fn rerun(a: &EditArgs, cells_only: bool) -> String {
     let mut rerun = format!("spec edit {}", quote(&a.doc));
     if let Some(sec) = &a.section {
         rerun.push_str(&format!(" {}", specfold_core::suggest::shell::opt("--section", sec)));
@@ -126,12 +147,7 @@ pub fn run(g: &Global, a: &EditArgs) -> Result<Output> {
     }
     rerun.push_str(&text_flag(a, cells_only));
     rerun.push_str(" --write");
-    let o = preview::finish(o, &out.plan, &s.corpus.cfg.spec_home, a.write, &rerun)?;
-    Ok(if a.write {
-        o.next(format!("spec check  # then: spec show {}", specfold_core::suggest::shell::word(&id)))
-    } else {
-        o
-    })
+    rerun
 }
 
 /// Where the text came from, as flags for a command to paste.

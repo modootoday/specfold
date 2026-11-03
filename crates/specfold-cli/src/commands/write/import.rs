@@ -77,8 +77,14 @@ pub fn run(g: &Global, a: &ImportArgs) -> Result<Output> {
             specfold_core::suggest::shell::word(map_path.display())
         )));
     }
+    write(&s, &p, o, &alias_file)
+}
+
+/// C138: the write itself: every change listed, the plan applied, the alias table grown and large
+/// attachments uploaded, with the undo that takes all of it back.
+fn write(s: &session::Session, p: &import::ImportPlan, o: Output, alias_file: &str) -> Result<Output> {
     let root = &s.corpus.cfg.spec_home;
-    let table_existed = root.join(&alias_file).exists();
+    let table_existed = root.join(alias_file).exists();
     let mut o = o.field("written", true);
     let mut changes = vec![];
     for c in &p.plan.changes {
@@ -100,13 +106,13 @@ pub fn run(g: &Global, a: &ImportArgs) -> Result<Output> {
     // The alias table is part of the write, so the undo takes it back too.
     let mut with_table = p.plan.clone();
     with_table.changes.push(specfold_core::authoring::Change::Write {
-        path: alias_file.clone(),
+        path: alias_file.to_string(),
         content: String::new(),
         created: !table_existed,
     });
     let saved = super::preview::keep_untracked(&p.plan, root)?;
     p.plan.apply(root)?;
-    let table_path = s.corpus.cfg.spec_home.join(&alias_file);
+    let table_path = s.corpus.cfg.spec_home.join(alias_file);
     let existing = std::fs::read_to_string(&table_path).unwrap_or_default();
     if let Some(dir) = table_path.parent() {
         std::fs::create_dir_all(dir)?;

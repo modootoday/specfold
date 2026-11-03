@@ -25,55 +25,7 @@ pub fn run(g: &Global, a: &SetArgs) -> Result<Output> {
         &s.corpus.docs[idx].path,
         &a.assignments.join("\n"),
     )?;
-    if a.source_rev {
-        let d = &s.corpus.docs[idx];
-        let remote = translation::source_ref(&s.corpus, idx)
-            .and_then(|r| specfold_core::workspace::remotes::rev(&s.corpus.cfg, &r));
-        let src = translation::source_of(&s.corpus, &s.graph, idx);
-        if let (None, Some((_, rev))) = (src, remote) {
-            shown.push(format!("{}={rev}", translation::KEY));
-            assigns.push(Assign { key: translation::KEY.into(), op: Op::Set, value: rev });
-        } else if let Some(src) = src {
-            let rev = translation::rev_of(&s.corpus, src)
-                .ok_or_else(|| anyhow!("cannot read {}", s.corpus.docs[src].path))?;
-            shown.push(format!("{}={rev}", translation::KEY));
-            assigns.push(Assign { key: translation::KEY.into(), op: Op::Set, value: rev });
-        } else {
-            bail!(
-                "{} has no rel.translation_of that names a document; add it first: spec set {} rel.translation_of+=<source id> --write",
-                d.id,
-                d.id
-            );
-        }
-    }
-    for target in &a.pin {
-        let Some((rid, rev)) = specfold_core::workspace::remotes::rev(&s.corpus.cfg, target) else {
-            bail!("{}", pin_problem(&s, target));
-        };
-        let key = format!("pins.{rid}");
-        shown.push(format!("{key}={rev}"));
-        assigns.push(Assign { key, op: Op::Set, value: rev });
-    }
-    for target in &a.unpin {
-        let d = &s.corpus.docs[idx];
-        let pins: Vec<String> = d
-            .fm()
-            .and_then(|m| m.get("pins"))
-            .and_then(|p| p.as_object())
-            .map(|m| m.keys().cloned().collect())
-            .unwrap_or_default();
-        let key = specfold_core::workspace::remotes::rev(&s.corpus.cfg, target).map(|(rid, _)| rid);
-        let Some(key) = key.filter(|k| pins.contains(k)).or_else(|| pins.iter().find(|p| *p == target).cloned()) else {
-            bail!(
-                "{} has no pin {target} (pinned: {}); next: spec show {}",
-                d.id,
-                if pins.is_empty() { "none".to_string() } else { pins.join(", ") },
-                d.id
-            );
-        };
-        shown.push(format!("pins-={key}"));
-        assigns.push(Assign { key: "pins".into(), op: Op::Remove, value: key });
-    }
+    flag_assigns(&s, idx, a, &mut shown, &mut assigns)?;
     let me = s.corpus.docs[idx].id.to_string();
     for x in &assigns {
         if x.key == "rel.exception_of"
@@ -123,6 +75,67 @@ pub fn run(g: &Global, a: &SetArgs) -> Result<Output> {
     let o = preview::finish(o, &plan, &s.corpus.cfg.spec_home, a.write, &rerun(a))?;
     let o = unknown.iter().fold(o.field("warnings", unknown.clone()), |o, w| o.foot(format!("warn  S1  {w}")));
     Ok(if !a.write { o } else { o.next(check_next(&s, a, &assigns, &ty, &id)) })
+}
+
+/// The assignments --source-rev, --pin and --unpin stand for, added to `assigns` and shown as
+/// written in `shown`.
+fn flag_assigns(
+    s: &session::Session,
+    idx: usize,
+    a: &SetArgs,
+    shown: &mut Vec<String>,
+    assigns: &mut Vec<Assign>,
+) -> Result<()> {
+    if a.source_rev {
+        let d = &s.corpus.docs[idx];
+        let remote = translation::source_ref(&s.corpus, idx)
+            .and_then(|r| specfold_core::workspace::remotes::rev(&s.corpus.cfg, &r));
+        let src = translation::source_of(&s.corpus, &s.graph, idx);
+        if let (None, Some((_, rev))) = (src, remote) {
+            shown.push(format!("{}={rev}", translation::KEY));
+            assigns.push(Assign { key: translation::KEY.into(), op: Op::Set, value: rev });
+        } else if let Some(src) = src {
+            let rev = translation::rev_of(&s.corpus, src)
+                .ok_or_else(|| anyhow!("cannot read {}", s.corpus.docs[src].path))?;
+            shown.push(format!("{}={rev}", translation::KEY));
+            assigns.push(Assign { key: translation::KEY.into(), op: Op::Set, value: rev });
+        } else {
+            bail!(
+                "{} has no rel.translation_of that names a document; add it first: spec set {} rel.translation_of+=<source id> --write",
+                d.id,
+                d.id
+            );
+        }
+    }
+    for target in &a.pin {
+        let Some((rid, rev)) = specfold_core::workspace::remotes::rev(&s.corpus.cfg, target) else {
+            bail!("{}", pin_problem(s, target));
+        };
+        let key = format!("pins.{rid}");
+        shown.push(format!("{key}={rev}"));
+        assigns.push(Assign { key, op: Op::Set, value: rev });
+    }
+    for target in &a.unpin {
+        let d = &s.corpus.docs[idx];
+        let pins: Vec<String> = d
+            .fm()
+            .and_then(|m| m.get("pins"))
+            .and_then(|p| p.as_object())
+            .map(|m| m.keys().cloned().collect())
+            .unwrap_or_default();
+        let key = specfold_core::workspace::remotes::rev(&s.corpus.cfg, target).map(|(rid, _)| rid);
+        let Some(key) = key.filter(|k| pins.contains(k)).or_else(|| pins.iter().find(|p| *p == target).cloned()) else {
+            bail!(
+                "{} has no pin {target} (pinned: {}); next: spec show {}",
+                d.id,
+                if pins.is_empty() { "none".to_string() } else { pins.join(", ") },
+                d.id
+            );
+        };
+        shown.push(format!("pins-={key}"));
+        assigns.push(Assign { key: "pins".into(), op: Op::Remove, value: key });
+    }
+    Ok(())
 }
 
 /// Why `--pin <target>` names nothing to pin, with the next step for that case.

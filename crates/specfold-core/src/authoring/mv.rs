@@ -70,6 +70,22 @@ pub fn plan(c: &Corpus, idx: usize, req: &Move) -> Result<(Moved, Plan)> {
         None => plan.mv(d.path.clone(), new_main.clone()),
     }
     let (old_s, new_s) = (d.id.to_string(), new_id.to_string());
+    let references = rewrite_references(c, idx, (&old_s, &new_s), &new_main, tier, &mut plan)?;
+    follow_tables(c, idx, (&old_s, &new_s), &new_main, &mut plan)?;
+    Ok((Moved { from: old_s, to: new_s, path: new_main, references }, plan))
+}
+
+/// Every file whose text names the moved document, rewritten: ids, relations, relative links and
+/// path citations. Returns how many other files changed.
+fn rewrite_references(
+    c: &Corpus,
+    idx: usize,
+    (old_s, new_s): (&str, &str),
+    new_main: &str,
+    tier: Tier,
+    plan: &mut Plan,
+) -> Result<usize> {
+    let d = &c.docs[idx];
     let mut references = 0;
     for (j, other) in c.docs.iter().enumerate() {
         if other.tier == Tier::Committed && tier == Tier::Local && j != idx {
@@ -77,10 +93,10 @@ pub fn plan(c: &Corpus, idx: usize, req: &Move) -> Result<(Moved, Plan)> {
         }
         for file in std::iter::once(&other.path).chain(&other.chapters) {
             let text = std::fs::read_to_string(c.cfg.spec_home.join(file))?;
-            let mut body = refs::rewrite_body(&text, &old_s, &new_s);
+            let mut body = refs::rewrite_body(&text, old_s, new_s);
             if j != idx {
                 // C137: relative Markdown links to the moved file follow it, fragment kept.
-                body = refs::rewrite_relative_links(&body, file, &d.path, &new_main);
+                body = refs::rewrite_relative_links(&body, file, &d.path, new_main);
                 if let Some(bundle) = &d.dir {
                     let new_dir = new_main.rsplit_once('/').map(|x| x.0).unwrap_or("");
                     body = refs::rewrite_bundle_links(&body, file, bundle, new_dir);
@@ -88,17 +104,17 @@ pub fn plan(c: &Corpus, idx: usize, req: &Move) -> Result<(Moved, Plan)> {
                 // Plain paths to the moved file break with the move; cite the new id instead (L2).
                 for cite in other.path_cites.iter().filter(|p| &p.path == file) {
                     if refs::same_path(&cite.item, &d.path) {
-                        body = refs::cite_path_as_id(&body, &cite.item, &new_s);
+                        body = refs::cite_path_as_id(&body, &cite.item, new_s);
                     }
                 }
             }
             let is_main = file == &other.path;
             if is_main {
                 // E3: only the fields that change are written; quoting elsewhere stays.
-                body = edit::rewrite_keeping(&body, &[(old_s.as_str(), new_s.as_str())], |m| {
-                    refs::rewrite_rel(m, &old_s, &new_s);
+                body = edit::rewrite_keeping(&body, &[(old_s, new_s)], |m| {
+                    refs::rewrite_rel(m, old_s, new_s);
                     if j == idx {
-                        m.insert("id".into(), Value::String(new_s.clone()));
+                        m.insert("id".into(), Value::String(new_s.to_string()));
                         m.insert("updated".into(), Value::String(stamp::now_value()));
                     }
                 })?;
@@ -109,7 +125,7 @@ pub fn plan(c: &Corpus, idx: usize, req: &Move) -> Result<(Moved, Plan)> {
                 let target = if j != idx {
                     file.clone()
                 } else if is_main {
-                    new_main.clone()
+                    new_main.to_string()
                 } else {
                     let base = d.dir.as_deref().unwrap_or("");
                     let new_base = new_main.rsplit_once('/').map(|x| x.0).unwrap_or("");
@@ -119,10 +135,16 @@ pub fn plan(c: &Corpus, idx: usize, req: &Move) -> Result<(Moved, Plan)> {
             }
         }
     }
+    Ok(references)
+}
+
+/// The baseline and the alias table follow the move.
+fn follow_tables(c: &Corpus, idx: usize, (old_s, new_s): (&str, &str), new_main: &str, plan: &mut Plan) -> Result<()> {
+    let d = &c.docs[idx];
     // D2: baseline entries follow the moved file or bundle, so its known errors stay held.
     let (from_path, to_path) = match &d.dir {
         Some(bundle) => (bundle.clone(), new_main.rsplit_once('/').map(|x| x.0.to_string()).unwrap_or_default()),
-        None => (d.path.clone(), new_main.clone()),
+        None => (d.path.clone(), new_main.to_string()),
     };
     if let Some((rel, text)) = crate::check::baseline::follow_move(c, &from_path, &to_path)? {
         plan.write(rel, text, false);
@@ -141,5 +163,5 @@ pub fn plan(c: &Corpus, idx: usize, req: &Move) -> Result<(Moved, Plan)> {
             plan.write(file.clone(), new_text, false);
         }
     }
-    Ok((Moved { from: old_s, to: new_s, path: new_main, references }, plan))
+    Ok(())
 }
