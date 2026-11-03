@@ -3,7 +3,9 @@
 Release notes for each version are also on
 [GitHub releases](https://github.com/modootoday/specfold/releases).
 
-## Unreleased
+## 0.6.1 - 2026-11-03
+
+0.6.1 fixes repository paths typed inside a public repository that `roots.toml` maps to a private spec root: they are read below the spec root's `[public]` path for that repository instead of from the spec root, so `spec new --governs src/a.rs` there places the document with that package's owner. A `[[root]]` entry may name that path with the new optional `public` key; an older binary ignores it.
 
 ### Fixes
 
