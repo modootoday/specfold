@@ -1,8 +1,9 @@
-//! Checking the `--out` folder of a Markdown export before anything is written.
+//! The `--out` folder of a Markdown export: checked before anything is written, then written
+//! with its manifest.
 
-use super::MANIFEST;
+use super::types::{MANIFEST, Target, Tree};
 use anyhow::{Context, Result, bail};
-use serde_json::Value;
+use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 
 /// Checks `out` can take an export (missing, empty or an earlier export, outside the repository
@@ -60,4 +61,38 @@ pub fn check_out(out: &Path, abs: &Path, root: &Path) -> Result<Vec<String>> {
         );
     }
     Ok(vec![])
+}
+
+/// Writes the tree and its manifest, removing the files of the previous export first.
+pub fn write(out: &Path, tree: &Tree, target: Target, previous: &[String]) -> Result<()> {
+    for f in previous {
+        if f.split('/').any(|s| s == ".." || s.is_empty()) || Path::new(f).is_absolute() {
+            continue;
+        }
+        let p = out.join(f);
+        if p.is_file() {
+            std::fs::remove_file(&p)?;
+            let mut dir = p.parent();
+            while let Some(d) = dir.filter(|d| *d != out) {
+                if std::fs::remove_dir(d).is_err() {
+                    break;
+                }
+                dir = d.parent();
+            }
+        }
+    }
+    for (rel, text) in &tree.files {
+        let p = out.join(rel);
+        std::fs::create_dir_all(p.parent().expect("an output path joined from a file name has a parent"))?;
+        std::fs::write(&p, text)?;
+    }
+    let manifest = json!({
+        "generator": "specfold",
+        "target": target.name(),
+        "files": tree.files.keys().collect::<Vec<_>>(),
+    });
+    // C222: an export of no documents is the manifest alone, in a folder made for it.
+    std::fs::create_dir_all(out)?;
+    std::fs::write(out.join(MANIFEST), serde_json::to_string_pretty(&manifest)? + "\n")?;
+    Ok(())
 }
