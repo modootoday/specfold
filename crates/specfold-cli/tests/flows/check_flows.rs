@@ -838,6 +838,10 @@ fn c204_t1_fix_for_a_draft_works_and_cross_type_is_no_successor() {
     let new = r.new_doc("sot", "services/shop", "New rule");
     let rel = format!("rel.supersedes+={old}");
     assert_eq!(r.json(&["set", &new, &rel, "--write"]).0, 0);
+    assert_eq!(r.json(&["check", "--rule", "T1"]).1["errors"], 0, "F5: a draft successor has not taken effect");
+    // Activated by hand, so set does not supersede the old one and T1 asks for it.
+    let path = common::doc_path(&r, &new);
+    r.write(&path, &r.read(&path).replace("status: draft", "status: active"));
     let (_, v) = r.json(&["check", "--rule", "T1"]);
     let cmd = v["items"][0]["fix"]["cmd"].as_str().unwrap().to_string();
     // C227: every step of the fix writes; B2: a draft moves straight to superseded.

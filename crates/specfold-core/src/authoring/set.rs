@@ -89,16 +89,10 @@ fn apply_one(map: &mut Map<String, Value>, a: &Assign) {
     }
     match (&a.op, is_list) {
         (Op::Set, true) => {
-            m.insert(
-                k,
-                Value::Array(
-                    value
-                        .split(',')
-                        .map(|s| Value::String(s.trim().into()))
-                        .filter(|v| v.as_str() != Some(""))
-                        .collect(),
-                ),
-            );
+            let items = bracketed
+                .and_then(|_| json_strings(a.value.trim()))
+                .unwrap_or_else(|| value.split(',').map(|s| s.trim().to_string()).collect());
+            m.insert(k, Value::Array(items.into_iter().filter(|s| !s.is_empty()).map(Value::String).collect()));
         }
         (Op::Set, false) => {
             m.insert(k, Value::String(value));
@@ -122,6 +116,24 @@ fn apply_one(map: &mut Map<String, Value>, a: &Assign) {
             _ => {}
         },
     }
+}
+
+/// The items of a JSON array holding a string (`["7.3", "x, y"]`), quotes and escapes read as
+/// JSON; None for anything else, which is split on commas as typed, so `[7.30, 10.2]` keeps `7.30`.
+fn json_strings(list: &str) -> Option<Vec<String>> {
+    let items: Vec<Value> = serde_json::from_str(list).ok()?;
+    if !items.iter().any(Value::is_string) {
+        return None;
+    }
+    Some(
+        items
+            .into_iter()
+            .map(|v| match v {
+                Value::String(s) => s.trim().to_string(),
+                other => other.to_string(),
+            })
+            .collect(),
+    )
 }
 
 /// What to run instead of a refused status move: never the command that was just refused.
@@ -206,6 +218,7 @@ fn plan_with(c: &Corpus, idx: usize, assigns: &[Assign], successor_pending: bool
     if same {
         return Ok(Plan::default());
     }
+    let mut after = Map::new();
     let new = edit::rewrite(&text, |m| {
         for a in assigns {
             apply_one(m, a);
@@ -215,10 +228,56 @@ fn plan_with(c: &Corpus, idx: usize, assigns: &[Assign], successor_pending: bool
         }
         let ordered = edit::ordered(std::mem::take(m));
         *m = ordered;
+        after = m.clone();
     })?;
     let mut p = Plan::default();
     p.write(&d.path, new, false);
+    let Some(status) = assigns.iter().rev().find(|a| a.key == "status" && matches!(a.op, Op::Set)) else {
+        return Ok(p);
+    };
+    let before = d.status().unwrap_or_else(|| ty.initial.clone());
+    if status.value != before {
+        refuse_missing(d, ty, &status.value, &after, assigns)?;
+    }
+    // A successor that starts pending supersedes what it names only once it holds.
+    if !successor_pending && ty.in_force(&status.value) && !ty.in_force(&before) {
+        let olds = super::takes_effect::still_in_force(c, &d.id.ty, &after);
+        p.changes.extend(super::takes_effect::supersede(c, &olds)?.changes);
+    }
     Ok(p)
+}
+
+/// Refuses a status whose required fields (`require_when`) the document would not have, with the
+/// command that sets them together.
+fn refuse_missing(
+    d: &crate::model::Doc,
+    ty: &crate::model::TypeDef,
+    status: &str,
+    after: &Map<String, Value>,
+    assigns: &[Assign],
+) -> Result<()> {
+    let Some(required) = ty.require_when.get(status) else { return Ok(()) };
+    let missing: Vec<&str> =
+        required.iter().map(String::as_str).filter(|k| !crate::check::rules::has_value(after, k)).collect();
+    if missing.is_empty() {
+        return Ok(());
+    }
+    let given = assigns.iter().filter(|a| !missing.contains(&a.key.as_str())).map(|a| {
+        let op = match a.op {
+            Op::Set => "=",
+            Op::Add => "+=",
+            Op::Remove => "-=",
+        };
+        crate::suggest::shell::word(format!("{}{op}{}", a.key, a.value))
+    });
+    let fill = missing.iter().map(|k| format!("{k}=…"));
+    bail!(
+        "status '{status}' requires {}, which {} does not have; set them in the same command; next: spec set {} {} --write",
+        missing.join(", "),
+        d.id,
+        crate::suggest::shell::word(&d.id),
+        given.chain(fill).collect::<Vec<_>>().join(" ")
+    )
 }
 
 /// Why `a` cannot be written to document `idx`, if it cannot: a protected key, an emptied required
@@ -240,7 +299,7 @@ fn refuse(c: &Corpus, idx: usize, ty: &crate::model::TypeDef, a: &Assign, succes
         bail!("updated is required and cannot be emptied; give a date: spec set {} updated=today --write", d.id);
     }
     if a.key == "rel.supersedes" && !matches!(a.op, Op::Remove) {
-        for v in a.value.split(',').map(|v| v.trim().trim_matches(['[', ']'])).filter(|v| !v.is_empty()) {
+        for v in a.value.split(',').map(|v| v.trim().trim_matches(['[', ']', '"'])).filter(|v| !v.is_empty()) {
             if let Some(old) = c.docs.iter().position(|o| o.id.to_string() == v && o.id.ty == d.id.ty) {
                 super::successor::refuse_second(c, old, Some(idx))?;
             }

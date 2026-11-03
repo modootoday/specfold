@@ -36,8 +36,9 @@ pub struct NewArgs {
     /// refused when taken.
     #[arg(long, value_name = "N", value_parser = clap::value_parser!(u64).range(1..), conflicts_with = "translation")]
     pub number: Option<u64>,
-    /// Supersede this document; its status becomes superseded. With --translation: the
-    /// document to translate.
+    /// Supersede this document. It becomes superseded once the new document takes effect: at
+    /// once for a type that starts active, otherwise when the new one is set active.
+    /// With --translation: the document to translate.
     #[arg(long)]
     pub from: Option<String>,
     /// Start a translation into this language of the --from document: its body copied, lang,
@@ -69,6 +70,8 @@ pub struct SetArgs {
     /// An id, alias, path, or unique slug.
     pub doc: String,
     /// key=value, key+=value (add to a list), key-=value (remove from a list), key= (delete the key).
+    /// A list is key=[a, b] or JSON, key='["7.3", "a, b"]'. A status whose type requires fields
+    /// (require_when) is refused until they are set, in the same command or before.
     #[arg(required_unless_present_any = ["source_rev", "pin", "unpin"])]
     pub assignments: Vec<String>,
     /// Record the source's current body as this translation's source_rev (after re-translating).

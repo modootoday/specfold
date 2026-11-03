@@ -20,6 +20,7 @@ pub use ids::{AliasTableFrozen, AliasesClean, UniqueIds};
 pub use location::{IdMatchesPath, Placement};
 pub use owner::OwnerMatches;
 pub use required::RequiredByStatus;
+pub(crate) use required::has_value;
 pub use sections::RequiredSections;
 pub use status::StatusAllowed;
 pub use values::RequiredValues;

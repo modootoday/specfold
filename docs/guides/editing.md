@@ -26,7 +26,13 @@ A title is one line: `new --title` and `set title=` refuse a line break (exit 2)
 ```console
 $ spec set <id> status=active --write
 $ spec set <id> tags+=money --write
+$ spec set <id> 'versions=["7.3", "8.0"]' --write
 ```
+
+A list is `key=[a, b]`, split on commas as typed, or a JSON array whose strings are read as JSON,
+so `["7.3"]` stores `7.3` and `["a, b"]` keeps its comma. A status whose type requires fields
+(`require_when`) is refused until the document has them; set them in the same command, as the
+refusal shows.
 
 ## Bodies
 

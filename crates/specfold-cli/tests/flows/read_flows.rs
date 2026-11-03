@@ -492,3 +492,35 @@ fn c132_c148_c152_c153_filters_that_match_nothing_by_typo_are_refused() {
     assert_eq!(r.json(&["log", "--since", "2024-02-29"]).0, 0);
     assert_eq!(r.json(&["check", "--rule", "S1"]).0, 0);
 }
+
+#[test]
+fn f1_context_at_the_root_lists_what_governs_the_whole_repository() {
+    let r = common::repo();
+    let (code, v) = r.json(&["context", "."]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["next"], "spec new sot --governs '**' --title '…' --write", "{v}");
+    let all = r.new_doc("sot", "**", "Repository rules");
+    let narrow = r.new_doc("sot", "services/shop", "Cart");
+    for p in [".", "./"] {
+        let (code, v) = r.json(&["context", p]);
+        assert_eq!(code, 0, "{p}: {v}");
+        let shown = v.to_string();
+        assert!(shown.contains(&all) && !shown.contains(&narrow), "{p}: {v}");
+    }
+    let (code, v) = r.json(&["new", "sot", "--governs", ".", "--title", "Root", "--write"]);
+    assert_eq!(code, 2, "a document still governs a path below the root: {v}");
+}
+
+#[test]
+fn f2_next_steps_never_name_a_disabled_type() {
+    let r = common::repo();
+    let toml = r.read("spec.toml") + "[types.sot]\nenabled = false\n";
+    r.write("spec.toml", &toml);
+    let (_, v) = r.json(&["context", "services/shop"]);
+    assert_eq!(v["next"], "spec new adr --governs services/shop --title '…' --write", "{v}");
+    let (_, v) = r.json(&["audit"]);
+    assert!(!v.to_string().contains("spec new sot"), "{v}");
+    r.write("spec.toml", &(toml + "[types.adr]\nenabled = false\n"));
+    let (_, v) = r.json(&["context", "services/shop"]);
+    assert_eq!(v["next"], "spec schema", "{v}");
+}

@@ -4,6 +4,10 @@ use super::super::types::{Item, Kind};
 use crate::corpus::Corpus;
 
 pub fn run(c: &Corpus, owners: &[String], out: &mut Vec<Item>) {
+    // A project that disabled sot keeps its rules elsewhere; a gap would ask for a type it cannot write.
+    if c.cfg.registry.get("sot").is_none() {
+        return;
+    }
     for o in c.owners.list.iter().filter(|o| !o.path.is_empty() && !o.retired && owners.contains(&o.id)) {
         let stored = c.owners.storage_owner(o);
         let has_rule = c.docs.iter().any(|d| {

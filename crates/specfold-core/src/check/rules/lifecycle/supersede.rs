@@ -12,7 +12,7 @@ impl Rule for SupersedePairs {
         &RuleInfo {
             id: "T1",
             title: "superseded documents have exactly one successor",
-            explain: "Supersession is written once, on the new document (rel.supersedes). The old document's status must then be superseded, and only one document may claim it. `spec new --from <id>` and `spec set <new> rel.supersedes+=<old> --write` keep both sides in step.",
+            explain: "Supersession is written once, on the new document (rel.supersedes). Once the new document takes effect (active, or the first current status after its type's initial one; a type that starts active takes effect at once), the old document's status must be superseded, and only one document may claim it. A successor still in its initial status, such as a draft, leaves the old document as it is, and so does one that ended without taking effect (rejected). `spec new --from <id>` writes the relation; when the new document starts as a draft, `spec set <new> status=active --write` marks the old one superseded in the same write. `spec set <new> rel.supersedes+=<old> --write` records it by hand.",
             on_commit: true,
         }
     }
@@ -50,15 +50,17 @@ impl Rule for SupersedePairs {
                         .with_candidates(c),
                 );
             }
-            if !successors.is_empty() && status != "superseded" && status != "archived" {
+            // A successor that has not taken effect (a draft) leaves the old document in force.
+            let holding: Vec<usize> = successors.iter().copied().filter(|&s| taken_effect(ctx, s)).collect();
+            if !holding.is_empty() && status != "superseded" && status != "archived" {
                 out.push(
                     Finding::error(
                         "T1",
                         &d.path,
                         key_line(ctx, &d.path, "status"),
-                        format!("superseded by {} but status is '{status}'", ctx.corpus.docs[successors[0]].id),
+                        format!("superseded by {} but status is '{status}'", ctx.corpus.docs[holding[0]].id),
                     )
-                    .fix_cmd(superseded_fix(ctx, d, &status, successors[0])),
+                    .fix_cmd(superseded_fix(ctx, d, &status, holding[0])),
                 );
             }
             if successors.is_empty() && status == "superseded" {
@@ -71,6 +73,13 @@ impl Rule for SupersedePairs {
             }
         }
     }
+}
+
+/// Whether document `i` holds or once held, so what it supersedes must say superseded.
+fn taken_effect(ctx: &Ctx, i: usize) -> bool {
+    let d = &ctx.corpus.docs[i];
+    let status = d.status().unwrap_or_default();
+    ctx.corpus.cfg.registry.get(&d.id.ty).is_none_or(|t| t.has_taken_effect(&status))
 }
 
 /// C204: the command that marks `d` superseded; through a middle status when the lifecycle

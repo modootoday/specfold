@@ -19,7 +19,7 @@ impl Rule for GovernedCodeDrift {
         &RuleInfo {
             id: "D1",
             title: "changed code moves its governing document",
-            explain: "In a staged or ranged run (`spec check --staged`, `--changed`), each changed file that is not a document is matched against the explicit `rel.governs` globs of active, committed documents. A document whose governed code changed is expected to change in the same range, or to be named by a `change` note that changes in the range, or to cover a path that such a note governs (a note on the source file speaks for its test beside it); otherwise this warning lists the changed paths. Documents that govern only through their owner directory are not asked, and a full run never reports D1. Deleted files and the old paths of renamed files count as changed. With `[check] d1 = \"specific\"` only the most specific of the documents governing a file are asked, so an overview governing a whole tree (`governs: [services]`) is not asked about a file a narrower document governs. Update the document (or its `verified_at`), link a change note already in the range (`spec set <note> rel.depends_on+=<id> --write`, the fix D1 prints when there is one), or write a change note that links it: `spec new change --title … --depends-on <id> --write` (a `[[<id>]]` link in its body works too). See it with `spec check --staged --rule D1`.",
+            explain: "In a staged or ranged run (`spec check --staged`, `--changed`), each changed file that is not a document is matched against the explicit `rel.governs` globs of active, committed documents. A document whose governed code changed is expected to change in the same range, or to be named by a `change` note that changes in the range, or to cover a path that such a note governs (a note on the source file speaks for its test beside it); otherwise this warning lists the changed paths. Documents that govern only through their owner directory are not asked, and a full run never reports D1. Deleted files and the old paths of renamed files count as changed. With `[check] d1 = \"specific\"` only the most specific of the documents governing a file are asked, so an overview governing a whole tree (`governs: [services]`) is not asked about a file a narrower document governs. Update the document (or its `verified_at`), link a change note already in the range (`spec set <note> rel.depends_on+=<id> --write`, the fix D1 prints when there is one), or write a change note that links it: `spec new change --title … --depends-on <id> --write` (a `[[<id>]]` link in its body works too); where the change type is disabled, the fix pins the document instead: `spec set <id> verified_at=HEAD --write`. See it with `spec check --staged --rule D1`.",
             on_commit: true,
         }
     }
@@ -85,11 +85,13 @@ impl Rule for GovernedCodeDrift {
                     crate::suggest::shell::word(&c.docs[n].id),
                     crate::suggest::shell::word(&d.id)
                 ),
-                None => format!(
+                None if c.cfg.registry.get("change").is_some() => format!(
                     "spec new change --title {} --depends-on {} --write",
                     crate::suggest::shell::quote(&format!("Code change under {}", d.id.owner)),
                     crate::suggest::shell::word(&d.id)
                 ),
+                // Without change notes the document itself moves: a pin is the smallest change.
+                None => format!("spec set {} verified_at=HEAD --write", crate::suggest::shell::word(&d.id)),
             };
             out.push(
                 Finding::warn(

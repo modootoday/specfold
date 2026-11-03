@@ -15,13 +15,14 @@ pub fn run(g: &Global, a: &ContextArgs) -> Result<Output> {
     let mut seen = BTreeSet::new();
     let mut first: Option<String> = None;
     for p in &a.paths {
-        let rel = s.loc.governed_path(&s.corpus.cfg, p)?;
+        let rel = s.loc.context_path(&s.corpus.cfg, p)?;
+        let shown = if rel.is_empty() { "." } else { rel.as_str() };
         if let Some((name, inner)) = specfold_core::workspace::projects::submodule_at(&s.corpus.cfg, &rel) {
             o = remote(o, &s.corpus.cfg, &rel, &name, &inner, a.all);
             continue;
         }
         let owner = s.corpus.owners.containing(&rel);
-        o = o.head(format!("{rel}  (owner {})", owner.id));
+        o = o.head(format!("{shown}  (owner {})", owner.id));
         for gv in query::governing(&s.corpus, &rel) {
             let d = &s.corpus.docs[gv.idx];
             let status = d.status().unwrap_or_default();
@@ -35,7 +36,7 @@ pub fn run(g: &Global, a: &ContextArgs) -> Result<Output> {
                 text.push_str(&format!("\n      verify: {}", verify.join(" && ")));
             }
             o = o.item(
-                json!({"id": d.id.to_string(), "title": d.title, "status": status, "path": d.path, "path_queried": rel, "governs": gv.pattern, "verify": verify, "anchors": d.anchors.len()}),
+                json!({"id": d.id.to_string(), "title": d.title, "status": status, "path": d.path, "path_queried": shown, "governs": gv.pattern, "verify": verify, "anchors": d.anchors.len()}),
                 text,
             );
         }
@@ -43,10 +44,17 @@ pub fn run(g: &Global, a: &ContextArgs) -> Result<Output> {
     if o.items.is_empty() {
         o = o.foot("no document governs these paths");
         let p = a.paths.first().cloned().unwrap_or_default();
-        return Ok(o.next(format!(
-            "spec new sot --governs {} --title '…' --write",
-            specfold_core::suggest::shell::word(specfold_core::workspace::escape_glob(&p))
-        )));
+        // The root is claimed by a glob over everything; a document never governs it by name.
+        let root = s.loc.context_path(&s.corpus.cfg, &p).is_ok_and(|r| r.is_empty());
+        let governs = if root { "**".to_string() } else { specfold_core::workspace::escape_glob(&p) };
+        // A disabled type is never suggested; without a type to suggest, the types are the next step.
+        return Ok(match s.corpus.cfg.registry.rule_type() {
+            Some(ty) => o.next(format!(
+                "spec new {ty} --governs {} --title '…' --write",
+                specfold_core::suggest::shell::word(governs)
+            )),
+            None => o.next("spec schema"),
+        });
     }
     if first.is_none() {
         return Ok(o);

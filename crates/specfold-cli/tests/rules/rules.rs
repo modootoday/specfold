@@ -25,9 +25,12 @@ fn a_custom_type_moves_through_its_own_statuses_and_requires_fields() {
         + "[types.finding]\nkey = \"stamp\"\nstatuses = [\"open\", \"resolved\", \"accepted-risk\"]\ninitial = \"open\"\nfields = [\"review_by\"]\n[types.finding.transitions]\nopen = [\"resolved\", \"accepted-risk\"]\n[types.finding.require_when]\naccepted-risk = [\"review_by\"]\n";
     r.write("spec.toml", &toml);
     let id = r.new_doc("finding", "services/shop", "Token in logs");
-    assert_eq!(r.json(&["set", &id, "status=accepted-risk", "--write"]).0, 0);
+    let (code, v) = r.json(&["set", &id, "status=accepted-risk", "--write"]);
+    assert_eq!(code, 2, "F4: set refuses a status without its required fields: {v}");
+    assert!(v["next"].as_str().unwrap_or_default().contains("review_by=…"), "{v}");
+    edit(&r, &id, "status: open", "status: accepted-risk");
     let (code, v) = r.json(&["check", "--rule", "S6"]);
-    assert_eq!(code, 1, "{v}");
+    assert_eq!(code, 1, "S6 finds a status written by hand: {v}");
     assert_eq!(r.json(&["set", &id, "review_by=2026-12-01", "--write"]).0, 0);
     assert_eq!(r.json(&["check", "--rule", "S6", "--rule", "S4"]).0, 0);
     let (code, v) = r.json(&["set", &id, "status=open", "--write"]);
@@ -382,7 +385,7 @@ fn s8_a_required_field_needs_a_real_value_of_its_kind() {
     assert_eq!(r.json(&["set", &id, "approvers=TBD", "--write"]).0, 0);
     let (_, v) = r.json(&["check", "--rule", "S8"]);
     assert!(rules_hit(&v).is_empty(), "{v}");
-    for kv in ["status=accepted-risk", "review_by=2026-12-01", "authors=ann", "decision=sot:nowhere"] {
+    for kv in ["review_by=2026-12-01", "authors=ann", "decision=sot:nowhere", "status=accepted-risk"] {
         let (c, v) = r.json(&["set", &id, kv, "--write"]);
         assert_eq!(c, 0, "{kv}: {v}");
     }
@@ -437,12 +440,16 @@ fn c109_c110_c111_c112_set_lists_statuses_and_nexts() {
     let out = r.spec().args(["check"]).output().unwrap();
     let err = String::from_utf8_lossy(&out.stderr);
     assert!(err.contains("status 'accepted'") && err.contains("draft"), "C110: {err}");
-    let (_, v) = r.json(&["set", &id, "status=active", "--write"]);
+    let (code, v) = r.json(&["set", &id, "status=active", "--write"]);
     let next = v["next"].to_string();
-    assert!(next.contains("S6") && next.contains("S8"), "C111: {v}");
+    assert!(code == 2 && next.contains("approvers=…") && next.contains("review_by=…"), "F4: {v}");
+    edit(&r, &id, "status: draft", "status: active");
     let (_, v) = r.json(&["check", "--rule", "S6"]);
     let fix = v["items"][0].to_string();
     assert!(fix.contains("approvers=") && fix.contains("review_by="), "C112: every missing field: {v}");
+    let (_, v) = r.json(&["set", &id, "review_by=2027-01-01", "--write"]);
+    let next = v["next"].to_string();
+    assert!(next.contains("S6") && next.contains("S8"), "C111: a required field: {v}");
     r.json(&["set", &id, "approvers=[kim, lee]", "--write"]);
     let (_, d) = r.json(&["show", &id]);
     assert_eq!(d["frontmatter"]["approvers"], serde_json::json!(["kim", "lee"]), "C109: {d}");

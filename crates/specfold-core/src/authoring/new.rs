@@ -216,8 +216,12 @@ pub fn plan(c: &Corpus, g: &Graph, req: &NewDoc) -> Result<(Created, Plan)> {
         }
         super::successor::refuse_second(c, idx, None)?;
         rel.insert("supersedes".into(), json!([old.id.to_string()]));
+        // Planned either way, so a document that cannot be superseded is refused now; a new
+        // document that starts pending supersedes it once it is set to a status in force.
         let old_plan = set::plan_superseded_by_new(c, idx)?;
-        plan.changes.extend(old_plan.changes);
+        if ty.in_force(&ty.initial) {
+            plan.changes.extend(old_plan.changes);
+        }
     }
     if !rel.is_empty() {
         fm.insert("rel".into(), Value::Object(rel));

@@ -12,5 +12,6 @@ pub mod plan;
 pub mod refs;
 pub mod set;
 pub mod successor;
+pub mod takes_effect;
 
 pub use plan::{Change, Plan};

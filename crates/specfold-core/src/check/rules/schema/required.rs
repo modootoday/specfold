@@ -7,7 +7,7 @@ use crate::check::rule::{Rule, RuleInfo};
 pub struct RequiredByStatus;
 
 /// Whether `key` (or `rel.<kind>`) holds a non-empty value.
-fn has_value(fm: &serde_json::Map<String, serde_json::Value>, key: &str) -> bool {
+pub(crate) fn has_value(fm: &serde_json::Map<String, serde_json::Value>, key: &str) -> bool {
     let v = match key.strip_prefix("rel.") {
         Some(kind) => fm.get("rel").and_then(|r| r.get(kind)),
         None => fm.get(key),

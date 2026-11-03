@@ -184,11 +184,10 @@ fn a_proposal_type_runs_draft_accepted_final_or_withdrawn() {
     let kept = r.json(&["new", "proposal", "--title", "Kept", "--write"]).1["id"].as_str().unwrap().to_string();
     let dropped = r.json(&["new", "proposal", "--title", "Dropped", "--write"]).1["id"].as_str().unwrap().to_string();
     assert_eq!(r.json(&["set", &kept, "status=accepted", "--write"]).0, 0);
-    assert_eq!(r.json(&["set", &kept, "status=final", "--write"]).0, 0);
-    let (code, v) = r.json(&["check", "--rule", "S6"]);
-    assert_eq!(code, 1, "final needs conformance: {v}");
-    assert!(v["items"][0]["message"].to_string().contains("conformance"), "{v}");
-    assert_eq!(r.json(&["set", &kept, "conformance=not-a-url", "--write"]).0, 0);
+    let (code, v) = r.json(&["set", &kept, "status=final", "--write"]);
+    assert_eq!(code, 2, "final needs conformance: {v}");
+    assert!(v["error"].to_string().contains("conformance"), "{v}");
+    assert_eq!(r.json(&["set", &kept, "status=final", "conformance=not-a-url", "--write"]).0, 0);
     let (_, v) = r.json(&["check", "--rule", "S8"]);
     assert!(v["items"][0]["message"].to_string().contains("http(s) URL"), "{v}");
     let url = ["set", &kept, "conformance=https://example.com/conformance", "--write"];

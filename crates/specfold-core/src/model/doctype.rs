@@ -113,6 +113,28 @@ impl TypeDef {
         if self.current.is_empty() { lifecycle::is_current(status) } else { self.current.iter().any(|s| s == status) }
     }
 
+    /// Whether a document in `status` has not taken effect yet: the type starts there and can move
+    /// on to another current status, as a draft does before it is active.
+    pub fn is_pending(&self, status: &str) -> bool {
+        status == self.initial
+            && self
+                .statuses
+                .iter()
+                .any(|s| *s != self.initial && self.is_current(s) && self.transition_allowed(status, s))
+    }
+
+    /// Whether a document in `status` holds now, so what it supersedes is superseded.
+    pub fn in_force(&self, status: &str) -> bool {
+        self.is_current(status) && !self.is_pending(status)
+    }
+
+    /// Whether a document in `status` holds or once did: in force, or a status reached from one
+    /// (superseded, archived), not one a draft ends in (rejected).
+    pub fn has_taken_effect(&self, status: &str) -> bool {
+        self.in_force(status)
+            || self.statuses.iter().any(|f| f != status && self.in_force(f) && self.transition_allowed(f, status))
+    }
+
     pub fn transition_allowed(&self, from: &str, to: &str) -> bool {
         if from == to {
             return true;

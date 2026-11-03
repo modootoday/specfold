@@ -35,7 +35,7 @@ The `--owner-kind` pattern makes every directory under `services/` an owner, so 
 `services/shop/.spec/sot/`. Its id, `sot:shop/cart-totals`, comes from that place.
 
 `spec context` answers the question an agent or reviewer asks first: which documents must I read
-before changing this file?
+before changing this file? `spec context .` lists the documents that govern the whole repository.
 
 ## Next
 

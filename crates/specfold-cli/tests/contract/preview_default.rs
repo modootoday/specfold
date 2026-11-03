@@ -150,6 +150,8 @@ fn b2_superseding_a_draft_hint_commands_run_as_given() {
     let next = v["next"].as_str().unwrap_or_default().replace('…', "Filled in");
     let (code, w) = follow(&r, &next);
     assert_eq!((code, &w["written"]), (0, &Value::Bool(true)), "spec new --from a draft: {w}");
+    let succ = w["id"].as_str().unwrap().to_string();
+    assert_eq!(r.json(&["set", &succ, "status=active", "--write"]).0, 0);
     assert_eq!(r.json(&["show", &other]).1["frontmatter"]["status"], "superseded");
 }
 
@@ -163,12 +165,8 @@ fn a_superseded_document_gets_one_successor_and_points_to_it() {
     assert_eq!(code, 0, "{v}");
     let succ = v["id"].as_str().unwrap().to_string();
     let (code, v) = r.json(&["edit", &old, "--text", "x"]);
-    assert_eq!(code, 2, "{v}");
-    let next = v["next"].as_str().unwrap_or_default().to_string();
-    assert!(
-        next.starts_with(&format!("spec edit {succ} ")) && next.ends_with(" --write"),
-        "a draft successor is edited: {v}"
-    );
+    assert_eq!(code, 0, "F5: the old document holds until its draft successor does: {v}");
+    let mut next = String::new();
     for write in [false, true] {
         let mut a = vec!["new", "adr", "--title", "Pay three", "--from", old.as_str()];
         if write {
@@ -179,6 +177,11 @@ fn a_superseded_document_gets_one_successor_and_points_to_it() {
         assert_eq!(code, 2, "a second successor is refused, preview too: {v}");
         assert!(v["error"].as_str().unwrap_or_default().contains(&succ), "{v}");
         assert_eq!(r.json(&["find", "--type", "adr"]).1.to_string(), before, "nothing written");
+        next = v["next"].as_str().unwrap_or_default().to_string();
+        assert!(
+            next.starts_with(&format!("spec edit {succ} ")) && next.ends_with(" --write"),
+            "a draft successor is edited: {v}"
+        );
     }
     let other = r.new_doc("adr", "services/shop", "Pay other");
     let (code, v) = r.json(&["set", &other, &format!("rel.supersedes+={old}"), "--write"]);

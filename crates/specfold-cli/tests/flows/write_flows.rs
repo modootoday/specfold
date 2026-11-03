@@ -14,6 +14,8 @@ fn supersede_flow_keeps_both_sides_in_step() {
         r.json(&["new", "adr", "--from", &old, "--governs", "services/shop", "--title", "Use a database", "--write"]);
     assert_eq!(code, 0, "{v}");
     let new = v["id"].as_str().unwrap().to_string();
+    assert_eq!(r.json(&["show", &old]).1["frontmatter"]["status"], "active", "the draft has not taken effect");
+    assert_eq!(r.json(&["set", &new, "status=active", "--write"]).0, 0);
     assert_eq!(r.json(&["show", &old]).1["frontmatter"]["status"], "superseded");
     let (_, chain) = r.json(&["graph", "chain", &old]);
     assert_eq!(chain["current"], new);
@@ -141,12 +143,15 @@ fn change_notes_collect_until_a_release_archives_them() {
 }
 
 #[test]
-fn b2_new_from_a_draft_supersedes_it() {
+fn b2_new_from_a_draft_supersedes_it_once_the_successor_is_active() {
     let r = common::repo();
     let old = r.new_doc("adr", "services/shop/src", "Cart rounding");
-    let (code, text) =
-        r.text(&["new", "adr", "--governs", "services/shop/src", "--title", "New rounding", "--from", &old, "--write"]);
-    assert_eq!(code, 0, "{text}");
+    let (code, v) =
+        r.json(&["new", "adr", "--governs", "services/shop/src", "--title", "New rounding", "--from", &old, "--write"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(r.json(&["show", &old]).1["frontmatter"]["status"], "draft");
+    let new = v["id"].as_str().unwrap().to_string();
+    assert_eq!(r.json(&["set", &new, "status=active", "--write"]).0, 0);
     assert_eq!(r.json(&["show", &old]).1["frontmatter"]["status"], "superseded");
     assert_eq!(r.json(&["check", "--rule", "T1"]).1["errors"], 0);
     let other = r.new_doc("adr", "services/shop/src", "Tax rounding");

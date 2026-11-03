@@ -34,7 +34,29 @@ $ spec set adr:root/20261030 rel.supersedes+=adr:root/20250101 --write
 
 `spec set` previews the change until `--write`, as `--dry-run` does. It refuses a jump the type does not allow, and
 sealed or closed documents, and a second successor for a document something already supersedes
-(`spec new --from` too): it names the one in force. Rule S6 then checks the fields the new status requires.
+(`spec new --from` too): it names the one in force. It also refuses a status whose required fields
+(`require_when`) the document does not have, and prints the command that sets them with the status;
+rule S6 checks the same for documents edited by hand.
+
+## Superseding
+
+`spec new <type> --from <old>` writes `rel.supersedes` on the new document. The old document is
+marked `superseded` when the new one takes effect:
+
+- a type that starts `active` (research, guide, runbook) takes effect at once, so `spec new` marks
+  the old document in the same write;
+- a type that starts as a `draft` takes effect when `spec set <new> status=active --write` moves
+  it on, and that write marks the old document too. Until then the old document stays in force
+  and can still be edited; a draft that ends `rejected` leaves it as it is.
+
+With its own lifecycle, a type takes effect at the first current status after its initial one
+(`accepted` for draft, accepted, final). T1 asks for `superseded` only once a successor has taken
+effect, so a pending draft is no finding.
+
+```console
+$ spec new adr --from adr:root/20250101 --title "Move orders to a queue" --write
+$ spec set adr:root/20261030 status=active --write   # marks adr:root/20250101 superseded
+```
 
 ## What the rules check
 

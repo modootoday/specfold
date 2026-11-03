@@ -142,6 +142,10 @@ name = "setup_flows"
 path = "tests/flows/setup_flows.rs"
 
 [[test]]
+name = "status_flows"
+path = "tests/flows/status_flows.rs"
+
+[[test]]
 name = "translations"
 path = "tests/rules/translations.rs"
 

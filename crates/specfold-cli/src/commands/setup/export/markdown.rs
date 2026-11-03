@@ -89,7 +89,7 @@ pub(super) fn built_in(g: &Global, a: &ExportArgs) -> Result<Output> {
         out.display(),
         tree.files.len()
     ));
-    Ok(done_next(o, tree.docs, n, &out_path, &s.corpus.cfg.spec_home, &again))
+    Ok(done_next(o, tree.docs, n, &out_path, &s.corpus.cfg, &again))
 }
 
 /// The built-in exporter's own flags: the target, the output folder, and whether an
@@ -189,14 +189,17 @@ fn done_next(
     docs: usize,
     n: usize,
     out_path: &std::path::Path,
-    root: &std::path::Path,
+    cfg: &specfold_core::Config,
     again: &str,
 ) -> Output {
+    let root = &cfg.spec_home;
     if docs == 0 {
         // C222: an empty repository exports the manifest alone.
-        o = o
-            .foot("no documents to export yet; the folder holds only the manifest")
-            .next("spec new sot --title <TITLE> --write");
+        let next = match cfg.registry.rule_type() {
+            Some(ty) => format!("spec new {ty} --title <TITLE> --write"),
+            None => "spec schema".to_string(),
+        };
+        o = o.foot("no documents to export yet; the folder holds only the manifest").next(next);
     } else if n > 0 {
         o = o.foot(format!("{n} reference(s) written as plain text")).next("spec check --rule L1");
     } else {

@@ -175,6 +175,16 @@ impl Location {
         Ok(rel)
     }
 
+    /// A path to look up what governs it: a governed path, or the repository root (`.`, empty
+    /// here), which only whole-repository claims cover. No document governs the root by that
+    /// name, so `governed_path` keeps refusing it for `new --governs`.
+    pub fn context_path(&self, cfg: &Config, p: &str) -> Result<String> {
+        if !p.trim().is_empty() && self.code_path(cfg, p)?.is_empty() {
+            return Ok(String::new());
+        }
+        self.governed_path(cfg, p)
+    }
+
     /// `..`, `../..` … from the command's directory up to the spec root, when it is below it.
     pub fn up_to_root(&self) -> Option<String> {
         let cwd = self.cwd.canonicalize().ok()?;

@@ -4,10 +4,11 @@ use clap::Args;
 
 #[derive(Debug, Clone, Args)]
 #[command(
-    after_help = "Examples:\n  spec context services/shop/src/cart/total.rs\n  spec context services/shop --json"
+    after_help = "Examples:\n  spec context services/shop/src/cart/total.rs\n  spec context services/shop --json\n  spec context .   # what governs the whole repository"
 )]
 pub struct ContextArgs {
-    /// Code paths you are about to change.
+    /// Code paths you are about to change; . is the repository root, which lists the documents
+    /// whose governs cover the whole repository.
     #[arg(required = true)]
     pub paths: Vec<String>,
     /// Include documents past their type's current statuses (draft and active unless

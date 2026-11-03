@@ -48,7 +48,7 @@ the same change.
 ```sh
 spec new adr --governs services/shop/src/db --title "Use Postgres for orders" --write
 spec new plan --governs services/shop --title "Checkout v2" --write
-spec new adr --from adr:shop/20250101000000 --title "Move orders to a queue" --write   # supersedes
+spec new adr --from adr:shop/20250101000000 --title "Move orders to a queue" --write   # supersedes once active
 ```
 
 `--governs` decides the owner. Use `--local` for a draft that stays out of git, and

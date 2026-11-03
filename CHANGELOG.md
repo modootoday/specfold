@@ -3,6 +3,21 @@
 Release notes for each version are also on
 [GitHub releases](https://github.com/modootoday/specfold/releases).
 
+## Unreleased
+
+### Changed
+
+- `spec new <type> --from <old>` no longer marks the old document superseded while the new one is still a draft. It writes `rel.supersedes` on the new document and leaves the old one in force; `spec set <new> status=active --write` marks the old one superseded in the same write. A type that starts active (research, guide, runbook) supersedes at once, as before. A type with its own lifecycle takes effect at the first current status after its initial one. `spec new` says which document stays in force and the command that moves it on.
+- T1 asks an old document to be `superseded` only once a successor has taken effect (active, or a status reached from it), so a pending draft successor, or one that ended `rejected`, is no finding. Documents written by earlier versions, old document already superseded by a draft, stay valid.
+- A refusal to give a document a second successor reads "already has a successor" and names a pending one.
+
+### Fixes
+
+- `spec context .` (and `./`) was refused as "not a path inside the repository". The repository root is a path to look up: it lists the documents whose `governs` cover the whole repository (`**`), and with none suggests `spec new <type> --governs '**'`. `spec new --governs .` is still refused; a document governs a path below the root.
+- Next-step hints named a type the project disabled (`[types.sot] enabled = false`). `spec context` and an empty `spec export` suggest sot, else adr, else the first type the project added, and `spec schema` when none is enabled. The audit reports no gaps when sot is disabled, and D1 suggests `spec set <id> verified_at=HEAD --write` when the change type is.
+- `spec set 'key=["7.3"]'` stored the quotes (`"\"7.3\""`). A list given as a JSON array with strings is read as JSON, so `["7.3", "a, b"]` stores `7.3` and `a, b`; `[7.3, 10.20]` and `[a, b]` are still split on commas as typed.
+- `spec set <id> status=<s>` wrote a status whose required fields (`[types.<name>] require_when`) the document lacked, and S6 found it later. It is refused (exit 2, nothing written), naming the missing fields, with the `spec set` command that sets them together with the status.
+
 ## 0.7.0 - 2026-11-03
 
 0.7.0 is a minor release because the specfold-core library breaks: its modules are grouped by context and `Config.root` is `Config.spec_home`. The command line has no breaking change: every command and flag of 0.6.2 keeps its name and meaning, and a repository that uses none of the new keys gets the same output and exit codes. A type can keep its documents in a directory of its own (`[types.<name>] dir`), number them (`key = "number"`), choose which statuses are current and ignore a README or template there; `spec sync visibility` writes the manifest V1 reads.

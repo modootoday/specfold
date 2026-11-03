@@ -200,6 +200,16 @@ impl Registry {
         }
     }
 
+    /// The type a hint to write a governing document names: sot, else adr, else the first type
+    /// the project added; None when the project disabled all of them.
+    pub fn rule_type(&self) -> Option<&str> {
+        let builtin: Vec<String> = doctype::builtin().into_iter().map(|t| t.name).collect();
+        ["sot", "adr"]
+            .into_iter()
+            .find(|n| self.get(n).is_some())
+            .or_else(|| self.types.iter().map(|t| t.name.as_str()).find(|n| !builtin.iter().any(|b| b == n)))
+    }
+
     pub fn names(&self) -> Vec<&str> {
         self.types.iter().map(|t| t.name.as_str()).collect()
     }

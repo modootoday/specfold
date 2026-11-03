@@ -110,6 +110,10 @@ fn create(g: &Global, a: &NewArgs) -> Result<Output> {
         Some(note) => o.field("slug_note", note.clone()).head(format!("warn  {note}")),
         None => o,
     };
+    let o = match supersede_note(&s, a, &created) {
+        Some(note) => o.field("supersede_note", note.clone()).head(note),
+        None => o,
+    };
     // The same title twice is usually a rerun; say so before a second copy is written.
     let same: Vec<String> = s
         .corpus
@@ -146,6 +150,25 @@ fn create(g: &Global, a: &NewArgs) -> Result<Output> {
         (None, true) => o,
         (None, false) => o.next(format!("spec show {}", specfold_core::suggest::shell::word(&created.id))),
     })
+}
+
+/// With --from on a type that starts pending (a draft), the old document stays in force until the
+/// new one holds; says so and how.
+fn supersede_note(s: &session::Session, a: &NewArgs, created: &new::Created) -> Option<String> {
+    let from = a.from.as_deref()?;
+    let ty = s.corpus.cfg.registry.get(created.id.split(':').next()?)?;
+    if ty.in_force(&ty.initial) {
+        return None;
+    }
+    let old = &s.corpus.docs[session::resolve(s, from).ok()?];
+    let to = specfold_core::authoring::takes_effect::effective_status(ty).unwrap_or("active");
+    Some(format!(
+        "{} stays {} until {} is {to}; spec set {} status={to} --write marks it superseded",
+        old.id,
+        old.status().unwrap_or_default(),
+        created.id,
+        specfold_core::suggest::shell::word(&created.id)
+    ))
 }
 
 /// Takes `id` for this process: false when another `spec new` holds it or already wrote a file

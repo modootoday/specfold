@@ -68,7 +68,7 @@ absent remote directory is skipped.
 
 | rule | checks that |
 | --- | --- |
-| **T1** | superseded documents have exactly one successor |
+| **T1** | superseded documents have exactly one successor; a draft successor leaves the old one in force |
 | **T2** | status only moves forward |
 | **T3** | sealed documents keep their body |
 | **T4** | an edited body moves its updated date |

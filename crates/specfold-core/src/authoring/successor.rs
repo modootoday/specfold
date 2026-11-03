@@ -39,7 +39,7 @@ pub fn way_on(c: &Corpus, idx: usize) -> Option<String> {
     let edit = format!("spec edit {id} --text '…' --write");
     // Only an active document can be superseded (a draft is changed in place).
     if cur.status().as_deref() != Some("active") {
-        return Some(format!("the current document is {id}, still {}; next: {edit}", cur.status().unwrap_or_default()));
+        return Some(format!("the successor {id} is still {}; next: {edit}", cur.status().unwrap_or_default()));
     }
     Some(format!(
         "the document in force is {id}: change it with `{edit}`, or supersede it; next: spec new {} --from {id} --title '{title}' --write",
@@ -56,5 +56,5 @@ pub fn refuse_second(c: &Corpus, idx: usize, by: Option<usize>) -> Result<()> {
     let taken: Vec<String> =
         successors(c, idx).iter().filter(|&&s| Some(s) != by).map(|&s| c.docs[s].id.to_string()).collect();
     let way = way_on(c, idx).unwrap_or_default();
-    bail!("{} is already superseded by {}; a second successor would fail T1; {way}", c.docs[idx].id, taken.join(", "))
+    bail!("{} already has a successor, {}; a second one would fail T1; {way}", c.docs[idx].id, taken.join(", "))
 }
