@@ -126,6 +126,36 @@ fn citations_in_code_resolve_and_staged_runs_read_only_added_lines() {
 }
 
 #[test]
+fn bash_test_brackets_in_code_comments_are_not_citations() {
+    let r = common::repo();
+    r.write("spec.toml", &(r.read("spec.toml") + "[cites]\npaths = [\"services/**/*.js\"]\n"));
+    let adr = r.new_doc("adr", "services/shop/src", "Use a cart cache");
+    r.write(
+        "services/shop/src/run.js",
+        &format!(
+            "// if [[ -f x ]]; then exit; fi\n// [[ $a == b ]] && [[ -n $b ]]\n// [[ \"$x\" =~ ^adr: ]] || [[ ! -d y ]]\n// [[$ref != adr:shop/gone]]\n// see [[{adr}]]\n// see [[adr:shop/gone]]\nexport const run = () => 1;\n"
+        ),
+    );
+    let (code, v) = r.json(&["check", "--rule", "L6"]);
+    assert_eq!(code, 1, "{v}");
+    let items = v["items"].as_array().unwrap();
+    assert_eq!(items.len(), 1, "{v}");
+    assert_eq!(items[0]["line"], 6);
+    assert!(items[0]["message"].as_str().unwrap().contains("[[adr:shop/gone]] names no document"), "{v}");
+}
+
+#[test]
+fn bash_test_brackets_in_a_document_body_are_not_links() {
+    let r = common::repo();
+    let adr = r.new_doc("adr", "services/shop/src", "Use a cart cache");
+    let p = path_of(&r, &adr);
+    r.write(&p, &(r.read(&p) + "\nRun it when [[ -f x ]] and [[ $a == b ]] hold.\n"));
+    assert!(rules_hit(&r.json(&["check", "--rule", "L1"]).1).is_empty());
+    r.write(&p, &(r.read(&p) + "\nSee [[adr:shop/gone]].\n"));
+    assert_eq!(rules_hit(&r.json(&["check", "--rule", "L1"]).1), ["L1"]);
+}
+
+#[test]
 fn published_paths_are_detected_from_manifests() {
     let r = common::repo();
     r.write("spec.toml", &r.read("spec.toml").replace("[public]\n", "[public]\ndetect = [\"npm-files\"]\n"));

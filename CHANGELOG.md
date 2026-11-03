@@ -7,6 +7,7 @@ Release notes for each version are also on
 
 ### Fixes
 
+- A bash test in a code comment or script, such as `[[ -f x ]]` or `[[ $a == b ]]`, was read as a `[[reference]]`. A `[[...]]` whose text starts with whitespace, `-`, `$` or `!`, or holds a shell operator after a space (`==`, `!=`, `=~`, `-eq`, `-ne`, `-lt`, `-gt`, `-le`, `-ge`, `&&`, `||`), is no longer a reference anywhere: L1, L6 and export read references the same way. Ids never contain spaces, so `[[ adr:x/1 ]]` with inner spaces is no longer a link; write `[[adr:x/1]]`.
 - The test suite read the user's `~/.config/specfold/roots.toml`, so on a machine with one, tests of `spec doctor` and remotes failed. Every command the tests spawn now gets a temporary `HOME` and `XDG_CONFIG_HOME` and a `SPECFOLD_ROOTS` that names no file, unless a test sets one on purpose.
 
 ## 0.6.1 - 2026-11-03

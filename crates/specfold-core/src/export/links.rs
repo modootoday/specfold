@@ -4,7 +4,7 @@
 use crate::config::Config;
 use crate::corpus::Corpus;
 use crate::graph::{Graph, Resolution};
-use crate::markdown::body::wiki_re;
+use crate::markdown::body::{is_wiki_link, wiki_re};
 use crate::model::RefText;
 use crate::remotes::{self, Remote};
 use serde::Serialize;
@@ -43,6 +43,9 @@ pub struct Link {
 pub fn occurrences(body: &str) -> Vec<Occurrence> {
     let mut out = Vec::new();
     outside_code(body, wiki_re(), |start, m| {
+        if !is_wiki_link(m) {
+            return;
+        }
         let whole = m.get(0).expect("capture group 0 always exists");
         let inner = &whole.as_str()[2..whole.as_str().len() - 2];
         let label = inner.split_once('|').map(|(_, l)| l.trim().to_string()).filter(|l| !l.is_empty());

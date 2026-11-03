@@ -29,10 +29,31 @@ pub struct Body {
     pub lines: usize,
 }
 
-/// `[[target]]` and `[[target|label]]`; group 1 is the target.
+/// `[[target]]` and `[[target|label]]`; group 1 is the target. Callers keep only the matches
+/// `is_wiki_link` accepts, or use `wiki_links`.
 pub fn wiki_re() -> &'static Regex {
     static R: OnceLock<Regex> = OnceLock::new();
     R.get_or_init(|| Regex::new(r"\[\[([^\[\]\n|]+)(?:\|[^\[\]\n]*)?\]\]").expect("static regex is valid"))
+}
+
+/// Operators that, after a space, make a `[[…]]` a bash test.
+const SHELL_OPERATORS: &[&str] = &["==", "!=", "=~", "-eq", "-ne", "-lt", "-gt", "-le", "-ge", "&&", "||"];
+
+/// Whether a `wiki_re` match is a reference. Bash tests share the brackets (`[[ -f x ]]`,
+/// `[[ $a == b ]]`) in comments and scripts; ids hold no spaces, so such a test never names one.
+pub fn is_wiki_link(c: &regex::Captures) -> bool {
+    let target = &c[1];
+    if target.starts_with(|ch: char| ch.is_whitespace() || matches!(ch, '-' | '$' | '!')) {
+        return false;
+    }
+    // The target stops at the first pipe, so `a || b` leaves `| b` to the label part.
+    let or = c[0].contains(" || ");
+    !or && !target.split_whitespace().skip(1).any(|w| SHELL_OPERATORS.contains(&w))
+}
+
+/// The references on one line: `wiki_re` matches that `is_wiki_link` accepts.
+pub fn wiki_links(line: &str) -> impl Iterator<Item = regex::Captures<'_>> {
+    wiki_re().captures_iter(line).filter(is_wiki_link)
 }
 
 fn anchor_re() -> &'static Regex {
@@ -107,7 +128,7 @@ pub fn scan(body: &str, first_line: usize, path_re: &Regex) -> Body {
                 out.anchors.push(Anchor { name: c[1].to_string(), heading: heading_clean, line: line_no });
             }
         }
-        for c in wiki_re().captures_iter(&line) {
+        for c in wiki_links(&line) {
             out.links.push(Link { text: c[1].trim().to_string(), line: line_no });
         }
         for m in path_re.find_iter(&line) {
@@ -141,5 +162,30 @@ mod tests {
         assert_eq!(b.anchors[0].heading, "Totals");
         assert_eq!(b.first_heading.as_deref(), Some("Checkout"));
         assert_eq!(b.path_cites[0].text, "services/shop/.spec/plan/x.plan.md");
+    }
+
+    #[test]
+    fn bash_test_brackets_are_not_links() {
+        let tests = [
+            "[[ -f x ]]",
+            "[[ $a == b ]]",
+            "[[-n $a]]",
+            "[[$a]]",
+            "[[!x]]",
+            "[[a != b]]",
+            "[[a =~ ^b]]",
+            "[[a -eq 1]]",
+            "[[a -ge 1]]",
+            "[[a && b]]",
+            "[[a || b]]",
+            "[[ ]]",
+        ];
+        for t in tests {
+            assert_eq!(wiki_links(t).count(), 0, "{t}");
+        }
+        let links = ["[[adr:shop/1]]", "[[sot:shop/cart#CO-1|a == b]]", "[[x-eq]]", "[[a==b]]"];
+        for t in links {
+            assert_eq!(wiki_links(t).count(), 1, "{t}");
+        }
     }
 }

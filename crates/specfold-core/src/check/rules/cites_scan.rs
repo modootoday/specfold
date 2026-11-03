@@ -16,7 +16,7 @@ use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 /// Bumped whenever extraction changes.
-const FORMAT: &str = concat!("specfold-cites-1/", env!("CARGO_PKG_VERSION"));
+const FORMAT: &str = concat!("specfold-cites-2/", env!("CARGO_PKG_VERSION"));
 
 /// One `[[…]]` reference: line, the text as written, the target inside the brackets.
 pub type Wiki = (usize, String, String);
@@ -55,7 +55,6 @@ pub fn token_hash(t: &str) -> u64 {
 
 /// The patterns that decide what a file yields.
 pub struct Patterns<'a> {
-    pub wiki: &'a Regex,
     pub spec_paths: &'a Regex,
     pub token: &'a Regex,
     pub history: &'a [Regex],
@@ -69,7 +68,7 @@ pub fn extract(text: &str, only: Option<&BTreeSet<usize>>, p: &Patterns) -> Extr
             continue;
         }
         let mut seen = BTreeSet::new();
-        for c in p.wiki.captures_iter(line) {
+        for c in crate::markdown::body::wiki_links(line) {
             let target = c[1].trim().to_string();
             seen.insert(target.clone());
             out.wiki.push((no, c[0].to_string(), target));

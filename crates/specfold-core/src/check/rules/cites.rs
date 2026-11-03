@@ -9,7 +9,7 @@ use crate::check::rule::{Rule, RuleInfo};
 use crate::check::scope::Range;
 use crate::corpus::trace;
 use crate::graph::Resolution;
-use crate::markdown::body::{path_cite_re, wiki_re};
+use crate::markdown::body::path_cite_re;
 use crate::workspace::owners::{PathMatch, matcher};
 use crate::workspace::vcs;
 use ignore::WalkBuilder;
@@ -135,7 +135,7 @@ impl Rule for CitesOutside {
         &RuleInfo {
             id: "L6",
             title: "citations outside documents still resolve",
-            explain: "Files listed in [cites] paths (code, READMEs, agent instructions) are read for [[id]] references, paths into spec directories and old paths from the alias table. A reference that names nothing is an error, and so is `[[<remote>:<id>]]` that names nothing in a configured remote whose directory is present (an absent remote directory is skipped); an old name or a path is reported with the id to write; a citation of a superseded, archived or rejected document is reported. Staged and ranged runs read only the lines the change adds, and lines matching [cites] history are left alone. Files inside a nested project ([owners] nested) are its own to check.",
+            explain: "Files listed in [cites] paths (code, READMEs, agent instructions) are read for [[id]] references, paths into spec directories and old paths from the alias table; a bash test such as `[[ -f x ]]` or `[[ $a == b ]]` is not a reference. A reference that names nothing is an error, and so is `[[<remote>:<id>]]` that names nothing in a configured remote whose directory is present (an absent remote directory is skipped); an old name or a path is reported with the id to write; a citation of a superseded, archived or rejected document is reported. Staged and ranged runs read only the lines the change adds, and lines matching [cites] history are left alone. Files inside a nested project ([owners] nested) are its own to check.",
             on_commit: true,
         }
     }
@@ -156,7 +156,7 @@ impl Rule for CitesOutside {
         if trace::enabled() {
             eprintln!("specfold:   L6 list      {:>7.1} ms, {} files", ms(start), list.len());
         }
-        let pats = Patterns { wiki: wiki_re(), spec_paths: &spec_paths, token: path_token_re(), history: &history };
+        let pats = Patterns { spec_paths: &spec_paths, token: path_token_re(), history: &history };
         let known = |t: &str| ctx.graph.by_path.contains_key(t) || ctx.graph.by_alias.contains_key(t);
         let names: HashSet<u64> =
             ctx.graph.by_path.keys().chain(ctx.graph.by_alias.keys()).map(|k| cites_scan::token_hash(k)).collect();
