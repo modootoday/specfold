@@ -1,9 +1,9 @@
 //! Stalled: active plans without recent updates, and drafts that never became anything.
 
 use super::super::types::{Item, Kind};
-use super::days_between;
 use crate::corpus::Corpus;
 use crate::model::stamp;
+use crate::model::stamp::days_between;
 
 pub fn run(c: &Corpus, docs: &[usize], out: &mut Vec<Item>) {
     let today = stamp::today();

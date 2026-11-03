@@ -1,6 +1,7 @@
-//! Finds the spec directories: one per owner that has one, plus the local directory.
+//! The spec directories: one per owner that has one, plus the local directory; and which of
+//! them holds a document.
 
-use super::types::{SpecRoot, Stray};
+use super::types::{Corpus, SpecRoot, Stray};
 use crate::config::Config;
 use crate::model::Tier;
 use crate::workspace::Owners;
@@ -37,4 +38,12 @@ pub fn local(cfg: &Config, owners: &Owners, strays: &mut Vec<Stray>) -> Vec<Spec
     }
     out.sort_by(|a, b| a.dir.cmp(&b.dir));
     out
+}
+
+impl Corpus {
+    /// The spec directory holding document `idx`: the deepest root its path lies under.
+    pub fn spec_root_of(&self, idx: usize) -> Option<&SpecRoot> {
+        let path = &self.docs[idx].path;
+        self.roots.iter().filter(|r| crate::paths::is_below(path, &r.dir)).max_by_key(|r| r.dir.len())
+    }
 }

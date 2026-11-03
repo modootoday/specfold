@@ -1,6 +1,5 @@
 //! One asset file as read: its kind, location, frontmatter and text.
 
-use super::join;
 use crate::config::types::AssetKind;
 use crate::graph::{Graph, Resolution};
 use crate::markdown::frontmatter;
@@ -59,4 +58,21 @@ impl Asset {
         }
         out.into_iter().collect()
     }
+}
+
+/// `dir/rel` with `.` and `..` folded; a path climbing above the root stays as written.
+pub(super) fn join(dir: &str, rel: &str) -> String {
+    let mut parts: Vec<&str> = if dir.is_empty() { vec![] } else { dir.split('/').collect() };
+    for c in rel.split('/') {
+        match c {
+            "" | "." => {}
+            ".." => {
+                if parts.pop().is_none() {
+                    return rel.to_string();
+                }
+            }
+            c => parts.push(c),
+        }
+    }
+    parts.join("/")
 }

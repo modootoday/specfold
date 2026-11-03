@@ -1,6 +1,8 @@
 //! Unit tests for `assets`.
 
-use super::*;
+use super::asset::join;
+use super::load::{base, shaped, stem};
+use crate::config::types::AssetKind;
 
 #[test]
 fn stems_and_bases() {

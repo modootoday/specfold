@@ -7,5 +7,4 @@ pub mod pack;
 pub mod plugins;
 pub mod types;
 
-pub use diagnose::Filter;
-pub use types::{Diagnosis, Item, Kind};
+pub use types::{Diagnosis, Filter, Item, Kind};

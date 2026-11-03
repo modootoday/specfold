@@ -77,7 +77,7 @@ fn upgrade(g: &Global, a: &InitArgs) -> Result<Output> {
     let text = raw.strip_prefix('\u{feff}').unwrap_or(&raw).to_string();
     // C170: a file from a newer version is refused as `spec check` refuses it.
     if let Some(n) = upgrade::schema_of(&text).filter(|n| *n > defaults::schema()) {
-        return Err(specfold_core::config::reader::newer_schema(&path, n));
+        return Err(specfold_core::config::validate::newer_schema(&path, n));
     }
     let (new, changes) = upgrade::plan(&text, upgrade::RENAMED);
     let mut o =

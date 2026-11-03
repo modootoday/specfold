@@ -71,6 +71,14 @@ pub fn utc_day(s: &str) -> Option<String> {
     instant(s)?.to_offset(time::UtcOffset::UTC).format(DATE).ok()
 }
 
+/// Whole days from one frontmatter date to another, each taken as its UTC day.
+pub fn days_between(from: &str, to: &str) -> Option<i64> {
+    let f = time::macros::format_description!("[year]-[month]-[day]");
+    let a = time::Date::parse(&utc_day(from)?, f).ok()?;
+    let b = time::Date::parse(&utc_day(to)?, f).ok()?;
+    Some((b - a).whole_days())
+}
+
 /// Accepts `YYYYMMDD`, `YYYYMMDDHHMMSS` and ISO dates; returns the ISO date.
 pub fn normalize_date(s: &str) -> Option<String> {
     let s = s.trim().trim_matches('"').trim_matches('\'');

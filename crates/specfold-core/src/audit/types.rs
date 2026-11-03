@@ -47,3 +47,12 @@ pub struct Diagnosis {
     pub docs: usize,
     pub owners: usize,
 }
+
+/// Which documents and kinds a diagnosis covers.
+#[derive(Debug, Clone, Default)]
+pub struct Filter {
+    /// Only documents of these owners; empty means all.
+    pub owners: Vec<String>,
+    /// Only these kinds; empty means all.
+    pub kinds: Vec<Kind>,
+}

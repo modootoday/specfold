@@ -1,7 +1,44 @@
 //! Links between imported documents: replacements, canonical ids, and rewritten relative paths.
 
-use super::*;
+use super::names::stem_of;
+use super::row::one_ending;
+use super::types::ImportPlan;
+use crate::authoring::Plan;
+use crate::markdown::frontmatter;
 use crate::paths::{join, relative_from_dir};
+use regex::Regex;
+use serde_json::{Map, Value};
+use std::collections::BTreeMap;
+
+/// Candidate names for a `by` text: link targets (`[ADR-0002](0002-use-y.md)` → `0002-use-y.md`,
+/// `0002-use-y`), the text itself, and its trailing number (`ADR-0002` → `0002`).
+pub(super) fn by_candidates(by: &str) -> Vec<String> {
+    static LINK: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"\[([^\]]*)\]\(([^)\s]+)\)").expect("static regex is valid"));
+    let mut out = vec![];
+    let mut texts = vec![];
+    for c in LINK.captures_iter(by) {
+        let t = c[2].trim_start_matches("./").to_string();
+        out.push(stem_of(&t).to_string());
+        out.push(t);
+        texts.push(c[1].to_string());
+    }
+    let plain = LINK.replace_all(by, "").trim().to_string();
+    texts.push(plain);
+    for t in texts {
+        let t = t.trim().trim_end_matches(['.', ',']).to_string();
+        if t.is_empty() {
+            continue;
+        }
+        let digits: String =
+            t.chars().rev().take_while(char::is_ascii_digit).collect::<Vec<_>>().into_iter().rev().collect();
+        out.push(t);
+        if !digits.is_empty() {
+            out.push(digits);
+        }
+    }
+    out
+}
 
 /// "superseded by X": the newer record, when this import names it, gets rel.supersedes to the
 /// older one; otherwise the row needs a decision, since check would report T1 after the import.
@@ -103,7 +140,7 @@ fn edit_frontmatter(plan: &mut Plan, path: &str, f: impl FnOnce(&mut Map<String,
             f(&mut fm);
             let body = split.body.to_string();
             let text = format!("{}{}", frontmatter::render(&crate::markdown::frontmatter::edit::ordered(fm)), body);
-            *content = super::one_ending(text);
+            *content = one_ending(text);
             return;
         }
     }
@@ -144,13 +181,4 @@ pub(super) fn rewrite_links(out: &mut ImportPlan, by_source: &BTreeMap<String, S
             row.notes.push(format!("{count} link(s) to old file names now point at the new paths"));
         }
     }
-}
-
-/// The body without the `## <name>` section (its heading up to the next heading).
-pub(super) fn without_section(body: &str, name: &str) -> Option<String> {
-    let is_it = |l: &str| l.starts_with('#') && l.trim_start_matches('#').trim().eq_ignore_ascii_case(name);
-    let lines: Vec<&str> = body.split_inclusive('\n').collect();
-    let at = lines.iter().position(|l| is_it(l.trim()))?;
-    let end = lines[at + 1..].iter().position(|l| l.starts_with('#')).map_or(lines.len(), |e| at + 1 + e);
-    Some([&lines[..at], &lines[end..]].concat().concat())
 }

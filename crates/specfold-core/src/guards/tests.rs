@@ -1,6 +1,7 @@
 //! Unit tests for `guards`.
 
-use super::*;
+use super::run;
+use crate::config::Config;
 use crate::config::RawConfig;
 
 fn config(root: &std::path::Path, guard: &str) -> Config {

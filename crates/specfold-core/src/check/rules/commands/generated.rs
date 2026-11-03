@@ -1,11 +1,13 @@
 //! G1: documents produced from code match their generator.
 
+use super::job::{report, settings, timeout};
 use super::select::selected;
-use super::{GeneratedInSync, report, settings, timeout};
 use crate::check::context::Ctx;
 use crate::check::finding::Finding;
 use crate::check::rule::{Rule, RuleInfo};
 use crate::runner::{self, Job};
+
+pub struct GeneratedInSync;
 
 impl Rule for GeneratedInSync {
     fn info(&self) -> &RuleInfo {
