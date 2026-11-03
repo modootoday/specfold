@@ -138,15 +138,16 @@ fn change_notes_collect_until_a_release_archives_them() {
 }
 
 #[test]
-fn superseding_a_draft_points_at_activating_it_not_at_the_same_command() {
+fn b2_new_from_a_draft_supersedes_it() {
     let r = common::repo();
     let old = r.new_doc("adr", "services/shop/src", "Cart rounding");
     let (code, text) =
         r.text(&["new", "adr", "--governs", "services/shop/src", "--title", "New rounding", "--from", &old, "--write"]);
-    assert_ne!(code, 0, "{text}");
-    assert!(text.contains(&format!("spec set {old} status=active")), "{text}");
-    assert!(!text.contains("supersede it with"), "{text}");
-    let path = r.json(&["resolve", &old]).1["path"].as_str().unwrap().to_string();
+    assert_eq!(code, 0, "{text}");
+    assert_eq!(r.json(&["show", &old]).1["frontmatter"]["status"], "superseded");
+    assert_eq!(r.json(&["check", "--rule", "T1"]).1["errors"], 0);
+    let other = r.new_doc("adr", "services/shop/src", "Tax rounding");
+    let path = r.json(&["resolve", &other]).1["path"].as_str().unwrap().to_string();
     r.write(&path, &r.read(&path).replace("status: draft", "status: accepted"));
     let (_, text) = r.text(&["check"]);
     assert!(text.contains("for 'accepted' use 'active'"), "{text}");
@@ -448,7 +449,7 @@ fn c165_draft_refusal_and_missing_title_keep_from() {
     let (code, v) = r.json(&["set", &id, "status=superseded", "--write"]);
     assert_eq!(code, 2, "{v}");
     let e = v.to_string();
-    assert!(e.contains(&format!("spec new adr --title '…' --from {id}")), "{e}");
+    assert!(e.contains(&format!("spec new adr --from {id} --title 'Use files' --write")), "{e}");
     let (code, v) = r.json(&["new", "adr", "--from", &id, "--write"]);
     assert_eq!(code, 2, "{v}");
     let next = v["next"].as_str().unwrap();
@@ -960,9 +961,9 @@ fn e4_set_help_and_schema_list_the_status_values() {
     assert!(help.contains("spec schema <type>"), "{help}");
     let (code, text) = r.text(&["schema", "adr"]);
     assert_eq!(code, 0);
-    assert!(text.contains("statuses: draft -> active, rejected;"), "{text}");
+    assert!(text.contains("statuses: draft -> active, superseded, rejected;"), "{text}");
     let (_, j) = r.json(&["schema", "adr"]);
-    assert_eq!(j["status_moves"][0], "draft -> active, rejected", "{j}");
+    assert_eq!(j["status_moves"][0], "draft -> active, superseded, rejected", "{j}");
 }
 
 #[test]
@@ -994,7 +995,7 @@ fn c262_write_from_a_subfolder_without_dir_gives_an_undo_that_works_there() {
     assert_eq!(o.status.code(), Some(0));
     let v: serde_json::Value = serde_json::from_slice(&o.stdout).unwrap();
     let undo = v["undo"].as_str().unwrap().to_string();
-    assert!(undo.starts_with("cd ../.. && rm -rf -- .spec/"), "{undo}");
+    assert!(undo.starts_with("cd ../.. && rm -rf -- services/shop/.spec/plan/"), "the folder's owner: {undo}");
     let id = v["id"].as_str().unwrap().to_string();
     let st = std::process::Command::new("sh").arg("-c").arg(&undo).current_dir(&sub).status().unwrap();
     assert!(st.success());

@@ -160,7 +160,7 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
     let commands = crate::cli::describe::commands().into_iter().map(|c| c.name).collect();
     let opts =
         Options { run_commands: a.run_commands, external: a.external, online: a.online, guards: a.guards, commands };
-    let report = check::run(
+    let mut report = check::run(
         &s.corpus,
         &s.graph,
         range_of(a),
@@ -174,8 +174,9 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
     let base = if a.no_baseline { None } else { baseline::load(&s.corpus)? };
     let (list, known, lowerable) = match &base {
         Some(b) => {
-            let held = baseline::hold(&s.corpus, b, report.findings);
-            (held.findings, held.known, held.lowerable.len())
+            let held = baseline::hold(&s.corpus, b, std::mem::take(&mut report.findings));
+            let lowerable = held.lowerable.iter().filter(|(k, _, _)| report.judged(k)).count();
+            (held.findings, held.known, lowerable)
         }
         None => (report.findings, 0, 0),
     };

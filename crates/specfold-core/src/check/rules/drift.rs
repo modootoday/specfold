@@ -19,7 +19,7 @@ impl Rule for GovernedCodeDrift {
         &RuleInfo {
             id: "D1",
             title: "changed code moves its governing document",
-            explain: "In a staged or ranged run (`spec check --staged`, `--changed`), each changed file that is not a document is matched against the explicit `rel.governs` globs of active, committed documents. A document whose governed code changed is expected to change in the same range, or to be named by a `change` note that changes in the range; otherwise this warning lists the changed paths. Documents that govern only through their owner directory are not asked, and a full run never reports D1. Deleted files and the old paths of renamed files count as changed. With `[check] d1 = \"specific\"` only the most specific of the documents governing a file are asked, so an overview governing a whole tree (`governs: [services]`) is not asked about a file a narrower document governs. Update the document (or its `verified_at`), or write a change note that links it: `spec new change --title … --depends-on <id> --write` (a `[[<id>]]` link in its body works too). See it with `spec check --staged --rule D1`.",
+            explain: "In a staged or ranged run (`spec check --staged`, `--changed`), each changed file that is not a document is matched against the explicit `rel.governs` globs of active, committed documents. A document whose governed code changed is expected to change in the same range, or to be named by a `change` note that changes in the range, or to cover a path that such a note governs (a note on the source file speaks for its test beside it); otherwise this warning lists the changed paths. Documents that govern only through their owner directory are not asked, and a full run never reports D1. Deleted files and the old paths of renamed files count as changed. With `[check] d1 = \"specific\"` only the most specific of the documents governing a file are asked, so an overview governing a whole tree (`governs: [services]`) is not asked about a file a narrower document governs. Update the document (or its `verified_at`), link a change note already in the range (`spec set <note> rel.depends_on+=<id> --write`, the fix D1 prints when there is one), or write a change note that links it: `spec new change --title … --depends-on <id> --write` (a `[[<id>]]` link in its body works too). See it with `spec check --staged --rule D1`.",
             on_commit: true,
         }
     }
@@ -64,12 +64,11 @@ impl Rule for GovernedCodeDrift {
                 drift.entry(g.idx).or_default().push(shown);
             }
         }
+        let notes: Vec<usize> = ctx.scope.touched.iter().copied().filter(|&i| c.docs[i].id.ty == "change").collect();
         for (idx, paths) in drift {
             let moved = ctx.scope.touched.contains(&idx)
-                || ctx
-                    .graph
-                    .edges_to(idx)
-                    .any(|e| ctx.scope.touched.contains(&e.from) && c.docs[e.from].id.ty == "change");
+                || ctx.graph.edges_to(idx).any(|e| notes.contains(&e.from))
+                || notes.iter().any(|&n| governs_inside(c, n, idx));
             if moved {
                 continue;
             }
@@ -78,6 +77,20 @@ impl Rule for GovernedCodeDrift {
             if paths.len() > SHOWN {
                 named.push_str(&format!(" (+{} more)", paths.len() - SHOWN));
             }
+            // A note already in the change is linked rather than joined by a second one.
+            let note = notes.iter().find(|&&n| c.docs[n].id.owner == d.id.owner).or(notes.first());
+            let fix = match note {
+                Some(&n) => format!(
+                    "spec set {} rel.depends_on+={} --write",
+                    crate::shell::word(&c.docs[n].id),
+                    crate::shell::word(&d.id)
+                ),
+                None => format!(
+                    "spec new change --title {} --depends-on {} --write",
+                    crate::shell::quote(&format!("Code change under {}", d.id.owner)),
+                    crate::shell::word(&d.id)
+                ),
+            };
             out.push(
                 Finding::warn(
                     "D1",
@@ -85,12 +98,23 @@ impl Rule for GovernedCodeDrift {
                     1,
                     format!("{named} changed under {}'s governs, but the document and its change notes did not", d.id),
                 )
-                .fix_cmd(format!(
-                    "spec new change --title {} --depends-on {} --write",
-                    crate::shell::quote(&format!("Code change under {}", d.id.owner)),
-                    crate::shell::word(&d.id)
-                )),
+                .fix_cmd(fix),
             );
         }
     }
+}
+
+/// D1: whether change note `note` governs a path inside what document `doc` governs, so the note
+/// speaks for changes there (a test file beside the source the note names). A note governing a
+/// wider tree does not count: it says nothing about this document.
+fn governs_inside(c: &crate::corpus::Corpus, note: usize, doc: usize) -> bool {
+    let theirs = c.docs[note].rel().remove("governs").unwrap_or_default();
+    let mine = c.docs[doc].rel().remove("governs").unwrap_or_default();
+    theirs.iter().map(|g| crate::placement::literal_base(g)).any(|p| {
+        mine.iter().any(|s| {
+            let base = crate::placement::literal_base(s);
+            crate::workspace::owners::matcher(s).is_some_and(|m| m.is_match(&p))
+                || (!base.is_empty() && (p == base || p.starts_with(&format!("{base}/"))))
+        })
+    })
 }

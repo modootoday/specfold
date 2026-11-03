@@ -47,6 +47,7 @@ impl Files {
         self.include.iter().any(|m| m.is_match(p))
             && !self.exclude.iter().any(|m| m.is_match(p))
             && !ctx.graph.by_path.contains_key(p)
+            && !ctx.corpus.cfg.raw.owners.in_nested(p)
     }
 }
 
@@ -55,7 +56,8 @@ fn targets(ctx: &Ctx, files: &Files) -> Vec<(String, Option<BTreeSet<usize>>)> {
     let root = &ctx.corpus.cfg.root;
     let added = match &ctx.scope.range {
         Range::All => {
-            let walk = WalkBuilder::new(root).hidden(false).build().flatten();
+            let outside = crate::workspace::nested::outside(&ctx.corpus.cfg);
+            let walk = WalkBuilder::new(root).hidden(false).filter_entry(outside).build().flatten();
             return walk
                 .filter(|e| e.file_type().is_some_and(|t| t.is_file()))
                 .filter_map(|e| e.path().strip_prefix(root).ok().map(|p| p.to_string_lossy().replace('\\', "/")))
@@ -133,7 +135,7 @@ impl Rule for CitesOutside {
         &RuleInfo {
             id: "L6",
             title: "citations outside documents still resolve",
-            explain: "Files listed in [cites] paths (code, READMEs, agent instructions) are read for [[id]] references, paths into spec directories and old paths from the alias table. A reference that names nothing is an error, and so is `[[<remote>:<id>]]` that names nothing in a configured remote whose directory is present (an absent remote directory is skipped); an old name or a path is reported with the id to write; a citation of a superseded, archived or rejected document is reported. Staged and ranged runs read only the lines the change adds, and lines matching [cites] history are left alone.",
+            explain: "Files listed in [cites] paths (code, READMEs, agent instructions) are read for [[id]] references, paths into spec directories and old paths from the alias table. A reference that names nothing is an error, and so is `[[<remote>:<id>]]` that names nothing in a configured remote whose directory is present (an absent remote directory is skipped); an old name or a path is reported with the id to write; a citation of a superseded, archived or rejected document is reported. Staged and ranged runs read only the lines the change adds, and lines matching [cites] history are left alone. Files inside a nested project ([owners] nested) are its own to check.",
             on_commit: true,
         }
     }

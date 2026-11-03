@@ -14,7 +14,7 @@ description: The spec.toml tables and what each one controls.
 | table | controls |
 | --- | --- |
 | `[spec]` | format version, the document directory name (`.spec`), and `submodule_remotes` |
-| `[owners]` | the root owner, owner patterns, manifests and retired directories |
+| `[owners]` | the root owner, owner patterns, manifests, retired directories and `nested` independent projects |
 | `[public]` | published paths that hold no documents, and where their documents go |
 | `[local]` | the git-ignored directory for drafts and private notes |
 | `[external.<name>]` | directories outside the repository whose citations are checked |
@@ -67,7 +67,7 @@ always wins; without a mapping nothing changes.
 | --- | --- |
 | `[check]` | baseline (one file for every owner under this spec.toml: `spec mv` rewrites a moved document's entries in place, also when it moves to another owner; a submodule or remote with its own spec.toml keeps its own baseline, which this repository never writes), strict paths, rule severity, `extra_keys`, `count_paths`, `link_ignore`, `d1` (`"all"`, the default, or `"specific"`: rule D1 asks only the most specific document governing a changed file), `remote_status` (`true`: rule L3 warns when a relation names a `<remote>:<id>` that is superseded, archived or rejected there, with the successor to point at) |
 | `[[check.override]]` | `paths` (globs), `rule`, `level` (`off`, `warn`, `error`): the rule's level for findings in those files, applied after `[check.severity]`; the last matching entry wins |
-| `[[guards]]` | named checks over files and commit messages (rule U1) |
+| `[[guards]]` | named checks over files and commit messages (rule U1); `public = true` reads every published path but nested projects, `nested = true` every nested project |
 | `[[plugins]]` | external programs speaking `specfold.plugin.v1` |
 | `[translations]` | translations paired by place: `layout`, `languages`, `source_lang`, `strict` (rule R2) |
 | `[audit]` | thresholds for stale, stalled and draft documents; `coverage_types` lists types whose `{#ANCHOR}` headings must each be cited (`spec audit --kind coverage`) |
@@ -89,6 +89,9 @@ L6 keeps, for whole-tree runs, each cited file's references keyed by its size an
 ```toml
 [owners]
 root = "root"
+# Independent projects mounted here: their own spec.toml, documents and CI. Never owners; the
+# one at packages/cli is the remote cli ([[cli:adr:cli/20261030000000]]).
+nested = ["packages/cli"]
 
 [[owners.kinds]]
 pattern = "services/*"
@@ -122,6 +125,9 @@ kind = "dir"                   # or "command" with put/get/exists, e.g.
 path = "~/specfold-store"      # put = ["rclone", "copyto", "{src}", "remote:bucket/{key}"]
 ```
 
-A `rel.governs` entry that belongs to another project (written `<remote>:<path>`, or under a
-submodule or a remote checked out inside this repository) is external: P1 and L5 leave it out,
-and a document governing only such paths stays where it is. D1 still matches changes under it.
+A `rel.governs` entry that belongs to another project (written `<remote>:<path>`, under a remote
+checked out inside this repository, under a nested project, or under a submodule that no owner
+kind claims) is external: P1 and L5 leave it out, and a document governing only such paths stays
+where it is. D1 still matches changes under it. A submodule an owner kind claims (`apps/*` over
+a product kept in its own repository) is that owner's code, so its documents go to its spec
+directory. `spec new` starts from the owner containing the directory it runs in (`-C <dir>`).

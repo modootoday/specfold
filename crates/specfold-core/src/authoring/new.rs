@@ -33,6 +33,9 @@ pub struct NewDoc {
     pub body: Option<String>,
     /// Documents this one depends on (`rel.depends_on`), e.g. what a change note updates.
     pub depends_on: Vec<String>,
+    /// The repository-relative directory the command runs in (`-C`); the owner containing it is
+    /// the document's owner when its governs decide none. `None` is the repository root.
+    pub here: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -85,6 +88,13 @@ fn derive_slug(title: &str, governs: &[String]) -> Result<(String, Option<String
     }
 }
 
+/// A2: the owner a new document starts with: the one containing the directory the command runs
+/// in, so `spec -C services/shop new plan` is the shop's plan. A retired owner's go to the root.
+fn current_owner<'a>(c: &'a Corpus, req: &NewDoc) -> &'a crate::workspace::Owner {
+    let o = req.here.as_deref().map(|h| c.owners.containing(h)).unwrap_or(c.owners.root());
+    if o.retired { c.owners.root() } else { o }
+}
+
 pub fn plan(c: &Corpus, g: &Graph, req: &NewDoc) -> Result<(Created, Plan)> {
     let ty = c
         .cfg
@@ -103,8 +113,7 @@ pub fn plan(c: &Corpus, g: &Graph, req: &NewDoc) -> Result<(Created, Plan)> {
         }
     }
     let req = &owned;
-    let root_owner = c.owners.root();
-    let decision = placement::decide_local(&c.cfg, &c.owners, &req.governs, root_owner);
+    let decision = placement::decide_local(&c.cfg, &c.owners, &req.governs, current_owner(c, req));
     let (owner, reason) = match &req.owner {
         Some(o) => {
             let ow = c.owners.by_id(o).or_else(|| c.owners.by_path(o)).ok_or_else(|| anyhow!("no owner '{o}'"))?;

@@ -80,11 +80,13 @@ pub struct CheckArgs {
 }
 
 #[derive(Debug, Clone, Args)]
-#[command(after_help = "Examples:\n  spec verify sot:shop/cart\n  spec verify --changed origin/main")]
+#[command(
+    after_help = "Examples:\n  spec verify sot:shop/cart\n  spec verify --changed origin/main   # a pre-push gate: only what the push reaches\n\nWith --changed, a source of truth runs when the change touches it, a path its rel.governs\ncovers, or a path its verify command names; other owners' failing commands do not run.\nA change to a [verify] full_run_on path runs every command and says why on stderr."
+)]
 pub struct VerifyArgs {
     /// One source of truth; without it, all (or those whose code changed).
     pub doc: Option<String>,
-    /// Only sources of truth whose governed code changed since this revision.
+    /// Only sources of truth the change since this revision reaches: the document itself, its governed code or a path its command names.
     #[arg(long, value_name = "BASE")]
     pub changed: Option<String>,
 }

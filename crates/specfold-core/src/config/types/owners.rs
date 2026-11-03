@@ -32,10 +32,35 @@ pub struct OwnersSection {
     /// typed documents there are read, files of the old layout are left unreported.
     #[serde(default)]
     pub pending: Vec<String>,
+    /// Independent projects mounted here (a submodule with its own spec.toml, documents and CI):
+    /// never an owner, their documents are not read, governs into them are another project's,
+    /// and each one with a spec.toml is a read-only remote named after its last path segment.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub nested: Vec<String>,
 }
 
 impl Default for OwnersSection {
     fn default() -> Self {
-        OwnersSection { root: defaults::root_owner(), kinds: vec![], manifests: None, retired: vec![], pending: vec![] }
+        OwnersSection {
+            root: defaults::root_owner(),
+            kinds: vec![],
+            manifests: None,
+            retired: vec![],
+            pending: vec![],
+            nested: vec![],
+        }
+    }
+}
+
+impl OwnersSection {
+    /// Whether `rel` (a repository-relative path) is a nested project or inside one.
+    pub fn in_nested(&self, rel: &str) -> bool {
+        let rel = rel.trim_start_matches("./").trim_end_matches('/');
+        self.nested_dirs().any(|n| rel == n || rel.starts_with(&format!("{n}/")))
+    }
+
+    /// The nested project directories, without leading `./` or a trailing slash.
+    pub fn nested_dirs(&self) -> impl Iterator<Item = &str> {
+        self.nested.iter().map(|n| n.trim_start_matches("./").trim_end_matches('/')).filter(|n| !n.is_empty())
     }
 }

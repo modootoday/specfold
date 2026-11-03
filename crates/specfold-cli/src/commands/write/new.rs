@@ -78,6 +78,7 @@ fn create(g: &Global, a: &NewArgs) -> Result<Output> {
         key: None,
         body: None,
         depends_on: depends_on(a)?,
+        here: session::here(&s),
     };
     let (mut created, mut plan) = new::plan(&s.corpus, &s.graph, &req)?;
     // C206: a timestamp id is reserved with create-new before the write; a clash with a run in

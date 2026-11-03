@@ -537,6 +537,29 @@ fn d2_baseline_follows_mv_and_its_lowering_hint_is_optional() {
     assert!(next.starts_with("spec check --write-baseline") && next.contains("optional"), "{v}");
 }
 
+#[test]
+fn d2_a_ranged_run_hints_only_at_baseline_entries_in_its_range() {
+    let r = common::repo();
+    r.write("spec.toml", &(r.read("spec.toml") + "[check]\nbaseline = \"spec-baseline.json\"\n"));
+    let id = r.new_doc("sot", "services/shop/src", "Old rule");
+    let p = path_of(&r, &id);
+    r.write(&p, &(r.read(&p) + "\nSee [[sot:nope/nope]].\n"));
+    r.commit("old pile");
+    assert_eq!(r.json(&["check", "--write-baseline", "--yes"]).0, 0);
+    r.commit("baseline");
+    r.write("services/blog/src/x.rs", "fn x() {}\n");
+    r.commit("blog code");
+    let (code, v) = r.json(&["check", "--changed", "HEAD~1"]);
+    assert_eq!((code, v["lowerable"].as_u64()), (0, Some(0)), "{v}");
+    assert!(!v["next"].as_str().unwrap_or_default().contains("--write-baseline"), "{v}");
+    r.write(&p, &r.read(&p).replace("\nSee [[sot:nope/nope]].\n", "\n"));
+    r.commit("fixed");
+    let (_, v) = r.json(&["check", "--changed", "HEAD~1"]);
+    assert_eq!(v["lowerable"].as_u64(), Some(1), "the fixed document is in the range: {v}");
+    let (_, v) = r.json(&["check", "--rule", "S1"]);
+    assert_eq!(v["lowerable"].as_u64(), Some(0), "an L1 entry is not judged by an S1 run: {v}");
+}
+
 /// N1: moving a document to another owner keeps its baseline entries held under the new id.
 #[test]
 fn n1_baseline_follows_mv_to_another_owner() {

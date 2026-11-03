@@ -678,6 +678,31 @@ fn d1_counts_deleted_and_renamed_away_code_and_its_fix_runs() {
 }
 
 #[test]
+fn d1_a_change_note_on_a_sibling_source_speaks_for_its_test() {
+    let r = common::repo();
+    let sot = r.new_doc("sot", "services/shop/src", "Cart rules");
+    let other = r.new_doc("sot", "services/blog/src", "Blog rules");
+    for id in [&sot, &other] {
+        assert_eq!(r.json(&["set", id, "status=active", "--write"]).0, 0);
+    }
+    r.write("services/shop/src/cart/total.test.rs", "fn t() {}\n");
+    r.write("services/blog/src/main.rs", "fn main() { }\n");
+    r.commit("rules");
+    r.write("services/shop/src/cart/total.rs", "fn total() { }\n");
+    r.write("services/shop/src/cart/total.test.rs", "fn t() { }\n");
+    r.write("services/blog/src/main.rs", "fn main() {}\n");
+    let note = ["new", "change", "--title", "Totals round", "--governs", "services/shop/src/cart/total.rs", "--write"];
+    assert_eq!(r.json(&note).0, 0);
+    r.git(&["add", "-A"]);
+    let (_, v) = r.json(&["check", "--staged", "--rule", "D1"]);
+    let items = v["items"].as_array().unwrap();
+    assert_eq!(items.len(), 1, "only the blog rules are asked: {v}");
+    assert!(items[0]["message"].as_str().unwrap().contains(&other), "{v}");
+    let fix = items[0]["fix"]["cmd"].as_str().unwrap();
+    assert!(fix.starts_with("spec set change:") && fix.contains(&format!("rel.depends_on+={other}")), "{fix}");
+}
+
+#[test]
 fn a_staged_run_without_documents_says_so_in_its_summary() {
     let r = common::repo();
     r.write("services/shop/src/x.rs", "fn x() {}\n");
@@ -813,9 +838,9 @@ fn c204_t1_fix_for_a_draft_works_and_cross_type_is_no_successor() {
     assert_eq!(r.json(&["set", &new, &rel, "--write"]).0, 0);
     let (_, v) = r.json(&["check", "--rule", "T1"]);
     let cmd = v["items"][0]["fix"]["cmd"].as_str().unwrap().to_string();
-    // C227: every step of the two-step fix writes.
+    // C227: every step of the fix writes; B2: a draft moves straight to superseded.
     assert_eq!(cmd.matches("spec set ").count(), cmd.matches("--write").count(), "{cmd}");
-    assert!(cmd.contains("&&"), "{v}");
+    assert_eq!(cmd, format!("spec set {old} status=superseded --write"), "{v}");
     for step in cmd.split("&&") {
         let mut args: Vec<&str> = step.split_whitespace().skip(1).collect();
         if !args.contains(&"--write") {

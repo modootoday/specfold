@@ -30,6 +30,7 @@ fn invocations(sot: &str, adr: &str) -> Vec<Vec<String>> {
         v(&["audit"]),
         v(&["census"]),
         v(&["explain", "L1"]),
+        v(&["explain", "status"]),
         v(&["schema", "adr"]),
         v(&["help"]),
         v(&["agents"]),

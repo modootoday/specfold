@@ -153,7 +153,7 @@ impl Rule for ForwardOnly {
         &RuleInfo {
             id: "T2",
             title: "status only moves forward",
-            explain: "draft → active → superseded or archived, and draft → rejected, unless the type sets its own `transitions` in spec.toml. A decision that comes back is a new document that supersedes the old one, so the record of the first decision stays intact.",
+            explain: "draft → active → superseded or archived, draft → rejected, and draft → superseded once a newer document names it in rel.supersedes (rule T1), unless the type sets its own `transitions` in spec.toml. `spec explain status` lists every type's moves. A decision that comes back is a new document that supersedes the old one, so the record of the first decision stays intact.",
             on_commit: true,
         }
     }

@@ -57,7 +57,8 @@ pub struct RemoteRoot {
     /// on disk among `path` and these is used.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub paths: Vec<String>,
-    /// Registered from `.gitmodules` by `[spec] submodule_remotes`, not written in spec.toml.
+    /// Registered from `.gitmodules` by `[spec] submodule_remotes` or from `[owners] nested`, not
+    /// written in spec.toml.
     #[serde(skip)]
     pub auto: bool,
 }

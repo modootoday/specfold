@@ -3,6 +3,40 @@
 Release notes for each version are also on
 [GitHub releases](https://github.com/modootoday/specfold/releases).
 
+## Unreleased
+
+Documents about a product kept in its own repository and mounted as a submodule go to that product's spec directory again, `spec -C <dir> new` starts from the owner of `<dir>`, a workspace can declare the independent projects it mounts (`[owners] nested`) instead of turning rules off for them, a draft can be superseded, and ranged checks stop pointing at things outside their range.
+
+### Upgrade notes
+
+A workspace that turned P1, V1 and X1 off for an independent project with `[[check.override]]`, excluded it from `[cites]` and listed it by hand in a guard can write instead:
+
+```toml
+[owners]
+nested = ["packages/cli"]   # its own spec.toml, documents and CI
+
+[[guards]]
+name = "nested-surface"
+nested = true               # every [owners] nested project
+```
+
+`[owners] nested` and a guard's `nested` are new keys, so an older `spec` refuses a spec.toml that uses them.
+
+### Behavior changes
+
+- A submodule an owner kind claims (`apps/*` over a product kept in its own repository, with or without its own spec.toml) is that owner's code again: `spec new` and `spec mv` place a document governing it in that owner's spec directory, and P1 reports one left at the root, where 0.5.0 and 0.5.1 kept it at the root. A submodule no owner kind claims (vendored code) is still another project. Fix: `spec mv <id> --owner <owner> --write`, as P1 prints it.
+- `spec new` without governs that decide an owner starts from the owner containing the directory it runs in, so `spec -C apps/brand new plan` is `plan:brand/…`. Before, it was always the root owner (a relative `--governs` was already read from `<dir>`).
+- Status may move from draft to superseded once a newer document names it in rel.supersedes (T1 still requires one), so `spec new <type> --from <draft>` works and a draft a later document replaced records that instead of being archived. `spec set <draft> status=superseded` without a successor names both ways: `spec set <newer> rel.supersedes+=<draft> --write`, or `spec new <type> --from <draft>`.
+- D1 stays quiet about a document when a change note in the range governs a path inside what the document governs (a note on a source file speaks for its test beside it). When a note in the range does not, D1's fix links it (`spec set <note> rel.depends_on+=<id> --write`) instead of writing a second one.
+- The optional `spec check --write-baseline` hint counts only baseline entries the run judged: inside a staged or ranged run's changed files and checked documents, and of the rules that ran. A ranged run with nothing in range no longer suggests it.
+
+### Added
+
+- `[owners] nested`: independent projects mounted in the repository. A nested project is never an owner, its documents are not read (so its ids never clash with an owner's), governs into it are another project's (P1, L5), V1, L6 and Z1 do not walk into it, a guard's `public = true` leaves it out, and one with a spec.toml is the read-only remote named after its last path segment.
+- A guard's `nested = true` reads every nested project, so the list is kept once in spec.toml.
+- `spec explain status` (alias `lifecycle`): every type's statuses and where each may move, from the configuration in force. The `spec explain` listing names the topics beside rule ids.
+- `spec verify --help` documents `--changed <base>` as a pre-push gate: it runs only sources of truth the change reaches (the document itself, its governed code or a path its command names), and every one when a `[verify] full_run_on` path changes.
+
 ## 0.5.1 - 2026-11-03
 
 0.5.1 fixes P1's suggested move: since 0.5.0 P1 leaves governs inside a submodule or another project out of the owner decision, but `spec mv` and `spec new` did not, so the suggested `spec mv` moved nothing. P1's fix now names the owner, `mv` and `new` decide as P1 does, `spec fix` rewrites a bare path and its wikilink on one line in one run, and L6 caches the references of unchanged files for faster whole-tree checks, with finer `SPECFOLD_TRACE` timings.

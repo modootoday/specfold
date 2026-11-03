@@ -118,6 +118,15 @@ pub fn repo_path(s: &Session, p: &str) -> String {
     }
 }
 
+/// The directory the command runs in (after -C), relative to the repository root; `None` at the
+/// root or outside it.
+pub fn here(s: &Session) -> Option<String> {
+    let cwd = std::env::current_dir().ok()?.canonicalize().ok()?;
+    let root = s.corpus.cfg.root.canonicalize().ok()?;
+    let rel = cwd.strip_prefix(&root).ok()?.to_string_lossy().replace('\\', "/");
+    (!rel.is_empty()).then_some(rel)
+}
+
 /// C258: a path that does not exist yet resolves from its nearest existing ancestor, so a new
 /// file named from a subfolder lands in that subfolder; `..` in the missing part is not resolved.
 fn resolve_missing(abs: &Path) -> Option<PathBuf> {

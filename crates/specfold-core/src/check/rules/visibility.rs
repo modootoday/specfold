@@ -8,6 +8,7 @@ use crate::graph::Resolution;
 use crate::markdown::body;
 use crate::model::Tier;
 use crate::workspace::exposure::{self, Exposed};
+use crate::workspace::nested;
 use ignore::WalkBuilder;
 
 pub struct NotInPublic;
@@ -23,7 +24,7 @@ impl Rule for NotInPublic {
         &RuleInfo {
             id: "V1",
             title: "no spec documents under public paths",
-            explain: "Published paths hold no spec document: those listed in [public] paths, public submodules in [public] submodules_manifest (which must match .gitmodules), and what [public] detect finds (a docs/ site, a static-site generator, an npm package or crate that would ship the spec directory). Material about them is stored with their private companion ([public.companion]) or at the root. `spec mv <id>` moves a document to where it belongs.",
+            explain: "Published paths hold no spec document: those listed in [public] paths, public submodules in [public] submodules_manifest (which must match .gitmodules), and what [public] detect finds (a docs/ site, a static-site generator, an npm package or crate that would ship the spec directory). A nested project ([owners] nested) is left to its own checks. Material about them is stored with their private companion ([public.companion]) or at the root. `spec mv <id>` moves a document to where it belongs.",
             on_commit: true,
         }
     }
@@ -43,7 +44,9 @@ impl Rule for NotInPublic {
             if !dir.is_dir() {
                 continue;
             }
-            for e in WalkBuilder::new(&dir).hidden(false).require_git(false).build().flatten() {
+            let walk =
+                WalkBuilder::new(&dir).hidden(false).require_git(false).filter_entry(nested::outside(cfg)).build();
+            for e in walk.flatten() {
                 let Some(rel) = e.path().strip_prefix(&cfg.root).ok().map(|r| r.to_string_lossy().replace('\\', "/"))
                 else {
                     continue;

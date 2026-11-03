@@ -225,8 +225,9 @@ fn plan_with(c: &Corpus, idx: usize, assigns: &[Assign], successor_pending: bool
                 .any(|o| o.rel().get("supersedes").is_some_and(|l| l.iter().any(|x| x.trim_matches(['[', ']']) == me)));
             if a.value == "superseded" && !succeeded && !successor_pending {
                 let title = d.title.clone().unwrap_or_else(|| d.slug.replace('-', " ")).replace('\'', "");
+                let w = crate::shell::word(&me);
                 bail!(
-                    "nothing supersedes {me} yet, so status=superseded would fail T1; write the successor, which marks this one superseded (edit the title); next: spec new {} --from {me} --title '{title}' --write",
+                    "nothing supersedes {me} yet, so status=superseded would fail T1; when a newer document replaces it, record that on the newer one with `spec set <newer-id> rel.supersedes+={w} --write` and run this again; otherwise write the successor, which marks this one superseded (edit the title); next: spec new {} --from {w} --title '{title}' --write",
                     ty.name
                 );
             }

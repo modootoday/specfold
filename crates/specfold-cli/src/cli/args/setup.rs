@@ -3,9 +3,11 @@
 use clap::Args;
 
 #[derive(Debug, Clone, Args)]
-#[command(after_help = "Examples:\n  spec explain L1\n  spec explain config\n  spec explain        # every rule")]
+#[command(
+    after_help = "Examples:\n  spec explain L1\n  spec explain config\n  spec explain status # statuses and their moves per type\n  spec explain        # every rule"
+)]
 pub struct ExplainArgs {
-    /// A rule id (S1, L1 …), a plugin rule (x.name.id), or `config`.
+    /// A rule id (S1, L1 …), a plugin rule (x.name.id), `config`, or `status` (alias `lifecycle`).
     pub topic: Option<String>,
 }
 

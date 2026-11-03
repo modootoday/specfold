@@ -24,7 +24,8 @@ impl Owners {
                 if kind.manifest && !has_manifest(&cfg.root.join(&path), &manifests) {
                     continue;
                 }
-                if list.iter().any(|o| o.path == path) {
+                // C1: a nested project is never an owner here, so its documents are its own.
+                if list.iter().any(|o| o.path == path) || cfg.raw.owners.in_nested(&path) {
                     continue;
                 }
                 list.push(Owner {

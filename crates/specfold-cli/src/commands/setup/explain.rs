@@ -14,8 +14,8 @@ const CONFIG_HELP: &[(&str, &str)] = &[
         "Format version (1), the name of each owner's document directory (.spec), and whether submodules that carry their own spec.toml are read as remotes named after their directory (off unless set).",
     ),
     (
-        "[owners] root, kinds, manifests, retired",
-        "The root owner id; owner kinds as pattern + id template ({1}, {2} …) + manifest requirement; the manifest list; directories whose code is gone.",
+        "[owners] root, kinds, manifests, retired, pending, nested",
+        "The root owner id; owner kinds as pattern + id template ({1}, {2} …) + manifest requirement; the manifest list; directories whose code is gone; spec directories not yet imported; and nested: independent projects mounted here (a submodule with its own spec.toml, documents and CI). A nested project is never an owner: this repository does not read its documents (so its ids never clash with an owner's), governs into it are another project's (P1, L5), V1, L6 and Z1 do not walk into it, and one with a spec.toml is the read-only remote named after its last path segment. A submodule an owner kind claims is that owner's code; any other submodule is another project for placement.",
     ),
     (
         "[public] paths, companion, detect, submodules_manifest",
@@ -38,7 +38,7 @@ const CONFIG_HELP: &[(&str, &str)] = &[
     ("[aliases] file", "The frozen alias table written by spec import."),
     (
         "[[guards]]",
-        "Named checks over files and commit messages (rule U1, spec guard): paths, public (every published path), exclude, range, deny_terms(_file, _env), deny_regex and deny_path_regex (a pattern, lookaround allowed, or a table: re, label, not_in_url, not_in_regex_literal, code_exempt, exempt, must_hit, must_pass), deny_files, max_file_bytes, secrets, commit_messages, level, allow, fixtures, decompress, read_binary, fail_if_empty, baseline.",
+        "Named checks over files and commit messages (rule U1, spec guard): paths, public (every published path but nested projects), nested (every [owners] nested project, so its list is kept once), exclude, range, deny_terms(_file, _env), deny_regex and deny_path_regex (a pattern, lookaround allowed, or a table: re, label, not_in_url, not_in_regex_literal, code_exempt, exempt, must_hit, must_pass), deny_files, max_file_bytes, secrets, commit_messages, level, allow, fixtures, decompress, read_binary, fail_if_empty, baseline.",
     ),
     (
         "[[assets]] kind, path, exclude, copy_of",
@@ -92,6 +92,9 @@ pub fn run(g: &Global, a: &ExplainArgs) -> Result<Output> {
             }
             return Ok(o.next("spec init"));
         }
+        Some(t) if t.eq_ignore_ascii_case("status") || t.eq_ignore_ascii_case("lifecycle") => {
+            return status(g, o);
+        }
         Some(t) if t.starts_with("x.") => {
             let cfg = session::config(g)?;
             for p in plugins::load(&cfg) {
@@ -125,7 +128,30 @@ pub fn run(g: &Global, a: &ExplainArgs) -> Result<Output> {
         };
         o = o.item(json!({"id": i.id, "title": i.title, "explain": i.explain, "on_commit": i.on_commit}), text);
     }
+    if a.topic.is_none() {
+        o = o.foot(format!("other topics: {}", TOPICS.join(", ")));
+    }
     // D1 never reports in a full run: point at the run that shows it.
     let staged = if first == "D1" { " --staged" } else { "" };
     Ok(o.next(format!("spec check{staged} --rule {first}")))
+}
+
+/// Topics beside rule ids, named in the listing.
+const TOPICS: &[&str] = &["config", "status (or lifecycle)", "x.<plugin>.<rule>"];
+
+const LIFECYCLE_HELP: &str = "A status moves forward only (rule T2): draft -> active -> superseded or archived, draft -> rejected, and draft -> superseded once a newer document names it in rel.supersedes. Supersession is written on the newer document (rule T1): `spec new <type> --from <old>` writes both sides; for a newer document that already exists, `spec set <newer> rel.supersedes+=<old> --write`, then `spec set <old> status=superseded --write`. A type with `transitions` in spec.toml moves only as they say.";
+
+/// B1: every type's statuses and where each may move, from the configuration in force.
+fn status(g: &Global, mut o: Output) -> Result<Output> {
+    let cfg = session::config(g)?;
+    o = o.head(LIFECYCLE_HELP).field("explain", LIFECYCLE_HELP);
+    for name in cfg.registry.names() {
+        let Some(t) = cfg.registry.get(name) else { continue };
+        let moves = specfold_core::model::doctype::status_lines(t);
+        o = o.item(
+            json!({"type": t.name, "initial": t.initial, "statuses": t.statuses, "moves": moves}),
+            format!("{:<10} {}", t.name, moves.join("; ")),
+        );
+    }
+    Ok(o.next("spec explain T2"))
 }

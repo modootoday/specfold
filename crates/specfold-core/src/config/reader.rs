@@ -87,6 +87,12 @@ impl Config {
                 bail!("{}: {why}; next: spec explain config", path.display());
             }
         }
+        if let Some(n) = raw.owners.nested.iter().find(|n| n.contains(['*', '?', '[', '{']) || n.starts_with("..")) {
+            bail!(
+                "{}: [owners] nested has \"{n}\"; name each nested project by its directory inside the repository, e.g. packages/cli; next: spec explain config",
+                path.display()
+            );
+        }
         if let Some((why, value)) = super::validate::pattern_problem(&raw) {
             let at = text.lines().position(|l| l.contains(&value)).map(|n| format!(" at line {}", n + 1));
             bail!("{}{}: {why}; next: spec explain config", path.display(), at.unwrap_or_default());
@@ -114,6 +120,10 @@ impl Config {
             for (name, path) in submodule_specs(&root) {
                 raw.remotes.entry(name).or_insert(crate::config::types::RemoteRoot { path, paths: vec![], auto: true });
             }
+        }
+        // C1: a nested project is a remote whether or not submodule_remotes is set.
+        for (name, path) in crate::workspace::nested::remotes(&root, &raw.owners) {
+            raw.remotes.entry(name).or_insert(crate::config::types::RemoteRoot { path, paths: vec![], auto: true });
         }
         for (name, dir) in super::private_root::prefixes() {
             let path = dir.to_string_lossy().into_owned();

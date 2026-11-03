@@ -22,6 +22,20 @@ pub struct Report {
     pub findings: Vec<Finding>,
     pub rules_run: Vec<&'static str>,
     pub docs_checked: usize,
+    /// D2: the paths a ranged or staged run looked at (changed files and the files of the
+    /// documents it checked); `None` for a full run, which looks at everything.
+    pub checked_paths: Option<std::collections::BTreeSet<String>>,
+}
+
+impl Report {
+    /// D2: whether this run judged the baseline key `RULE<TAB>path`. A ranged run reports nothing
+    /// outside its range and no run reports a rule it skipped, so only such entries can be said
+    /// to hold fewer errors now. Plugin rules always run with the rest.
+    pub fn judged(&self, key: &str) -> bool {
+        let (rule, path) = key.split_once('\t').unwrap_or((key, ""));
+        (rule.starts_with("x.") || self.rules_run.contains(&rule))
+            && self.checked_paths.as_ref().is_none_or(|p| p.contains(path))
+    }
 }
 
 pub fn run(c: &Corpus, g: &Graph, range: Range, opts: &Options, sel: &Selection) -> Result<Report> {
@@ -65,5 +79,10 @@ pub fn run(c: &Corpus, g: &Graph, range: Range, opts: &Options, sel: &Selection)
     });
     findings.dedup_by(|a, b| a.rule == b.rule && a.path == b.path && a.line == b.line && a.message == b.message);
     let docs_checked = if scope.is_all() { c.docs.len() } else { scope.with_neighbours.len() };
-    Ok(Report { findings, rules_run: rules.iter().map(|r| r.info().id).collect(), docs_checked })
+    let checked_paths = (!scope.is_all()).then(|| {
+        let docs =
+            scope.with_neighbours.iter().flat_map(|&i| std::iter::once(&c.docs[i].path).chain(&c.docs[i].chapters));
+        scope.paths.iter().chain(&scope.gone).chain(docs).cloned().collect()
+    });
+    Ok(Report { findings, rules_run: rules.iter().map(|r| r.info().id).collect(), docs_checked, checked_paths })
 }

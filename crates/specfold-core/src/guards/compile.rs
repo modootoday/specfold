@@ -57,7 +57,17 @@ pub fn compile(cfg: &Config, g: &GuardDef) -> Result<Compiled> {
             scope_patterns.push(e.path);
         }
     }
-    let limited = !g.paths.is_empty() || g.public;
+    if g.nested {
+        for n in cfg.raw.owners.nested_dirs() {
+            match cfg.root.join(n).exists() {
+                true => published.push(n.to_string()),
+                false => missing.push(n.to_string()),
+            }
+            paths.extend(matcher(n));
+            scope_patterns.push(n.to_string());
+        }
+    }
+    let limited = !g.paths.is_empty() || g.public || g.nested;
     let patterns = compile_all(&g.deny_regex)?;
     let sources: Vec<&str> = patterns.iter().map(|p| p.re.as_str()).collect();
     Ok(Compiled {

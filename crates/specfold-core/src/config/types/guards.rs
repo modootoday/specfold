@@ -16,6 +16,10 @@ pub struct GuardDef {
     /// is missing is a hit, since it is still published and nothing would read it.
     #[serde(default)]
     pub public: bool,
+    /// C2: also look at every nested project (`[owners] nested`), so the list is kept once in
+    /// spec.toml. `public` leaves nested projects out: their own CI judges what they publish.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub nested: bool,
     #[serde(default)]
     pub exclude: Vec<String>,
     /// Default range when none is given: `staged`, `push` or `all`.

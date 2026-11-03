@@ -140,7 +140,8 @@ fn detect(cfg: &Config, out: &mut Report) {
     if !(on("site-generators") || on("npm-files") || on("cargo-include")) {
         return;
     }
-    for e in WalkBuilder::new(&cfg.root).hidden(false).build().flatten() {
+    let walk = WalkBuilder::new(&cfg.root).hidden(false).filter_entry(super::nested::outside(cfg)).build();
+    for e in walk.flatten() {
         if !e.file_type().is_some_and(|t| t.is_file()) {
             continue;
         }
@@ -174,6 +175,8 @@ pub fn scan(cfg: &Config) -> Report {
             .push(("spec.toml".into(), format!("[public] detect: no detector '{d}' ({})", DETECTORS.join(", "))));
     }
     detect(cfg, &mut out);
+    // C1: a nested project publishes itself under its own rules and checks.
+    out.exposed.retain(|e| !cfg.raw.owners.in_nested(&crate::placement::literal_base(&e.path)));
     out.exposed.sort_by(|a, b| a.path.cmp(&b.path));
     out.exposed.dedup_by(|a, b| a.path == b.path);
     out

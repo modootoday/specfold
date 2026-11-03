@@ -27,6 +27,7 @@ impl Rule for Forbidden {
                 WalkBuilder::new(&cfg.root)
                     .hidden(false)
                     .require_git(false)
+                    .filter_entry(crate::workspace::nested::outside(cfg))
                     .build()
                     .flatten()
                     .filter_map(|e| {
