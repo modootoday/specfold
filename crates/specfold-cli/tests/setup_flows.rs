@@ -212,3 +212,117 @@ fn c235_broken_config_points_at_the_line_and_upgrade_refuses() {
     assert_eq!(code, 2, "{text}");
     assert!(!text.contains("is current") && text.contains("next: spec doctor"), "{text}");
 }
+
+#[test]
+fn c140_init_checks_owner_kinds_and_root() {
+    let dir = tempfile_dir();
+    for args in [
+        &["--owner-kind", "=x"][..],
+        &["--owner-kind", "a/*="],
+        &["--owner-kind", "services/*={2}"],
+        &["--owner-kind", "libs/*=lib.{1}:bogus"],
+        &["--root", "Bad Id!"],
+    ] {
+        let mut full = vec!["init", "--write"];
+        full.extend_from_slice(args);
+        let o = std::process::Command::new(common::bin_dir().join("spec"))
+            .args(&full)
+            .arg("--json")
+            .current_dir(&dir)
+            .output()
+            .unwrap();
+        assert_eq!(o.status.code(), Some(2), "{args:?}: {}", String::from_utf8_lossy(&o.stdout));
+        assert!(!dir.join("spec.toml").exists(), "{args:?}");
+    }
+    let o = std::process::Command::new(common::bin_dir().join("spec"))
+        .args(["init", "--owner-kind", "services/*={1}", "--owner-kind", "libs/*=lib.{1}:manifest", "--root", "ws"])
+        .current_dir(&dir)
+        .output()
+        .unwrap();
+    assert_eq!(o.status.code(), Some(0), "{}", String::from_utf8_lossy(&o.stderr));
+}
+
+fn tempfile_dir() -> std::path::PathBuf {
+    let d = std::env::temp_dir().join(format!("specfold-c140-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&d);
+    std::fs::create_dir_all(&d).unwrap();
+    std::process::Command::new("git").arg("init").arg("-q").current_dir(&d).status().unwrap();
+    d
+}
+
+#[test]
+fn c141_an_unknown_guard_range_is_refused_at_load() {
+    let r = common::repo();
+    let mut toml = r.read("spec.toml");
+    toml.push_str("[[guards]]\nname = \"g\"\nrange = \"stagde\"\ndeny_terms = [\"x\"]\n");
+    r.write("spec.toml", &toml);
+    let (code, v) = r.json(&["doctor"]);
+    assert_ne!(code, 0, "{v}");
+    assert!(v.to_string().contains("stagde"), "{v}");
+}
+
+#[cfg(unix)]
+#[test]
+fn c126_push_hook_works_without_an_upstream() {
+    let r = common::repo();
+    r.new_doc("sot", "services/shop", "Cart");
+    r.commit("init");
+    let (_, v) = r.json(&["hook", "print", "--for", "lefthook"]);
+    let content = v["content"].as_str().unwrap().to_string();
+    let cmd = content.lines().last().unwrap().trim().trim_start_matches("run: ").to_string();
+    let path = format!("{}:{}", common::bin_dir().display(), std::env::var("PATH").unwrap_or_default());
+    let run = || {
+        std::process::Command::new("sh").arg("-c").arg(&cmd).current_dir(r.path()).env("PATH", &path).output().unwrap()
+    };
+    let out = run();
+    assert!(out.status.success(), "{out:?}");
+    assert!(String::from_utf8_lossy(&out.stderr).contains("skipped"), "{out:?}");
+    // With a default branch to compare with, the check runs against the merge-base.
+    let bare = r.path().join("remote.git");
+    r.git(&["init", "-q", "--bare", bare.to_str().unwrap()]);
+    r.git(&["remote", "add", "origin", bare.to_str().unwrap()]);
+    r.git(&["push", "-q", "origin", "HEAD:refs/heads/main"]);
+    r.git(&["remote", "set-head", "origin", "main"]);
+    r.git(&["checkout", "-q", "-b", "feat"]);
+    let out = run();
+    assert!(out.status.success(), "{out:?}");
+    assert!(!String::from_utf8_lossy(&out.stderr).contains("skipped"), "{out:?}");
+}
+
+#[cfg(unix)]
+fn add_plugin(r: &common::Repo, name: &str, body: &str, timeout_ms: u64) {
+    r.write(&format!("{name}.sh"), body);
+    let script = r.path().join(format!("{name}.sh"));
+    let mut toml = r.read("spec.toml");
+    toml.push_str(&format!(
+        "[[plugins]]\nname = \"{name}\"\ncmd = [\"sh\", \"{}\"]\ntimeout_ms = {timeout_ms}\n",
+        script.display()
+    ));
+    r.write("spec.toml", &toml);
+}
+
+#[cfg(unix)]
+#[test]
+fn c150_a_plugin_writing_much_stderr_does_not_hang() {
+    let r = common::repo();
+    let describe = "read -r req\nhead -c 200000 /dev/zero | tr '\\0' x >&2\necho '{\"protocol\":\"specfold.plugin.v1\",\"name\":\"noisy\",\"wants\":[],\"provides\":{\"exporters\":[\"noisy\"]}}'\n";
+    add_plugin(&r, "noisy", describe, 5000);
+    let t = std::time::Instant::now();
+    let (code, v) = r.json(&["plugins"]);
+    assert!(t.elapsed().as_secs() < 5, "{v}");
+    assert_eq!(code, 0, "{v}");
+}
+
+#[cfg(unix)]
+#[test]
+fn c151_a_plugin_leaving_a_background_child_meets_its_deadline() {
+    let r = common::repo();
+    add_plugin(&r, "bg", "read -r req\nsleep 30 &\nsleep 30\n", 500);
+    let t = std::time::Instant::now();
+    let _ = r.json(&["plugins"]);
+    assert!(t.elapsed().as_secs() < 10);
+    let t = std::time::Instant::now();
+    let (code, v) = r.json(&["plugins", "frobnicate"]);
+    assert_eq!(code, 2, "{v}");
+    assert!(t.elapsed().as_secs() < 2, "usage errors come before plugins run");
+}

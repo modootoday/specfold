@@ -199,3 +199,24 @@ fn lsp_offers_each_candidate_and_runs_only_offered_fix_commands() {
     assert_eq!(get(5)["result"]["exit"], 0, "{:?}", get(5));
     assert!(r.read(&pc).lines().any(|l| l.starts_with("updated:")), "S1 fix ran");
 }
+
+#[test]
+fn c144_lsp_messages_keep_real_line_breaks() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    let p = common::doc_path(&r, &id);
+    let doc = format!("{}\nSee [[sot:root/nope]].\n", r.read(&p));
+    let abs = r.path().canonicalize().unwrap();
+    let uri = format!("file://{}/{p}", abs.display());
+    let init = serde_json::json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"rootUri": format!("file://{}", abs.display())}});
+    let open = serde_json::json!({"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument": {"uri": uri, "text": doc}}});
+    let out = r.spec().arg("lsp").write_stdin(common::lsp_frames(&[init, open])).output().unwrap();
+    let all = common::lsp_replies(&out.stdout);
+    let msgs: Vec<String> = all
+        .iter()
+        .flat_map(|m| m["params"]["diagnostics"].as_array().cloned().unwrap_or_default())
+        .map(|d| d["message"].as_str().unwrap_or("").to_string())
+        .collect();
+    let m = msgs.iter().find(|m| m.contains("fix:")).unwrap_or_else(|| panic!("{msgs:?}"));
+    assert!(m.contains('\n') && !m.contains("\\u{000A}"), "{m}");
+}

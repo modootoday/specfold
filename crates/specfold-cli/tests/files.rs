@@ -138,3 +138,68 @@ fn c249_c250_a_failed_put_leaves_the_bundle_alone_and_exits_3() {
     assert!(!r.path().join(&base).join("t3.txt").exists(), "{v}");
     assert_eq!(r.read(&doc), before);
 }
+
+#[test]
+fn c142_c143_attach_into_stays_inside_the_bundle_and_in_next() {
+    let r = common::repo();
+    let d = r.new_doc("design", "services/shop", "Boards");
+    r.write("a.png", "png");
+    r.commit("fixtures");
+    for bad in ["../../escape", "/tmp/abs", "x/../../y", "c:/x"] {
+        let (code, v) = r.json(&["attach", &d, "a.png", "--into", bad, "--write"]);
+        assert_eq!(code, 2, "{bad}: {v}");
+    }
+    assert!(!r.path().join(".spec/escape").exists());
+    let (code, v) = r.json(&["attach", &d, "a.png", "--into", "boards/v1"]);
+    assert_eq!(code, 0, "{v}");
+    assert!(v["next"].to_string().contains("--into boards/v1"), "{v}");
+}
+
+fn find_file(dir: &std::path::Path, name: &str) -> Option<std::path::PathBuf> {
+    for e in std::fs::read_dir(dir).ok()?.flatten() {
+        let p = e.path();
+        if p.is_dir() {
+            if e.file_name() == ".git" {
+                continue;
+            }
+            if let Some(f) = find_file(&p, name) {
+                return Some(f);
+            }
+        } else if e.file_name().to_string_lossy() == name {
+            return Some(p);
+        }
+    }
+    None
+}
+
+#[test]
+fn c127_fetch_keeps_the_file_when_the_store_holds_other_bytes() {
+    let r = common::repo();
+    let base = r.read("spec.toml");
+    let store = r.path().join("store");
+    std::fs::create_dir_all(&store).unwrap();
+    r.write("spec.toml", &format!("{base}[files.store]\nkind = \"dir\"\npath = \"{}\"\n", store.display()));
+    let d = r.new_doc("design", "services/shop", "Runs");
+    r.write("run.log", "ok\n");
+    r.commit("fixtures");
+    let (code, v) = r.json(&["attach", &d, "run.log", "--store", "--write", "--yes"]);
+    assert_eq!(code, 0, "{v}");
+    let obj = std::fs::read_dir(&store)
+        .unwrap()
+        .flatten()
+        .flat_map(|e| std::fs::read_dir(e.path()).unwrap().flatten().map(|f| f.path()))
+        .next()
+        .unwrap();
+    std::fs::write(&obj, "tampered\n").unwrap();
+    let local = find_file(&r.path().join("services"), "run.log").or_else(|| find_file(r.path(), "run.log"));
+    let local = local.filter(|p| !p.ends_with("run.log") || p.parent() != Some(r.path())).unwrap();
+    std::fs::write(&local, "mine\n").unwrap();
+    let (code, v) = r.json(&["fetch", &d, "--force"]);
+    assert_eq!(code, 3, "{v}");
+    assert_eq!(std::fs::read_to_string(&local).unwrap(), "mine\n");
+    let dir = local.parent().unwrap();
+    assert!(
+        std::fs::read_dir(dir).unwrap().flatten().all(|e| !e.file_name().to_string_lossy().ends_with(".specfold-part")),
+        "no partial file left"
+    );
+}

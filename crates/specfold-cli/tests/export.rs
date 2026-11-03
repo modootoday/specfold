@@ -618,3 +618,19 @@ fn c259_export_refuses_a_dangling_link_as_out_in_preview_and_write() {
     assert!(!r.path().join("../c259-nowhere").exists(), "nothing written");
     std::fs::remove_file(&link).unwrap();
 }
+
+/// Export looks relation targets up by id: an Obsidian page links the document it depends on.
+#[test]
+fn export_frontmatter_links_relation_targets() {
+    let r = common::repo();
+    let first = r.new_doc("sot", "services/shop", "Cart");
+    let (code, v) =
+        r.json(&["new", "sot", "--title", "Checkout", "--governs", "services/shop", "--depends-on", &first, "--write"]);
+    assert_eq!(code, 0, "{v}");
+    r.commit("docs");
+    let dir = r.path().join("out");
+    let (code, t) = r.text(&["export", "markdown", "--target", "obsidian", "--out", dir.to_str().unwrap()]);
+    assert_eq!(code, 0, "{t}");
+    let pages: Vec<String> = common::md_files(&dir).iter().map(|p| std::fs::read_to_string(p).unwrap()).collect();
+    assert!(pages.iter().any(|p| p.contains("rel_depends_on: [\"[[") && p.contains("|Cart]]")), "{pages:?}");
+}

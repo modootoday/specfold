@@ -406,3 +406,99 @@ fn walk(dir: &std::path::Path) -> Vec<String> {
     }
     out
 }
+
+#[test]
+fn c120_import_dry_run_previews_even_with_apply() {
+    let (r, before) = common::madr_repo(true);
+    for args in [
+        &["import", "--map", "import.toml", "--apply", "--dry-run"][..],
+        &["import", "--map", "import.toml", "--dry-run"],
+    ] {
+        let (code, v) = r.json(args);
+        assert_eq!(code, 0, "{args:?}: {v}");
+    }
+    let o = std::process::Command::new("git").args(["status", "--porcelain"]).current_dir(r.path()).output().unwrap();
+    assert_eq!(String::from_utf8_lossy(&o.stdout), before, "nothing written");
+    assert_eq!(r.json(&["import", "--map", "import.toml", "--apply", "--dry-run", "--yes"]).0, 2);
+    let (_, help) = r.text(&["help", "import"]);
+    assert!(help.contains("--dry-run"), "{help}");
+}
+
+#[test]
+fn c121_import_write_lists_files_and_an_undo_that_works() {
+    let (r, before) = common::madr_repo(true);
+    let (code, v) = r.json(&["import", "--map", "import.toml", "--apply", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["written"], true, "{v}");
+    let changes = v["changes"].to_string();
+    assert!(changes.contains(".spec/_aliases.tsv") && changes.contains("adr"), "{v}");
+    let undo = v["undo"].as_str().unwrap().to_string();
+    assert!(undo.starts_with("rm -rf -- ") && !undo.contains("stash"), "{undo}");
+    let ok = std::process::Command::new("sh").args(["-c", &undo]).current_dir(r.path()).status().unwrap();
+    assert!(ok.success(), "{undo}");
+    let o = std::process::Command::new("git").args(["status", "--porcelain"]).current_dir(r.path()).output().unwrap();
+    assert_eq!(String::from_utf8_lossy(&o.stdout), before, "undo restores the tree");
+    // No sources: nothing written, no alias table.
+    let (r, _) = common::madr_repo(false);
+    let (code, v) = r.json(&["import", "--map", "import.toml", "--apply", "--write"]);
+    assert_eq!((code, v["written"].clone()), (0, serde_json::json!(false)), "{v}");
+    assert!(!r.path().join(".spec/_aliases.tsv").exists());
+    assert!(!v.to_string().contains("SPECFOLD_IMPORT"), "{v}");
+}
+
+#[test]
+fn c123_import_undo_restores_committed_and_uncommitted_sources() {
+    let (r, _) = common::madr_repo(true);
+    let committed = r.read("docs/adr/0001-use-files.md");
+    let loose = "# Untracked\n\n* Status: accepted\n* Date: 2026-03-02\n\n## Context\n\nNot committed.\n";
+    r.write("docs/adr/0003-untracked.md", loose);
+    let (code, v) = r.json(&["import", "--map", "import.toml", "--apply", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    assert!(!r.path().join("docs/adr/0003-untracked.md").exists(), "{v}");
+    let undo = v["undo"].as_str().unwrap().to_string();
+    let out = std::process::Command::new("sh").args(["-c", &undo]).current_dir(r.path()).output().unwrap();
+    assert!(out.status.success(), "{undo}: {}", String::from_utf8_lossy(&out.stderr));
+    assert_eq!(r.read("docs/adr/0001-use-files.md"), committed, "{undo}");
+    assert_eq!(r.read("docs/adr/0003-untracked.md"), loose, "{undo}");
+    assert!(
+        !r.path().join(".spec/adr").exists() || std::fs::read_dir(r.path().join(".spec/adr")).unwrap().next().is_none(),
+        "{undo}"
+    );
+    // Text and JSON name the same undo.
+    let (r2, _) = common::madr_repo(true);
+    r2.write("docs/adr/0003-untracked.md", loose);
+    let (_, t) = r2.text(&["import", "--map", "import.toml", "--apply", "--write"]);
+    let line = t.lines().find_map(|l| l.trim().strip_prefix("undo: ")).unwrap_or_default();
+    assert!(line.contains(".specfold/trash/") && !line.contains("stash"), "{t}");
+}
+
+#[test]
+fn c138_import_bound_counts_the_alias_table() {
+    let (r, _) = common::madr_repo(true);
+    let base = r.read("spec.toml");
+    // One move (two paths) plus the new alias table is three files.
+    r.write("spec.toml", &format!("{base}[write]\nmax_files = 2\n"));
+    let (_, v) = r.json(&["import", "--map", "import.toml", "--apply"]);
+    assert_eq!(v["files"], 3, "{v}");
+    assert_eq!(v["bounded"], true, "{v}");
+    r.write("spec.toml", &format!("{base}[write]\nmax_files = 3\n"));
+    let (_, v) = r.json(&["import", "--map", "import.toml", "--apply"]);
+    assert!(v.get("bounded").is_none(), "{v}");
+}
+
+#[test]
+fn c155_import_write_refuses_rows_that_need_a_decision() {
+    let r = common::repo();
+    r.write("docs/adr/0001-use-files.md", "# Use files\n\n* Status: accepted\n\n## Context\n\nWhy.\n");
+    let (_, map) = r.text(&["import", "--preset", "madr"]);
+    r.write("import.toml", &map);
+    r.commit("legacy");
+    let (code, v) = r.json(&["import", "--map", "import.toml", "--apply", "--write"]);
+    assert_eq!(code, 4, "{v}");
+    assert!(r.path().join("docs/adr/0001-use-files.md").exists(), "nothing written: {v}");
+    assert!(v["next"].to_string().contains("--force"), "{v}");
+    assert!(v.to_string().contains("0001-use-files"), "{v}");
+    let (code, v) = r.json(&["import", "--map", "import.toml", "--apply", "--write", "--force"]);
+    assert_eq!(code, 0, "{v}");
+    assert!(!r.path().join("docs/adr/0001-use-files.md").exists(), "{v}");
+}

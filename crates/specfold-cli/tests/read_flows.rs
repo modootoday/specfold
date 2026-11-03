@@ -444,3 +444,49 @@ fn c213_a_supersede_cycle_has_no_current() {
     assert!(v["current"].is_null(), "{v}");
     assert_eq!(v["next"], "spec check --rule T1", "{v}");
 }
+
+#[test]
+fn c149_log_next_names_the_document() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    r.commit("c");
+    let (_, v) = r.json(&["log", &id]);
+    assert_eq!(v["next"], format!("spec show {id} --rel"), "{v}");
+    assert!(!v.to_string().contains("<id>"), "{v}");
+}
+
+#[test]
+fn c131_box_cycle_note_is_one_line_of_ids() {
+    let r = common::repo();
+    let a = r.new_doc("sot", "services/shop", "Aa");
+    let b = r.new_doc("sot", "services/shop", "Bb");
+    assert_eq!(r.json(&["set", &a, &format!("rel.depends_on+={b}"), "--write"]).0, 0);
+    assert_eq!(r.json(&["set", &b, &format!("rel.depends_on+={a}"), "--write"]).0, 0);
+    let (_, out) = r.text(&["graph", "--format", "box"]);
+    let line = out.lines().find(|l| l.contains("also:")).unwrap_or_else(|| panic!("{out}"));
+    assert!(line.contains("depends_on") && line.ends_with("(a cycle)"), "{out}");
+}
+
+#[test]
+fn c132_c148_c152_c153_filters_that_match_nothing_by_typo_are_refused() {
+    let r = common::repo();
+    r.new_doc("sot", "services/shop", "Cart");
+    r.commit("c");
+    for args in [
+        &["check", "--rule", "ZZ9"][..],
+        &["check", "--rule", "s1"],
+        &["check", "--skip", "ZZ9"],
+        &["log", "--since", "bogus"],
+        &["log", "--since", "2026-02-30"],
+        &["log", "--since", "2026-1-5"],
+        &["log", "--since", "2026-01-01", "--type", "zzz"],
+        &["find", "--limit", "0"],
+        &["find", "--type", "zzz"],
+        &["find", "--status", "zzz"],
+    ] {
+        let (code, v) = r.json(args);
+        assert_eq!(code, 2, "{args:?}: {v}");
+    }
+    assert_eq!(r.json(&["log", "--since", "2024-02-29"]).0, 0);
+    assert_eq!(r.json(&["check", "--rule", "S1"]).0, 0);
+}

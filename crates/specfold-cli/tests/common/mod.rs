@@ -112,3 +112,45 @@ pub fn lsp_replies(out: &[u8]) -> Vec<serde_json::Value> {
         .map(|s| serde_json::from_str(s.split_once("\r\n\r\n").unwrap().1).unwrap())
         .collect()
 }
+
+/// A repository with a MADR import map committed (and one MADR record when `sources`), and
+/// its `git status` after the commit.
+pub fn madr_repo(sources: bool) -> (Repo, String) {
+    let r = repo();
+    if sources {
+        r.write(
+            "docs/adr/0001-use-files.md",
+            "# Use files\n\n* Status: accepted\n* Date: 2026-03-01\n\n## Context\n\nWhy.\n",
+        );
+    }
+    let (_, map) = r.text(&["import", "--preset", "madr"]);
+    r.write("import.toml", &map);
+    r.commit("legacy");
+    let status = |r: &Repo| {
+        let o =
+            std::process::Command::new("git").args(["status", "--porcelain"]).current_dir(r.path()).output().unwrap();
+        String::from_utf8_lossy(&o.stdout).to_string()
+    };
+    let s = status(&r);
+    (r, s)
+}
+
+/// The repository-relative path of a document.
+pub fn doc_path(r: &Repo, id: &str) -> String {
+    let (_, d) = r.json(&["show", id]);
+    d["path"].as_str().unwrap().to_string()
+}
+
+/// Every Markdown file under `dir`.
+pub fn md_files(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
+    let mut out = vec![];
+    for e in std::fs::read_dir(dir).unwrap().flatten() {
+        let p = e.path();
+        if p.is_dir() {
+            out.extend(md_files(&p))
+        } else if p.extension().is_some_and(|x| x == "md") {
+            out.push(p)
+        }
+    }
+    out
+}

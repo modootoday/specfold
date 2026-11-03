@@ -2,6 +2,8 @@
 
 mod common;
 
+use serde_json::{Value, json};
+
 #[test]
 fn supersede_flow_keeps_both_sides_in_step() {
     let r = common::repo();
@@ -1002,4 +1004,335 @@ fn c262_write_from_a_subfolder_without_dir_gives_an_undo_that_works_there() {
     assert_ne!(r.spec().args(["show", &id]).output().unwrap().status.code(), Some(0), "the undo removed the file");
     let (_, root) = r.json(&["new", "plan", "--title", "Top", "--write"]);
     assert!(root["undo"].as_str().unwrap().starts_with("rm -rf -- "), "{root}");
+}
+
+#[test]
+fn c122_mv_undo_restores_committed_and_uncommitted_documents() {
+    for commit in [true, false] {
+        let r = common::repo();
+        let id = r.new_doc("adr", "services/shop", "Use files");
+        if commit {
+            r.commit("doc");
+        }
+        let (_, d) = r.json(&["show", &id]);
+        let path = d["path"].as_str().unwrap().to_string();
+        let text = r.read(&path);
+        // A second later the move bumps `updated`, so the undo must bring the old text back.
+        std::thread::sleep(std::time::Duration::from_millis(1100));
+        let (code, v) = r.json(&["mv", &id, "--slug", "use-plain-files", "--write"]);
+        assert_eq!(code, 0, "{v}");
+        let undo = v["undo"].as_str().unwrap().to_string();
+        let out = std::process::Command::new("sh").args(["-c", &undo]).current_dir(r.path()).output().unwrap();
+        assert!(out.status.success(), "commit={commit} {undo}: {}", String::from_utf8_lossy(&out.stderr));
+        assert_eq!(r.read(&path), text, "commit={commit}: {undo}");
+        let (_, d) = r.json(&["show", &id]);
+        assert_eq!(d["path"], path.as_str(), "commit={commit}");
+    }
+}
+
+#[test]
+fn c128_set_refuses_emptying_the_title() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    let (code, v) = r.json(&["set", &id, "title=", "--write"]);
+    assert_eq!(code, 2, "{v}");
+    let (_, d) = r.json(&["show", &id]);
+    assert_eq!(d["frontmatter"]["title"], "Cart", "{d}");
+    assert_eq!(r.json(&["set", &id, "title=Basket", "--write"]).0, 0);
+}
+
+#[test]
+fn c154_writes_keep_crlf_line_endings() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    let path = common::doc_path(&r, &id);
+    let crlf = r.read(&path).replace('\n', "\r\n");
+    r.write(&path, &crlf);
+    r.commit("crlf");
+    assert_eq!(r.json(&["set", &id, "tags+=x", "--write"]).0, 0);
+    assert_eq!(r.json(&["edit", &id, "--section", "Rule", "--text", "New rule.", "--write"]).0, 0);
+    let text = r.read(&path);
+    assert!(text.contains("New rule.") && text.contains("x"), "{text}");
+    assert_eq!(text.matches('\n').count(), text.matches("\r\n").count(), "only CRLF: {text:?}");
+}
+
+#[test]
+fn c139_an_id_held_by_two_files_is_refused() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    let path = common::doc_path(&r, &id);
+    let owner = id.split(':').nth(1).unwrap().split('/').next().unwrap();
+    let local = format!(".spec.local/{owner}/sot/cart.sot.md");
+    r.write(&local, &r.read(&path));
+    r.write(".gitignore", ".spec.local/\n");
+    r.commit("dup");
+    let (code, v) = r.json(&["mv", &id, "--slug", "cart-local", "--write"]);
+    assert_eq!(code, 2, "{v}");
+    assert!(v.to_string().contains(&local), "{v}");
+    assert!(r.path().join(&path).exists());
+    let (_, v) = r.json(&["doctor"]);
+    assert!(v.to_string().contains(&format!("spec mv {local}")), "{v}");
+}
+
+#[test]
+fn c137_mv_rewrites_relative_markdown_links() {
+    let r = common::repo();
+    let a = r.new_doc("sot", "services/shop", "Cart");
+    let b = r.new_doc("sot", "services/shop", "Pay");
+    let pb = common::doc_path(&r, &b);
+    let text = r.read(&pb);
+    r.write(
+        &pb,
+        &format!(
+            "{text}\nSee [cart](cart.sot.md) and [v](./cart.sot.md#verification) and [w](https://x.io/cart.sot.md).\n"
+        ),
+    );
+    r.commit("links");
+    let (code, v) = r.json(&["mv", &a, "--slug", "basket", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    assert!(v["next"].to_string().contains("L8"), "{v}");
+    let t = r.read(&pb);
+    assert!(t.contains("[cart](basket.sot.md)") && t.contains("[v](basket.sot.md#verification)"), "{t}");
+    assert!(t.contains("https://x.io/cart.sot.md"), "{t}");
+    let (_, v) = r.json(&["check", "--rule", "L8"]);
+    assert!(!v.to_string().contains("cart.sot.md"), "{v}");
+}
+
+#[test]
+fn c125_section_text_may_not_start_another_section() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    for args in [
+        &["edit", &id, "--section", "Rule", "--text", "x\n## Why\ndup", "--write"][..],
+        &["edit", &id, "--new-section", "Risks", "--text", "- r\n# Top\n", "--write"],
+    ] {
+        let (code, v) = r.json(args);
+        assert_eq!(code, 2, "{args:?}: {v}");
+    }
+    assert_eq!(
+        r.json(&["edit", &id, "--section", "Rule", "--text", "x\n### Detail\n```\n## not a heading\n```", "--write"]).0,
+        0
+    );
+}
+
+#[test]
+fn c130_governs_paths_must_be_inside_the_repository() {
+    let r = common::repo();
+    for p in ["", "../elsewhere", "/tmp"] {
+        let (code, v) = r.json(&["new", "sot", "--governs", p, "--title", "X", "--write"]);
+        assert_eq!(code, 2, "{p}: {v}");
+        let (code, v) = r.json(&["context", p]);
+        assert_eq!(code, 2, "{p}: {v}");
+        assert!(!v.to_string().contains("spec new --governs"), "{v}");
+    }
+}
+
+#[test]
+fn c145_c146_fix_next_keeps_the_pick_and_refuses_a_foreign_one() {
+    let r = common::repo();
+    let a = r.new_doc("adr", "services/shop", "First readme");
+    let b = r.new_doc("adr", "services/shop", "Second readme");
+    for id in [&a, &b] {
+        assert_eq!(r.json(&["set", id, "aliases+=README", "--write"]).0, 0);
+    }
+    let target = format!("{}:1", common::doc_path(&r, &a));
+    let (code, v) = r.json(&["fix", "--rule", "I2", "--pick", &a, &target]);
+    assert_eq!(code, 0, "{v}");
+    let next = v["next"].as_str().unwrap_or_default().to_string();
+    assert!(next.contains(&format!("--pick {a}")) && next.contains(&target), "{v}");
+    let (code, v) = r.json(&["fix", "--rule", "I2", "--pick", "adr:root/nope", "--write", &target]);
+    assert_eq!(code, 2, "{v}");
+    assert!(v.to_string().contains(&b), "{v}");
+}
+
+#[test]
+fn c133_new_usage_next_skips_option_values() {
+    let r = common::repo();
+    let (code, v) = r.json(&["new", "sot", "--governs", "services/shop", "--write"]);
+    assert_eq!(code, 2, "{v}");
+    let next = v["next"].as_str().unwrap_or_default();
+    assert!(next.starts_with("spec new sot --title ") && next.contains("--governs services/shop"), "{v}");
+    let (_, v) = r.json(&["new", "--title", "My doc", "--write"]);
+    assert_eq!(v["next"], "spec new adr --title 'My doc' --write", "{v}");
+}
+
+#[test]
+fn c157_edit_preview_on_crlf_matches_lf() {
+    let r = common::repo();
+    let lf = r.new_doc("sot", "services/shop", "Cart");
+    let cr = r.new_doc("sot", "services/blog", "Post");
+    let p = common::doc_path(&r, &cr);
+    // An edit refreshes `updated`, so set it in the past on both: then the line changes in both
+    // previews whatever second the edit runs in.
+    for id in [&lf, &cr] {
+        let p = common::doc_path(&r, id);
+        let old: String = r
+            .read(&p)
+            .lines()
+            .map(|l| {
+                if l.starts_with("updated:") { "updated: 2000-01-01T00:00:00Z\n".to_string() } else { format!("{l}\n") }
+            })
+            .collect();
+        r.write(&p, &old);
+    }
+    r.write(&p, &r.read(&p).replace('\n', "\r\n"));
+    r.commit("crlf");
+    let changed = |id: &str| {
+        let (_, v) = r.json(&["edit", id, "--section", "Rule", "--text", "New rule."]);
+        let it = v["items"].as_array().unwrap().iter().find(|i| i["op"] == "update").cloned().unwrap();
+        let n = |h: &Value, k: &str| h[k].as_array().unwrap().len();
+        it["hunks"].as_array().unwrap().iter().map(|h| (n(h, "before"), n(h, "after"))).collect::<Vec<_>>()
+    };
+    assert_eq!(changed(&cr), changed(&lf));
+}
+
+#[test]
+fn edit_preview_splits_apart_changes_into_hunks() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    let p = common::doc_path(&r, &id);
+    let old: String =
+        r.read(&p)
+            .lines()
+            .map(|l| {
+                if l.starts_with("updated:") { "updated: 2000-01-01T00:00:00Z\n".to_string() } else { format!("{l}\n") }
+            })
+            .collect();
+    r.write(&p, &old);
+    r.commit("doc");
+    let (code, v) = r.json(&["edit", &id, "--section", "Rule", "--text", "New rule."]);
+    assert_eq!(code, 0, "{v}");
+    let it = v["items"].as_array().unwrap().iter().find(|i| i["op"] == "update").cloned().unwrap();
+    let hs = it["hunks"].as_array().unwrap();
+    assert_eq!(hs.len(), 2, "{it}");
+    assert_eq!(hs[0]["before"], json!(["updated: 2000-01-01T00:00:00Z"]), "{it}");
+    assert_eq!(hs[0]["after"].as_array().unwrap().len(), 1, "{it}");
+    assert!(hs[1]["after"].as_array().unwrap().iter().any(|l| l == "New rule."), "{it}");
+    assert_eq!(it["line"], hs[0]["line"], "{it}");
+    let (_, t) = r.text(&["edit", &id, "--section", "Rule", "--text", "New rule."]);
+    assert_eq!(t.matches("@@ -").count(), 2, "{t}");
+}
+
+/// C159: preview hunk headers are the ones `git diff -U0` prints for the same write.
+#[test]
+fn c159_preview_hunk_headers_match_git() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    let p = common::doc_path(&r, &id);
+    let old: String =
+        r.read(&p)
+            .lines()
+            .map(|l| {
+                if l.starts_with("updated:") { "updated: 2000-01-01T00:00:00Z\n".to_string() } else { format!("{l}\n") }
+            })
+            .collect();
+    r.write(&p, &old);
+    r.commit("doc");
+    let headers =
+        |t: &str| t.lines().map(str::trim).filter(|l| l.starts_with("@@ ")).map(|l| l.to_string()).collect::<Vec<_>>();
+    let git_headers = || {
+        let out = std::process::Command::new("git").args(["diff", "-U0"]).current_dir(r.path()).output().unwrap();
+        let t = String::from_utf8_lossy(&out.stdout).into_owned();
+        // git adds the section heading after the second @@; spec does not.
+        headers(&t)
+            .into_iter()
+            .map(|h| h.splitn(4, ' ').take(3).collect::<Vec<_>>().join(" ") + " @@")
+            .collect::<Vec<_>>()
+    };
+    // An insertion (and the refreshed `updated:` line), then a deletion.
+    for (text, step) in [("one\ntwo\nthree", "insert"), ("one", "delete")] {
+        // An old `updated:` before each step: had the last write stamped the same second as this
+        // preview, the preview would show no `updated:` hunk while the write a second later did.
+        let stale: String = r
+            .read(&p)
+            .lines()
+            .map(|l| {
+                if l.starts_with("updated:") { "updated: 2000-01-01T00:00:00Z\n".to_string() } else { format!("{l}\n") }
+            })
+            .collect();
+        r.write(&p, &stale);
+        r.git(&["add", "-A"]);
+        r.git(&["commit", "-qm", "stale", "--allow-empty"]);
+        let (code, t) = r.text(&["edit", &id, "--section", "Rule", "--text", text]);
+        assert_eq!(code, 0, "{t}");
+        let shown = headers(&t);
+        assert!(!shown.is_empty(), "{t}");
+        let (code, w) = r.text(&["edit", &id, "--section", "Rule", "--text", text, "--write"]);
+        assert_eq!(code, 0, "{w}");
+        // The write refreshes `updated:` to another second than the preview may have: same header.
+        assert_eq!(shown, git_headers(), "{step}: {t}");
+        r.commit(step);
+    }
+}
+
+/// C158: a preview of a very large change keeps memory and time small.
+#[test]
+fn c158_large_edit_preview_is_bounded() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    let old: String = (1..=5000).map(|i| format!("old line {i}\n")).collect();
+    r.write("old.md", &old);
+    assert_eq!(r.json(&["edit", &id, "--section", "Rule", "--file", "old.md", "--write"]).0, 0);
+    r.commit("big");
+    let new: String = (1..=5000).map(|i| format!("new line {i}\n")).collect();
+    r.write("new.md", &new);
+    let t = std::time::Instant::now();
+    let (code, v) = r.json(&["edit", &id, "--section", "Rule", "--file", "new.md"]);
+    assert_eq!(code, 0, "{v}");
+    assert!(t.elapsed() < std::time::Duration::from_secs(10), "{:?}", t.elapsed());
+    let it = v["items"].as_array().unwrap().iter().find(|i| i["op"] == "update").cloned().unwrap();
+    let after: usize = it["hunks"].as_array().unwrap().iter().map(|h| h["after"].as_array().unwrap().len()).sum();
+    assert!(after >= 5000, "{after}");
+}
+
+/// C160: a title with a line break is refused by new and set (exit 2, nothing written).
+#[test]
+fn c160_titles_with_line_breaks_are_refused() {
+    let r = common::repo();
+    for t in ["a\nb", "a\rb"] {
+        let (code, v) = r.json(&["new", "sot", "--governs", "services/shop", "--title", t, "--write"]);
+        assert_eq!(code, 2, "{v}");
+        assert!(v["error"].as_str().unwrap().contains("line break"), "{v}");
+        assert!(v["next"].as_str().unwrap().starts_with("spec new sot --title"), "{v}");
+    }
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    r.commit("doc");
+    let (code, v) = r.json(&["set", &id, "title=a\nb", "--write"]);
+    assert_eq!(code, 2, "{v}");
+    assert!(v["next"].as_str().unwrap().starts_with(&format!("spec set {id} title=")), "{v}");
+    let (_, v) = r.json(&["show", &id]);
+    assert!(v.to_string().contains("Cart"), "{v}");
+    let st = std::process::Command::new("git").args(["status", "--porcelain"]).current_dir(r.path()).output().unwrap();
+    assert!(st.stdout.is_empty(), "{st:?}");
+}
+
+#[test]
+fn c162_unicode_line_breaks_in_titles_are_refused() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    r.commit("doc");
+    for t in ["a\u{85}b", "a\u{2028}b", "a\u{2029}b"] {
+        let (code, v) = r.json(&["new", "sot", "--governs", "services/shop", "--title", t, "--write"]);
+        assert_eq!(code, 2, "{v}");
+        assert!(v["next"].as_str().unwrap().starts_with("spec new sot --title"), "{v}");
+        let (code, v) = r.json(&["set", &id, &format!("title={t}"), "--write"]);
+        assert_eq!(code, 2, "{v}");
+        assert!(v["next"].as_str().unwrap().starts_with(&format!("spec set {id} title=")), "{v}");
+    }
+    let st = std::process::Command::new("git").args(["status", "--porcelain"]).current_dir(r.path()).output().unwrap();
+    assert!(st.stdout.is_empty(), "{st:?}");
+}
+
+#[test]
+fn c164_mv_to_the_same_place_is_no_change() {
+    let r = common::repo();
+    let d = r.new_doc("sot", "services/shop", "Cart");
+    r.commit("doc");
+    let slug = d.rsplit('/').next().unwrap().to_string();
+    let (code, v) = r.json(&["mv", &d, "--slug", &slug, "--write"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["written"], false, "{v}");
+    assert!(v.get("undo").is_none(), "{v}");
+    let (_, t) = r.text(&["mv", &d, "--slug", &slug, "--write"]);
+    assert!(t.contains("no change") && !t.contains("undo:"), "{t}");
 }

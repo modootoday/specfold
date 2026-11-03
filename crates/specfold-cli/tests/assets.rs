@@ -2,6 +2,8 @@
 
 mod common;
 
+use serde_json::Value;
+
 #[test]
 fn audit_reports_a_plan_whose_tasks_and_status_disagree() {
     let r = common::repo();
@@ -314,4 +316,82 @@ fn c102_c106_guarded_writes_say_what_comes_next() {
     r.write("spec.toml", &(base + "[[[broken\n"));
     let (_, v) = r.json(&["find"]);
     assert_eq!(v["next"], "spec explain config", "C106: {v}");
+}
+
+#[test]
+fn c124_sync_assets_kind_conflicts_match_and_prune_resolves() {
+    let r = common::repo();
+    let base = r.read("spec.toml");
+    r.write(
+        "spec.toml",
+        &format!(
+            "{base}[[assets]]\nkind = \"skill\"\npath = \".agents/skills\"\n[[assets]]\nkind = \"skill\"\npath = \".claude/skills\"\ncopy_of = \".agents/skills\"\n"
+        ),
+    );
+    r.write(".agents/skills/pdf/SKILL.md", "---\nname: pdf\ndescription: Read PDFs.\n---\n");
+    r.write(".agents/skills/pdf/notes", "file in source\n");
+    r.write(".claude/skills/pdf/SKILL.md", "---\nname: pdf\ndescription: Read PDFs.\n---\n");
+    r.write(".claude/skills/pdf/notes/old.md", "a folder in the copy\n");
+    r.commit("fixtures");
+    let (pc, pv) = r.json(&["sync", "assets"]);
+    let (wc, wv) = r.json(&["sync", "assets", "--write"]);
+    assert_eq!(pc, 0, "{pv}");
+    assert_eq!(wc, 4, "{wv}");
+    assert!(pv.to_string().contains(".claude/skills/pdf/notes"), "{pv}");
+    assert!(wv.to_string().contains(".claude/skills/pdf/notes"), "{wv}");
+    assert!(pv["next"].to_string().contains("--prune"), "{pv}");
+    let (code, v) = r.json(&["sync", "assets", "--prune", "--write", "--yes"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(r.read(".claude/skills/pdf/notes"), "file in source\n");
+}
+
+#[test]
+fn c147_asset_without_a_slug_is_refused() {
+    let r = common::repo();
+    for kind in ["skill", "rule", "agent"] {
+        let (code, v) = r.json(&["new", kind, "--title", "한글 이름", "--write"]);
+        assert_eq!(code, 2, "{kind}: {v}");
+        assert!(v.to_string().contains("--slug"), "{v}");
+    }
+    let (code, v) = r.json(&["new", "skill", "--title", "x", "--slug", "../up", "--write"]);
+    assert_eq!(code, 2, "{v}");
+}
+
+#[test]
+fn c156_a_bad_asset_slug_next_replaces_the_slug() {
+    let r = common::repo();
+    let (code, v) = r.json(&["new", "skill", "--title", "x", "--slug", "Bad Slug", "--write"]);
+    assert_eq!(code, 2, "{v}");
+    let next = v["next"].as_str().unwrap_or_default();
+    assert_eq!(next.matches("--slug").count(), 1, "{v}");
+    assert!(!next.contains("Bad Slug"), "{v}");
+    let args: Vec<&str> = next.split(" ").skip(1).filter(|a| *a != "--json").collect();
+    let (code, v) = r.json(&args);
+    assert_eq!(code, 0, "{v}");
+}
+
+#[test]
+fn sync_prune_preview_names_the_trash_without_a_clock() {
+    let r = common::repo();
+    let base = r.read("spec.toml");
+    r.write(
+        "spec.toml",
+        &format!("{base}[[assets]]\nkind = \"skill\"\npath = \".agents/skills\"\n[[assets]]\nkind = \"skill\"\npath = \".claude/skills\"\ncopy_of = \".agents/skills\"\n"),
+    );
+    r.write(".agents/skills/pdf/SKILL.md", "---\nname: pdf\ndescription: Read PDFs.\n---\n");
+    r.write(".claude/skills/pdf/SKILL.md", "---\nname: pdf\ndescription: Read PDFs.\n---\n");
+    r.write(".claude/skills/stale/SKILL.md", "---\nname: stale\ndescription: S.\n---\n");
+    r.commit("fixtures");
+    let path = |v: &Value| {
+        v["items"].as_array().unwrap().iter().find(|i| i["op"] == "move").unwrap()["path"].as_str().unwrap().to_string()
+    };
+    let (_, p) = r.json(&["sync", "assets", "--prune"]);
+    assert!(path(&p).ends_with(".specfold/trash/<timestamp>/.claude/skills/stale/SKILL.md"), "{p}");
+    let (code, w) = r.json(&["sync", "assets", "--prune", "--write", "--yes"]);
+    assert_eq!(code, 0, "{w}");
+    let moved = path(&w);
+    assert!(!moved.contains("<timestamp>"), "{w}");
+    let to = moved.split(" -> ").nth(1).unwrap();
+    assert!(r.path().join(to).is_file(), "{w}");
+    assert!(w["undo"].as_str().unwrap().contains(to.trim_end_matches("/.claude/skills/stale/SKILL.md")), "{w}");
 }

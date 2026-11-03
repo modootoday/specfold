@@ -964,3 +964,86 @@ fn p1_leaves_a_submodule_governs_out_of_the_owner_and_mv_settles_it() {
     let (_, e) = r.text(&["explain", "P1"]);
     assert!(e.contains("submodule") && e.contains("baseline"), "{e}");
 }
+
+#[test]
+fn c135_nested_and_tilde_fences_hide_their_contents() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Fences");
+    let (_, d) = r.json(&["show", &id]);
+    let path = d["path"].as_str().unwrap().to_string();
+    let text = r.read(&path);
+    r.write(
+        &path,
+        &format!(
+            "{text}\n````md\n```\n[[sot:root/nope-one]]\n```\n[[sot:root/nope-two]]\n````\n\n~~~\n```\n[[sot:root/nope-three]]\n~~~\n"
+        ),
+    );
+    let (_, v) = r.json(&["check", "--rule", "L1"]);
+    assert!(!v.to_string().contains("nope-"), "{v}");
+    // A link after the fence closes is read again.
+    r.write(&path, &format!("{text}\n````\n```\n````\n[[sot:root/nope-after]]\n"));
+    let (_, v) = r.json(&["check", "--rule", "L1"]);
+    assert!(v.to_string().contains("nope-after"), "{v}");
+}
+
+#[test]
+fn c136_audit_record_passes_check_and_is_no_orphan() {
+    let r = common::repo();
+    for t in ["Loose one", "Loose two"] {
+        let id = r.new_doc("sot", "services/shop", t);
+        let p = common::doc_path(&r, &id);
+        let text = r.read(&p).replace("governs:\n  - services/shop\n", "").replace("governs: [services/shop]\n", "");
+        r.write(&p, &text);
+        r.json(&["set", &id, "rel.governs-=services/shop", "status=active", "--write"]);
+    }
+    r.commit("loose");
+    let (code, v) = r.json(&["audit", "--record", "--title", "four", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    r.commit("record");
+    let (_, v) = r.json(&["check", "--rule", "L2"]);
+    assert_eq!(v["errors"], 0, "{v}");
+    let (_, v) = r.json(&["list", "--type", "audit"]);
+    let rec = v["items"][0]["path"].as_str().unwrap_or_default().to_string();
+    assert!(r.read(&rec).contains("[[sot:"), "{v}");
+    let (_, v) = r.json(&["audit"]);
+    assert!(!v.to_string().contains("\"subject\":\"audit:"), "{v}");
+}
+
+fn edit_front(r: &common::Repo, id: &str, from: &str, to: &str) {
+    let p = common::doc_path(r, id);
+    r.write(&p, &r.read(&p).replacen(from, to, 1));
+}
+
+#[test]
+fn c129_verify_failure_next_names_the_document() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop", "Cart");
+    edit_front(&r, &id, "status: draft", "status: active\nverify:\n  - sh -c 'exit 3'");
+    r.commit("v");
+    let (code, v) = r.json(&["verify"]);
+    assert_eq!(code, 1, "{v}");
+    assert_eq!(v["next"], format!("spec show {id} --section verification"), "{v}");
+}
+
+#[test]
+fn c134_write_baseline_without_a_path_carries_an_error() {
+    let r = common::repo();
+    let (code, v) = r.json(&["check", "--write-baseline"]);
+    assert_eq!(code, 2, "{v}");
+    assert!(v["error"].as_str().unwrap().contains("baseline"), "{v}");
+}
+
+#[test]
+fn b4_cache_drops_files_unused_for_30_days() {
+    let r = common::repo();
+    let cache = r.path().join(".cache");
+    std::fs::create_dir_all(&cache).unwrap();
+    let old = std::time::SystemTime::now() - std::time::Duration::from_secs(31 * 24 * 3600);
+    for name in ["scan-0123456789abcdef.json", "guard-0123456789abcdef-x.json"] {
+        std::fs::write(cache.join(name), b"{}").unwrap();
+        std::fs::File::options().append(true).open(cache.join(name)).unwrap().set_modified(old).unwrap();
+    }
+    assert_eq!(r.text(&["check"]).0, 0);
+    assert!(!cache.join("scan-0123456789abcdef.json").exists());
+    assert!(!cache.join("guard-0123456789abcdef-x.json").exists());
+}
