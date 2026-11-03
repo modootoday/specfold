@@ -1,0 +1,807 @@
+//! Rules a project shapes through spec.toml, and the verify runner's verdicts.
+
+#[path = "../common/mod.rs"]
+mod common;
+
+fn path_of(r: &common::Repo, id: &str) -> String {
+    r.json(&["resolve", id]).1["path"].as_str().unwrap().to_string()
+}
+
+fn edit(r: &common::Repo, id: &str, from: &str, to: &str) {
+    let p = path_of(r, id);
+    let text = r.read(&p);
+    assert!(text.contains(from), "{text}");
+    r.write(&p, &text.replacen(from, to, 1));
+}
+
+fn rules_hit(v: &serde_json::Value) -> Vec<String> {
+    v["items"].as_array().unwrap().iter().map(|f| f["rule"].as_str().unwrap().to_string()).collect()
+}
+
+#[test]
+fn a_custom_type_moves_through_its_own_statuses_and_requires_fields() {
+    let r = common::repo();
+    let toml = r.read("spec.toml")
+        + "[types.finding]\nkey = \"stamp\"\nstatuses = [\"open\", \"resolved\", \"accepted-risk\"]\ninitial = \"open\"\nfields = [\"review_by\"]\n[types.finding.transitions]\nopen = [\"resolved\", \"accepted-risk\"]\n[types.finding.require_when]\naccepted-risk = [\"review_by\"]\n";
+    r.write("spec.toml", &toml);
+    let id = r.new_doc("finding", "services/shop", "Token in logs");
+    assert_eq!(r.json(&["set", &id, "status=accepted-risk", "--write"]).0, 0);
+    let (code, v) = r.json(&["check", "--rule", "S6"]);
+    assert_eq!(code, 1, "{v}");
+    assert_eq!(r.json(&["set", &id, "review_by=2026-12-01", "--write"]).0, 0);
+    assert_eq!(r.json(&["check", "--rule", "S6", "--rule", "S4"]).0, 0);
+    let (code, v) = r.json(&["set", &id, "status=open", "--write"]);
+    assert_ne!(code, 0, "accepted-risk may not go back to open: {v}");
+}
+
+#[test]
+fn a_supersede_cycle_is_reported() {
+    let r = common::repo();
+    let a = r.new_doc("adr", "services/shop", "Use files");
+    let b = r.new_doc("adr", "services/shop", "Use a database");
+    for (doc, other) in [(&a, &b), (&b, &a)] {
+        edit(&r, doc, "status: draft", "status: superseded");
+        edit(&r, doc, "rel:\n", &format!("rel:\n  supersedes:\n  - \"{other}\"\n"));
+    }
+    let (code, v) = r.json(&["check", "--rule", "T1"]);
+    assert_eq!(code, 1, "{v}");
+    assert!(v.to_string().contains("supersede cycle"), "{v}");
+}
+
+fn break_id(r: &common::Repo, id: &str) {
+    edit(r, id, &format!("id: {id}"), "id: sot:shop/wrong");
+}
+
+#[test]
+fn a_baseline_accepts_the_known_pile_and_fails_anything_new() {
+    let r = common::repo();
+    let toml = r.read("spec.toml") + "[check]\nbaseline = \"spec-baseline.json\"\nstrict = [\"services/blog/**\"]\n";
+    r.write("spec.toml", &toml);
+    let old = r.new_doc("sot", "services/shop/src", "Old rule");
+    break_id(&r, &old);
+    let (code, v) = r.json(&["check", "--write-baseline", "--yes"]);
+    assert_ne!(code, 0, "a dirty tree must not be measured: {v}");
+    r.commit("old pile");
+    let (code, v) = r.json(&["check", "--write-baseline", "--yes"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["baselined"], 1);
+    r.commit("baseline");
+    let (code, v) = r.json(&["check", "--rule", "S2"]);
+    assert_eq!((code, v["baselined"].as_u64()), (0, Some(1)), "{v}");
+    let strict = r.new_doc("sot", "services/blog/src", "Blog rule");
+    break_id(&r, &strict);
+    let (code, v) = r.json(&["check", "--rule", "S2"]);
+    assert_eq!(code, 1, "a strict path is never held by the baseline: {v}");
+    assert_eq!(r.json(&["check", "--rule", "S2", "--no-baseline"]).1["errors"], 2);
+    let (code, _) = r.json(&["check", "--fail-on", "NOPE"]);
+    assert_ne!(code, 0);
+    let (code, v) = r.json(&["check", "--rule", "S2", "--fail-on", "L1"]);
+    assert_eq!(code, 0, "only L1 decides the exit code here: {v}");
+}
+
+#[test]
+fn a_hand_edit_must_move_updated() {
+    let r = common::repo();
+    let id = r.new_doc("plan", "services/shop", "Ship it");
+    let p = path_of(&r, &id);
+    let updated = r.json(&["show", &id]).1["frontmatter"]["updated"].as_str().unwrap().to_string();
+    r.write(&p, &r.read(&p).replace(&format!("updated: {updated}"), "updated: 2026-01-02"));
+    r.commit("old plan");
+    r.write(&p, &(r.read(&p) + "\nOne more step.\n"));
+    r.git(&["add", "-A"]);
+    let (_, v) = r.json(&["check", "--staged", "--rule", "T4"]);
+    assert_eq!(rules_hit(&v), ["T4"], "{v}");
+    assert_eq!(r.json(&["fix", "--rule", "T4", "--write", "--staged"]).0, 0);
+    r.git(&["add", "-A"]);
+    assert!(rules_hit(&r.json(&["check", "--staged", "--rule", "T4"]).1).is_empty());
+}
+
+#[test]
+fn citations_in_code_resolve_and_staged_runs_read_only_added_lines() {
+    let r = common::repo();
+    r.write("spec.toml", &(r.read("spec.toml") + "[cites]\npaths = [\"services/**/*.rs\", \"AGENTS.md\"]\n"));
+    let sot = r.new_doc("sot", "services/shop/src", "Cart totals");
+    let sot_path = path_of(&r, &sot);
+    r.write(
+        "services/shop/src/cart/total.rs",
+        &format!(
+            "// see [[{sot}]]\n// old [[sot:shop/gone]]\n// path {sot_path}\nfn total() {{}}\n// [[allowlist]] if [[ -f x ]]\n"
+        ),
+    );
+    r.write("AGENTS.md", "Rules moved to sot:shop/gone long ago; formerly [[sot:shop/gone]].\n");
+    let (code, v) = r.json(&["check", "--rule", "L6"]);
+    assert_eq!(code, 1, "{v}");
+    let messages: Vec<String> = v["items"].as_array().unwrap().iter().map(|f| f["message"].to_string()).collect();
+    assert_eq!(messages.len(), 2, "{messages:?}");
+    assert!(
+        messages.iter().any(|m| m.contains("names no document")) && messages.iter().any(|m| m.contains("is a path"))
+    );
+    r.commit("cites");
+    let text = r.read("services/shop/src/cart/total.rs") + "// new [[sot:shop/also-gone]]\n";
+    r.write("services/shop/src/cart/total.rs", &text);
+    r.git(&["add", "-A"]);
+    let (_, v) = r.json(&["check", "--staged", "--rule", "L6"]);
+    let items = v["items"].as_array().unwrap();
+    assert_eq!(items.len(), 1, "{v}");
+    assert_eq!(items[0]["line"], 6);
+}
+
+#[test]
+fn bash_test_brackets_in_code_comments_are_not_citations() {
+    let r = common::repo();
+    r.write("spec.toml", &(r.read("spec.toml") + "[cites]\npaths = [\"services/**/*.js\"]\n"));
+    let adr = r.new_doc("adr", "services/shop/src", "Use a cart cache");
+    r.write(
+        "services/shop/src/run.js",
+        &format!(
+            "// if [[ -f x ]]; then exit; fi\n// [[ $a == b ]] && [[ -n $b ]]\n// [[ \"$x\" =~ ^adr: ]] || [[ ! -d y ]]\n// [[$ref != adr:shop/gone]]\n// see [[{adr}]]\n// see [[adr:shop/gone]]\nexport const run = () => 1;\n"
+        ),
+    );
+    let (code, v) = r.json(&["check", "--rule", "L6"]);
+    assert_eq!(code, 1, "{v}");
+    let items = v["items"].as_array().unwrap();
+    assert_eq!(items.len(), 1, "{v}");
+    assert_eq!(items[0]["line"], 6);
+    assert!(items[0]["message"].as_str().unwrap().contains("[[adr:shop/gone]] names no document"), "{v}");
+}
+
+#[test]
+fn bash_test_brackets_in_a_document_body_are_not_links() {
+    let r = common::repo();
+    let adr = r.new_doc("adr", "services/shop/src", "Use a cart cache");
+    let p = path_of(&r, &adr);
+    r.write(&p, &(r.read(&p) + "\nRun it when [[ -f x ]] and [[ $a == b ]] hold.\n"));
+    assert!(rules_hit(&r.json(&["check", "--rule", "L1"]).1).is_empty());
+    r.write(&p, &(r.read(&p) + "\nSee [[adr:shop/gone]].\n"));
+    assert_eq!(rules_hit(&r.json(&["check", "--rule", "L1"]).1), ["L1"]);
+}
+
+#[test]
+fn published_paths_are_detected_from_manifests() {
+    let r = common::repo();
+    r.write("spec.toml", &r.read("spec.toml").replace("[public]\n", "[public]\ndetect = [\"npm-files\"]\n"));
+    r.new_doc("sot", "services/shop/src", "Cart");
+    r.write("services/shop/package.json", "{\"name\": \"shop\"}\n");
+    let (code, v) = r.json(&["check", "--rule", "V1"]);
+    assert_eq!(code, 1, "a package with no files list ships its spec directory: {v}");
+    assert!(v.to_string().contains("has no files list"), "{v}");
+    r.write("services/shop/package.json", "{\"name\": \"shop\", \"files\": [\"dist\"]}\n");
+    assert_eq!(r.json(&["check", "--rule", "V1"]).0, 0);
+    r.write("services/shop/package.json", "{\"name\": \"shop\", \"files\": [\".\"]}\n");
+    assert_eq!(r.json(&["check", "--rule", "V1"]).0, 1);
+}
+
+#[test]
+fn a_visibility_manifest_older_than_gitmodules_is_reported() {
+    let r = common::repo();
+    r.write(".gitmodules", "[submodule \"services/blog\"]\n\tpath = services/blog\n\turl = x\n");
+    r.write(
+        "vis.json",
+        "{\"gitmodulesSha256\": \"0\", \"submodules\": {\"services/blog\": {\"visibility\": \"PUBLIC\"}}}\n",
+    );
+    let toml = r.read("spec.toml").replace("[public]\n", "[public]\nsubmodules_manifest = \"vis.json\"\n");
+    r.write("spec.toml", &toml);
+    r.new_doc("plan", "services/shop", "Ship");
+    let blog_doc = r.path().join("services/blog/.spec/research/20260101000000-x.research.md");
+    std::fs::create_dir_all(blog_doc.parent().unwrap()).unwrap();
+    std::fs::write(&blog_doc, "---\nid: research:blog/20260101000000\n---\n# X\n").unwrap();
+    let (code, v) = r.json(&["check", "--rule", "V1"]);
+    assert_eq!(code, 1, "{v}");
+    let text = v.to_string();
+    assert!(text.contains("older than .gitmodules") && text.contains("public submodule"), "{text}");
+}
+
+#[test]
+fn severity_turns_a_rule_down_or_off() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop/src", "Rule");
+    break_id(&r, &id);
+    r.write("spec.toml", &(r.read("spec.toml") + "[check.severity]\nS2 = \"warn\"\n"));
+    let (code, v) = r.json(&["check", "--rule", "S2"]);
+    assert_eq!((code, v["warnings"].as_u64()), (0, Some(1)), "{v}");
+    r.write("spec.toml", &r.read("spec.toml").replace("S2 = \"warn\"", "S2 = \"off\""));
+    assert_eq!(r.json(&["check", "--rule", "S2"]).1["warnings"], 0);
+}
+
+#[test]
+fn a_pending_owner_keeps_its_old_layout_unread_until_import() {
+    let r = common::repo();
+    let id = r.new_doc("sot", "services/shop/src", "Imported early");
+    r.write("services/shop/.spec/sots/old-rule.md", "# old\n");
+    assert_eq!(rules_hit(&r.json(&["check", "--rule", "S3"]).1), ["S3"]);
+    r.write(
+        "spec.toml",
+        &r.read("spec.toml").replace("root = \"ws\"\n", "root = \"ws\"\npending = [\"services/shop\"]\n"),
+    );
+    assert!(rules_hit(&r.json(&["check", "--rule", "S3"]).1).is_empty());
+    assert_eq!(r.json(&["show", &id]).0, 0);
+}
+
+#[test]
+fn a_staged_gitlink_brings_the_files_changed_inside_it_into_the_run() {
+    let lib = common::repo();
+    lib.write("docs/readme.md", "lib\n");
+    lib.commit("lib");
+    let r = common::repo();
+    r.git(&[
+        "-c",
+        "protocol.file.allow=always",
+        "submodule",
+        "add",
+        "-q",
+        lib.path().to_str().unwrap(),
+        "services/vendor",
+    ]);
+    r.commit("pin vendor");
+    r.write("services/vendor/.spec/notes/handoff.md", "# a note\n");
+    let sub = r.path().join("services/vendor");
+    for args in [
+        vec!["add", ".spec/notes/handoff.md"],
+        vec!["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "note"],
+    ] {
+        assert!(std::process::Command::new("git").args(&args).current_dir(&sub).status().unwrap().success());
+    }
+    r.git(&["add", "services/vendor"]);
+    assert_eq!(rules_hit(&r.json(&["check", "--staged", "--rule", "S3"]).1), ["S3"]);
+    assert_eq!(rules_hit(&r.json(&["check", "--changed", "HEAD", "--rule", "S3"]).1), ["S3"]);
+}
+
+#[test]
+fn a_full_check_leaves_whole_tree_guards_to_spec_guard() {
+    let r = common::repo();
+    let toml = r.read("spec.toml")
+        + "[[guards]]\nname = \"g\"\npaths = [\"services/**\"]\nrange = \"all\"\ndeny_terms = [\"acme-internal\"]\n";
+    r.write("spec.toml", &toml);
+    r.write("services/shop/notes.txt", "acme-internal\n");
+    assert!(rules_hit(&r.json(&["check", "--rule", "U1"]).1).is_empty());
+    assert_eq!(rules_hit(&r.json(&["check", "--rule", "U1", "--guards"]).1), ["U1"]);
+    r.git(&["add", "-A"]);
+    assert_eq!(rules_hit(&r.json(&["check", "--staged", "--rule", "U1"]).1), ["U1"]);
+}
+
+#[test]
+fn a_whole_tree_guard_reads_tracked_files_an_ignore_file_matches() {
+    let r = common::repo();
+    let toml = r.read("spec.toml")
+        + "[[guards]]\nname = \"g\"\npaths = [\"libs/open/**\"]\nrange = \"all\"\ndeny_terms = [\"acme-internal\"]\n";
+    r.write("spec.toml", &toml);
+    r.write("libs/open/.gitignore", "/*\n!/.gitignore\n!/docs/\n");
+    r.write("libs/open/docs/a.md", "clean\n");
+    r.write("libs/open/forced.md", "acme-internal\n");
+    r.write("libs/open/stray.md", "acme-internal\n");
+    r.git(&["add", "libs/open/.gitignore", "libs/open/docs/a.md"]);
+    r.git(&["add", "-f", "libs/open/forced.md"]);
+    r.commit("forced");
+    let (code, v) = r.json(&["guard", "g", "--all"]);
+    assert_eq!(code, 1, "{v}");
+    let paths: Vec<String> =
+        v["items"].as_array().unwrap().iter().map(|f| f["path"].as_str().unwrap_or("").to_string()).collect();
+    assert_eq!(paths, ["libs/open/forced.md"], "{v}");
+}
+
+#[cfg(unix)]
+#[test]
+fn verify_reports_timeouts_missing_programs_and_undeclared_checks() {
+    let r = common::repo();
+    let slow = r.new_doc("sot", "services/shop/src", "Slow rule");
+    edit(&r, &slow, "status: draft", "status: active\nverify:\n  - sleep 5\nverify_timeout_ms: 300");
+    let tool = r.new_doc("sot", "services/shop/src/cart", "Needs a tool");
+    edit(&r, &tool, "status: draft", "status: active\nverify:\n  - no-such-tool-xyz --check");
+    let manual = r.new_doc("sot", "services/blog/src", "Checked by people");
+    edit(&r, &manual, "status: draft", "status: active\nverify: manual");
+    let bare = r.new_doc("sot", "services/blog", "Says nothing");
+    edit(&r, &bare, "status: draft", "status: active");
+    let (code, v) = r.json(&["verify"]);
+    assert_eq!(code, 1, "{v}");
+    let text = v.to_string();
+    assert!(text.contains("timed out") && text.contains("cannot run"), "{text}");
+    assert_eq!(v["failed"], 2, "{v}");
+    let (_, v) = r.json(&["check", "--rule", "X2"]);
+    let hits: Vec<String> =
+        v["items"].as_array().unwrap().iter().map(|f| f["path"].as_str().unwrap().to_string()).collect();
+    assert_eq!(hits, [path_of(&r, &bare)], "{v}");
+    assert_eq!(rules_hit(&v), ["X2"]);
+}
+
+#[test]
+fn an_unknown_key_shows_how_to_declare_it_and_declaring_it_quiets_s1() {
+    let r = common::repo();
+    let id = r.new_doc("adr", "services/shop", "Keep a domain");
+    edit(&r, &id, "\nstatus:", "\ndomain: billing\nstatus:");
+    let (_, v) = r.json(&["check", "--rule", "S1"]);
+    let msg = v["items"][0]["message"].as_str().unwrap_or_default().to_string();
+    assert!(msg.contains("[types.adr] fields = [") && msg.contains("\"domain\""), "{v}");
+    r.write("spec.toml", &(r.read("spec.toml") + "[types.adr]\nfields = [\"domain\"]\n"));
+    let (code, v) = r.json(&["check", "--rule", "S1"]);
+    assert_eq!(code, 0, "{v}");
+    assert!(rules_hit(&v).is_empty(), "{v}");
+}
+
+#[test]
+fn agent_assets_need_a_name_and_description_and_warn_on_the_rest() {
+    let r = common::repo();
+    let toml = r.read("spec.toml")
+        + "[[assets]]\nkind = \"skill\"\npath = \".agents/skills\"\n[[assets]]\nkind = \"skill\"\npath = \".claude/skills\"\n[[assets]]\nkind = \"rule\"\npath = \".cursor/rules\"\n";
+    r.write("spec.toml", &toml);
+    r.write(".agents/skills/pdf-tools/SKILL.md", "---\nname: pdf-tools\ndescription: Read PDFs.\n---\n# PDF\n");
+    let (code, v) = r.json(&["check", "--rule", "A1", "--rule", "A2"]);
+    assert_eq!(code, 0, "a valid skill passes: {v}");
+    r.write(".agents/skills/broken/SKILL.md", "---\nname: Broken\nDescription: x\n---\n");
+    r.write(".claude/skills/one/SKILL.md", "---\nname: same\ndescription: a\n---\n");
+    r.write(".claude/skills/two/SKILL.md", "---\nname: same\ndescription: b\n---\n");
+    r.write(".cursor/rules/style.md", "Use tabs.\n");
+    let (code, v) = r.json(&["check", "--rule", "A1", "--rule", "A2"]);
+    assert_eq!(code, 1, "{v}");
+    let text = v.to_string();
+    assert_eq!(v["errors"], 1, "only the missing description is an error: {v}");
+    assert!(text.contains("skill has no description"), "{v}");
+    assert!(text.contains("the field is spelled 'description'"), "{v}");
+    assert!(text.contains("differs from its directory 'broken'"), "{v}");
+    assert!(text.contains("lowercase letters"), "{v}");
+    assert!(text.contains("skill name 'same' is also used by .claude/skills/"), "{v}");
+    assert!(text.contains("Cursor reads only .mdc"), "{v}");
+    assert!(!text.contains("pdf-tools"), "the valid skill stays quiet: {v}");
+}
+
+#[test]
+fn agent_assets_name_paths_and_spec_commands_that_exist() {
+    let r = common::repo();
+    let toml = r.read("spec.toml")
+        + "[[assets]]\nkind = \"instructions\"\npath = \"AGENTS.md\"\n[[assets]]\nkind = \"skill\"\npath = \".agents/skills\"\n";
+    r.write("spec.toml", &toml);
+    r.write(
+        ".agents/skills/cart/SKILL.md",
+        "---\nname: cart\ndescription: Cart.\n---\nSee [the guide](guide.md) and `services/shop/src/cart/total.rs`.\n",
+    );
+    r.write(".agents/skills/cart/guide.md", "guide\n");
+    r.write(
+        "AGENTS.md",
+        "# Agents\n\nRun `spec check --staged`, read `services/shop/src/cart/old.rs` and [setup](docs/setup.md).\nIds like `sot:shop/cart` and globs like `src/**/*.rs` are not paths. See https://example.com/a/b.\n\n```sh\nspec show <id>\nspec frobnicate\n```\n",
+    );
+    let (code, v) = r.json(&["check", "--rule", "A3"]);
+    assert_eq!(code, 0, "{v}");
+    let msgs: Vec<String> =
+        v["items"].as_array().unwrap().iter().map(|i| i["message"].as_str().unwrap().to_string()).collect();
+    assert_eq!(msgs.len(), 3, "{msgs:?}");
+    assert!(msgs.iter().any(|m| m.contains("names services/shop/src/cart/old.rs")), "{msgs:?}");
+    assert!(msgs.iter().any(|m| m.contains("links to docs/setup.md")), "{msgs:?}");
+    assert!(msgs.iter().any(|m| m.contains("`spec frobnicate`")), "{msgs:?}");
+    assert_eq!(v["errors"], 0, "warnings only: {v}");
+}
+
+#[test]
+fn s8_a_required_field_needs_a_real_value_of_its_kind() {
+    let r = common::repo();
+    let toml = r.read("spec.toml")
+        + "[types.finding]\nkey = \"stamp\"\nstatuses = [\"open\", \"accepted-risk\"]\ninitial = \"open\"\nfields = { review_by = \"date\", approvers = \"people\", authors = \"people\", decision = \"link\" }\ndistinct = [[\"authors\", \"approvers\"]]\n[types.finding.transitions]\nopen = [\"accepted-risk\"]\n[types.finding.require_when]\naccepted-risk = [\"review_by\", \"approvers\", \"decision\"]\n";
+    r.write("spec.toml", &toml);
+    let sot = r.new_doc("sot", "services/shop", "Logs");
+    let id = r.new_doc("finding", "services/shop", "Token in logs");
+    // A placeholder on a status that does not require the field is fine.
+    assert_eq!(r.json(&["set", &id, "approvers=TBD", "--write"]).0, 0);
+    let (_, v) = r.json(&["check", "--rule", "S8"]);
+    assert!(rules_hit(&v).is_empty(), "{v}");
+    for kv in ["status=accepted-risk", "review_by=2026-12-01", "authors=ann", "decision=sot:nowhere"] {
+        let (c, v) = r.json(&["set", &id, kv, "--write"]);
+        assert_eq!(c, 0, "{kv}: {v}");
+    }
+    let (code, v) = r.json(&["check", "--rule", "S8"]);
+    assert_eq!(code, 0, "S8 warns by default: {v}");
+    let s = v.to_string();
+    assert!(s.contains("'TBD' is a placeholder"), "{v}");
+    assert!(s.contains("names no document"), "{v}");
+    assert!(s.contains(&format!("spec set {id} approvers=")), "{v}");
+    assert_eq!(r.json(&["set", &id, "approvers=Ann", "--write"]).0, 0);
+    let (_, v) = r.json(&["check", "--rule", "S8"]);
+    assert!(v.to_string().contains("in both authors and approvers"), "{v}");
+    for kv in ["authors=Bob", &format!("decision={sot}")] {
+        assert_eq!(r.json(&["set", &id, kv, "--write"]).0, 0, "{kv}");
+    }
+    let (_, v) = r.json(&["check", "--rule", "S8", "--rule", "S1"]);
+    assert!(rules_hit(&v).is_empty(), "declared kinds are known keys and the values pass: {v}");
+}
+
+#[test]
+fn l8_l9_local_links_fragments_and_alt_text() {
+    let r = common::repo();
+    let id = r.new_doc("adr", "services/shop", "Use files");
+    let p = path_of(&r, &id);
+    let dir = p.rsplit_once('/').unwrap().0.to_string();
+    r.write(&format!("{dir}/pic.png"), "png");
+    let body = "\n## Use files\n## Use files\n### Why {#why-1}\n\n[ok](#use-files-1) [ok](#why-1) ![Shown](pic.png) [web](https://x.invalid/a#b)\n[gone](missing.md) [frag](#nope) ![](pic.png)\n`[code](missing2.md)`\n";
+    r.write(&p, &(r.read(&p) + body));
+    let (_, v) = r.json(&["check", "--rule", "L8", "--rule", "L9"]);
+    let mut hit = rules_hit(&v);
+    hit.sort();
+    assert_eq!(hit, ["L8", "L8", "L9"], "{v}");
+    assert_eq!(v["errors"], 0, "both warn: {v}");
+    let toml = r.read("spec.toml");
+    let toml = if toml.lines().any(|l| l == "[check]") {
+        toml.replacen("[check]\n", "[check]\nlink_ignore = [\"missing.*\"]\n", 1)
+    } else {
+        format!("{toml}\n[check]\nlink_ignore = [\"missing.*\"]\n")
+    };
+    r.write("spec.toml", &toml);
+    let (_, v) = r.json(&["check", "--rule", "L8"]);
+    assert_eq!(rules_hit(&v), ["L8"], "link_ignore skips missing.md, #nope stays: {v}");
+}
+
+#[test]
+fn c109_c110_c111_c112_set_lists_statuses_and_nexts() {
+    let r = common::repo();
+    let toml = r.read("spec.toml")
+        + "[types.adr.require_when]\nactive = [\"approvers\", \"review_by\"]\naccepted = [\"approvers\"]\n";
+    r.write("spec.toml", &toml);
+    let id = r.new_doc("adr", "services/shop", "Use files");
+    let out = r.spec().args(["check"]).output().unwrap();
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(err.contains("status 'accepted'") && err.contains("draft"), "C110: {err}");
+    let (_, v) = r.json(&["set", &id, "status=active", "--write"]);
+    let next = v["next"].to_string();
+    assert!(next.contains("S6") && next.contains("S8"), "C111: {v}");
+    let (_, v) = r.json(&["check", "--rule", "S6"]);
+    let fix = v["items"][0].to_string();
+    assert!(fix.contains("approvers=") && fix.contains("review_by="), "C112: every missing field: {v}");
+    r.json(&["set", &id, "approvers=[kim, lee]", "--write"]);
+    let (_, d) = r.json(&["show", &id]);
+    assert_eq!(d["frontmatter"]["approvers"], serde_json::json!(["kim", "lee"]), "C109: {d}");
+}
+
+#[test]
+fn c116_check_q_shows_config_warnings_and_coverage_types_are_checked() {
+    let r = common::repo();
+    let toml = r.read("spec.toml")
+        + "[audit]\ncoverage_types = [\"sots\"]\n[types.adr.require_when]\naccepted = [\"approvers\"]\n";
+    r.write("spec.toml", &toml);
+    let out = r.spec().args(["check", "-q"]).output().unwrap();
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(err.contains("status 'accepted'"), "C116: -q keeps config warnings: {err}");
+    assert!(err.contains("coverage_types names type 'sots'"), "an unknown coverage type is warned about: {err}");
+    let (_, v) = r.json(&["doctor"]);
+    assert!(v.to_string().contains("coverage_types names type 'sots'"), "{v}");
+}
+
+#[test]
+fn sd3_coverage_lists_anchors_no_other_document_cites() {
+    let r = common::repo();
+    let sot = r.new_doc("sot", "services/shop", "Login");
+    let (_, d) = r.json(&["show", &sot]);
+    let path = d["path"].as_str().unwrap().to_string();
+    r.write(&path, &(r.read(&path) + "\n## Password login {#fr-001}\n\n## Magic link {#fr-002}\n"));
+    assert_eq!(r.json(&["set", &sot, "status=active", "--write"]).0, 0);
+    let plan = r.new_doc("plan", "services/shop", "Login work");
+    let (_, p) = r.json(&["show", &plan]);
+    let ppath = p["path"].as_str().unwrap().to_string();
+    r.write(&ppath, &(r.read(&ppath) + &format!("\n- [ ] build [[{sot}#fr-001]]\n")));
+    r.commit("docs");
+    // Off by default: plain sots get no noise.
+    let (_, v) = r.json(&["audit", "--kind", "coverage"]);
+    assert!(v["items"].as_array().is_none_or(|a| a.is_empty()), "{v}");
+    r.write("spec.toml", &(r.read("spec.toml") + "[audit]\ncoverage_types = [\"sot\"]\n"));
+    let (_, v) = r.json(&["audit", "--kind", "coverage"]);
+    let items = v["items"].as_array().unwrap();
+    assert_eq!(items.len(), 1, "{v}");
+    assert!(items[0]["detail"].as_str().unwrap().contains("#fr-002"), "{v}");
+}
+
+#[test]
+fn c119_audit_archive_next_respects_open_tasks_and_config_warnings_are_counted() {
+    let r = common::repo();
+    let toml = r.read("spec.toml") + "[audit]\ncoverage_types = [\"plnn\"]\n";
+    r.write("spec.toml", &toml);
+    let plan = r.new_doc("plan", "services/shop", "Checkout");
+    let (sc, sv) = r.json(&["set", &plan, "status=active", "rel.governs-=services/shop", "--write"]);
+    assert_eq!(sc, 0, "{sv}");
+    let (_, d) = r.json(&["show", &plan]);
+    let path = d["path"].as_str().unwrap().to_string();
+    r.write(&path, &(r.read(&path) + "\n- [ ] payment\n"));
+    let (_, v) = r.json(&["audit", "--kind", "orphan"]);
+    let next = v["items"][0]["next"].as_str().unwrap_or_default().to_string();
+    assert!(next.contains("--tasks") && next.contains("--force"), "C119: {v}");
+    let out = r.spec().args(["check"]).output().unwrap();
+    assert!(String::from_utf8_lossy(&out.stderr).contains("did you mean 'plan'"), "C119");
+    let (_, t) = r.text(&["check"]);
+    assert!(t.contains("(+1 in spec.toml)"), "C119: {t}");
+    let (_, v) = r.json(&["doctor"]);
+    assert!(v.to_string().contains("correct the type name in [audit] coverage_types"), "{v}");
+}
+
+#[test]
+fn c180_l8_checks_reference_definitions_and_encoded_paths() {
+    let r = common::repo();
+    let id = r.new_doc("adr", "services/shop", "Use files");
+    let p = path_of(&r, &id);
+    let dir = p.rsplit_once('/').unwrap().0.to_string();
+    r.write(&format!("{dir}/a b.md"), "# A\n");
+    let body = "\n[x][gone] [y][ok] [z](a%20b.md) [w](<a b.md>)\n\n[gone]: missing.md \"t\"\n[ok]: <a b.md>\n[^1]: not a link\n\n```\n[r]: missing2.md\n```\n";
+    r.write(&p, &(r.read(&p) + body));
+    let (_, v) = r.json(&["check", "--rule", "L8"]);
+    assert_eq!(rules_hit(&v), ["L8"], "only the missing definition: {v}");
+    assert!(v.to_string().contains("missing.md"), "{v}");
+}
+
+/// C237: bad [verify] patterns stop the load with the line; a missing shell is named by doctor and verify.
+#[cfg(unix)]
+#[test]
+fn c237_verify_config_mistakes_are_reported_not_ignored() {
+    let r = common::repo();
+    let base = r.read("spec.toml");
+    for bad in ["[verify]\nserial = [\"(unclosed\"]\n", "[verify]\nfull_run_on = [\"src/[\"]\n"] {
+        r.write("spec.toml", &format!("{base}\n{bad}"));
+        let (code, v) = r.json(&["check"]);
+        assert_eq!(code, 2, "{bad}: {v}");
+        assert!(v.to_string().contains("at line"), "{bad}: {v}");
+    }
+    r.write("spec.toml", &format!("{base}\n[verify]\nshell = \"no-such-shell-c237\"\n"));
+    let id = r.new_doc("sot", "services/shop/src", "Shell rule");
+    edit(&r, &id, "status: draft", "status: active\nverify:\n  - echo ok");
+    let (_, d) = r.json(&["doctor"]);
+    assert!(d.to_string().contains("no-such-shell-c237"), "{d}");
+    let (code, v) = r.json(&["verify"]);
+    assert_eq!(code, 1, "{v}");
+    assert!(v.to_string().contains("shell 'no-such-shell-c237'"), "{v}");
+    assert_eq!(v["next"].as_str().unwrap_or(""), "spec doctor", "{v}");
+}
+
+/// D2: baseline entries follow `spec mv`, and the lower-the-baseline hint says it is optional.
+#[test]
+fn d2_baseline_follows_mv_and_its_lowering_hint_is_optional() {
+    let r = common::repo();
+    r.write("spec.toml", &(r.read("spec.toml") + "[check]\nbaseline = \"spec-baseline.json\"\n"));
+    let id = r.new_doc("sot", "services/shop/src", "Old rule");
+    let p = path_of(&r, &id);
+    r.write(&p, &(r.read(&p) + "\nSee [[sot:nope/nope]].\n"));
+    r.commit("old pile");
+    assert_eq!(r.json(&["check", "--write-baseline", "--yes"]).0, 0);
+    r.commit("baseline");
+    let (code, v) = r.json(&["mv", &id, "--slug", "moved", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    r.commit("moved");
+    let (code, v) = r.json(&["check"]);
+    assert_eq!((code, v["baselined"].as_u64(), v["lowerable"].as_u64()), (0, Some(1), Some(0)), "{v}");
+    assert!(!v["next"].as_str().unwrap_or_default().contains("--write-baseline"), "{v}");
+    let to = path_of(&r, "sot:shop/moved");
+    r.write(&to, &r.read(&to).replace("\nSee [[sot:nope/nope]].\n", "\n"));
+    let (code, v) = r.json(&["check"]);
+    assert_eq!(code, 0, "{v}");
+    let next = v["next"].as_str().unwrap_or_default();
+    assert!(next.starts_with("spec check --write-baseline") && next.contains("optional"), "{v}");
+}
+
+#[test]
+fn d2_a_ranged_run_hints_only_at_baseline_entries_in_its_range() {
+    let r = common::repo();
+    r.write("spec.toml", &(r.read("spec.toml") + "[check]\nbaseline = \"spec-baseline.json\"\n"));
+    let id = r.new_doc("sot", "services/shop/src", "Old rule");
+    let p = path_of(&r, &id);
+    r.write(&p, &(r.read(&p) + "\nSee [[sot:nope/nope]].\n"));
+    r.commit("old pile");
+    assert_eq!(r.json(&["check", "--write-baseline", "--yes"]).0, 0);
+    r.commit("baseline");
+    r.write("services/blog/src/x.rs", "fn x() {}\n");
+    r.commit("blog code");
+    let (code, v) = r.json(&["check", "--changed", "HEAD~1"]);
+    assert_eq!((code, v["lowerable"].as_u64()), (0, Some(0)), "{v}");
+    assert!(!v["next"].as_str().unwrap_or_default().contains("--write-baseline"), "{v}");
+    r.write(&p, &r.read(&p).replace("\nSee [[sot:nope/nope]].\n", "\n"));
+    r.commit("fixed");
+    let (_, v) = r.json(&["check", "--changed", "HEAD~1"]);
+    assert_eq!(v["lowerable"].as_u64(), Some(1), "the fixed document is in the range: {v}");
+    let (_, v) = r.json(&["check", "--rule", "S1"]);
+    assert_eq!(v["lowerable"].as_u64(), Some(0), "an L1 entry is not judged by an S1 run: {v}");
+}
+
+/// N1: moving a document to another owner keeps its baseline entries held under the new id.
+#[test]
+fn n1_baseline_follows_mv_to_another_owner() {
+    let r = common::repo();
+    r.write("spec.toml", &(r.read("spec.toml") + "[check]\nbaseline = \"spec-baseline.json\"\n"));
+    let id = r.new_doc("sot", "services/shop/src", "Old rule");
+    let p = path_of(&r, &id);
+    r.write(&p, &(r.read(&p) + "\nSee [[sot:nope/nope]].\n"));
+    r.commit("old pile");
+    assert_eq!(r.json(&["check", "--write-baseline", "--yes"]).0, 0);
+    r.commit("baseline");
+    let (code, v) = r.json(&["mv", &id, "--owner", "ws", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    r.commit("moved");
+    let base = r.read("spec-baseline.json");
+    assert!(!base.contains(&p) && base.contains("\"L1\\t.spec/"), "{base}");
+    let (code, v) = r.json(&["check"]);
+    let _ = code;
+    assert_eq!((v["baselined"].as_u64(), v["lowerable"].as_u64()), (Some(1), Some(0)), "{v}");
+    assert!(v["by_rule"].get("L1").is_none(), "the moved L1 finding stays held: {v}");
+}
+
+/// N2: a staged change that only deletes documents still reports links left pointing at them.
+#[test]
+fn n2_staged_deletion_reports_links_left_pointing_at_the_deleted_document() {
+    let r = common::repo();
+    let gone = r.new_doc("sot", "services/shop/src", "Gone rule");
+    let keep = r.new_doc("sot", "services/shop/src/cart", "Kept rule");
+    let other = r.new_doc("sot", "services/shop/src/cart/total.rs", "Unrelated rule");
+    let k = path_of(&r, &keep);
+    r.write(&k, &(r.read(&k) + &format!("\nSee [[{gone}]].\n")));
+    let o = path_of(&r, &other);
+    r.write(&o, &(r.read(&o) + "\nSee [[sot:shop/never-existed]].\n"));
+    r.commit("docs");
+    r.git(&["rm", "-q", &path_of(&r, &gone)]);
+    let (code, v) = r.json(&["check", "--staged"]);
+    assert_eq!(code, 1, "{v}");
+    let items = v["items"].as_array().cloned().unwrap_or_default();
+    assert!(items.iter().any(|i| i["rule"] == "L1" && i["path"] == k.as_str()), "{v}");
+    assert!(!items.iter().any(|i| i["path"] == o.as_str()), "an unrelated old dangling link stays out of scope: {v}");
+}
+
+/// N3: a spec.toml edit to keys that cannot change results does not trigger full_run_on; any other edit does, and says why.
+#[cfg(unix)]
+#[test]
+fn n3_full_run_on_skips_neutral_config_edits_and_says_why_it_ran_fully() {
+    let r = common::repo();
+    let base = r.read("spec.toml") + "[verify]\nfull_run_on = [\"spec.toml\"]\n";
+    r.write("spec.toml", &base);
+    let id = r.new_doc("sot", "services/blog/src", "Always fails");
+    edit(&r, &id, "status: draft", "status: active\nverify:\n  - \"false\"");
+    r.commit("rule");
+    let run = || {
+        let o = r.spec().args(["verify", "--changed", "HEAD", "--json"]).output().unwrap();
+        (o.status.code().unwrap_or(-1), String::from_utf8_lossy(&o.stderr).to_string())
+    };
+    r.write("spec.toml", &format!("{base}[remotes]\n"));
+    let (code, err) = run();
+    assert_eq!(code, 0, "a [remotes]-only edit runs nothing: {err}");
+    assert!(!err.contains("full verify run"), "{err}");
+    r.write("spec.toml", &base.replace("[verify]\n", "[verify]\ntimeout_ms = 60000\n"));
+    let (code, err) = run();
+    assert_eq!(code, 1, "{err}");
+    assert!(err.contains("full verify run: spec.toml changed and matches [verify] full_run_on"), "{err}");
+}
+
+/// B2: SPECFOLD_TRACE splits a check into scan, scope, per-rule, baseline and output timings.
+#[test]
+fn b2_trace_lists_phases_rules_baseline_and_output() {
+    let r = common::repo();
+    r.new_doc("sot", "services/shop/src", "Traced");
+    let o = r.spec().args(["check"]).env("SPECFOLD_TRACE", "1").output().unwrap();
+    let err = String::from_utf8_lossy(&o.stderr);
+    for want in ["specfold: scan", "specfold: scope", "specfold: rule L6", "specfold: baseline", "specfold: output"] {
+        assert!(err.contains(want), "{want} missing: {err}");
+    }
+    let quiet = r.spec().args(["check"]).env_remove("SPECFOLD_TRACE").output().unwrap();
+    assert!(!String::from_utf8_lossy(&quiet.stderr).contains("specfold: rule"));
+    // N2/N3: a staged check and a verify run show their phases too.
+    let o = r.spec().args(["check", "--staged"]).env("SPECFOLD_TRACE", "1").output().unwrap();
+    let err = String::from_utf8_lossy(&o.stderr);
+    for want in ["specfold: scope", "specfold: baseline", "specfold: other-owners"] {
+        assert!(err.contains(want), "{want} missing: {err}");
+    }
+    let o = r.spec().args(["verify"]).env("SPECFOLD_TRACE", "1").output().unwrap();
+    let err = String::from_utf8_lossy(&o.stderr);
+    for want in ["specfold: scan", "specfold: X1 select", "specfold: X1 commands", "specfold: rule X1"] {
+        assert!(err.contains(want), "{want} missing: {err}");
+    }
+}
+
+#[test]
+fn c4_ranged_check_prints_the_base_and_head_it_compared() {
+    let r = common::repo();
+    r.write("a.txt", "a\n");
+    r.commit("one");
+    let head = std::process::Command::new("git").arg("-C").arg(r.path()).args(["rev-parse", "HEAD"]).output().unwrap();
+    let head = String::from_utf8_lossy(&head.stdout).trim().to_string();
+    let (_, text) = r.text(&["check", "--changed", "HEAD"]);
+    assert!(text.contains(&format!("checked: HEAD ({})..working tree", &head[..12])), "{text}");
+    assert!(text.contains(&format!("rerun: spec check --changed {}", &head[..12])), "{text}");
+    let (_, j) = r.json(&["check", "--changed", "HEAD"]);
+    assert_eq!(j["range"]["base_commit"], head.as_str(), "{j}");
+    assert_eq!(j["range"]["head"], "working tree", "{j}");
+    let (_, j) = r.json(&["check", "--staged"]);
+    assert_eq!(j["range"]["head"], "index", "{j}");
+    assert!(r.json(&["check"]).1.get("range").is_none());
+}
+
+/// E8: a commit with the trailer `Specfold-Import: yes` may grow the alias table, as SPECFOLD_IMPORT=1 does.
+#[test]
+fn import_trailer_lets_the_alias_table_grow() {
+    let r = common::repo();
+    let a = r.new_doc("sot", "services/shop", "Cart rules");
+    let b = r.new_doc("sot", "services/blog", "Blog rules");
+    r.write(".spec/_aliases.tsv", &format!("# old\tnew\nOLD-1\t{a}\n"));
+    r.commit("import");
+    r.write(".spec/_aliases.tsv", &format!("# old\tnew\nOLD-1\t{a}\nOLD-2\t{b}\n"));
+    r.commit("more aliases");
+    let i3 = |v: &serde_json::Value| v["items"].to_string().contains("\"I3\"");
+    let (_, v) = r.json(&["check", "--changed", "HEAD~1"]);
+    assert!(i3(&v), "without the trailer the table is frozen: {v}");
+    r.git(&["commit", "-q", "--amend", "-m", "more aliases\n\nSpecfold-Import: yes"]);
+    let (_, v) = r.json(&["check", "--changed", "HEAD~1"]);
+    assert!(!i3(&v), "the trailer allows growth: {v}");
+}
+
+/// D2(a): `[[check.override]]` sets a rule's level for files under some paths only.
+#[test]
+fn check_override_sets_a_rule_level_by_path() {
+    let r = common::repo();
+    let shop = r.new_doc("sot", "services/shop", "Cart rules");
+    let blog = r.new_doc("sot", "services/blog", "Blog rules");
+    for id in [&shop, &blog] {
+        let p = path_of(&r, id);
+        let t = r.read(&p);
+        r.write(&p, &format!("{t}\nSee [the api](missing-api.md).\n"));
+    }
+    let l8 = |r: &common::Repo| -> Vec<(String, String)> {
+        let (_, v) = r.json(&["check", "--rule", "L8"]);
+        let mut out: Vec<(String, String)> = v["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|f| f["rule"] == "L8")
+            .map(|f| (f["path"].as_str().unwrap().to_string(), f["severity"].as_str().unwrap().to_string()))
+            .collect();
+        out.sort();
+        out
+    };
+    let before = l8(&r);
+    assert_eq!(before.len(), 2, "{before:?}");
+    assert!(before.iter().all(|(_, s)| s == "warn"), "{before:?}");
+    let toml = r.read("spec.toml");
+    r.write(
+        "spec.toml",
+        &format!(
+            "{toml}\n[[check.override]]\npaths = [\"services/shop/**\"]\nrule = \"L8\"\nlevel = \"error\"\n\n[[check.override]]\npaths = [\"services/blog/**\"]\nrule = \"L8\"\nlevel = \"off\"\n"
+        ),
+    );
+    let after = l8(&r);
+    assert_eq!(after.len(), 1, "blog's L8 is off: {after:?}");
+    assert!(after[0].0.starts_with("services/shop/") && after[0].1 == "error", "{after:?}");
+}
+
+/// B2: whole-tree L6 runs keep each cited file's references in the cache; an edited file, or a
+/// cached file holding a path that now names a document, is read again.
+#[test]
+fn b2_l6_cache_reuses_unchanged_files_and_never_hides_a_finding() {
+    let r = common::repo();
+    r.write("spec.toml", &(r.read("spec.toml") + "[cites]\npaths = [\"services/**/*.rs\"]\n"));
+    let sot = r.new_doc("sot", "services/shop/src", "Cart totals");
+    let file = "services/shop/src/a.rs";
+    let old = |r: &common::Repo, stamp: &str| {
+        let ok = std::process::Command::new("find")
+            .args(["services", "-name", "*.rs", "-exec", "touch", "-d", stamp, "{}", "+"])
+            .current_dir(r.path())
+            .status()
+            .unwrap();
+        assert!(ok.success());
+    };
+    r.write(file, &format!("// [[{sot}]]\n// later: .spec/sot/later.sot.md\n"));
+    old(&r, "2020-01-01 00:00:00");
+    let run = |r: &common::Repo| {
+        let o = r.spec().args(["check", "--rule", "L6", "--json"]).env("SPECFOLD_TRACE", "1").output().unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&o.stdout).unwrap();
+        (
+            v["errors"].as_u64().unwrap() + v["warnings"].as_u64().unwrap(),
+            String::from_utf8_lossy(&o.stderr).to_string(),
+        )
+    };
+    let (n, err) = run(&r);
+    assert_eq!(n, 0, "{err}");
+    assert!(err.contains("L6 files     3 (disk 3, git 0, cached 0)"), "{err}");
+    assert!(err.contains("L6 list") && err.contains("L6 judge"), "{err}");
+    let (n, err) = run(&r);
+    assert_eq!(n, 0, "{err}");
+    assert!(err.contains("(disk 0, git 0, cached 3)"), "{err}");
+    // A path in the file that now names a document: the stored result cannot be reused.
+    r.write(
+        ".spec/sot/later.sot.md",
+        "---\nid: sot:ws/later\ntitle: Later\nstatus: draft\ncreated: 2026-11-02\nupdated: 2026-11-02\n---\n\n# Later\n\n## Rule\n\n## Why\n\n## Verification\n",
+    );
+    let (n, err) = run(&r);
+    assert_eq!(n, 1, "the path cite is reported: {err}");
+    assert!(err.contains("(disk 1, git 0, cached 2)"), "{err}");
+    // An edit with a new stamp is read again.
+    // Every stamp changes here, so every file is read again.
+    r.write(file, "// [[sot:shop/gone]]\n");
+    old(&r, "2020-01-02 00:00:00");
+    let (n, err) = run(&r);
+    assert_eq!(n, 1, "{err}");
+    assert!(err.contains("(disk 3, git 0, cached 0)"), "{err}");
+}

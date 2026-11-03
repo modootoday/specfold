@@ -1,7 +1,7 @@
 //! Runs guards: selects them by name, compiles and proves each, scans its range, and holds the
 //! hits against its baseline; or measures them to write their baselines.
 
-use super::range::{self, GuardRange};
+use super::scan::range::{self, GuardRange};
 use super::{compile, prove, scan};
 use crate::check::baseline;
 use crate::check::finding::Finding;

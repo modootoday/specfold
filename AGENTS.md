@@ -9,13 +9,13 @@
 - **The CLI contract is tested.** Every command keeps C1–C10: described by `spec help --json`, no
   prompts, text or `--json` with `schema`, `exit` and `next`, fixes on findings, previews before
   writes, bounded lists, one resolver, current documents by default, meaningful exit codes, a
-  next command. `tests/cli_contract.rs` checks them for every command; add new commands there.
+  next command. `tests/contract/cli_contract.rs` checks them for every command; add new commands there.
 - **CLI conventions CLI-1–CLI-17.** Write commands preview by default and apply only with `--write`;
   every command declares a risk level (read, write, destructive, external) in `spec help --json`;
   destructive or external actions need explicit confirmation when not on a terminal; data on stdout,
   diagnostics on stderr; honour NO_COLOR; one meaning per shared flag name; deprecated names stay as
   hidden aliases for at least one minor release; a write a safeguard refused exits 4. New
-  commands add a row to `tests/cli_contract.rs`.
+  commands add a row to `tests/contract/cli_contract.rs`.
   The conventions are numbered CLI-n so they do not clash with the contracts C1–C10 above.
 - **Code limits CLI-18–CLI-24.** Lints in `Cargo.toml` `[workspace.lints]`, the crate roots and
   `clippy.toml` enforce what the code already meets; the rest is checked in review against a
@@ -39,7 +39,7 @@
 - **Generated files follow the commands.** After changing a command, flag, help text or example,
   regenerate what the CLI writes and commit it with the change: `spec help --llms > llms.txt`,
   and the `<!-- spec:commands:begin/end -->` blocks in `README.md` and
-  `docs/reference/commands.md` from `spec help --markdown`. `tests/docs.rs` fails on drift.
+  `docs/reference/commands.md` from `spec help --markdown`. `tests/contract/docs.rs` fails on drift.
 - **Comments say why**, in English, at most three lines. Rule explanations live in each rule's
   `explain` text, which is the documentation `spec explain` prints.
 - **No design records here.** This repository publishes code; it holds no `.spec`, ADR or

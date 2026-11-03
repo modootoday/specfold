@@ -2,9 +2,9 @@
 //! every published path), which files and paths may not exist, and what a text trips (denied
 //! terms, patterns, secrets) after allow-list exemptions.
 
-use super::pattern::{self, Pattern, Spans};
-use super::prefilter::Prefilter;
-use super::{secrets, terms};
+use super::lex::pattern::{self, Pattern, Spans};
+use super::lex::prefilter::Prefilter;
+use super::lex::{secrets, terms};
 use crate::config::{Config, GuardDef};
 use crate::workspace::exposure;
 use crate::workspace::owners::{PathMatch, matcher};

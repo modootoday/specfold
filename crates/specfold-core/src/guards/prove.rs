@@ -3,7 +3,7 @@
 //! green over everything.
 
 use super::compile::Compiled;
-use super::pattern::Pattern;
+use super::lex::pattern::Pattern;
 use crate::config::GuardDef;
 use anyhow::{Result, bail};
 

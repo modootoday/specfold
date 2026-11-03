@@ -1,0 +1,113 @@
+//! D1 and C3: the push gate of a repository holding several projects (`check --owners`,
+//! `hook install`) and `check --commits`.
+
+#[path = "../common/mod.rs"]
+mod common;
+
+fn break_id(r: &common::Repo, id: &str) {
+    let path = r.json(&["resolve", id]).1["path"].as_str().unwrap().to_string();
+    let text = r.read(&path).replace(&format!("id: {id}"), &format!("id: {id}-wrong"));
+    r.write(&path, &text);
+}
+
+#[test]
+fn owners_fails_only_on_touched_owners() {
+    let r = common::repo();
+    let shop = r.new_doc("sot", "services/shop", "Cart");
+    let blog = r.new_doc("sot", "services/blog", "Posts");
+    break_id(&r, &blog);
+    r.commit("blog broken");
+    r.write("services/shop/src/extra.rs", "fn x() {}\n");
+    let (code, v) = r.json(&["check", "--changed", "HEAD", "--owners", "--rule", "S2"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["other_owners"]["blog"]["errors"], 1, "{v}");
+    let (_, t) = r.text(&["check", "--changed", "HEAD", "--owners", "--rule", "S2"]);
+    assert!(t.contains("blog (services/blog): 1 error(s) in an owner this change does not touch"), "{t}");
+    break_id(&r, &shop);
+    let (code, v) = r.json(&["check", "--changed", "HEAD", "--owners", "--rule", "S2"]);
+    assert_eq!(code, 1, "{v}");
+    // Without --owners nothing changes.
+    let (_, v) = r.json(&["check", "--changed", "HEAD", "--rule", "S2"]);
+    assert!(v.get("other_owners").is_none(), "{v}");
+}
+
+#[test]
+fn hook_install_previews_writes_and_refuses_foreign_hooks() {
+    let r = common::repo();
+    let (code, t) = r.text(&["hook", "install"]);
+    assert_eq!(code, 0);
+    assert!(t.contains("spec check --owners --changed") && t.contains("NOT WRITTEN"), "{t}");
+    assert!(!r.path().join(".git/hooks/pre-push").exists());
+    let (code, v) = r.json(&["hook", "install", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    assert!(r.read(".git/hooks/pre-push").contains("--owners"));
+    let (code, t) = r.text(&["hook", "install", "--write"]);
+    assert_eq!(code, 0);
+    assert!(t.contains("already installed"), "{t}");
+    r.write(".git/hooks/pre-push", "#!/bin/sh\nother-tool\n");
+    let (code, _) = r.json(&["hook", "install", "--write"]);
+    assert_eq!(code, 4);
+    assert_eq!(r.read(".git/hooks/pre-push"), "#!/bin/sh\nother-tool\n");
+}
+
+#[test]
+fn commits_are_checked_one_by_one() {
+    let r = common::repo();
+    let shop = r.new_doc("sot", "services/shop", "Cart");
+    r.commit("good");
+    break_id(&r, &shop);
+    r.commit("bad");
+    r.write("services/shop/src/extra.rs", "fn x() {}\n");
+    r.commit("code only");
+    let (code, v) = r.json(&["check", "--commits", "HEAD~1", "--rule", "S2"]);
+    assert_eq!(code, 1, "{v}");
+    assert_eq!(v["commits"][0]["errors"], 1, "{v}");
+    let (code, v) = r.json(&["check", "--commits", "HEAD~1", "HEAD", "--rule", "S2"]);
+    assert_eq!(code, 1, "{v}");
+    assert_eq!(v["commits"][1]["errors"], 0, "a code-only commit holds no document error: {v}");
+    let (code, _) = r.json(&["check", "--commits", "nope"]);
+    assert_ne!(code, 0);
+}
+
+#[test]
+fn a_moved_gitlink_asks_only_documents_governing_what_changed_inside() {
+    let lib = common::repo();
+    lib.write("src/a.rs", "fn a() {}\n");
+    lib.commit("lib");
+    let r = common::repo();
+    let url = lib.path().to_str().unwrap();
+    r.git(&["-c", "protocol.file.allow=always", "submodule", "add", "-q", url, "services/shop/vendor"]);
+    let id = r.new_doc("sot", "services/shop", "Vendor code");
+    assert_eq!(r.json(&["set", &id, "rel.governs+=services/shop/vendor/src", "--write"]).0, 0);
+    r.commit("pin vendor");
+    let sub = r.path().join("services/shop/vendor");
+    std::fs::write(sub.join("README.md"), "readme\n").unwrap();
+    for args in [vec!["add", "README.md"], vec!["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "r"]] {
+        assert!(std::process::Command::new("git").args(&args).current_dir(&sub).status().unwrap().success());
+    }
+    let (_, v) = r.json(&["check", "--changed", "HEAD", "--rule", "D1"]);
+    assert_eq!(v["warnings"], 0, "a README change inside the submodule asks nothing: {v}");
+    r.git(&["add", "services/shop/vendor"]);
+    std::fs::remove_file(sub.join(".git")).unwrap();
+    let (_, t) = r.text(&["check", "--staged", "--rule", "D1"]);
+    assert!(
+        t.contains("submodule objects missing; the whole directory counts as changed; next: git submodule update"),
+        "{t}"
+    );
+}
+
+#[test]
+fn c260_a_root_commit_is_checked_against_the_empty_tree() {
+    let r = common::repo();
+    r.new_doc("sot", "services/shop", "Cart");
+    r.commit("first doc");
+    let out = std::process::Command::new("git")
+        .args(["rev-list", "--max-parents=0", "HEAD"])
+        .current_dir(r.path())
+        .output()
+        .unwrap();
+    let root = String::from_utf8(out.stdout).unwrap().trim().to_string();
+    let (code, v) = r.json(&["check", "--commits", &root]);
+    assert_eq!(code, 0, "a root commit has no parent but is still a commit: {v}");
+    assert_eq!(v["commits"][0]["errors"], 0, "{v}");
+}

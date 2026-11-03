@@ -11,9 +11,11 @@ homepage.workspace = true
 authors.workspace = true
 keywords.workspace = true
 categories.workspace = true
+# Integration tests sit in tests/<group>/ and are listed below; none are discovered.
+autotests = false
 
 # `cargo binstall specfold` downloads the release archive instead of compiling. The names
-# follow the Package step of .github/workflows/release.yml (tests/packaging.rs checks this).
+# follow the Package step of .github/workflows/release.yml (tests/contract/packaging.rs checks this).
 [package.metadata.binstall]
 pkg-url = "{ repo }/releases/download/v{ version }/specfold-{ target }.tar.gz"
 bin-dir = "specfold-{ target }/{ bin }{ binary-ext }"
@@ -30,6 +32,118 @@ path = "src/main.rs"
 [[bin]]
 name = "spec"
 path = "src/bin/spec.rs"
+
+[[test]]
+name = "assets"
+path = "tests/io/assets.rs"
+
+[[test]]
+name = "check_flows"
+path = "tests/flows/check_flows.rs"
+
+[[test]]
+name = "ci_formats"
+path = "tests/contract/ci_formats.rs"
+
+[[test]]
+name = "cli_contract"
+path = "tests/contract/cli_contract.rs"
+
+[[test]]
+name = "conventions"
+path = "tests/contract/conventions.rs"
+
+[[test]]
+name = "counts"
+path = "tests/rules/counts.rs"
+
+[[test]]
+name = "dir_flag"
+path = "tests/flows/dir_flag.rs"
+
+[[test]]
+name = "docs"
+path = "tests/contract/docs.rs"
+
+[[test]]
+name = "exceptions"
+path = "tests/rules/exceptions.rs"
+
+[[test]]
+name = "export"
+path = "tests/flows/export.rs"
+
+[[test]]
+name = "files"
+path = "tests/io/files.rs"
+
+[[test]]
+name = "guard_flows"
+path = "tests/flows/guard_flows.rs"
+
+[[test]]
+name = "import_layouts"
+path = "tests/flows/import_layouts.rs"
+
+[[test]]
+name = "input_edges"
+path = "tests/contract/input_edges.rs"
+
+[[test]]
+name = "lsp"
+path = "tests/io/lsp.rs"
+
+[[test]]
+name = "mcp"
+path = "tests/io/mcp.rs"
+
+[[test]]
+name = "outbound"
+path = "tests/io/outbound.rs"
+
+[[test]]
+name = "owners_gate"
+path = "tests/rules/owners_gate.rs"
+
+[[test]]
+name = "packaging"
+path = "tests/contract/packaging.rs"
+
+[[test]]
+name = "placement"
+path = "tests/rules/placement.rs"
+
+[[test]]
+name = "preview_default"
+path = "tests/contract/preview_default.rs"
+
+[[test]]
+name = "read_flows"
+path = "tests/flows/read_flows.rs"
+
+[[test]]
+name = "remotes"
+path = "tests/io/remotes.rs"
+
+[[test]]
+name = "rules"
+path = "tests/rules/rules.rs"
+
+[[test]]
+name = "scale"
+path = "tests/io/scale.rs"
+
+[[test]]
+name = "setup_flows"
+path = "tests/flows/setup_flows.rs"
+
+[[test]]
+name = "translations"
+path = "tests/rules/translations.rs"
+
+[[test]]
+name = "write_flows"
+path = "tests/flows/write_flows.rs"
 
 [dependencies]
 specfold-core.workspace = true
