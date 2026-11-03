@@ -81,7 +81,7 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
         // C119: config warnings (printed on stderr) count in the summary too.
         cfg_warns: session::config_warnings(&s.corpus.cfg).len(),
         by_rule: by_rule(&held.list),
-        checked: checked_range(&s.corpus.cfg.root, a),
+        checked: checked_range(&s.corpus.cfg.spec_home, a),
     };
     let o = summary(&s, &report, &held, &t);
     if a.format != "text" {
@@ -92,7 +92,7 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
             errors: t.errors,
             warnings: t.warnings,
             fails: t.fails,
-            root: &s.corpus.cfg.root,
+            root: &s.corpus.cfg.spec_home,
         };
         return ci_output(&cx, o);
     }
@@ -171,7 +171,7 @@ fn text(s: &session::Session, a: &CheckArgs, o: Output, report: &check::Report, 
         t.ms as f64 / 1000.0
     ));
     let o = t.checked.iter().fold(o, |o, (_, line)| o.foot(line.clone()));
-    let o = owners::annotate(o, &s.corpus.cfg.root, &held.others);
+    let o = owners::annotate(o, &s.corpus.cfg.spec_home, &held.others);
     let mut o = t
         .excluded
         .iter()
@@ -236,7 +236,7 @@ fn left_out(list: &[Finding], fail_on: &[String]) -> BTreeMap<String, usize> {
 /// `--new`: the documents not in the last commit.
 fn new_docs(s: &session::Session, mut o: Output) -> Output {
     let committed: std::collections::HashSet<String> =
-        vcs::committed(&s.corpus.cfg.root).unwrap_or_default().into_iter().collect();
+        vcs::committed(&s.corpus.cfg.spec_home).unwrap_or_default().into_iter().collect();
     let fresh: Vec<_> = s.corpus.docs.iter().filter(|d| !committed.contains(&d.path)).collect();
     o = o
         .field(

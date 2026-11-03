@@ -28,7 +28,7 @@ impl Corpus {
             pending.iter().flat_map(|p| std::iter::once(p.main.clone()).chain(p.chapters.iter().cloned())).collect();
         let mut cache = ScanCache::open(&cfg);
         let t = trace::phase("cache-open", t);
-        let mut scans = cache.scan_all(&cfg.root, &to_scan, &body::path_cite_re(cfg.spec_dir()));
+        let mut scans = cache.scan_all(&cfg.spec_home, &to_scan, &body::path_cite_re(cfg.spec_dir()));
         let t = trace::phase("scan", t);
         cache.save();
         let t = trace::phase("cache-save", t);

@@ -72,23 +72,14 @@ impl Location {
         }
     }
 
-    /// The location with the roots `cfg` names: its spec root, and the repository `cwd` is in.
+    /// The location with the roots `cfg` names: its spec home, and the repository it was found
+    /// from (E1: the public repository roots.toml maps to the spec home).
     pub fn rooted(mut self, cfg: &Config) -> Self {
-        if self.spec_home.as_ref() != Some(&cfg.root) {
-            self.repo_root = Some(self.clone_root(cfg).unwrap_or_else(|| cfg.root.clone()));
-            self.spec_home = Some(cfg.root.clone());
+        if self.spec_home.as_ref() != Some(&cfg.spec_home) {
+            self.repo_root = Some(cfg.repo_root.clone());
+            self.spec_home = Some(cfg.spec_home.clone());
         }
         self
-    }
-
-    /// E1: the public repository holding `cwd` that roots.toml maps to the spec root.
-    fn clone_root(&self, cfg: &Config) -> Option<PathBuf> {
-        let cwd = self.cwd.canonicalize().ok()?;
-        let home = cfg.root.canonicalize().ok()?;
-        if cwd.starts_with(&home) {
-            return None;
-        }
-        clone_path::clone_of(cfg, &cwd)
     }
 
     /// The configuration found for this command, when one was.
@@ -136,7 +127,7 @@ impl Location {
     /// inside a mapped public repository (E1); `None` at the root or outside it.
     pub fn here(&self, cfg: &Config) -> Option<String> {
         let cwd = self.cwd.canonicalize().ok()?;
-        let root = cfg.root.canonicalize().ok()?;
+        let root = cfg.spec_home.canonicalize().ok()?;
         let rel = match rel_of(&root, &cwd) {
             Some(r) => r,
             None => match self.locate(cfg, &cwd) {
@@ -159,18 +150,18 @@ impl Location {
     /// is read below the `[public]` path that repository is a copy of, not from the spec root.
     pub fn code_path(&self, cfg: &Config, p: &str) -> Result<String> {
         let abs = if Path::new(p).is_absolute() { PathBuf::from(p) } else { self.start()?.join(p) };
-        let Some(abs) = real_with_missing_tail(&abs).filter(|a| !a.starts_with(&cfg.root)) else {
+        let Some(abs) = real_with_missing_tail(&abs).filter(|a| !a.starts_with(&cfg.spec_home)) else {
             return Ok(self.repo_path(p));
         };
         match self.locate(cfg, &abs) {
             ClonePath::Outside => Ok(self.repo_path(p)),
             ClonePath::Mapped(rel) => Ok(rel),
-            ClonePath::Unmapped { rel, .. } if cfg.root.join(&rel).exists() => Ok(rel),
+            ClonePath::Unmapped { rel, .. } if cfg.spec_home.join(&rel).exists() => Ok(rel),
             ClonePath::Unmapped { clone, rel } => bail!(
                 "'{p}' is {rel} in {}, which {} maps to {}, but no [public] path there is named for that repository and {rel} does not exist under the spec root; add public = \"<its [public] path>\" to that [[root]] entry, or give the path as the spec root names it; next: spec explain config",
                 clone.display(),
                 specfold_core::config::private_root::file().unwrap_or_default().display(),
-                cfg.root.display()
+                cfg.spec_home.display()
             ),
         }
     }
@@ -179,7 +170,7 @@ impl Location {
     pub fn governed_path(&self, cfg: &Config, p: &str) -> Result<String> {
         let rel = self.code_path(cfg, p)?;
         if p.trim().is_empty() || rel.is_empty() || rel.starts_with('/') || rel.split('/').any(|c| c == "..") {
-            bail!("'{p}' is not a path inside the repository; give a file or folder below {}", cfg.root.display());
+            bail!("'{p}' is not a path inside the repository; give a file or folder below {}", cfg.spec_home.display());
         }
         Ok(rel)
     }

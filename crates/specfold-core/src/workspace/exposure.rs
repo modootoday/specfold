@@ -53,13 +53,13 @@ fn join(dir: &str, name: &str) -> String {
 }
 
 fn manifest(cfg: &Config, rel: &str, out: &mut Report) {
-    let read = std::fs::read_to_string(cfg.root.join(rel));
+    let read = std::fs::read_to_string(cfg.spec_home.join(rel));
     let parsed = read.ok().and_then(|t| serde_json::from_str::<Manifest>(&t).ok());
     let Some(m) = parsed else {
         out.problems.push((rel.to_string(), format!("{rel} is missing or not a visibility manifest")));
         return;
     };
-    let actual = hash::file(&cfg.root.join(".gitmodules")).map(|(sha, _)| sha).unwrap_or_default();
+    let actual = hash::file(&cfg.spec_home.join(".gitmodules")).map(|(sha, _)| sha).unwrap_or_default();
     if actual != m.gitmodules_sha256 {
         out.problems.push((rel.to_string(), format!("{rel} is older than .gitmodules; write it again")));
     }
@@ -99,7 +99,7 @@ fn npm(cfg: &Config, dir: &str, text: &str, out: &mut Report) {
             }
         }
         None => {
-            let ignore = std::fs::read_to_string(cfg.root.join(join(dir, ".npmignore"))).unwrap_or_default();
+            let ignore = std::fs::read_to_string(cfg.spec_home.join(join(dir, ".npmignore"))).unwrap_or_default();
             if !ignore.lines().any(|l| l.trim().trim_matches('/') == spec) {
                 out.exposed.push(Exposed {
                     path: dir.to_string(),
@@ -133,19 +133,19 @@ fn cargo(cfg: &Config, dir: &str, text: &str, out: &mut Report) {
 
 fn detect(cfg: &Config, out: &mut Report) {
     let on = |d: &str| cfg.raw.public.detect.iter().any(|x| x == d);
-    if on("pages") && cfg.root.join("docs").is_dir() {
+    if on("pages") && cfg.spec_home.join("docs").is_dir() {
         out.exposed.push(Exposed { path: "docs".into(), reason: "docs/ is what GitHub Pages publishes".into() });
     }
     if !(on("site-generators") || on("npm-files") || on("cargo-include")) {
         return;
     }
-    let walk = super::walk(cfg, &cfg.root).build();
+    let walk = super::walk(cfg, &cfg.spec_home).build();
     for e in walk.flatten() {
         if !e.file_type().is_some_and(|t| t.is_file()) {
             continue;
         }
         let name = e.file_name().to_string_lossy().to_string();
-        let Some(dir) = e.path().parent().and_then(|p| p.strip_prefix(&cfg.root).ok()) else { continue };
+        let Some(dir) = e.path().parent().and_then(|p| p.strip_prefix(&cfg.spec_home).ok()) else { continue };
         let dir = crate::paths::slash(dir);
         if on("site-generators") && SITE_FILES.contains(&name.as_str()) {
             let path = if dir.is_empty() { ".".to_string() } else { dir.clone() };

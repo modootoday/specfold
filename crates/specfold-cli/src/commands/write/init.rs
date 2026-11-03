@@ -108,19 +108,19 @@ pub fn run(g: &Global, a: &InitArgs) -> Result<Output> {
     }
     let cfg = session::config(g)?;
     if !cfg.implicit {
-        bail!("{} already has a spec.toml", cfg.root.display());
+        bail!("{} already has a spec.toml", cfg.spec_home.display());
     }
     if !owner_like(&a.root) {
         bail!("--root '{}' is not an owner id; use a-z, 0-9, '.', '-', '_' (e.g. --root ws)", a.root);
     }
     let kinds = a.owners.iter().map(|k| parse_kind(k)).collect::<Result<Vec<_>>>()?;
     let text = starter::render(&a.root, &kinds);
-    let path = cfg.root.join("spec.toml");
+    let path = cfg.spec_home.join("spec.toml");
     let mut o = Output::new("init")
         .unpaged()
         .field("path", path.display().to_string())
         .field("content", text.clone())
-        .head(format!("spec.toml for {}", cfg.root.display()))
+        .head(format!("spec.toml for {}", cfg.spec_home.display()))
         .foot(text);
     if a.write {
         std::fs::write(&path, o.summary["content"].as_str().unwrap_or_default())?;

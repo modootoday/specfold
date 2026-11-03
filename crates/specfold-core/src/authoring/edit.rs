@@ -56,7 +56,7 @@ pub fn plan(c: &Corpus, idx: usize, e: &Edit) -> Result<Outcome> {
         }
         bail!("{} is {status}; its body is history. Supersede it: spec new {} --from {} --write", d.id, ty.name, d.id);
     }
-    let text = crate::corpus::overlay::read(&c.cfg.root.join(&d.path))?;
+    let text = crate::corpus::overlay::read(&c.cfg.spec_home.join(&d.path))?;
     let split = frontmatter::split(&text);
     let head = &text[..text.len() - split.body.len()];
     let lines: Vec<&str> = split.body.lines().collect();

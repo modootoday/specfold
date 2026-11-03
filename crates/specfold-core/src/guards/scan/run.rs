@@ -63,7 +63,7 @@ fn scan_file(cfg: &Config, g: &GuardDef, c: &Compiled, range: &Resolved, path: &
     for m in c.path_hits(path) {
         out.push(hit(g, path, 1, m));
     }
-    let Some(bytes) = read(&cfg.root, &range.source, path) else { return out };
+    let Some(bytes) = read(&cfg.spec_home, &range.source, path) else { return out };
     out.extend(scan_bytes(g, c, path, bytes));
     out
 }
@@ -135,12 +135,12 @@ pub fn run(cfg: &Config, g: &GuardDef, c: &Compiled, range: &Resolved) -> Result
         out.push(hit(g, p, 1, "a published path is not present, so nothing reads it".into()));
     }
     let whole_tree = matches!(range.source, Source::WorkTree);
-    let mut cache = whole_tree.then(|| GuardCache::open(&cfg.root, g, c.terms_source()));
+    let mut cache = whole_tree.then(|| GuardCache::open(&cfg.spec_home, g, c.terms_source()));
     let mut misses = vec![];
     // spec.toml holds the guard's own patterns, so scanning it would always hit itself.
     for path in range.files.iter().filter(|p| p.as_str() != "spec.toml" && c.in_scope(p)) {
         files.push(path.clone());
-        match cache.as_mut().and_then(|k| k.lookup(&cfg.root, path)) {
+        match cache.as_mut().and_then(|k| k.lookup(&cfg.spec_home, path)) {
             Some(found) => out.extend(found),
             None => misses.push(path.as_str()),
         }
@@ -149,7 +149,7 @@ pub fn run(cfg: &Config, g: &GuardDef, c: &Compiled, range: &Resolved) -> Result
         workers().install(|| misses.par_iter().map(|p| (*p, scan_file(cfg, g, c, range, p))).collect());
     for (path, found) in scanned {
         if let Some(k) = cache.as_mut() {
-            k.put(&cfg.root, path, &found);
+            k.put(&cfg.spec_home, path, &found);
         }
         out.extend(found);
     }
@@ -160,7 +160,7 @@ pub fn run(cfg: &Config, g: &GuardDef, c: &Compiled, range: &Resolved) -> Result
     if g.commit_messages
         && let Some(r) = &range.commits
     {
-        for commit in vcs::commits(&cfg.root, r).unwrap_or_default() {
+        for commit in vcs::commits(&cfg.spec_home, r).unwrap_or_default() {
             let label = format!("commit {}", &commit.hash[..commit.hash.len().min(10)]);
             scan_text(g, c, &label, &format!("{}\n{}", commit.author, commit.message), &mut out);
         }

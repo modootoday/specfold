@@ -42,11 +42,11 @@ fn own_project(owners: &crate::workspace::Owners, path: &str) -> bool {
 fn inner_projects(cfg: &Config) -> Vec<String> {
     static C: OnceLock<Mutex<HashMap<PathBuf, Vec<String>>>> = OnceLock::new();
     let mut c = C.get_or_init(Default::default).lock().unwrap_or_else(|e| e.into_inner());
-    c.entry(cfg.root.clone())
+    c.entry(cfg.spec_home.clone())
         .or_insert_with(|| {
             let owners = crate::workspace::Owners::discover(cfg);
             let mut v: Vec<String> =
-                super::submodules(&cfg.root).into_iter().filter(|p| own_project(&owners, p)).collect();
+                super::submodules(&cfg.spec_home).into_iter().filter(|p| own_project(&owners, p)).collect();
             v.extend(cfg.raw.owners.nested_dirs().map(String::from));
             // Submodules registered as remotes by `submodule_remotes` were judged above.
             for r in cfg.raw.remotes.values().filter(|r| !r.auto) {

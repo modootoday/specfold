@@ -77,7 +77,7 @@ pub fn run(g: &Global, a: &ImportArgs) -> Result<Output> {
             specfold_core::shell::word(map_path.display())
         )));
     }
-    let root = &s.corpus.cfg.root;
+    let root = &s.corpus.cfg.spec_home;
     let table_existed = root.join(&alias_file).exists();
     let mut o = o.field("written", true);
     let mut changes = vec![];
@@ -106,7 +106,7 @@ pub fn run(g: &Global, a: &ImportArgs) -> Result<Output> {
     });
     let saved = super::preview::keep_untracked(&p.plan, root)?;
     p.plan.apply(root)?;
-    let table_path = s.corpus.cfg.root.join(&alias_file);
+    let table_path = s.corpus.cfg.spec_home.join(&alias_file);
     let existing = std::fs::read_to_string(&table_path).unwrap_or_default();
     if let Some(dir) = table_path.parent() {
         std::fs::create_dir_all(dir)?;
@@ -114,7 +114,7 @@ pub fn run(g: &Global, a: &ImportArgs) -> Result<Output> {
     std::fs::write(&table_path, import::alias_table(&existing, &p.alias_rows))?;
     if let Some(st) = store::open(&s.corpus.cfg)? {
         for (path, sha) in &p.uploads {
-            st.put(&s.corpus.cfg.root.join(path), sha).with_context(|| format!("uploading {path}"))?;
+            st.put(&s.corpus.cfg.spec_home.join(path), sha).with_context(|| format!("uploading {path}"))?;
         }
     }
     let undo = super::preview::undo(&with_table, root, &saved);
@@ -163,7 +163,7 @@ fn before_write(s: &session::Session, p: &import::ImportPlan, o: Output, map: &s
             .next(format!("spec import --map {}", specfold_core::shell::word(map)));
     }
     if s.corpus.cfg.raw.aliases.file.is_none() {
-        let toml = std::fs::read_to_string(s.corpus.cfg.root.join("spec.toml")).unwrap_or_default();
+        let toml = std::fs::read_to_string(s.corpus.cfg.spec_home.join("spec.toml")).unwrap_or_default();
         let o = o.foot("applying needs [aliases] file in spec.toml: old names and links resolve through it");
         return if toml.lines().any(|l| l.trim() == "[aliases]") {
             o.next("file = \".spec/_aliases.tsv\"  # under [aliases] in spec.toml")
@@ -177,7 +177,7 @@ fn before_write(s: &session::Session, p: &import::ImportPlan, o: Output, map: &s
 /// 1 when applying would create or change the alias table, else 0.
 fn alias_writes(s: &session::Session, p: &import::ImportPlan) -> usize {
     let Some(file) = &s.corpus.cfg.raw.aliases.file else { return 0 };
-    let existing = std::fs::read_to_string(s.corpus.cfg.root.join(file)).ok();
+    let existing = std::fs::read_to_string(s.corpus.cfg.spec_home.join(file)).ok();
     let new = import::alias_table(existing.as_deref().unwrap_or_default(), &p.alias_rows);
     usize::from(existing.as_deref() != Some(new.as_str()))
 }

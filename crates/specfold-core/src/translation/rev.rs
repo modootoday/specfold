@@ -41,7 +41,7 @@ pub fn parts_of(c: &Corpus, idx: usize, read: impl Fn(&str) -> Option<String>) -
 
 /// The current revision of a document, read from disk.
 pub fn rev_of(c: &Corpus, idx: usize) -> Option<String> {
-    let root = c.cfg.root.clone();
+    let root = c.cfg.spec_home.clone();
     let parts = parts_of(c, idx, |p| crate::corpus::overlay::read(&root.join(p)).ok())?;
     Some(rev_of_parts(&parts))
 }
@@ -109,7 +109,7 @@ pub fn section_changes(old: &[Part], new: &[Part]) -> Vec<SectionChange> {
 /// The source as it was at `rev`, found in git history (the commits that touched its files,
 /// newest first, at most 200); None without git or when no commit has that revision.
 pub fn parts_at_rev(c: &Corpus, idx: usize, rev: &str) -> Option<Vec<Part>> {
-    let root = &c.cfg.root;
+    let root = &c.cfg.spec_home;
     let d = &c.docs[idx];
     let mut commits: Vec<String> = vec![];
     for f in std::iter::once(&d.path).chain(&d.chapters) {

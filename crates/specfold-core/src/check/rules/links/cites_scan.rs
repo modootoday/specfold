@@ -111,7 +111,7 @@ const RACY_NS: u128 = 2_000_000_000;
 
 fn cache_file(cfg: &Config) -> Option<PathBuf> {
     let dir = if cfg!(test) { None } else { paths::cache_dir() }?;
-    let key = Sha256::digest(cfg.root.to_string_lossy().as_bytes());
+    let key = Sha256::digest(cfg.spec_home.to_string_lossy().as_bytes());
     Some(dir.join(format!("cites-{}.json", crate::corpus::scan::hex(&key[..8]))))
 }
 
@@ -144,7 +144,7 @@ pub fn run(
     let loaded = start.elapsed();
     let stats = Stats::default();
     let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
-    let root = &cfg.root;
+    let root = &cfg.spec_home;
     let results: Vec<(Extract, Option<Entry>, bool)> = targets
         .par_iter()
         .map(|(rel, only)| {

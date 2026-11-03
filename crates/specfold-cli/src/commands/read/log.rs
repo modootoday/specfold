@@ -26,7 +26,7 @@ pub fn run(g: &Global, a: &LogArgs) -> Result<Output> {
     let mut first: Option<String> = a.doc.as_ref().and_then(|_| picks.first()).map(|&i| c.docs[i].id.to_string());
     for i in picks {
         let d = &c.docs[i];
-        for e in history::events(&c.cfg.root, &d.path) {
+        for e in history::events(&c.cfg.spec_home, &d.path) {
             if a.since.as_deref().is_some_and(|since| e.date.as_str() < since) {
                 continue;
             }

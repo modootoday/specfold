@@ -62,7 +62,7 @@ pub fn plan(c: &Corpus, doc: &Doc, sources: &[PathBuf], into: &str, place: Where
     // C239: the document's own file (its bundle index) cannot be one of its attachments.
     let main = to_bundle.as_ref().map_or(doc.path.as_str(), |(_, to)| to.as_str());
     let main_name = Path::new(main).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-    let own = std::fs::canonicalize(c.cfg.root.join(&doc.path)).ok();
+    let own = std::fs::canonicalize(c.cfg.spec_home.join(&doc.path)).ok();
     let mut files = vec![];
     for src in sources {
         let name = src.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
@@ -100,7 +100,7 @@ pub fn plan(c: &Corpus, doc: &Doc, sources: &[PathBuf], into: &str, place: Where
 }
 
 pub fn apply(c: &Corpus, doc: &Doc, plan: &Plan) -> Result<()> {
-    let root = &c.cfg.root;
+    let root = &c.cfg.spec_home;
     // C249: every upload goes from the source first; the bundle is touched only once all of them
     // succeeded, so a failed put leaves the repository as it was.
     let stored: Vec<&Planned> = plan.files.iter().filter(|f| f.store == "store").collect();

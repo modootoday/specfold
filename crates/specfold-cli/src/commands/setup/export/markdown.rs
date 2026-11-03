@@ -15,15 +15,17 @@ pub(super) fn built_in(g: &Global, a: &ExportArgs) -> Result<Output> {
     let s = session::open(g)?;
     // C161: read and written from -C; shown as typed, so the next commands keep working.
     let out_path = s.loc.arg_path(out);
-    let previous = markdown::check_out(&out_path, &s.loc.cwd.join(&out_path), &s.corpus.cfg.root).map_err(|e| {
-        let m = e.to_string();
-        if !(m.contains("not empty") || m.contains("not a directory")) {
-            return e;
-        }
-        // A fresh directory beside the refused one is accepted.
-        let fresh = specfold_core::shell::quote(&format!("{}-export", out.display().to_string().trim_end_matches('/')));
-        anyhow!("{m}; next: spec export markdown --target {} --out {fresh}{kept}", target.name())
-    })?;
+    let previous =
+        markdown::check_out(&out_path, &s.loc.cwd.join(&out_path), &s.corpus.cfg.spec_home).map_err(|e| {
+            let m = e.to_string();
+            if !(m.contains("not empty") || m.contains("not a directory")) {
+                return e;
+            }
+            // A fresh directory beside the refused one is accepted.
+            let fresh =
+                specfold_core::shell::quote(&format!("{}-export", out.display().to_string().trim_end_matches('/')));
+            anyhow!("{m}; next: spec export markdown --target {} --out {fresh}{kept}", target.name())
+        })?;
     let opts = markdown::Options { target, local: a.local, banner: a.banner };
     export::payload::readable(&s.corpus, &export::payload::visible(&s.corpus, a.local))?;
     let tree = markdown::build(&s.corpus, &s.graph, &opts);
@@ -85,7 +87,7 @@ pub(super) fn built_in(g: &Global, a: &ExportArgs) -> Result<Output> {
         out.display(),
         tree.files.len()
     ));
-    Ok(done_next(o, tree.docs, n, &out_path, &s.corpus.cfg.root, &again))
+    Ok(done_next(o, tree.docs, n, &out_path, &s.corpus.cfg.spec_home, &again))
 }
 
 /// The built-in exporter's own flags: the target, the output folder, and whether an

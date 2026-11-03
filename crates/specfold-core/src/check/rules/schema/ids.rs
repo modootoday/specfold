@@ -118,10 +118,10 @@ impl Rule for AliasTableFrozen {
 fn import_trailer(ctx: &Ctx) -> bool {
     let range = match &ctx.scope.range {
         Range::Changed(base) => format!("{base}..HEAD"),
-        Range::Commit(sha) => crate::workspace::vcs::commit_log(&ctx.corpus.cfg.root, sha),
+        Range::Commit(sha) => crate::workspace::vcs::commit_log(&ctx.corpus.cfg.spec_home, sha),
         _ => return false,
     };
-    let Some(commits) = crate::workspace::vcs::commits(&ctx.corpus.cfg.root, &range) else {
+    let Some(commits) = crate::workspace::vcs::commits(&ctx.corpus.cfg.spec_home, &range) else {
         return false;
     };
     commits.iter().any(|c| has_import_trailer(&c.message))

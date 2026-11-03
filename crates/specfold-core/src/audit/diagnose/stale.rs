@@ -23,7 +23,7 @@ pub fn run(c: &Corpus, docs: &[usize], out: &mut Vec<Item>) {
             // commit would otherwise always count.
             let docs = vec![format!("**/{}/**", c.cfg.spec_dir()), format!("{}/**", c.cfg.spec_dir())];
             let repin = format!("spec set {} verified_at=HEAD --write", crate::shell::word(&d.id));
-            let (detail, next) = match vcs::commits_since(&c.cfg.root, &pin, &governs, &docs) {
+            let (detail, next) = match vcs::commits_since(&c.cfg.spec_home, &pin, &governs, &docs) {
                 // No diff can start from a pin git does not know; re-pinning is the only step.
                 None => (format!("verified_at {pin} is not a commit in this repository"), repin),
                 Some(list) if list.is_empty() => continue,
@@ -50,7 +50,7 @@ pub fn run(c: &Corpus, docs: &[usize], out: &mut Vec<Item>) {
             continue;
         }
         let Some(updated) = d.str_field("updated") else { continue };
-        let Some(code) = vcs::last_change(&c.cfg.root, &governs) else { continue };
+        let Some(code) = vcs::last_change(&c.cfg.spec_home, &governs) else { continue };
         let Some(gap) = days_between(&updated, &code) else { continue };
         if gap > limit {
             out.push(Item {

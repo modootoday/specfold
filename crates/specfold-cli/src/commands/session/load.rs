@@ -67,7 +67,7 @@ pub fn open_for(g: &Global, doc: &str) -> Result<(Session, String, Option<String
             );
         }
         let remote = Config::discover(&dir)?;
-        let loc = location(g).for_remote(&remote.root);
+        let loc = location(g).for_remote(&remote.spec_home);
         let corpus = Corpus::load(remote, &LoadOptions { include_local: false });
         let graph = Graph::build(&corpus);
         return Ok((Session { corpus, graph, loc }, rest.to_string(), Some(name.to_string())));

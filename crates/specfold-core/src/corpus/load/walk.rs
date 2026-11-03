@@ -6,7 +6,7 @@ use crate::model::Tier;
 /// Repository-relative paths of every file under `dir`. Committed roots honour `.gitignore`;
 /// the local root is ignored by git on purpose, so it is read as is.
 pub fn files(cfg: &Config, dir: &str, tier: Tier) -> Vec<String> {
-    let repo_root = &cfg.root;
+    let repo_root = &cfg.spec_home;
     let mut b = crate::workspace::walk(cfg, &repo_root.join(dir));
     b.follow_links(false).require_git(false);
     if tier == Tier::Local {

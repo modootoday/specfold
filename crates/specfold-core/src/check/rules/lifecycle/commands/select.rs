@@ -13,7 +13,7 @@ pub fn verify_commands(d: &Doc) -> Vec<String> {
 }
 
 fn is_gitlink(ctx: &Ctx, path: &str) -> bool {
-    ctx.corpus.cfg.root.join(path).join(".git").exists()
+    ctx.corpus.cfg.spec_home.join(path).join(".git").exists()
 }
 
 /// Every document for a full run or when a path in `full_run_on` changed; otherwise those

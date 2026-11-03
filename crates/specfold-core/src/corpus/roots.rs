@@ -13,7 +13,7 @@ pub fn committed(cfg: &Config, owners: &Owners) -> Vec<SpecRoot> {
         .filter_map(|o| {
             let dir = owners.spec_dir(o, cfg.spec_dir());
             let root = SpecRoot { owner: o.id.clone(), dir, tier: Tier::Committed, pending: o.pending };
-            cfg.root.join(&root.dir).is_dir().then_some(root)
+            cfg.spec_home.join(&root.dir).is_dir().then_some(root)
         })
         .collect()
 }
@@ -21,7 +21,7 @@ pub fn committed(cfg: &Config, owners: &Owners) -> Vec<SpecRoot> {
 /// `.spec.local/<owner-id>/` directories. Unknown owner ids are reported as strays.
 pub fn local(cfg: &Config, owners: &Owners, strays: &mut Vec<Stray>) -> Vec<SpecRoot> {
     let base = cfg.local_dir();
-    let Ok(rd) = std::fs::read_dir(cfg.root.join(base)) else { return vec![] };
+    let Ok(rd) = std::fs::read_dir(cfg.spec_home.join(base)) else { return vec![] };
     let mut out = vec![];
     for entry in rd.flatten() {
         let name = entry.file_name().to_string_lossy().into_owned();

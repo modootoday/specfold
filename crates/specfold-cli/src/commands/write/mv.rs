@@ -38,7 +38,7 @@ pub fn run(g: &Global, a: &MvArgs) -> Result<Output> {
     if a.cited_paths {
         // Plain-text paths in READMEs and notes are not references, so mv does not rewrite
         // them; listing them lets the caller fix each one.
-        let root = &s.corpus.cfg.root;
+        let root = &s.corpus.cfg.spec_home;
         let docs: std::collections::HashSet<&str> = s.corpus.docs.iter().map(|d| d.path.as_str()).collect();
         for f in vcs::tracked(root, &[]).unwrap_or_default() {
             if !f.ends_with(".md") || docs.contains(f.as_str()) {
@@ -78,7 +78,7 @@ pub fn run(g: &Global, a: &MvArgs) -> Result<Output> {
             .next(format!("spec show {}", specfold_core::shell::word(&moved.to))));
     }
     let max = s.corpus.cfg.raw.write.max_files;
-    let (o, written) = preview::finish_bounded(o, &plan, &s.corpus.cfg.root, max, a.write, a.yes, &rerun)?;
+    let (o, written) = preview::finish_bounded(o, &plan, &s.corpus.cfg.spec_home, max, a.write, a.yes, &rerun)?;
     Ok(if !written && o.summary.contains_key("bounded") {
         o
     } else if cited > 0 && written {

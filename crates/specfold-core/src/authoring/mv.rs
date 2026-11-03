@@ -76,7 +76,7 @@ pub fn plan(c: &Corpus, idx: usize, req: &Move) -> Result<(Moved, Plan)> {
             continue;
         }
         for file in std::iter::once(&other.path).chain(&other.chapters) {
-            let text = std::fs::read_to_string(c.cfg.root.join(file))?;
+            let text = std::fs::read_to_string(c.cfg.spec_home.join(file))?;
             let mut body = refs::rewrite_body(&text, &old_s, &new_s);
             if j != idx {
                 // C137: relative Markdown links to the moved file follow it, fragment kept.
@@ -128,7 +128,7 @@ pub fn plan(c: &Corpus, idx: usize, req: &Move) -> Result<(Moved, Plan)> {
         plan.write(rel, text, false);
     }
     if let Some(file) = &c.aliases.file
-        && let Ok(text) = std::fs::read_to_string(c.cfg.root.join(file))
+        && let Ok(text) = std::fs::read_to_string(c.cfg.spec_home.join(file))
     {
         let new_text: String = text
             .lines()

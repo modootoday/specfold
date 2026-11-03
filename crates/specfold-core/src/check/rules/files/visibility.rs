@@ -39,12 +39,12 @@ impl Rule for NotInPublic {
         }
         for Exposed { path: p, reason } in &report.exposed {
             let base = crate::placement::literal_base(p);
-            let dir = cfg.root.join(&base);
+            let dir = cfg.spec_home.join(&base);
             if !dir.is_dir() {
                 continue;
             }
             for e in walk(cfg, &dir).require_git(false).build().flatten() {
-                let Some(rel) = crate::paths::rel_of(&cfg.root, e.path()) else {
+                let Some(rel) = crate::paths::rel_of(&cfg.spec_home, e.path()) else {
                     continue;
                 };
                 let name = e.file_name().to_string_lossy();

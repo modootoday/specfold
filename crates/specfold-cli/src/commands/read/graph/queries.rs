@@ -17,7 +17,7 @@ pub(super) fn impact(s: &Session, a: &GraphArgs, t: &str, mut o: Output) -> Resu
     let idx = match session::resolve(s, t) {
         Ok(i) => i,
         // A code path is not a document; governs answers which documents cover it.
-        Err(e) if !t.contains(':') && (t.contains('/') || c.cfg.root.join(t).exists()) => {
+        Err(e) if !t.contains(':') && (t.contains('/') || c.cfg.spec_home.join(t).exists()) => {
             bail!("{e}; next: spec graph governs {t}")
         }
         Err(e) => return Err(e),
@@ -83,7 +83,7 @@ pub(super) fn consumers(s: &Session, t: &str, mut o: Output) -> Result<Output> {
     let (shown, file) = match remotes::resolve(&c.cfg, t) {
         Remote::Local => {
             let idx = session::resolve(s, t)?;
-            (id(idx), c.cfg.root.join(&c.docs[idx].path))
+            (id(idx), c.cfg.spec_home.join(&c.docs[idx].path))
         }
         Remote::Found { name, id, file, .. } => (format!("{name}:{id}"), file),
         Remote::Absent { name, path } => {

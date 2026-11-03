@@ -12,7 +12,7 @@ use std::path::Path;
 const CANONICAL: &str = ".agents/";
 
 pub fn run(c: &Corpus, out: &mut Vec<Item>) {
-    let root = &c.cfg.root;
+    let root = &c.cfg.spec_home;
     claude_includes_agents(root, out);
     let skills: Vec<Asset> = assets::load(&c.cfg).into_iter().filter(|a| a.kind == AssetKind::Skill).collect();
     let canonical: BTreeMap<&str, &Asset> =

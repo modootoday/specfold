@@ -52,7 +52,7 @@ impl Files {
 
 /// The files to read and, for staged or ranged runs, the lines each change added.
 fn targets(ctx: &Ctx, files: &Files) -> Vec<(String, Option<BTreeSet<usize>>)> {
-    let root = &ctx.corpus.cfg.root;
+    let root = &ctx.corpus.cfg.spec_home;
     let added = match &ctx.scope.range {
         Range::All => {
             let walk = crate::workspace::walk(&ctx.corpus.cfg, root).build().flatten();

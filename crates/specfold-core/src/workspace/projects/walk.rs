@@ -27,7 +27,7 @@ pub fn walk_across(starts: &[std::path::PathBuf]) -> Option<WalkBuilder> {
 
 /// A filter for walks from the repository root that keeps out every nested project.
 fn outside_nested(cfg: &Config) -> impl Fn(&ignore::DirEntry) -> bool + Send + Sync + 'static {
-    let root = cfg.root.clone();
+    let root = cfg.spec_home.clone();
     let owners = cfg.raw.owners.clone();
     move |e| crate::paths::rel_of(&root, e.path()).is_none_or(|r| r.is_empty() || !owners.in_nested(&r))
 }

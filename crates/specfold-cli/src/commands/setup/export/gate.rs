@@ -54,11 +54,11 @@ pub(super) fn unscanned(c: &specfold_core::corpus::Corpus, only: &[usize]) -> Op
     let max = c.cfg.raw.files.scan_max_bytes;
     let mut skipped: Vec<String> = only
         .iter()
-        .flat_map(|&i| specfold_core::guards::secrets::attachment_scan(&c.cfg.root, &c.docs[i], max).1)
+        .flat_map(|&i| specfold_core::guards::secrets::attachment_scan(&c.cfg.spec_home, &c.docs[i], max).1)
         .collect();
     skipped.sort();
     skipped.dedup();
-    specfold_core::guards::secrets::skipped_note(&c.cfg.root, &skipped, max)
+    specfold_core::guards::secrets::skipped_note(&c.cfg.spec_home, &skipped, max)
 }
 
 /// The files the exported documents come from (main file and chapters) and their repository
@@ -68,9 +68,9 @@ pub(super) fn source_blobs(c: &specfold_core::corpus::Corpus, only: &[usize]) ->
     let max = c.cfg.raw.files.scan_max_bytes;
     for &i in only {
         let d = &c.docs[i];
-        let attachments = specfold_core::guards::secrets::scanned_attachments(&c.cfg.root, d, max);
+        let attachments = specfold_core::guards::secrets::scanned_attachments(&c.cfg.spec_home, d, max);
         for path in std::iter::once(&d.path).chain(&d.chapters).chain(&attachments) {
-            if let Ok(bytes) = std::fs::read(c.cfg.root.join(path)) {
+            if let Ok(bytes) = std::fs::read(c.cfg.spec_home.join(path)) {
                 blobs.push((path.clone(), bytes));
             }
         }

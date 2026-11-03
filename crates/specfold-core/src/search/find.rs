@@ -36,7 +36,7 @@ fn score_meta(d: &Doc, words: &[String]) -> Option<u32> {
 
 fn body_excerpt(c: &Corpus, d: &Doc, words: &[String]) -> Option<String> {
     for f in std::iter::once(&d.path).chain(&d.chapters) {
-        let text = std::fs::read_to_string(c.cfg.root.join(f)).ok()?;
+        let text = std::fs::read_to_string(c.cfg.spec_home.join(f)).ok()?;
         for (n, line) in text.lines().enumerate() {
             let l = line.to_lowercase();
             if words.iter().all(|w| l.contains(w.as_str())) {

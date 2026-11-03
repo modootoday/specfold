@@ -49,7 +49,7 @@ pub fn compile(cfg: &Config, g: &GuardDef) -> Result<Compiled> {
     let (mut missing, mut published) = (vec![], vec![]);
     if g.public {
         for e in exposure::scan(cfg).exposed {
-            match cfg.root.join(&e.path).exists() {
+            match cfg.spec_home.join(&e.path).exists() {
                 true => published.push(e.path.clone()),
                 false => missing.push(e.path.clone()),
             }
@@ -59,7 +59,7 @@ pub fn compile(cfg: &Config, g: &GuardDef) -> Result<Compiled> {
     }
     if g.nested {
         for n in cfg.raw.owners.nested_dirs() {
-            match cfg.root.join(n).exists() {
+            match cfg.spec_home.join(n).exists() {
                 true => published.push(n.to_string()),
                 false => missing.push(n.to_string()),
             }

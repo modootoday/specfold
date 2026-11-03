@@ -61,7 +61,7 @@ pub(super) fn archive(c: &Corpus, i: usize) -> String {
     let open: usize = if d.id.ty == "plan" {
         std::iter::once(&d.path)
             .chain(&d.chapters)
-            .filter_map(|f| std::fs::read_to_string(c.cfg.root.join(f)).ok())
+            .filter_map(|f| std::fs::read_to_string(c.cfg.spec_home.join(f)).ok())
             .map(|t| tasks::list(frontmatter::split(&t).body).into_iter().filter(|t| !t.done).count())
             .sum()
     } else {

@@ -13,7 +13,7 @@ pub fn run(g: &Global, a: &RefArgs) -> Result<Output> {
     let base = d.base_dir();
     let mut o = Output::new("files").field("id", d.id.to_string()).field("base", base.clone());
     for f in d.files() {
-        let present = s.corpus.cfg.root.join(&base).join(&f.path).is_file();
+        let present = s.corpus.cfg.spec_home.join(&base).join(&f.path).is_file();
         let note = if present { "" } else { "  (not on disk)" };
         o = o.item(
             json!({"path": f.path, "sha256": f.sha256, "bytes": f.bytes, "store": f.store, "on_disk": present}),

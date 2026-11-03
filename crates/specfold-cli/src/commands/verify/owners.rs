@@ -26,7 +26,7 @@ pub fn widen(
     base: Option<&baseline::Baseline>,
     opts: &Options,
 ) -> Result<(Vec<Finding>, Others)> {
-    let root = &s.corpus.cfg.root;
+    let root = &s.corpus.cfg.spec_home;
     let changed = match (&a.owners, &a.changed, a.staged) {
         (false, _, _) => None,
         (true, Some(b), _) => vcs::changed_since(root, b),

@@ -39,7 +39,7 @@ impl Rule for VerifyPasses {
         }
         let start =
             crate::corpus::trace::phase(&format!("X1 select ({} docs, {} jobs)", picked.len(), jobs.len()), start);
-        let outcomes = runner::run(&ctx.corpus.cfg.root, &jobs, &settings(ctx));
+        let outcomes = runner::run(&ctx.corpus.cfg.spec_home, &jobs, &settings(ctx));
         crate::corpus::trace::phase("X1 commands", start);
         trace_slowest(&jobs, &outcomes);
         for ((i, cmd), o) in owners.iter().zip(&outcomes) {

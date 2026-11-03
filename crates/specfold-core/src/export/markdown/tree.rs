@@ -38,7 +38,7 @@ fn base_name(c: &Corpus, idx: usize) -> String {
 /// The text of every file of a document, main body first, frontmatter removed.
 fn full_body(c: &Corpus, idx: usize) -> String {
     let d = &c.docs[idx];
-    let read = |p: &str| crate::corpus::overlay::read(&c.cfg.root.join(p)).unwrap_or_default();
+    let read = |p: &str| crate::corpus::overlay::read(&c.cfg.spec_home.join(p)).unwrap_or_default();
     let mut out = frontmatter::split(&read(&d.path)).body.trim_start_matches(['\n', '\r']).to_string();
     let mut chapters = d.chapters.clone();
     chapters.sort();

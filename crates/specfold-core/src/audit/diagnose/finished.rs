@@ -14,7 +14,7 @@ pub fn run(c: &Corpus, docs: &[usize], out: &mut Vec<Item>) {
         let status = d.status().unwrap_or_default();
         let (mut done, mut total) = (0, 0);
         for file in std::iter::once(&d.path).chain(&d.chapters) {
-            let Ok(text) = std::fs::read_to_string(c.cfg.root.join(file)) else { continue };
+            let Ok(text) = std::fs::read_to_string(c.cfg.spec_home.join(file)) else { continue };
             for t in tasks::list(frontmatter::split(&text).body) {
                 total += 1;
                 done += usize::from(t.done);

@@ -20,7 +20,7 @@ fn size(c: &Corpus, i: usize) -> u64 {
     let d = &c.docs[i];
     std::iter::once(&d.path)
         .chain(&d.chapters)
-        .filter_map(|p| std::fs::metadata(c.cfg.root.join(p)).ok())
+        .filter_map(|p| std::fs::metadata(c.cfg.spec_home.join(p)).ok())
         .map(|m| m.len())
         .sum()
 }

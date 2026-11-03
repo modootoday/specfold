@@ -78,7 +78,7 @@ pub fn run(g: &Global, a: &AttachArgs) -> Result<Output> {
     if let Some((from, to)) = &plan.to_bundle {
         o = o.head(format!("{from} becomes a bundle: {to}"));
     }
-    let clashes = replace::clashes(&s.corpus.cfg.root, d, &plan);
+    let clashes = replace::clashes(&s.corpus.cfg.spec_home, d, &plan);
     for f in &plan.files {
         let clash = clashes.iter().find(|c| c.path.ends_with(&format!("/{}", f.path)));
         let mut item = to_value(f)?;
@@ -139,7 +139,7 @@ pub fn run(g: &Global, a: &AttachArgs) -> Result<Output> {
             .next(again(a, &format!(" --write --yes{force}"))));
     }
     if a.write {
-        let undo = replace::keep(&s.corpus.cfg.root, &d.path, &clashes)?;
+        let undo = replace::keep(&s.corpus.cfg.spec_home, &d.path, &clashes)?;
         attach::apply(&s.corpus, d, &plan)?;
         if let Some(undo) = undo {
             o = o

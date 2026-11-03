@@ -13,7 +13,7 @@ pub fn open(cfg: &Config) -> Result<Option<Box<dyn Store>>> {
             Ok(Some(Box::new(DirStore { root: cfg.expand_path(p) })))
         }
         "command" => Ok(Some(Box::new(CommandStore {
-            root: cfg.root.clone(),
+            root: cfg.spec_home.clone(),
             put: def.put.clone(),
             get: def.get.clone(),
             exists: def.exists.clone(),

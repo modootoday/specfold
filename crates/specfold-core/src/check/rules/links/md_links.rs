@@ -69,7 +69,7 @@ impl Rule for LocalLinks {
     }
 
     fn run(&self, ctx: &Ctx, out: &mut Vec<Finding>) {
-        let root = &ctx.corpus.cfg.root;
+        let root = &ctx.corpus.cfg.spec_home;
         let ignore: Vec<_> =
             ctx.corpus.cfg.raw.check.link_ignore.iter().filter_map(|p| crate::workspace::owners::matcher(p)).collect();
         let ignored = |s: &str| ignore.iter().any(|m| m.is_match(s));

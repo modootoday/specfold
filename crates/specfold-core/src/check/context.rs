@@ -31,15 +31,15 @@ impl Ctx<'_> {
     /// The content of a path at the base of the run (HEAD for staged runs).
     pub fn previous(&self, path: &str) -> Option<String> {
         let base = self.scope.base.as_deref()?;
-        vcs::show(&self.corpus.cfg.root, base, path)
+        vcs::show(&self.corpus.cfg.spec_home, base, path)
     }
 
     /// The content being checked: the index for staged runs, the working tree otherwise.
     pub fn current(&self, path: &str) -> Option<String> {
         let staged = matches!(self.scope.range, super::scope::Range::Staged);
         if staged && !self.scope.in_submodules.contains(path) {
-            return vcs::show_staged(&self.corpus.cfg.root, path);
+            return vcs::show_staged(&self.corpus.cfg.spec_home, path);
         }
-        crate::corpus::overlay::read(&self.corpus.cfg.root.join(path)).ok()
+        crate::corpus::overlay::read(&self.corpus.cfg.spec_home.join(path)).ok()
     }
 }

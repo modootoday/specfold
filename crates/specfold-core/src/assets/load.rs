@@ -34,7 +34,7 @@ pub(super) fn base(path: &str) -> String {
 }
 
 fn files(cfg: &Config, def: &AssetRoot) -> Vec<String> {
-    let root = &cfg.root;
+    let root = &cfg.spec_home;
     let Some(want) = matcher(&def.path) else { return vec![] };
     let exclude: Vec<PathMatch> = def.exclude.iter().filter_map(|e| matcher(e)).collect();
     let start = root.join(base(def.path.trim_end_matches('/')));
@@ -73,7 +73,7 @@ pub fn load(cfg: &Config) -> Vec<Asset> {
     for def in &cfg.raw.assets {
         for rel in files(cfg, def) {
             if seen.insert(rel.clone())
-                && let Some(a) = read(&cfg.root, def.kind, rel)
+                && let Some(a) = read(&cfg.spec_home, def.kind, rel)
             {
                 out.push(a);
             }

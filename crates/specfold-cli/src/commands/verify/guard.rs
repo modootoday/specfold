@@ -107,7 +107,7 @@ fn builtin_hits(
     range: Option<&GuardRange>,
 ) -> Result<(Vec<specfold_core::check::Finding>, Option<String>)> {
     let s = session::open(g)?;
-    let root = &s.corpus.cfg.root;
+    let root = &s.corpus.cfg.spec_home;
     // Each document's files: the main file, its chapters and its repository text attachments.
     let max = s.corpus.cfg.raw.files.scan_max_bytes;
     let unread = std::cell::RefCell::new(Vec::<String>::new());

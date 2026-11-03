@@ -21,7 +21,7 @@ pub fn run(c: &Corpus, docs: &[usize], out: &mut Vec<Item>) {
             continue;
         }
         for file in std::iter::once(&d.path).chain(&d.chapters) {
-            let Ok(text) = std::fs::read_to_string(c.cfg.root.join(file)) else { continue };
+            let Ok(text) = std::fs::read_to_string(c.cfg.spec_home.join(file)) else { continue };
             for (n, line) in text.lines().enumerate() {
                 if let Some(m) = re.find(line) {
                     let excerpt: String = line.trim().chars().take(120).collect();

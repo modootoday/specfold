@@ -40,7 +40,7 @@ pub fn report(c: &Corpus, g: &Graph, langs: &[String]) -> Report {
         let st = state(c, g, i);
         let sections = match (&st, src, d.str_field(KEY)) {
             (State::Behind, Some(s), Some(rev)) => {
-                let root = c.cfg.root.clone();
+                let root = c.cfg.spec_home.clone();
                 parts_of(c, s, |p| crate::corpus::overlay::read(&root.join(p)).ok())
                     .and_then(|now| changes_since(c, s, &rev, &now))
                     .unwrap_or_default()

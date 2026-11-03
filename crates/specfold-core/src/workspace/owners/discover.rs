@@ -20,8 +20,8 @@ impl Owners {
             pending: false,
         }];
         for kind in &cfg.raw.owners.kinds {
-            for (path, caps) in expand(&cfg.root, &kind.pattern) {
-                if kind.manifest && !has_manifest(&cfg.root.join(&path), &manifests) {
+            for (path, caps) in expand(&cfg.spec_home, &kind.pattern) {
+                if kind.manifest && !has_manifest(&cfg.spec_home.join(&path), &manifests) {
                     continue;
                 }
                 // C1: a nested project is never an owner here, so its documents are its own.

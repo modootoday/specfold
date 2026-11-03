@@ -25,9 +25,9 @@ pub fn pairs(cfg: &Config) -> Result<Vec<Pair>> {
         if inside(&copy, &source) || inside(&source, &copy) {
             bail!("[[assets]] path = \"{copy}\" and copy_of = \"{source}\" overlap; a copy must sit beside its source");
         }
-        no_links(&cfg.root, &source)?;
-        no_links(&cfg.root, &copy)?;
-        if !cfg.root.join(&source).is_dir() {
+        no_links(&cfg.spec_home, &source)?;
+        no_links(&cfg.spec_home, &copy)?;
+        if !cfg.spec_home.join(&source).is_dir() {
             bail!("[[assets]] copy_of = \"{source}\" is not a directory");
         }
         out.push(Pair { source, copy });
@@ -51,20 +51,20 @@ pub fn plan(cfg: &Config, prune: bool) -> Result<(Vec<Pair>, Plan, Vec<String>)>
     let mut plan = Plan::default();
     let mut unowned = vec![];
     for p in &pairs {
-        let src = files(&cfg.root, &p.source)?;
+        let src = files(&cfg.spec_home, &p.source)?;
         for rel in &src {
             let (from, to) = (format!("{}/{rel}", p.source), format!("{}/{rel}", p.copy));
-            no_links(&cfg.root, &to)?;
-            let same = std::fs::read(cfg.root.join(&from)).ok() == std::fs::read(cfg.root.join(&to)).ok();
+            no_links(&cfg.spec_home, &to)?;
+            let same = std::fs::read(cfg.spec_home.join(&from)).ok() == std::fs::read(cfg.spec_home.join(&to)).ok();
             if !same {
-                if cfg.root.join(&to).is_file() && !owned(&cfg.root, &from, &to) {
+                if cfg.spec_home.join(&to).is_file() && !owned(&cfg.spec_home, &from, &to) {
                     unowned.push(to.clone());
                 }
                 plan.changes.push(Change::Copy { from, to });
             }
         }
-        if prune && cfg.root.join(&p.copy).is_dir() {
-            for rel in files(&cfg.root, &p.copy)?.difference(&src) {
+        if prune && cfg.spec_home.join(&p.copy).is_dir() {
+            for rel in files(&cfg.spec_home, &p.copy)?.difference(&src) {
                 plan.changes.push(Change::Remove { path: format!("{}/{rel}", p.copy) });
             }
         }

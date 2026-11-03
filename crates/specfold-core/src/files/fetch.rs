@@ -21,7 +21,7 @@ pub fn fetch(c: &Corpus, doc: &Doc, force: bool) -> Result<Vec<Fetched>> {
         return Ok(vec![]);
     }
     let s = store::open(&c.cfg)?.context("no [files.store] is configured")?;
-    let base = c.cfg.root.join(doc.base_dir());
+    let base = c.cfg.spec_home.join(doc.base_dir());
     if !force {
         let other: Vec<String> = entries
             .iter()

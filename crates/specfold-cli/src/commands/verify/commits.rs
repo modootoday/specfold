@@ -10,7 +10,7 @@ use specfold_core::workspace::vcs;
 
 pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
     let s = session::open(g)?;
-    let root = &s.corpus.cfg.root;
+    let root = &s.corpus.cfg.spec_home;
     let commands = crate::cli::describe::commands().into_iter().map(|c| c.name).collect();
     let opts = Options { run_commands: false, external: a.external, online: false, guards: false, commands };
     let sel = Selection { only: a.rules.clone(), skip: a.skip.clone() };

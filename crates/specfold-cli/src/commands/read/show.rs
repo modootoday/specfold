@@ -14,7 +14,7 @@ pub fn run(g: &Global, a: &ShowArgs) -> Result<Output> {
     let idx = session::resolve(&s, &doc)?;
     let d = &s.corpus.docs[idx];
     let shown = remote.as_ref().map_or(d.id.to_string(), |r| format!("{r}:{}", d.id));
-    let text = specfold_core::corpus::overlay::read(&s.corpus.cfg.root.join(&d.path))?;
+    let text = specfold_core::corpus::overlay::read(&s.corpus.cfg.spec_home.join(&d.path))?;
     let split = frontmatter::split(&text);
     let body = split.body;
     let mut o = Output::new("show")
@@ -32,7 +32,7 @@ pub fn run(g: &Global, a: &ShowArgs) -> Result<Output> {
         let Some(sec) = sections::extract(body, name).or_else(|| {
             d.chapters
                 .iter()
-                .find_map(|c| sections::extract(&std::fs::read_to_string(s.corpus.cfg.root.join(c)).ok()?, name))
+                .find_map(|c| sections::extract(&std::fs::read_to_string(s.corpus.cfg.spec_home.join(c)).ok()?, name))
         }) else {
             bail!("{}", sections::not_found(body, split.body_line, name));
         };
@@ -72,7 +72,7 @@ pub fn run(g: &Global, a: &ShowArgs) -> Result<Output> {
     // Chapters belong to the document, so their items count toward its progress.
     let mut items: Vec<Value> = tasks::list(body).into_iter().map(|t| task_json(&d.path, split.body_line, t)).collect();
     for c in &d.chapters {
-        let ch = std::fs::read_to_string(s.corpus.cfg.root.join(c)).unwrap_or_default();
+        let ch = std::fs::read_to_string(s.corpus.cfg.spec_home.join(c)).unwrap_or_default();
         let cs = frontmatter::split(&ch);
         items.extend(tasks::list(cs.body).into_iter().map(|t| task_json(c, cs.body_line, t)));
     }

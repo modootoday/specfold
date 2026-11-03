@@ -31,7 +31,7 @@ impl Wants {
 /// out is sent unresolved (`reason: "not exported"`) so nothing about it reaches the plugin.
 pub fn docs(c: &Corpus, g: &Graph, w: Wants, budget: Option<usize>, only: &[usize]) -> Value {
     let mut used = 0usize;
-    let root = c.cfg.root.clone();
+    let root = c.cfg.spec_home.clone();
     let read = |p: &str| crate::corpus::overlay::read(&root.join(p)).ok();
     let mut out = Vec::new();
     for &i in only {
@@ -128,7 +128,7 @@ pub fn readable(c: &Corpus, only: &[usize]) -> anyhow::Result<()> {
         let mut files = vec![d.path.clone()];
         files.extend(d.chapters.iter().cloned());
         for p in files {
-            if let Err(e) = crate::corpus::overlay::read(&c.cfg.root.join(&p)) {
+            if let Err(e) = crate::corpus::overlay::read(&c.cfg.spec_home.join(&p)) {
                 return Err(anyhow::Error::new(std::io::Error::new(
                     e.kind(),
                     format!(

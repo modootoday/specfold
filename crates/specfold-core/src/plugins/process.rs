@@ -12,7 +12,7 @@ use std::time::{Duration, Instant};
 
 fn program(cfg: &Config, p: &PluginDef) -> Result<(PathBuf, Vec<String>)> {
     let (prog, args) = p.cmd.split_first().ok_or_else(|| anyhow!("plugin {} has an empty cmd", p.name))?;
-    let local = cfg.root.join(prog);
+    let local = cfg.spec_home.join(prog);
     let resolved = if prog.contains('/') && local.exists() { local } else { PathBuf::from(prog) };
     Ok((resolved, args.to_vec()))
 }
@@ -21,7 +21,7 @@ pub fn call<T: DeserializeOwned>(cfg: &Config, p: &PluginDef, method: &str, para
     let (prog, args) = program(cfg, p)?;
     let mut child = Command::new(&prog)
         .args(&args)
-        .current_dir(&cfg.root)
+        .current_dir(&cfg.spec_home)
         .env("SPECFOLD_PROTOCOL", PROTOCOL)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())

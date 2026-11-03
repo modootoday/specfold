@@ -39,7 +39,7 @@ pub fn run(g: &Global, a: &FindArgs) -> Result<Output> {
             let Some(d) = s.corpus.docs.iter().find(|d| d.id.to_string() == h.id) else { return false };
             let files: Vec<&str> =
                 std::iter::once(d.path.as_str()).chain(d.chapters.iter().map(String::as_str)).collect();
-            let n = open_tasks(&s.corpus.cfg.root, &files);
+            let n = open_tasks(&s.corpus.cfg.spec_home, &files);
             if n > 0 {
                 open.push(n);
             }

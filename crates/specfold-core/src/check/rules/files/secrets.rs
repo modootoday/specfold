@@ -31,7 +31,7 @@ impl Rule for NoSecrets {
                 continue;
             }
             let (attachments, over) =
-                guards::secrets::attachment_scan(&ctx.corpus.cfg.root, d, ctx.corpus.cfg.raw.files.scan_max_bytes);
+                guards::secrets::attachment_scan(&ctx.corpus.cfg.spec_home, d, ctx.corpus.cfg.raw.files.scan_max_bytes);
             unread.extend(over);
             let blobs: Vec<(String, Vec<u8>)> = std::iter::once(&d.path)
                 .chain(&d.chapters)
@@ -52,7 +52,7 @@ impl Rule for NoSecrets {
         unread.sort();
         unread.dedup();
         if let Some(note) =
-            guards::secrets::skipped_note(&ctx.corpus.cfg.root, &unread, ctx.corpus.cfg.raw.files.scan_max_bytes)
+            guards::secrets::skipped_note(&ctx.corpus.cfg.spec_home, &unread, ctx.corpus.cfg.raw.files.scan_max_bytes)
         {
             out.push(Finding::warn("U2", &unread[0], 1, note).fix_cmd("spec explain U2"));
         }

@@ -32,7 +32,7 @@ impl Rule for GeneratedInSync {
             jobs.push(Job { cmd: cmd.clone(), env: env.clone(), timeout: timeout(ctx, d) });
             owners.push((i, cmd));
         }
-        let outcomes = runner::run(&ctx.corpus.cfg.root, &jobs, &settings(ctx));
+        let outcomes = runner::run(&ctx.corpus.cfg.spec_home, &jobs, &settings(ctx));
         for ((i, cmd), o) in owners.iter().zip(&outcomes) {
             let d = &ctx.corpus.docs[*i];
             out.extend(report("G1", ctx, d, "generated_by", cmd, o).map(|f| f.fix_cmd(cmd.clone())));

@@ -54,7 +54,7 @@ pub fn run(g: &Global, a: &FixArgs) -> Result<Output> {
             (no_change(o), false)
         } else {
             let rerun = "spec fix --translations --write";
-            preview::finish_bounded(o, &plan, &s.corpus.cfg.root, max, a.write, a.yes, rerun)?
+            preview::finish_bounded(o, &plan, &s.corpus.cfg.spec_home, max, a.write, a.yes, rerun)?
         };
         return Ok(if written { o.next("spec check") } else { o });
     }
@@ -116,7 +116,7 @@ pub fn run(g: &Global, a: &FixArgs) -> Result<Output> {
     let (o, written) = if a.write && plan.changes.is_empty() {
         (no_change(o), false)
     } else {
-        preview::finish_bounded(o, &plan, &s.corpus.cfg.root, max, a.write, a.yes, &rerun)?
+        preview::finish_bounded(o, &plan, &s.corpus.cfg.spec_home, max, a.write, a.yes, &rerun)?
     };
     if o.summary.contains_key("bounded") {
         return Ok(o);

@@ -50,7 +50,7 @@ pub fn take(c: &Corpus, g: &Graph) -> Census {
         bytes += d
             .bundle_files
             .iter()
-            .filter_map(|f| std::fs::metadata(c.cfg.root.join(f)).ok())
+            .filter_map(|f| std::fs::metadata(c.cfg.spec_home.join(f)).ok())
             .map(|m| m.len())
             .sum::<u64>();
     }
@@ -58,11 +58,11 @@ pub fn take(c: &Corpus, g: &Graph) -> Census {
     let legacy_paths = if forbid.is_empty() {
         0
     } else {
-        crate::workspace::walk(&c.cfg, &c.cfg.root)
+        crate::workspace::walk(&c.cfg, &c.cfg.spec_home)
             .require_git(false)
             .build()
             .flatten()
-            .filter_map(|e| crate::paths::rel_of(&c.cfg.root, e.path()))
+            .filter_map(|e| crate::paths::rel_of(&c.cfg.spec_home, e.path()))
             .filter(|p| !p.is_empty() && forbid.iter().any(|m| m.is_match(p)))
             .count()
     };

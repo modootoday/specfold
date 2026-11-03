@@ -46,7 +46,7 @@ impl ScanCache {
         // Unit tests load throwaway repositories; they must not leave files in the user's cache.
         let dir = if cfg!(test) { None } else { paths::cache_dir() };
         let file = dir.map(|d| {
-            let key = Sha256::digest(cfg.root.to_string_lossy().as_bytes());
+            let key = Sha256::digest(cfg.spec_home.to_string_lossy().as_bytes());
             d.join(format!("scan-{}.json", super::scan::hex(&key[..8])))
         });
         if let Some(f) = &file

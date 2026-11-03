@@ -17,7 +17,7 @@ pub fn run(s: &Session, a: &AuditArgs, body: String) -> Result<Output> {
     if !a.write {
         return Ok(o.head(format!("would record {}  {}", created.id, created.path)).next("add --write to record"));
     }
-    let root = &s.corpus.cfg.root;
+    let root = &s.corpus.cfg.spec_home;
     let saved = preview::keep_untracked(&plan, root)?;
     plan.apply(root)?;
     let undo = preview::undo(&plan, root, &saved);

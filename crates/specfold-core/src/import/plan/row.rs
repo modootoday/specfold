@@ -96,7 +96,7 @@ fn read_source<'a>(c: &Corpus, map: &ImportMap, u: &'a Unit, ty: &TypeDef) -> Re
     let rule = &map.sources[u.rule];
     // A wrapped unit has no Markdown of its own; its document is generated around the files.
     let generated = u.main.is_empty();
-    let text = if generated { String::new() } else { std::fs::read_to_string(c.cfg.root.join(&u.main))? };
+    let text = if generated { String::new() } else { std::fs::read_to_string(c.cfg.spec_home.join(&u.main))? };
     let split = frontmatter::split(&text);
     let mut unresolved = vec![];
     let old = match frontmatter::parse(split.raw) {
@@ -145,7 +145,7 @@ fn place(
         title: &src.title,
         name_stem: src.name,
     };
-    let (k, slug) = key::choose(&c.cfg.root, rule, ty, &key_src);
+    let (k, slug) = key::choose(&c.cfg.spec_home, rule, ty, &key_src);
     let governs: Vec<String> = src
         .conv
         .fm

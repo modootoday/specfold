@@ -29,7 +29,7 @@ fn scan_one(cfg: &Config, g: &GuardDef, range: Option<&GuardRange>, net: bool) -
     let c = compile::compile(cfg, g)?;
     prove::prove(g, &c)?;
     let r = range.cloned().unwrap_or_else(|| GuardRange::parse(&g.range));
-    let mut resolved = range::resolve(&cfg.root, &r, &c.bases)?;
+    let mut resolved = range::resolve(&cfg.spec_home, &r, &c.bases)?;
     // F3: `--net` judges a range by its end only; versions a later commit takes back are skipped.
     if net {
         resolved.passing.clear();
@@ -50,7 +50,7 @@ pub fn run_net(cfg: &Config, names: &[String], range: Option<&GuardRange>, net: 
     for g in select(cfg, names)? {
         let found = scan_one(cfg, g, range, net)?.findings;
         match &g.baseline {
-            Some(rel) => match baseline::load_file(&cfg.root, rel)? {
+            Some(rel) => match baseline::load_file(&cfg.spec_home, rel)? {
                 Some(b) => out.extend(baseline::hold_with(&b, found, &[]).findings),
                 None => out.extend(found),
             },
@@ -76,7 +76,7 @@ pub fn write_baselines(cfg: &Config, names: &[String], write: bool) -> Result<Ve
             continue;
         };
         let scanned = scan_one(cfg, g, Some(&GuardRange::All), false)?;
-        let b = baseline::measure_with(&cfg.root, &scanned.findings, &[], |p| {
+        let b = baseline::measure_with(&cfg.spec_home, &scanned.findings, &[], |p| {
             !own.iter().any(|o| o.as_str() == p) && scanned.files.iter().any(|f| f == p)
         })?;
         measured.push((g.name.clone(), rel.clone(), b));
@@ -84,7 +84,7 @@ pub fn write_baselines(cfg: &Config, names: &[String], write: bool) -> Result<Ve
     let mut written = vec![];
     for (name, rel, b) in measured {
         if write {
-            baseline::write_file(&cfg.root, &rel, &b)?;
+            baseline::write_file(&cfg.spec_home, &rel, &b)?;
         }
         written.push((name, rel, b.counts.values().sum()));
     }

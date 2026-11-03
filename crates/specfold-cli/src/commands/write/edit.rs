@@ -49,7 +49,7 @@ pub fn run(g: &Global, a: &EditArgs) -> Result<Output> {
     };
     let cells: String = a.cell.join("\n");
     let path = &s.corpus.docs[idx].path;
-    crate::commands::outbound::refuse_redacted(&s.corpus.cfg.root, path, &format!("{text}\n{cells}"))?;
+    crate::commands::outbound::refuse_redacted(&s.corpus.cfg.spec_home, path, &format!("{text}\n{cells}"))?;
     let mode = if a.append { Mode::Append } else { Mode::Replace };
     let row = match &a.row {
         None => None,
@@ -126,7 +126,7 @@ pub fn run(g: &Global, a: &EditArgs) -> Result<Output> {
     }
     rerun.push_str(&text_flag(a, cells_only));
     rerun.push_str(" --write");
-    let o = preview::finish(o, &out.plan, &s.corpus.cfg.root, a.write, &rerun)?;
+    let o = preview::finish(o, &out.plan, &s.corpus.cfg.spec_home, a.write, &rerun)?;
     Ok(if a.write { o.next(format!("spec check  # then: spec show {}", specfold_core::shell::word(&id))) } else { o })
 }
 

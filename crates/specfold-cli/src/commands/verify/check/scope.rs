@@ -47,7 +47,7 @@ pub(crate) fn documents_named(s: &session::Session, files: &[String], stdin: Opt
             }
         }
         let abs = s.loc.absolute(std::path::Path::new(f));
-        let rel = paths::rel_of(&s.corpus.cfg.root, &abs).unwrap_or_else(|| s.loc.repo_path(f));
+        let rel = paths::rel_of(&s.corpus.cfg.spec_home, &abs).unwrap_or_else(|| s.loc.repo_path(f));
         // B2: a folder names the documents under it; one with none is refused, not checked empty.
         if std::path::Path::new(f).is_dir() {
             let under = |p: &str| rel.is_empty() || rel == "." || paths::is_below(p, rel.trim_end_matches('/'));

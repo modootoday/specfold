@@ -73,7 +73,7 @@ pub(super) fn agent_files(ctx: &Ctx) -> Vec<(String, String)> {
             out.push((a.path, a.text));
         }
     }
-    for p in well_known(&ctx.corpus.cfg.root) {
+    for p in well_known(&ctx.corpus.cfg.spec_home) {
         if seen.insert(p.clone())
             && ctx.scope.covers_path(&p)
             && let Some(t) = ctx.current(&p)

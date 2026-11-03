@@ -23,11 +23,11 @@ impl Rule for Forbidden {
         let paths: Vec<_> = cfg.raw.forbid.paths.iter().filter_map(|p| matcher(p).map(|m| (p.clone(), m))).collect();
         if !paths.is_empty() {
             let candidates: Vec<String> = if ctx.scope.is_all() {
-                crate::workspace::walk(cfg, &cfg.root)
+                crate::workspace::walk(cfg, &cfg.spec_home)
                     .require_git(false)
                     .build()
                     .flatten()
-                    .filter_map(|e| crate::paths::rel_of(&cfg.root, e.path()))
+                    .filter_map(|e| crate::paths::rel_of(&cfg.spec_home, e.path()))
                     .filter(|p| !p.is_empty())
                     .collect()
             } else {
@@ -48,7 +48,7 @@ impl Rule for Forbidden {
                 continue;
             }
             for file in std::iter::once(&d.path).chain(&d.chapters) {
-                let Ok(text) = crate::corpus::overlay::read(&cfg.root.join(file)) else { continue };
+                let Ok(text) = crate::corpus::overlay::read(&cfg.spec_home.join(file)) else { continue };
                 for (n, line) in text.lines().enumerate() {
                     if let Some(re) = patterns.iter().find(|r| r.is_match(line)) {
                         out.push(Finding::error(

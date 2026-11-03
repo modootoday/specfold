@@ -34,7 +34,7 @@ fn replace_on_line(text: &str, line: usize, from: &str, to: &str) -> Option<Stri
 fn fill_frontmatter(c: &Corpus, idx: usize, text: &str) -> Result<String> {
     let d = &c.docs[idx];
     let initial = c.cfg.registry.get(&d.id.ty).map(|t| t.initial.clone()).unwrap_or_else(|| "draft".into());
-    let created = vcs::first_commit_stamp(&c.cfg.root, &d.path)
+    let created = vcs::first_commit_stamp(&c.cfg.spec_home, &d.path)
         .and_then(|s| stamp::normalize_date(&s))
         .unwrap_or_else(stamp::today);
     let title = d.title.clone().unwrap_or_else(|| d.slug.replace('-', " "));
@@ -57,7 +57,8 @@ fn drop_alias(c: &Corpus, texts: &mut BTreeMap<String, String>, alias: &str, kee
         if d.id.to_string() == keep || !d.list_field("aliases").iter().any(|a| a == alias) {
             continue;
         }
-        let Some(t) = texts.get(&d.path).cloned().or_else(|| std::fs::read_to_string(c.cfg.root.join(&d.path)).ok())
+        let Some(t) =
+            texts.get(&d.path).cloned().or_else(|| std::fs::read_to_string(c.cfg.spec_home.join(&d.path)).ok())
         else {
             continue;
         };
@@ -75,7 +76,7 @@ fn drop_alias(c: &Corpus, texts: &mut BTreeMap<String, String>, alias: &str, kee
         }
     }
     if let Some(file) = &c.aliases.file {
-        let t = texts.get(file).cloned().or_else(|| std::fs::read_to_string(c.cfg.root.join(file)).ok());
+        let t = texts.get(file).cloned().or_else(|| std::fs::read_to_string(c.cfg.spec_home.join(file)).ok());
         if let Some(t) = t {
             let n: String = t
                 .split_inclusive('\n')
@@ -100,7 +101,7 @@ pub fn plan(c: &Corpus, findings: &[Finding], pick: Option<&Pick>) -> Result<(Pl
         if let Some(t) = texts.get(p) {
             return Some(t.clone());
         }
-        std::fs::read_to_string(c.cfg.root.join(p)).ok()
+        std::fs::read_to_string(c.cfg.spec_home.join(p)).ok()
     };
     for f in findings {
         match (&f.fix, f.rule.as_str()) {
@@ -167,7 +168,7 @@ pub fn translation_pairs(c: &Corpus) -> Result<(Plan, usize)> {
         }
         let Some(inf) = crate::translation::inferred(c, i) else { continue };
         let Some(src) = inf.source else { continue };
-        let Ok(t) = std::fs::read_to_string(c.cfg.root.join(&d.path)) else { continue };
+        let Ok(t) = std::fs::read_to_string(c.cfg.spec_home.join(&d.path)) else { continue };
         let source = c.docs[src].id.to_string();
         let new = edit::rewrite(&t, |m| {
             m.entry("lang").or_insert_with(|| Value::String(inf.lang.clone()));

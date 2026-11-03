@@ -79,7 +79,7 @@ impl Server {
 
     fn root(&mut self) -> Option<PathBuf> {
         if self.root.is_none() {
-            self.root = crate::session::config(&self.global).ok().map(|c| c.root);
+            self.root = crate::session::config(&self.global).ok().map(|c| c.spec_home);
         }
         self.root.clone()
     }

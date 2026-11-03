@@ -13,7 +13,7 @@ use regex::Regex;
 use std::collections::{BTreeMap, BTreeSet};
 
 pub fn build(c: &Corpus, map: &ImportMap) -> Result<ImportPlan> {
-    let units = sources::expand(&c.cfg.root, map);
+    let units = sources::expand(&c.cfg.spec_home, map);
     let mut out = ImportPlan::default();
     let mut taken: BTreeSet<String> = c.docs.iter().map(|d| d.id.to_string()).collect();
     let mut by_source: BTreeMap<String, String> = BTreeMap::new();
@@ -39,7 +39,7 @@ pub fn build(c: &Corpus, map: &ImportMap) -> Result<ImportPlan> {
         out.rows.push(row);
     }
     for (u, re) in redirects {
-        let text = std::fs::read_to_string(c.cfg.root.join(&u.main)).unwrap_or_default();
+        let text = std::fs::read_to_string(c.cfg.spec_home.join(&u.main)).unwrap_or_default();
         let target = re
             .captures(&text)
             .and_then(|cap| cap.name("target"))

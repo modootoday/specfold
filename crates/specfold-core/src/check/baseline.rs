@@ -119,7 +119,7 @@ pub fn write_file(root: &Path, rel: &str, b: &Baseline) -> Result<()> {
 
 pub fn load(c: &Corpus) -> Result<Option<Baseline>> {
     match &c.cfg.raw.check.baseline {
-        Some(rel) => load_file(&c.cfg.root, rel),
+        Some(rel) => load_file(&c.cfg.spec_home, rel),
         None => Ok(None),
     }
 }
@@ -159,12 +159,12 @@ pub fn hold(c: &Corpus, b: &Baseline, findings: Vec<Finding>) -> Held {
 
 pub fn measure(c: &Corpus, findings: &[Finding]) -> Result<Baseline> {
     let strict = matchers(&c.cfg.raw.check.strict);
-    measure_with(&c.cfg.root, findings, &strict, |p| c.docs.iter().any(|d| d.path == p))
+    measure_with(&c.cfg.spec_home, findings, &strict, |p| c.docs.iter().any(|d| d.path == p))
 }
 
 pub fn write(c: &Corpus, b: &Baseline) -> Result<String> {
     let rel = c.cfg.raw.check.baseline.clone().ok_or_else(|| anyhow!("set [check] baseline in spec.toml first"))?;
-    write_file(&c.cfg.root, &rel, b)?;
+    write_file(&c.cfg.spec_home, &rel, b)?;
     Ok(rel)
 }
 

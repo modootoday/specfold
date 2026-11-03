@@ -69,7 +69,7 @@ fn dangling(c: &Corpus, g: &Graph, slugs: &BTreeSet<&str>) -> Vec<usize> {
 
 impl Scope {
     pub fn build(c: &Corpus, g: &Graph, range: Range) -> Result<Self> {
-        let root = &c.cfg.root;
+        let root = &c.cfg.spec_home;
         let (mut paths, sub, base): (BTreeSet<String>, vcs::Expansion, _) = match &range {
             Range::All => (BTreeSet::new(), vcs::Expansion::default(), None),
             Range::Staged => {

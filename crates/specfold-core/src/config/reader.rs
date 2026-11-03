@@ -10,8 +10,12 @@ use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone)]
 pub struct Config {
-    /// Repository root: the directory holding spec.toml.
-    pub root: PathBuf,
+    /// F1: the repository the configuration was found from: the spec home, or under roots.toml
+    /// the public repository mapped to it. Code paths typed there are named from it.
+    pub repo_root: PathBuf,
+    /// The spec home: the directory holding spec.toml, its owners and documents. Every
+    /// repository-relative path in the configuration and the corpus is relative to it.
+    pub spec_home: PathBuf,
     pub raw: RawConfig,
     pub registry: Registry,
     /// True when no spec.toml was found and defaults are in use.
@@ -36,7 +40,8 @@ impl Config {
         if let Some(private) = super::private_root::mapped(&root) {
             let toml = private.join(CONFIG_FILE);
             if toml.is_file() {
-                return Self::load(&toml);
+                let repo_root = root.canonicalize().unwrap_or(root);
+                return Self::load(&toml).map(|c| Config { repo_root, ..c });
             }
             bail!(
                 "{} is mapped to {} in {}, which has no {CONFIG_FILE}; next: spec -C {} init --write",
@@ -80,7 +85,7 @@ impl Config {
             raw.remotes.entry(name).or_insert(crate::config::types::RemoteRoot { path, paths: vec![], auto: false });
         }
         let registry = Registry::new(&raw.types);
-        Config { root, raw, registry, implicit }
+        Config { repo_root: root.clone(), spec_home: root, raw, registry, implicit }
     }
 
     pub fn spec_dir(&self) -> &str {
@@ -103,7 +108,7 @@ impl Config {
     }
 
     pub fn expand_path(&self, p: &str) -> PathBuf {
-        paths::expand(&self.root, p)
+        paths::expand(&self.spec_home, p)
     }
 }
 

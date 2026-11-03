@@ -19,8 +19,8 @@ pub struct Governing {
 pub fn governing(c: &Corpus, path: &str) -> Vec<Governing> {
     let path = path.trim_start_matches("./").trim_end_matches('/');
     // C207: for a folder, a document governing a file or glob inside it governs part of it.
-    let dir = c.cfg.root.join(path);
-    let inside = (!path.is_empty() && dir.is_dir()).then(|| files_under(&c.cfg.root, path));
+    let dir = c.cfg.spec_home.join(path);
+    let inside = (!path.is_empty() && dir.is_dir()).then(|| files_under(&c.cfg.spec_home, path));
     let mut out = vec![];
     for (i, d) in c.docs.iter().enumerate() {
         let globs = d.rel().remove("governs").unwrap_or_default();

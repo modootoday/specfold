@@ -108,7 +108,7 @@ pub fn plan(c: &Corpus, g: &Graph, req: &NewDoc) -> Result<(Created, Plan)> {
     // it is written escaped; read as a glob it would name other files or none.
     let mut owned = req.clone();
     for g in &mut owned.governs {
-        if g.contains(['[', '*', '?', '{']) && c.cfg.root.join(g.as_str()).exists() {
+        if g.contains(['[', '*', '?', '{']) && c.cfg.spec_home.join(g.as_str()).exists() {
             *g = crate::workspace::escape_glob(g);
         }
     }
@@ -248,7 +248,7 @@ pub fn translation(c: &Corpus, g: &Graph, from: &str, lang: &str, title: Option<
     let stem = paths::stem(ty, &key, &slug);
     let path = paths::main_file(&dir, ty, &stem, bundle);
     super::forbid::refuse(c, &path, "change [forbid] paths or translate in another place")?;
-    let read = |p: &str| std::fs::read_to_string(c.cfg.root.join(p)).map_err(|e| anyhow!("cannot read {p}: {e}"));
+    let read = |p: &str| std::fs::read_to_string(c.cfg.spec_home.join(p)).map_err(|e| anyhow!("cannot read {p}: {e}"));
     let rev = crate::translation::rev_of(c, idx).ok_or_else(|| anyhow!("cannot read {}", src.path))?;
     let today = stamp::now_value();
     let mut fm = Map::new();

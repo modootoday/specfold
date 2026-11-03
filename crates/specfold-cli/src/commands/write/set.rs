@@ -21,7 +21,7 @@ pub fn run(g: &Global, a: &SetArgs) -> Result<Output> {
     }
     let mut shown = a.assignments.clone();
     crate::commands::outbound::refuse_redacted(
-        &s.corpus.cfg.root,
+        &s.corpus.cfg.spec_home,
         &s.corpus.docs[idx].path,
         &a.assignments.join("\n"),
     )?;
@@ -120,7 +120,7 @@ pub fn run(g: &Global, a: &SetArgs) -> Result<Output> {
         let o = shown_open.into_iter().fold(o, |o, l| o.foot(l));
         return Ok(if a.write { o.code(crate::output::Code::Refused) } else { o });
     }
-    let o = preview::finish(o, &plan, &s.corpus.cfg.root, a.write, &rerun(a))?;
+    let o = preview::finish(o, &plan, &s.corpus.cfg.spec_home, a.write, &rerun(a))?;
     let o = unknown.iter().fold(o.field("warnings", unknown.clone()), |o, w| o.foot(format!("warn  S1  {w}")));
     Ok(if !a.write { o } else { o.next(check_next(&s, a, &assigns, &ty, &id)) })
 }
@@ -169,7 +169,7 @@ fn open_tasks(c: &specfold_core::corpus::Corpus, idx: usize, assigns: &[Assign])
     }
     let mut open = vec![];
     for file in std::iter::once(&d.path).chain(&d.chapters) {
-        let Ok(text) = std::fs::read_to_string(c.cfg.root.join(file)) else { continue };
+        let Ok(text) = std::fs::read_to_string(c.cfg.spec_home.join(file)) else { continue };
         let split = frontmatter::split(&text);
         for t in tasks::list(split.body).into_iter().filter(|t| !t.done) {
             open.push(format!("{file}:{}: {}", split.body_line + t.line - 1, t.text));

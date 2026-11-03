@@ -42,7 +42,7 @@ impl Rule for Registered {
                 )));
             }
             for e in entries.iter().filter(|e| e.store == "repo") {
-                if !ctx.corpus.cfg.root.join(&base).join(&e.path).is_file() {
+                if !ctx.corpus.cfg.spec_home.join(&base).join(&e.path).is_file() {
                     out.push(Finding::error(
                         "P2",
                         &d.path,
@@ -73,7 +73,7 @@ impl Rule for SizeLimit {
             }
             let stored: Vec<String> = d.files().into_iter().filter(|e| e.store == "store").map(|e| e.path).collect();
             for f in &d.bundle_files {
-                let Ok(meta) = std::fs::metadata(ctx.corpus.cfg.root.join(f)) else { continue };
+                let Ok(meta) = std::fs::metadata(ctx.corpus.cfg.spec_home.join(f)) else { continue };
                 if meta.len() > limit && !stored.iter().any(|p| f.ends_with(p.as_str())) {
                     out.push(
                         Finding::error(
@@ -105,12 +105,12 @@ impl Rule for HashesMatch {
     }
 
     fn run(&self, ctx: &Ctx, out: &mut Vec<Finding>) {
-        let mut hashes = HashCache::open(&ctx.corpus.cfg.root);
+        let mut hashes = HashCache::open(&ctx.corpus.cfg.spec_home);
         for (i, d) in ctx.corpus.docs.iter().enumerate() {
             if !ctx.scope.covers(i) {
                 continue;
             }
-            let base = ctx.corpus.cfg.root.join(d.base_dir());
+            let base = ctx.corpus.cfg.spec_home.join(d.base_dir());
             for e in d.files() {
                 if e.sha256.len() != 64 || !["repo", "store"].contains(&e.store.as_str()) {
                     out.push(Finding::error(

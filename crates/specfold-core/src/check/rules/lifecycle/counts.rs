@@ -91,10 +91,10 @@ fn extra_files(ctx: &Ctx) -> Vec<String> {
     if !ctx.scope.is_all() {
         return ctx.scope.paths.iter().filter(|p| hit(p)).cloned().collect();
     }
-    crate::workspace::walk(cfg, &cfg.root)
+    crate::workspace::walk(cfg, &cfg.spec_home)
         .build()
         .flatten()
-        .filter_map(|e| crate::paths::rel_of(&cfg.root, e.path()))
+        .filter_map(|e| crate::paths::rel_of(&cfg.spec_home, e.path()))
         .filter(|p| hit(p))
         .collect()
 }

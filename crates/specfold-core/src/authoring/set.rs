@@ -236,7 +236,7 @@ fn plan_with(c: &Corpus, idx: usize, assigns: &[Assign], successor_pending: bool
     // A pin names a commit; HEAD is resolved now, since HEAD moves.
     let pinned: Vec<Assign>;
     let assigns = if assigns.iter().any(|a| a.key == "verified_at" && a.value == "HEAD") {
-        let head = crate::workspace::vcs::head(&c.cfg.root)
+        let head = crate::workspace::vcs::head(&c.cfg.spec_home)
             .ok_or_else(|| anyhow!("verified_at=HEAD needs a git repository with a commit"))?;
         pinned = assigns
             .iter()
@@ -252,7 +252,7 @@ fn plan_with(c: &Corpus, idx: usize, assigns: &[Assign], successor_pending: bool
     } else {
         assigns
     };
-    let text = crate::corpus::overlay::read(&c.cfg.root.join(&d.path))?;
+    let text = crate::corpus::overlay::read(&c.cfg.spec_home.join(&d.path))?;
     // C117: values that are already there change nothing, so nothing is written and `updated` stays.
     let order = |m: &mut Map<String, Value>| {
         let ordered = edit::ordered(std::mem::take(m));

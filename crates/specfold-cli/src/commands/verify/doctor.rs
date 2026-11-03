@@ -41,7 +41,7 @@ pub fn run(g: &Global) -> Result<Output> {
             return Ok(p.o.code(Code::Findings).next("spec explain config"));
         }
     };
-    let root = cfg.root.clone();
+    let root = cfg.spec_home.clone();
     let no_config = !root.join("spec.toml").exists();
     if no_config {
         p.add("config", "spec.toml", "no spec.toml here; spec runs on defaults".into(), "spec init --write");

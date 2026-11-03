@@ -109,7 +109,7 @@ pub fn resolve(cfg: &Config, text: &str) -> Remote {
                 id: d.id.to_string(),
                 ty: d.id.ty.clone(),
                 title: d.title.clone().unwrap_or_default(),
-                file: l.corpus.cfg.root.join(&d.path),
+                file: l.corpus.cfg.spec_home.join(&d.path),
             }
         }
         Resolution::MissingAnchor { anchor, .. } => Remote::MissingAnchor { name, id, anchor },

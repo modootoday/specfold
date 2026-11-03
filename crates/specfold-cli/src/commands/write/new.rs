@@ -88,7 +88,7 @@ fn create(g: &Global, a: &NewArgs) -> Result<Output> {
         let key = created.id.rsplit('/').next().unwrap_or_default().to_string();
         if !a.write
             || !specfold_core::model::stamp::is_stamp(&key)
-            || reserve(&s.corpus.cfg.root, &created.id, &created.path, &key)
+            || reserve(&s.corpus.cfg.spec_home, &created.id, &created.path, &key)
         {
             break;
         }
@@ -124,11 +124,11 @@ fn create(g: &Global, a: &NewArgs) -> Result<Output> {
     };
     // C248: the exclude goes in before the write, so the undo is the `rm -f` of an ignored file.
     let ignored = if a.local && a.write {
-        ignore_local(&s.corpus.cfg.root, &created.path, s.corpus.cfg.local_dir())
+        ignore_local(&s.corpus.cfg.spec_home, &created.path, s.corpus.cfg.local_dir())
     } else {
         None
     };
-    let mut o = preview::finish(o, &plan, &s.corpus.cfg.root, a.write, &rerun(a))?;
+    let mut o = preview::finish(o, &plan, &s.corpus.cfg.spec_home, a.write, &rerun(a))?;
     if let Some(note) = ignored {
         o = o.field("ignored", note.clone()).foot(note);
     }
@@ -197,7 +197,7 @@ fn translation(s: &session::Session, a: &NewArgs, lang: &str) -> Result<Output> 
         .head(format!("{} {}  {}", if a.write { "created" } else { "would create" }, created.id, created.path))
         .head(created.owner_reason.clone())
         .head("the body is the source's: translate it; source_rev already records the source it was copied from");
-    let o = preview::finish(o, &plan, &s.corpus.cfg.root, a.write, &rerun(a))?;
+    let o = preview::finish(o, &plan, &s.corpus.cfg.spec_home, a.write, &rerun(a))?;
     Ok(if !a.write { o } else { o.next(format!("spec show {}", specfold_core::shell::word(&created.id))) })
 }
 
@@ -257,7 +257,7 @@ fn asset(s: &session::Session, a: &NewArgs, kind: AssetKind) -> Result<Output> {
     let Some((path, text, covered)) = assets::template(cfg, kind, &name, &description, a.title()) else {
         bail!("no template for {}", kind.as_str());
     };
-    let full = cfg.root.join(&path);
+    let full = cfg.spec_home.join(&path);
     if full.exists() {
         bail!("{path} already exists; edit it instead");
     }

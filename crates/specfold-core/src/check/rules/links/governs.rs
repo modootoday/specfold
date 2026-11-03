@@ -32,7 +32,7 @@ impl Rule for GovernsExists {
                 } else {
                     base
                 };
-                if !base.is_empty() && !ctx.corpus.cfg.root.join(base).exists() {
+                if !base.is_empty() && !ctx.corpus.cfg.spec_home.join(base).exists() {
                     out.push(Finding::warn(
                         "L5",
                         &d.path,

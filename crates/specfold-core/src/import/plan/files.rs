@@ -26,7 +26,7 @@ pub(super) fn move_files(
     }
     for a in &u.attachments {
         let rel = a.strip_prefix(&format!("{base}/")).unwrap_or(name_of(a)).to_string();
-        let (sha, bytes) = hash::file(&c.cfg.root.join(a))?;
+        let (sha, bytes) = hash::file(&c.cfg.spec_home.join(a))?;
         let store = if bytes > c.cfg.raw.files.inline_max_bytes { "store" } else { "repo" };
         if store == "store" {
             out.uploads.push((format!("{bundle_dir}/{rel}"), sha.clone()));
