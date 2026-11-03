@@ -1,13 +1,11 @@
 //! Runs one command line to an output, without printing. The binary and the MCP server share it.
 
 use super::dir_rewrite::{with_dir, with_dirs};
-use super::usage_errors::{clap_message, command_name, help_hint, nearest_command, split_next};
+use super::usage_errors::{command_name, failed, help_hint, parse_failure};
 use crate::cli::args::{Cli, Cmd};
 use crate::cli::dispatch::dispatch;
-use crate::cli::usage::{format_json, typed_dir, usage_example};
 use crate::output::{Code, Format, Output, Page};
 use clap::FromArgMatches;
-use specfold_core::shell::quote;
 
 pub struct Executed {
     pub output: Output,
@@ -16,10 +14,6 @@ pub struct Executed {
     /// clap's own help or version text, printed as is.
     pub raw: Option<String>,
     pub serve_mcp: bool,
-}
-
-fn code_of(e: &anyhow::Error) -> Code {
-    if e.chain().any(|c| c.downcast_ref::<std::io::Error>().is_some()) { Code::Env } else { Code::Usage }
 }
 
 /// The subcommand named on the command line, if it is a real one.
@@ -90,55 +84,7 @@ pub fn execute(argv: Vec<String>) -> Executed {
         crate::cli::describe::parser_command(all).try_get_matches_from(&argv).and_then(|m| Cli::from_arg_matches(&m));
     let mut cli = match parsed {
         Ok(c) => c,
-        Err(e) => {
-            let wants_json = argv.iter().any(|a| a == "--json");
-            let kind = e.kind();
-            let display_only = matches!(
-                kind,
-                clap::error::ErrorKind::DisplayHelp
-                    | clap::error::ErrorKind::DisplayVersion
-                    | clap::error::ErrorKind::DisplayHelpOnMissingArgumentOrSubcommand
-            );
-            let name = command_name(&argv);
-            let rendered = e.render().to_string();
-            if display_only && !wants_json {
-                return Executed {
-                    output: Output::new("help"),
-                    format: Format::Text,
-                    page,
-                    raw: Some(rendered),
-                    serve_mcp: false,
-                };
-            }
-            let mut first = clap_message(&rendered);
-            // C241: only when --format is the bad value; a missing value elsewhere is not fixed by --json.
-            let json_fix = (kind == clap::error::ErrorKind::InvalidValue && rendered.contains("for '--format"))
-                .then(|| format_json(&argv))
-                .flatten();
-            if json_fix.is_some() {
-                first.push_str("; JSON output is --json");
-            }
-            // A mistyped subcommand: the nearest real one is the next command, but the error
-            // keeps the generic schema rather than following the guess.
-            let schema_name = name.clone();
-            let name = name.or_else(|| nearest_command(&argv));
-            let code = if display_only { Code::Ok } else { Code::Usage };
-            let next = json_fix
-                .or_else(|| usage_example(&argv, kind, &rendered, name.as_deref()))
-                .unwrap_or_else(|| help_hint(&name));
-            let mut out = Output::error(schema_name.as_deref().unwrap_or("spec"), code, &first, Some(next));
-            // C229: the next command runs where -C pointed, as on every other path.
-            if let Some(d) = typed_dir(&argv).filter(|d| !d.is_empty()) {
-                with_dirs(&mut out, &quote(&d), &quote(&d), true);
-            }
-            return Executed {
-                output: out,
-                format: if wants_json { Format::Json } else { Format::Text },
-                page,
-                raw: None,
-                serve_mcp: false,
-            };
-        }
+        Err(e) => return parse_failure(&argv, &e, page),
     };
     let format = if cli.global.json {
         Format::Json
@@ -171,26 +117,7 @@ pub fn execute(argv: Vec<String>) -> Executed {
     }
     let shown_dir = cli.global.dir.clone();
     let loc = enter(&mut cli.global);
-    let output = match dispatch(&cli) {
-        Ok(o) => o,
-        Err(e) => {
-            let name = command_name(&argv);
-            let (msg, next) = split_next(&format!("{e:#}"), &argv);
-            Output::error(
-                name.as_deref().unwrap_or("spec"),
-                code_of(&e),
-                &msg,
-                // C106: a broken spec.toml is fixed from the config reference, not the command's help.
-                Some(next.unwrap_or_else(|| {
-                    if msg.starts_with("invalid ") && msg.contains("spec.toml") {
-                        "spec explain config".into()
-                    } else {
-                        help_hint(&name)
-                    }
-                })),
-            )
-        }
-    };
+    let output = dispatch(&cli).unwrap_or_else(|e| failed(&argv, &e));
     let mut output = output;
     if let Some(d) = &shown_dir {
         with_dir(&mut output, d, &loc);

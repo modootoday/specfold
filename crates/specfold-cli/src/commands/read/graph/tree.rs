@@ -41,27 +41,35 @@ pub(super) fn tree(s: &Session, max: Option<usize>, gl: Glyphs) -> Vec<String> {
     while let Some(i) = stack.pop() {
         stack.extend(s.graph.edges_from(i).map(|e| e.to).filter(|t| below.insert(*t)));
     }
-    let mut seen = BTreeSet::new();
-    let mut out = vec![];
-    let walk = |root: usize, seen: &mut BTreeSet<usize>, out: &mut Vec<String>| {
-        seen.insert(root);
-        out.push(label(s, root));
-        children(s, root, "", 1, max, &gl, seen, out);
+    let mut cx = Ctx { s, max, gl: &gl, seen: BTreeSet::new(), out: vec![] };
+    let walk = |root: usize, cx: &mut Ctx| {
+        cx.seen.insert(root);
+        cx.out.push(label(s, root));
+        children(cx, root, "", 1);
     };
     for r in roots.drain(..) {
-        walk(r, &mut seen, &mut out);
+        walk(r, &mut cx);
     }
     for i in order {
-        if !seen.contains(&i) && !below.contains(&i) {
+        if !cx.seen.contains(&i) && !below.contains(&i) {
             below.insert(i);
             let mut stack = vec![i];
             while let Some(j) = stack.pop() {
                 stack.extend(s.graph.edges_from(j).map(|e| e.to).filter(|t| below.insert(*t)));
             }
-            walk(i, &mut seen, &mut out);
+            walk(i, &mut cx);
         }
     }
-    out
+    cx.out
+}
+
+/// One tree walk: the graph, the depth limit and glyphs, what was shown already, and the lines.
+struct Ctx<'a> {
+    s: &'a Session,
+    max: Option<usize>,
+    gl: &'a Glyphs,
+    seen: BTreeSet<usize>,
+    out: Vec<String>,
 }
 
 fn label(s: &Session, i: usize) -> String {
@@ -69,18 +77,9 @@ fn label(s: &Session, i: usize) -> String {
     format!("{}  [{}]", d.id, d.status().unwrap_or_default())
 }
 
-#[allow(clippy::too_many_arguments)]
-fn children(
-    s: &Session,
-    i: usize,
-    prefix: &str,
-    depth: usize,
-    max: Option<usize>,
-    gl: &Glyphs,
-    seen: &mut BTreeSet<usize>,
-    out: &mut Vec<String>,
-) {
-    if max.is_some_and(|m| depth > m) {
+fn children(cx: &mut Ctx, i: usize, prefix: &str, depth: usize) {
+    let (s, gl) = (cx.s, cx.gl);
+    if cx.max.is_some_and(|m| depth > m) {
         return;
     }
     let mut kids: Vec<(String, Option<usize>, String)> =
@@ -89,10 +88,10 @@ fn children(
     let n = kids.len();
     for (k, (kind, to, text)) in kids.into_iter().enumerate() {
         let (lead, more) = if k + 1 == n { (gl.last, "    ") } else { (gl.tee, gl.bar) };
-        let repeat = to.is_some_and(|t| !seen.insert(t));
-        out.push(format!("{prefix}{lead}{kind} {} {text}{}", gl.arrow, if repeat { " (*)" } else { "" }));
+        let repeat = to.is_some_and(|t| !cx.seen.insert(t));
+        cx.out.push(format!("{prefix}{lead}{kind} {} {text}{}", gl.arrow, if repeat { " (*)" } else { "" }));
         if let (Some(t), false) = (to, repeat) {
-            children(s, t, &format!("{prefix}{more}"), depth + 1, max, gl, seen, out);
+            children(cx, t, &format!("{prefix}{more}"), depth + 1);
         }
     }
 }

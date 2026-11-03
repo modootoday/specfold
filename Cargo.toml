@@ -38,6 +38,8 @@ unsafe_code = "forbid"
 [workspace.lints.clippy]
 todo = "deny"
 unimplemented = "deny"
+too_many_lines = "deny"
+cognitive_complexity = "deny"
 
 [profile.release]
 lto = "thin"

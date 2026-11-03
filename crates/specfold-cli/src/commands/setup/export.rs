@@ -162,33 +162,8 @@ fn content_flags(a: &ExportArgs) -> String {
 }
 
 fn built_in(g: &Global, a: &ExportArgs) -> Result<Output> {
+    let (target, out, strict) = built_in_args(a)?;
     let kept = kept_flags(a);
-    let names = markdown::Target::ALL.join(", ");
-    let first = markdown::Target::ALL[0];
-    let out_word =
-        a.out.as_ref().map_or("export".to_string(), |p| specfold_core::shell::quote(&p.display().to_string()));
-    let Some(t) = &a.target else {
-        bail!(
-            "spec export markdown needs --target ({names}); next: spec export markdown --target {first} --out {out_word}{kept}"
-        )
-    };
-    let target = markdown::Target::parse(t).ok_or_else(|| {
-        anyhow!("unknown --target '{t}' (one of {names}); next: spec export markdown --target {first} --out {out_word}{kept}")
-    })?;
-    let Some(out) = &a.out else {
-        bail!(
-            "spec export markdown needs --out <dir>; next: spec export markdown --target {} --out export{kept}",
-            target.name()
-        )
-    };
-    let strict = match a.fail_on.as_deref() {
-        None => false,
-        Some("unresolved") => true,
-        Some(x) => bail!("unknown --fail-on '{x}' (only: unresolved)"),
-    };
-    if a.format.is_some() {
-        bail!("--format is for plugins; the built-in exporter takes --target");
-    }
     let s = session::open(g)?;
     // C161: read and written from -C; shown as typed, so the next commands keep working.
     let out_path = s.loc.arg_path(out);
@@ -239,26 +214,8 @@ fn built_in(g: &Global, a: &ExportArgs) -> Result<Output> {
     };
     // Replacing an earlier export overwrites files outside the repository: --yes confirms it (CLI-3).
     let again = specfold_core::shell::quote(&out.display().to_string());
-    // C114/C115: a preview lists what would be written and replaced, writes nothing, exits 0.
     if a.dry_run {
-        let mut o = o.field("written", false).field("replaces", json!(previous)).head(format!(
-            "would export {} document(s) for {} into {} ({} files){}: nothing was written",
-            tree.docs,
-            target.name(),
-            out.display(),
-            tree.files.len(),
-            if previous.is_empty() {
-                String::new()
-            } else {
-                format!(", replacing an earlier export ({} file(s))", previous.len())
-            }
-        ));
-        for p in tree.files.keys().take(20) {
-            o = o.foot(format!("write  {p}"));
-        }
-        let yes = if previous.is_empty() { "" } else { " --yes" };
-        let content = content_flags(a);
-        return Ok(o.next(format!("spec export markdown --target {} --out {again}{content}{yes}", target.name())));
+        return Ok(dry_run(o, a, &tree, &previous, out, target, &again));
     }
     if !previous.is_empty() && !a.yes {
         return Ok(o
@@ -281,6 +238,69 @@ fn built_in(g: &Global, a: &ExportArgs) -> Result<Output> {
         tree.files.len()
     ));
     Ok(done_next(o, tree.docs, n, &out_path, &s.corpus.cfg.root, &again))
+}
+
+/// The built-in exporter's own flags: the target, the output folder, and whether an
+/// unresolved reference fails the export.
+fn built_in_args(a: &ExportArgs) -> Result<(markdown::Target, &std::path::Path, bool)> {
+    let kept = kept_flags(a);
+    let names = markdown::Target::ALL.join(", ");
+    let first = markdown::Target::ALL[0];
+    let out_word =
+        a.out.as_ref().map_or("export".to_string(), |p| specfold_core::shell::quote(&p.display().to_string()));
+    let Some(t) = &a.target else {
+        bail!(
+            "spec export markdown needs --target ({names}); next: spec export markdown --target {first} --out {out_word}{kept}"
+        )
+    };
+    let target = markdown::Target::parse(t).ok_or_else(|| {
+        anyhow!("unknown --target '{t}' (one of {names}); next: spec export markdown --target {first} --out {out_word}{kept}")
+    })?;
+    let Some(out) = a.out.as_deref() else {
+        bail!(
+            "spec export markdown needs --out <dir>; next: spec export markdown --target {} --out export{kept}",
+            target.name()
+        )
+    };
+    let strict = match a.fail_on.as_deref() {
+        None => false,
+        Some("unresolved") => true,
+        Some(x) => bail!("unknown --fail-on '{x}' (only: unresolved)"),
+    };
+    if a.format.is_some() {
+        bail!("--format is for plugins; the built-in exporter takes --target");
+    }
+    Ok((target, out, strict))
+}
+
+/// C114/C115: a preview lists what would be written and replaced, writes nothing, exits 0.
+fn dry_run(
+    o: Output,
+    a: &ExportArgs,
+    tree: &markdown::Tree,
+    previous: &[String],
+    out: &std::path::Path,
+    target: markdown::Target,
+    again: &str,
+) -> Output {
+    let mut o = o.field("written", false).field("replaces", json!(previous)).head(format!(
+        "would export {} document(s) for {} into {} ({} files){}: nothing was written",
+        tree.docs,
+        target.name(),
+        out.display(),
+        tree.files.len(),
+        if previous.is_empty() {
+            String::new()
+        } else {
+            format!(", replacing an earlier export ({} file(s))", previous.len())
+        }
+    ));
+    for p in tree.files.keys().take(20) {
+        o = o.foot(format!("write  {p}"));
+    }
+    let yes = if previous.is_empty() { "" } else { " --yes" };
+    let content = content_flags(a);
+    o.next(format!("spec export markdown --target {} --out {again}{content}{yes}", target.name()))
 }
 
 /// C251: a file the export would write over that no earlier export listed is the user's own:

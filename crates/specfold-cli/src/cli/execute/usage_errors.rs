@@ -1,7 +1,86 @@
 //! A command line that does not parse, or a command that failed: which command it was about, the
 //! message without clap's usage block, and the one next command the error names.
 
+use super::dir_rewrite::with_dirs;
+use super::run::Executed;
+use crate::cli::usage::{format_json, typed_dir, usage_example};
+use crate::output::{Code, Format, Output, Page};
 use specfold_core::shell::quote;
+
+/// A command line clap refused: its help or version text as is, or a usage error that names
+/// the command meant and the one next command to try.
+pub(super) fn parse_failure(argv: &[String], e: &clap::Error, page: Page) -> Executed {
+    let wants_json = argv.iter().any(|a| a == "--json");
+    let kind = e.kind();
+    let display_only = matches!(
+        kind,
+        clap::error::ErrorKind::DisplayHelp
+            | clap::error::ErrorKind::DisplayVersion
+            | clap::error::ErrorKind::DisplayHelpOnMissingArgumentOrSubcommand
+    );
+    let name = command_name(argv);
+    let rendered = e.render().to_string();
+    if display_only && !wants_json {
+        return Executed {
+            output: Output::new("help"),
+            format: Format::Text,
+            page,
+            raw: Some(rendered),
+            serve_mcp: false,
+        };
+    }
+    let mut first = clap_message(&rendered);
+    // C241: only when --format is the bad value; a missing value elsewhere is not fixed by --json.
+    let json_fix = (kind == clap::error::ErrorKind::InvalidValue && rendered.contains("for '--format"))
+        .then(|| format_json(argv))
+        .flatten();
+    if json_fix.is_some() {
+        first.push_str("; JSON output is --json");
+    }
+    // A mistyped subcommand: the nearest real one is the next command, but the error
+    // keeps the generic schema rather than following the guess.
+    let schema_name = name.clone();
+    let name = name.or_else(|| nearest_command(argv));
+    let code = if display_only { Code::Ok } else { Code::Usage };
+    let next =
+        json_fix.or_else(|| usage_example(argv, kind, &rendered, name.as_deref())).unwrap_or_else(|| help_hint(&name));
+    let mut out = Output::error(schema_name.as_deref().unwrap_or("spec"), code, &first, Some(next));
+    // C229: the next command runs where -C pointed, as on every other path.
+    if let Some(d) = typed_dir(argv).filter(|d| !d.is_empty()) {
+        with_dirs(&mut out, &quote(&d), &quote(&d), true);
+    }
+    Executed {
+        output: out,
+        format: if wants_json { Format::Json } else { Format::Text },
+        page,
+        raw: None,
+        serve_mcp: false,
+    }
+}
+
+/// A command that failed: exit code by cause, and the next command the error names, else the
+/// config reference for a broken spec.toml, else the command's help.
+pub(super) fn failed(argv: &[String], e: &anyhow::Error) -> Output {
+    let name = command_name(argv);
+    let (msg, next) = split_next(&format!("{e:#}"), argv);
+    Output::error(
+        name.as_deref().unwrap_or("spec"),
+        code_of(e),
+        &msg,
+        // C106: a broken spec.toml is fixed from the config reference, not the command's help.
+        Some(next.unwrap_or_else(|| {
+            if msg.starts_with("invalid ") && msg.contains("spec.toml") {
+                "spec explain config".into()
+            } else {
+                help_hint(&name)
+            }
+        })),
+    )
+}
+
+fn code_of(e: &anyhow::Error) -> Code {
+    if e.chain().any(|c| c.downcast_ref::<std::io::Error>().is_some()) { Code::Env } else { Code::Usage }
+}
 
 /// C193: the first word that is not an option or the value of a global option that takes one
 /// (`-C ''`, `--limit 5`), so `spec -C '' find` is about find.
@@ -36,7 +115,7 @@ pub(super) fn help_hint(name: &Option<String>) -> String {
 
 /// clap's error without its usage block: the first line, the missing arguments it lists under
 /// it, and its tip, on one line.
-pub(super) fn clap_message(rendered: &str) -> String {
+fn clap_message(rendered: &str) -> String {
     let mut lines = rendered.lines();
     let mut msg = lines.next().unwrap_or("").trim_start_matches("error: ").trim_end_matches(':').to_string();
     let mut listed = vec![];
@@ -59,7 +138,7 @@ pub(super) fn clap_message(rendered: &str) -> String {
 }
 
 /// The real subcommand a mistyped first word is closest to.
-pub(super) fn nearest_command(argv: &[String]) -> Option<String> {
+fn nearest_command(argv: &[String]) -> Option<String> {
     let first = first_word(argv)?;
     let names: Vec<String> = crate::cli::describe::commands().into_iter().map(|c| c.name).collect();
     crate::commands::setup::help::nearest(first, names.iter().map(|s| s.as_str())).map(str::to_string)
@@ -67,7 +146,7 @@ pub(super) fn nearest_command(argv: &[String]) -> Option<String> {
 
 /// An error that names its own way out keeps it as the one next command: `; next: <cmd>` as is,
 /// and `rerun with --flag` as the full command line with the flag added.
-pub(super) fn split_next(msg: &str, argv: &[String]) -> (String, Option<String>) {
+fn split_next(msg: &str, argv: &[String]) -> (String, Option<String>) {
     if let Some((m, n)) = msg.split_once("; next: ") {
         // A wrapped error may name a second way out; the innermost one is the most specific.
         let n = n.split("; next: ").next().unwrap_or(n);

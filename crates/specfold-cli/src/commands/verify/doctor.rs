@@ -13,44 +13,66 @@ use std::path::{Path, PathBuf};
 
 const SKIP: [&str; 4] = [".git", "target", "node_modules", ".cargo-target"];
 
-pub fn run(g: &Global) -> Result<Output> {
-    let mut o = Output::new("doctor");
-    let mut found = 0;
-    let mut add = |o: Output, check: &str, path: &str, msg: String, fix: &str| {
-        found += 1;
-        o.item(
+/// The problems found so far, as output items.
+struct Problems {
+    o: Output,
+    found: usize,
+}
+
+impl Problems {
+    fn add(&mut self, check: &str, path: &str, msg: String, fix: &str) {
+        self.found += 1;
+        let o = std::mem::replace(&mut self.o, Output::new("doctor"));
+        self.o = o.item(
             json!({"check": check, "path": path, "message": msg, "fix": fix}),
             format!("{check:<9} {path}  {msg}\n          fix: {fix}"),
-        )
-    };
+        );
+    }
+}
+
+pub fn run(g: &Global) -> Result<Output> {
+    let mut p = Problems { o: Output::new("doctor"), found: 0 };
     session::hold_config_warnings();
     let cfg = match session::config(g) {
         Ok(c) => c,
         Err(e) => {
             // C235: spec init cannot read the file either; the fix is an edit at the line TOML names.
-            let o = add(o, "config", "spec.toml", format!("{e:#}"), &config_fix(&format!("{e:#}")));
-            return Ok(o.code(Code::Findings).next("spec explain config"));
+            p.add("config", "spec.toml", format!("{e:#}"), &config_fix(&format!("{e:#}")));
+            return Ok(p.o.code(Code::Findings).next("spec explain config"));
         }
     };
     let root = cfg.root.clone();
     let no_config = !root.join("spec.toml").exists();
     if no_config {
-        o = add(o, "config", "spec.toml", "no spec.toml here; spec runs on defaults".into(), "spec init --write");
+        p.add("config", "spec.toml", "no spec.toml here; spec runs on defaults".into(), "spec init --write");
     }
     for w in session::config_warnings(&cfg) {
         let next = warning_fix(&w);
-        o = add(o, "config", "spec.toml", w, next);
+        p.add("config", "spec.toml", w, next);
     }
     let mut files = vec![];
     walk(&root, &mut files);
-    for f in &files {
+    conflicts(&root, &files, &mut p);
+    local_ignored(&root, &mut p);
+    corpus_problems(g, &mut p);
+    let o = remotes(&cfg, p.o);
+    let o = o.head(format!("{} spec files read", files.len()));
+    Ok(if p.found == 0 {
+        o.foot("no setup problems found").next("spec check")
+    } else {
+        if no_config { o.code(Code::Findings).next("spec init --write") } else { o.code(Code::Findings) }
+    })
+}
+
+/// Merge conflict markers left in spec files.
+fn conflicts(root: &Path, files: &[PathBuf], p: &mut Problems) {
+    for f in files {
         let Ok(text) = std::fs::read_to_string(f) else { continue };
         if let Some(n) =
             text.lines().position(|l| l.starts_with("<<<<<<< ") || l == "<<<<<<<" || l.starts_with(">>>>>>> "))
         {
-            let rel = specfold_core::paths::rel_of(&root, f).unwrap_or_else(|| specfold_core::paths::slash(f));
-            o = add(
-                o,
+            let rel = specfold_core::paths::rel_of(root, f).unwrap_or_else(|| specfold_core::paths::slash(f));
+            p.add(
                 "conflict",
                 &rel,
                 format!("merge conflict marker at line {}", n + 1),
@@ -58,18 +80,21 @@ pub fn run(g: &Global) -> Result<Output> {
             );
         }
     }
+}
+
+/// Local documents git would commit.
+fn local_ignored(root: &Path, p: &mut Problems) {
     let local = root.join(".spec.local");
     if root.join(".git").exists() && local.exists() {
         let ignored = std::process::Command::new("git")
             .arg("-C")
-            .arg(&root)
+            .arg(root)
             .args(["check-ignore", "-q", ".spec.local/x.md"])
             .status()
             .map(|s| s.success())
             .unwrap_or(true);
         if !ignored {
-            o = add(
-                o,
+            p.add(
                 "local",
                 ".spec.local",
                 "local documents are not git-ignored".into(),
@@ -77,51 +102,56 @@ pub fn run(g: &Global) -> Result<Output> {
             );
         }
     }
+}
+
+/// Ids defined twice and references left behind by a half-finished move.
+fn corpus_problems(g: &Global, p: &mut Problems) {
     // Corpus-level checks need the documents loaded, local ones included.
     let full = Global { no_local: false, ..g.clone() };
-    if let Ok(s) = session::open(&full) {
-        let c = &s.corpus;
-        // The same id from two files: usually a local draft copied into .spec, or the reverse.
-        let mut by_id: BTreeMap<String, Vec<&str>> = BTreeMap::new();
-        for d in &c.docs {
-            by_id.entry(d.id.to_string()).or_default().push(&d.path);
-        }
-        for (id, paths) in by_id.iter().filter(|(_, p)| p.len() > 1) {
-            // C139: the id names both files, so the fix names one by its path.
-            let fix = match paths.iter().find(|p| p.contains(".spec.local/")) {
-                Some(local) => format!("keep one: delete the local copy, or spec mv {local} --slug <new-slug> --write"),
-                None => format!("keep one, or spec mv {} --slug <new-slug> --write", paths[paths.len() - 1]),
-            };
-            o = add(o, "duplicate", paths[0], format!("{id} is also defined in {}", paths[1..].join(", ")), &fix);
-        }
-        // A move that stopped halfway leaves references to the old id while a document of the
-        // same type and key lives under another owner.
-        for d in &c.docs {
-            for l in &d.links {
-                if !matches!(s.graph.resolve(&l.item), Resolution::Missing) {
-                    continue;
-                }
-                let Some((ty, rest)) = l.item.split_once(':') else { continue };
-                let key = rest.rsplit('/').next().unwrap_or(rest);
-                if let Some(to) = c.docs.iter().find(|x| x.id.ty == ty && x.id.key == key) {
-                    let to = to.id.to_string();
-                    o = add(
-                        o,
-                        "moved",
-                        &format!("{}:{}", l.path, l.line),
-                        format!("refers to {}, which looks moved to {to}", l.item),
-                        &format!("replace {} with {to}, then spec check", l.item),
-                    );
-                }
+    let Ok(s) = session::open(&full) else { return };
+    let c = &s.corpus;
+    // The same id from two files: usually a local draft copied into .spec, or the reverse.
+    let mut by_id: BTreeMap<String, Vec<&str>> = BTreeMap::new();
+    for d in &c.docs {
+        by_id.entry(d.id.to_string()).or_default().push(&d.path);
+    }
+    for (id, paths) in by_id.iter().filter(|(_, p)| p.len() > 1) {
+        // C139: the id names both files, so the fix names one by its path.
+        let fix = match paths.iter().find(|p| p.contains(".spec.local/")) {
+            Some(local) => format!("keep one: delete the local copy, or spec mv {local} --slug <new-slug> --write"),
+            None => format!("keep one, or spec mv {} --slug <new-slug> --write", paths[paths.len() - 1]),
+        };
+        p.add("duplicate", paths[0], format!("{id} is also defined in {}", paths[1..].join(", ")), &fix);
+    }
+    // A move that stopped halfway leaves references to the old id while a document of the
+    // same type and key lives under another owner.
+    for d in &c.docs {
+        for l in &d.links {
+            if !matches!(s.graph.resolve(&l.item), Resolution::Missing) {
+                continue;
+            }
+            let Some((ty, rest)) = l.item.split_once(':') else { continue };
+            let key = rest.rsplit('/').next().unwrap_or(rest);
+            if let Some(to) = c.docs.iter().find(|x| x.id.ty == ty && x.id.key == key) {
+                let to = to.id.to_string();
+                p.add(
+                    "moved",
+                    &format!("{}:{}", l.path, l.line),
+                    format!("refers to {}, which looks moved to {to}", l.item),
+                    &format!("replace {} with {to}, then spec check", l.item),
+                );
             }
         }
     }
-    // Remotes are listed, not judged: an absent directory is normal in a CI job without that
-    // checkout, so it is shown here and stays silent in spec check.
+}
+
+/// Remotes are listed, not judged: an absent directory is normal in a CI job without that
+/// checkout, so it is shown here and stays silent in spec check.
+fn remotes(cfg: &specfold_core::config::Config, mut o: Output) -> Output {
     let mut remotes = vec![];
     for (name, r) in &cfg.raw.remotes {
-        let dir = specfold_core::remotes::dir(&cfg, name).unwrap_or_default();
-        let docs = specfold_core::remotes::load(&cfg, name).map(|l| l.corpus.docs.len());
+        let dir = specfold_core::remotes::dir(cfg, name).unwrap_or_default();
+        let docs = specfold_core::remotes::load(cfg, name).map(|l| l.corpus.docs.len());
         let state = match docs {
             Some(n) => format!("{n} documents"),
             None => "absent: references to it are not checked".into(),
@@ -129,13 +159,7 @@ pub fn run(g: &Global) -> Result<Output> {
         o = o.foot(format!("remote {name:<10} {}  {state}", dir.display()));
         remotes.push(json!({"name": name, "path": r.path, "dir": dir, "present": docs.is_some(), "documents": docs}));
     }
-    o = o.field("remotes", json!(remotes));
-    o = o.head(format!("{} spec files read", files.len()));
-    Ok(if found == 0 {
-        o.foot("no setup problems found").next("spec check")
-    } else {
-        if no_config { o.code(Code::Findings).next("spec init --write") } else { o.code(Code::Findings) }
-    })
+    o.field("remotes", json!(remotes))
 }
 
 /// Markdown files under any spec directory (.spec or .spec.local), skipping build and VCS dirs.

@@ -4,8 +4,6 @@
 #![deny(clippy::panic)]
 // CLI-20: no unwrap outside tests (clippy.toml allow-unwrap-in-tests).
 #![deny(clippy::unwrap_used)]
-#![deny(clippy::too_many_lines)]
-#![deny(clippy::cognitive_complexity)]
 
 pub mod cli;
 pub mod commands;

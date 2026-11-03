@@ -6,19 +6,21 @@ use crate::output::{Code, Output, ci};
 use anyhow::{Result, bail};
 use specfold_core::check::{Finding, Severity};
 
+/// What a CI document is made from: the flags, the findings and their counts.
+pub(super) struct Ctx<'a> {
+    pub(super) g: &'a Global,
+    pub(super) a: &'a CheckArgs,
+    pub(super) list: &'a [Finding],
+    pub(super) errors: usize,
+    pub(super) warnings: usize,
+    pub(super) fails: usize,
+    pub(super) root: &'a std::path::Path,
+}
+
 /// A CI format replaces the text: only the document goes to standard output, so it can be
 /// redirected to a file, and the exit code still follows --fail-on.
-#[allow(clippy::too_many_arguments)]
-pub(super) fn ci_output(
-    g: &Global,
-    a: &CheckArgs,
-    o: Output,
-    list: &[Finding],
-    errors: usize,
-    warnings: usize,
-    fails: usize,
-    root: &std::path::Path,
-) -> Result<Output> {
+pub(super) fn ci_output(cx: &Ctx, o: Output) -> Result<Output> {
+    let Ctx { g, a, list, errors, warnings, fails, root } = *cx;
     if g.json || g.jsonl {
         bail!("--format {} is its own output; drop --json/--jsonl", a.format);
     }

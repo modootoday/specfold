@@ -1,7 +1,7 @@
 //! One `spec check` run: the findings, the summary, the exit code and the next command.
 
 use super::baseline::{held_note, write_baseline};
-use super::ci::ci_output;
+use super::ci::{Ctx, ci_output};
 use super::scope::{check_fail_on, check_rule_names, checked_range, documents_named, overlay_stdin, range_of};
 use crate::cli::args::{global::Global, verify::CheckArgs};
 use crate::commands::verify::owners;
@@ -10,6 +10,7 @@ use crate::session;
 use anyhow::Result;
 use specfold_core::check::{self, Finding, Fix, Options, Selection, Severity, baseline};
 use specfold_core::workspace::vcs;
+use std::collections::BTreeMap;
 use std::time::Instant;
 
 fn failing(list: &[Finding], fail_on: &[String]) -> usize {
@@ -18,6 +19,29 @@ fn failing(list: &[Finding], fail_on: &[String]) -> usize {
     }
     let counts = |f: &&Finding| fail_on.is_empty() || fail_on.iter().any(|r| r == "any" || r == &f.rule);
     list.iter().filter(|f| f.severity == Severity::Error).filter(counts).count()
+}
+
+/// The findings a run reports once the baseline holds known ones back and other owners widen it.
+struct Held {
+    list: Vec<Finding>,
+    /// Errors the baseline knows; 0 without one.
+    known: usize,
+    /// Baseline entries that now hold fewer errors.
+    lowerable: usize,
+    baselined: bool,
+    others: owners::Others,
+}
+
+/// Counts over the reported findings, shared by the summary, the text and the CI formats.
+struct Tally {
+    errors: usize,
+    warnings: usize,
+    fails: usize,
+    cfg_warns: usize,
+    ms: u128,
+    excluded: BTreeMap<String, usize>,
+    by_rule: BTreeMap<String, (usize, usize)>,
+    checked: Option<(serde_json::Value, String)>,
 }
 
 pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
@@ -46,6 +70,44 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
     if a.write_baseline {
         return write_baseline(&s, a, &report.findings);
     }
+    let held = hold(&s, a, &mut report, &only, &opts)?;
+    let (errors, warnings) = findings::counts(&held.list);
+    let t = Tally {
+        errors,
+        warnings,
+        fails: failing(&held.list, &a.fail_on),
+        ms: started.elapsed().as_millis(),
+        excluded: left_out(&held.list, &a.fail_on),
+        // C119: config warnings (printed on stderr) count in the summary too.
+        cfg_warns: session::config_warnings(&s.corpus.cfg).len(),
+        by_rule: by_rule(&held.list),
+        checked: checked_range(&s.corpus.cfg.root, a),
+    };
+    let o = summary(&s, &report, &held, &t);
+    if a.format != "text" {
+        let cx = Ctx {
+            g,
+            a,
+            list: &held.list,
+            errors: t.errors,
+            warnings: t.warnings,
+            fails: t.fails,
+            root: &s.corpus.cfg.root,
+        };
+        return ci_output(&cx, o);
+    }
+    Ok(text(&s, a, o, &report, &held, &t))
+}
+
+/// Holds known errors back against the baseline, keeps the named files, and adds what other
+/// owners' runs report.
+fn hold(
+    s: &session::Session,
+    a: &CheckArgs,
+    report: &mut check::Report,
+    only: &[String],
+    opts: &Options,
+) -> Result<Held> {
     let t = std::time::Instant::now();
     let base = if a.no_baseline { None } else { baseline::load(&s.corpus)? };
     let (list, known, lowerable) = match &base {
@@ -54,50 +116,49 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
             let lowerable = held.lowerable.iter().filter(|(k, _, _)| report.judged(k)).count();
             (held.findings, held.known, lowerable)
         }
-        None => (report.findings, 0, 0),
+        None => (std::mem::take(&mut report.findings), 0, 0),
     };
     let t = specfold_core::trace::phase("baseline", t);
     let list = if only.is_empty() { list } else { list.into_iter().filter(|f| only.contains(&f.path)).collect() };
-    let (list, others) = owners::widen(&s, a, list, base.as_ref(), &opts)?;
+    let (list, others) = owners::widen(s, a, list, base.as_ref(), opts)?;
     specfold_core::trace::phase("other-owners", t);
-    let (errors, warnings) = findings::counts(&list);
-    let fails = failing(&list, &a.fail_on);
-    let ms = started.elapsed().as_millis();
-    let excluded = left_out(&list, &a.fail_on);
-    // C119: config warnings (printed on stderr) count in the summary too.
-    let cfg_warns = session::config_warnings(&s.corpus.cfg).len();
+    Ok(Held { list, known, lowerable, baselined: base.is_some(), others })
+}
+
+/// The summary fields every format carries.
+fn summary(s: &session::Session, report: &check::Report, held: &Held, t: &Tally) -> Output {
     let mut o = Output::new("check")
-        .field("errors", errors)
-        .field("warnings", warnings)
-        .field("config_warnings", cfg_warns)
+        .field("errors", t.errors)
+        .field("warnings", t.warnings)
+        .field("config_warnings", t.cfg_warns)
         .field("docs_checked", report.docs_checked)
         .field("docs_total", s.corpus.docs.len())
         .field("rules", report.rules_run.clone())
-        .field("elapsed_ms", ms as u64);
-    let checked = checked_range(&s.corpus.cfg.root, a);
-    o = checked.iter().fold(o, |o, (json, _)| o.field("range", json.clone()));
-    if !excluded.is_empty() {
+        .field("elapsed_ms", t.ms as u64);
+    o = t.checked.iter().fold(o, |o, (json, _)| o.field("range", json.clone()));
+    if !t.excluded.is_empty() {
         o = o.field(
             "not_failing",
-            excluded.iter().map(|(r, n)| (r.clone(), serde_json::json!(n))).collect::<serde_json::Map<_, _>>(),
+            t.excluded.iter().map(|(r, n)| (r.clone(), serde_json::json!(n))).collect::<serde_json::Map<_, _>>(),
         );
     }
-    if base.is_some() {
-        o = o.field("baselined", known).field("lowerable", lowerable);
+    if held.baselined {
+        o = o.field("baselined", held.known).field("lowerable", held.lowerable);
     }
-    let by_rule = by_rule(&list);
-    o = o.field(
+    o.field(
         "by_rule",
-        by_rule
+        t.by_rule
             .iter()
             .map(|(r, (e, w))| (r.clone(), serde_json::json!({"errors": e, "warnings": w})))
             .collect::<serde_json::Map<_, _>>(),
-    );
-    let held = held_note(base.is_some() && known > 0, known);
-    if a.format != "text" {
-        return ci_output(g, a, o, &list, errors, warnings, fails, &s.corpus.cfg.root);
-    }
-    let o = list_items(o, a, &by_rule, &list);
+    )
+}
+
+/// The text output: the findings, the totals line and its notes, and the next command.
+fn text(s: &session::Session, a: &CheckArgs, o: Output, report: &check::Report, held: &Held, t: &Tally) -> Output {
+    let held_line = held_note(held.baselined && held.known > 0, held.known);
+    let (errors, warnings, cfg_warns) = (t.errors, t.warnings, t.cfg_warns);
+    let o = list_items(o, a, &t.by_rule, &held.list);
     // A staged or ranged run that changes no document still checks the changed code (D1, U1).
     let place = if report.docs_checked == 0 && (a.staged || a.changed.is_some()) {
         "in the changed files (no document changed)".to_string()
@@ -105,27 +166,38 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
         format!("in {} of {} documents", report.docs_checked, s.corpus.docs.len())
     };
     let in_cfg = if cfg_warns > 0 { format!(" (+{cfg_warns} in spec.toml)") } else { String::new() };
-    let o =
-        o.foot(format!("{errors} error(s), {warnings} warning(s){in_cfg} {place}{held} · {:.2}s", ms as f64 / 1000.0));
-    let o = checked.iter().fold(o, |o, (_, line)| o.foot(line.clone()));
-    let o = owners::annotate(o, &s.corpus.cfg.root, &others);
-    let mut o = excluded
+    let o = o.foot(format!(
+        "{errors} error(s), {warnings} warning(s){in_cfg} {place}{held_line} · {:.2}s",
+        t.ms as f64 / 1000.0
+    ));
+    let o = t.checked.iter().fold(o, |o, (_, line)| o.foot(line.clone()));
+    let o = owners::annotate(o, &s.corpus.cfg.root, &held.others);
+    let mut o = t
+        .excluded
         .iter()
         .fold(o, |o, (r, n)| o.foot(format!("{r}: {n} error(s) left out of the exit code by --fail-on")));
     if a.new {
-        o = new_docs(&s, o);
+        o = new_docs(s, o);
     }
-    let (has_fix, fix_next) = fix_next(&s, a, &list);
-    Ok(match (fails, has_fix) {
+    next_step(s, a, o, held, t)
+}
+
+/// The next command: the baseline to lower, the rule left out, the warnings or errors to fix,
+/// or an optional audit when all is well.
+fn next_step(s: &session::Session, a: &CheckArgs, o: Output, held: &Held, t: &Tally) -> Output {
+    let list = &held.list;
+    let (has_fix, fix_next) = fix_next(s, a, list);
+    let lowerable = held.lowerable;
+    match (t.fails, has_fix) {
         // D2: optional; rewriting only lowers the counts, nothing is wrong.
         (0, _) if lowerable > 0 => o.next(format!(
             "spec check --write-baseline  # optional: only lowers the baseline, {lowerable} entr(ies) now hold fewer errors"
         )),
-        (0, _) if !excluded.is_empty() => {
-            let (rule, n) = excluded.iter().next().map(|(r, n)| (r.clone(), *n)).unwrap_or_default();
+        (0, _) if !t.excluded.is_empty() => {
+            let (rule, n) = t.excluded.iter().next().map(|(r, n)| (r.clone(), *n)).unwrap_or_default();
             o.next(format!("spec explain {rule}  # {n} error(s) left out of the exit code"))
         }
-        (0, _) if warnings > 0 => {
+        (0, _) if t.warnings > 0 => {
             // Point at the warnings before the optional audit: an autofix when one exists,
             // otherwise the first warning's rule.
             let w: Vec<_> = list.iter().filter(|f| f.severity != Severity::Error).collect();
@@ -144,12 +216,12 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
             let rule = list.iter().find(|f| f.severity == Severity::Error).map(|f| f.rule.clone()).unwrap_or_default();
             o.code(Code::Findings).next(format!("spec explain {rule}"))
         }
-    })
+    }
 }
 
 /// Errors per rule that --fail-on leaves out of the exit code.
-fn left_out(list: &[Finding], fail_on: &[String]) -> std::collections::BTreeMap<String, usize> {
-    let mut excluded: std::collections::BTreeMap<String, usize> = Default::default();
+fn left_out(list: &[Finding], fail_on: &[String]) -> BTreeMap<String, usize> {
+    let mut excluded: BTreeMap<String, usize> = Default::default();
     if !fail_on.is_empty() && !fail_on.iter().any(|r| r == "any") {
         let none = fail_on.iter().any(|r| r == "none");
         for f in list.iter().filter(|f| f.severity == Severity::Error) {
@@ -204,8 +276,8 @@ fn fix_next(s: &session::Session, a: &CheckArgs, list: &[Finding]) -> (bool, Str
 }
 
 /// (errors, warnings) per rule.
-fn by_rule(list: &[Finding]) -> std::collections::BTreeMap<String, (usize, usize)> {
-    let mut by_rule: std::collections::BTreeMap<String, (usize, usize)> = Default::default();
+fn by_rule(list: &[Finding]) -> BTreeMap<String, (usize, usize)> {
+    let mut by_rule: BTreeMap<String, (usize, usize)> = Default::default();
     for f in list {
         let e = by_rule.entry(f.rule.clone()).or_default();
         if f.severity == Severity::Error { e.0 += 1 } else { e.1 += 1 }
@@ -214,12 +286,7 @@ fn by_rule(list: &[Finding]) -> std::collections::BTreeMap<String, (usize, usize
 }
 
 /// The items of a text run: per-rule counts, errors only, or every finding.
-fn list_items(
-    o: Output,
-    a: &CheckArgs,
-    by_rule: &std::collections::BTreeMap<String, (usize, usize)>,
-    list: &[Finding],
-) -> Output {
+fn list_items(o: Output, a: &CheckArgs, by_rule: &BTreeMap<String, (usize, usize)>, list: &[Finding]) -> Output {
     if a.summary {
         by_rule.iter().fold(o, |o, (r, (e, w))| {
             o.item(
