@@ -667,6 +667,7 @@ fn d1_counts_deleted_and_renamed_away_code_and_its_fix_runs() {
         .arg(fix.replacen("spec", common::bin_dir().join("spec").to_str().unwrap(), 1))
         .current_dir(r.path())
         .env("SPECFOLD_CACHE", r.path().join(".cache"))
+        .envs(r.isolated_env())
         .output()
         .unwrap();
     assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));

@@ -8,9 +8,15 @@ use std::path::{Path, PathBuf};
 
 pub struct Repo {
     pub dir: tempfile::TempDir,
+    /// The home and config directory every spawned command sees, so no test reads the user's.
+    pub home: tempfile::TempDir,
 }
 
 impl Repo {
+    pub fn new(dir: tempfile::TempDir) -> Repo {
+        Repo { dir, home: tempfile::tempdir().unwrap() }
+    }
+
     pub fn path(&self) -> &Path {
         self.dir.path()
     }
@@ -36,9 +42,15 @@ impl Repo {
         self.git(&["commit", "-qm", msg]);
     }
 
+    /// `isolated_env` for this repository's home directory.
+    pub fn isolated_env(&self) -> [(&'static str, PathBuf); 3] {
+        isolated_env(self.home.path())
+    }
+
     pub fn spec(&self) -> Command {
         let mut c = Command::cargo_bin("spec").unwrap();
         c.current_dir(self.path())
+            .envs(self.isolated_env())
             .env("SPECFOLD_CACHE", self.path().join(".cache"))
             // Box drawing depends on the locale: pin it so tests do not follow the host.
             .env("LC_ALL", "C.UTF-8")
@@ -73,7 +85,7 @@ impl Repo {
 
 pub fn repo() -> Repo {
     let dir = tempfile::tempdir().unwrap();
-    let r = Repo { dir };
+    let r = Repo::new(dir);
     r.git(&["init", "-q", "-b", "main"]);
     r.git(&["config", "user.email", "test@example.com"]);
     r.git(&["config", "user.name", "tester"]);
@@ -88,6 +100,16 @@ pub fn repo() -> Repo {
     r.write(".gitignore", ".cache/\n.spec.local/\n");
     r.commit("init");
     r
+}
+
+/// The environment that keeps a spawned command off the user's files, such as
+/// ~/.config/specfold/roots.toml. A test that needs one of them sets it after this.
+pub fn isolated_env(home: &Path) -> [(&'static str, PathBuf); 3] {
+    [
+        ("HOME", home.to_path_buf()),
+        ("XDG_CONFIG_HOME", home.join(".config")),
+        ("SPECFOLD_ROOTS", home.join("no-roots.toml")),
+    ]
 }
 
 pub fn bin_dir() -> PathBuf {

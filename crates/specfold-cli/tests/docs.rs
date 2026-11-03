@@ -64,7 +64,7 @@ fn command_tables_match_help_markdown() {
 #[test]
 fn quick_start_runs() {
     let dir = tempfile::tempdir().unwrap();
-    let r = common::Repo { dir };
+    let r = common::Repo::new(dir);
     r.git(&["init", "-q", "-b", "main"]);
     r.write("services/shop/src/cart/total.rs", "fn total() {}\n");
     let readme = read("README.md");

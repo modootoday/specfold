@@ -216,6 +216,7 @@ fn c235_broken_config_points_at_the_line_and_upgrade_refuses() {
 #[test]
 fn c140_init_checks_owner_kinds_and_root() {
     let dir = tempfile_dir();
+    let home = tempfile::tempdir().unwrap();
     for args in [
         &["--owner-kind", "=x"][..],
         &["--owner-kind", "a/*="],
@@ -229,6 +230,7 @@ fn c140_init_checks_owner_kinds_and_root() {
             .args(&full)
             .arg("--json")
             .current_dir(&dir)
+            .envs(common::isolated_env(home.path()))
             .output()
             .unwrap();
         assert_eq!(o.status.code(), Some(2), "{args:?}: {}", String::from_utf8_lossy(&o.stdout));
@@ -237,6 +239,7 @@ fn c140_init_checks_owner_kinds_and_root() {
     let o = std::process::Command::new(common::bin_dir().join("spec"))
         .args(["init", "--owner-kind", "services/*={1}", "--owner-kind", "libs/*=lib.{1}:manifest", "--root", "ws"])
         .current_dir(&dir)
+        .envs(common::isolated_env(home.path()))
         .output()
         .unwrap();
     assert_eq!(o.status.code(), Some(0), "{}", String::from_utf8_lossy(&o.stderr));
@@ -272,7 +275,14 @@ fn c126_push_hook_works_without_an_upstream() {
     let cmd = content.lines().last().unwrap().trim().trim_start_matches("run: ").to_string();
     let path = format!("{}:{}", common::bin_dir().display(), std::env::var("PATH").unwrap_or_default());
     let run = || {
-        std::process::Command::new("sh").arg("-c").arg(&cmd).current_dir(r.path()).env("PATH", &path).output().unwrap()
+        std::process::Command::new("sh")
+            .arg("-c")
+            .arg(&cmd)
+            .current_dir(r.path())
+            .env("PATH", &path)
+            .envs(r.isolated_env())
+            .output()
+            .unwrap()
     };
     let out = run();
     assert!(out.status.success(), "{out:?}");

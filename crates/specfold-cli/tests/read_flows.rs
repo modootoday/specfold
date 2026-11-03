@@ -338,6 +338,7 @@ fn c176_context_next_for_an_ungoverned_path_runs_as_printed() {
                 next.trim_start_matches("spec ").replace("'…'", &format!("Totals{n}"))
             ))
             .current_dir(r.path())
+            .envs(r.isolated_env())
             .output()
             .unwrap();
         assert!(

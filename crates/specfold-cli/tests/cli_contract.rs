@@ -521,6 +521,7 @@ fn cli15_off_a_terminal_nothing_waits_for_an_answer() {
             .args(args)
             .arg("--json")
             .current_dir(r.path())
+            .envs(r.isolated_env())
             .write_stdin("y\nyes\n")
             .timeout(std::time::Duration::from_secs(20))
             .output()

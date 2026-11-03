@@ -3,6 +3,12 @@
 Release notes for each version are also on
 [GitHub releases](https://github.com/modootoday/specfold/releases).
 
+## Unreleased
+
+### Fixes
+
+- The test suite read the user's `~/.config/specfold/roots.toml`, so on a machine with one, tests of `spec doctor` and remotes failed. Every command the tests spawn now gets a temporary `HOME` and `XDG_CONFIG_HOME` and a `SPECFOLD_ROOTS` that names no file, unless a test sets one on purpose.
+
 ## 0.6.1 - 2026-11-03
 
 0.6.1 fixes repository paths typed inside a public repository that `roots.toml` maps to a private spec root: they are read below the spec root's `[public]` path for that repository instead of from the spec root, so `spec new --governs src/a.rs` there places the document with that package's owner. A `[[root]]` entry may name that path with the new optional `public` key; an older binary ignores it.

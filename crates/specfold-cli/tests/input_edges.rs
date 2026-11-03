@@ -169,6 +169,7 @@ fn run_next(dir: &std::path::Path, r: &common::Repo, next: &str) -> std::process
         .current_dir(dir)
         .env("PATH", path)
         .env("SPECFOLD_CACHE", r.path().join(".cache"))
+        .envs(r.isolated_env())
         .output()
         .unwrap()
 }
