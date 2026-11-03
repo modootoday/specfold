@@ -3,6 +3,12 @@
 Release notes for each version are also on
 [GitHub releases](https://github.com/modootoday/specfold/releases).
 
+## Unreleased
+
+### Fixes
+
+- A nested project (`[owners] nested`) was still walked by four readers that start at the repository root: N1 read the files `[check] count_paths` matched inside it, the census counted its `[forbid] paths` matches as legacy paths, `[[assets]]` roots read its skills, rules and instructions, and V3 read its notes when an `[external]` root contained it. They now leave it out, as V1, L6 and Z1 already did.
+
 ## 0.6.2 - 2026-11-03
 
 0.6.2 stops reading bash tests such as `[[ -f x ]]` and `[[ $a == b ]]` in code comments and scripts as `[[references]]`, and keeps the test suite off the user's own `roots.toml`. A link written with spaces inside its brackets, `[[ adr:x/1 ]]`, is no longer read; write `[[adr:x/1]]`.

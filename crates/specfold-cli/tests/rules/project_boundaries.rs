@@ -70,6 +70,30 @@ fn z1_leaves_nested_projects_out_and_reaches_submodules_and_remotes() {
 }
 
 #[test]
+fn nested_projects_are_left_out_of_n1_the_census_assets_and_v3() {
+    let (r, _child) = bounded_repo(true);
+    let toml = r.read("spec.toml")
+        + "[[assets]]\nkind = \"instructions\"\npath = \"**/AGENTS.md\"\n[external.notes]\npath = \"packages\"\n";
+    r.write("spec.toml", &toml);
+    for dir in ["", "packages/cli/"] {
+        r.write(&format!("{dir}AGENTS.md"), "# Agents\n");
+    }
+    for dir in ["packages/cli", "packages/notes"] {
+        r.write(&format!("{dir}/NOTES.md"), "See [[adr:gone/20260101000000]].\n");
+    }
+    r.commit("assets and notes");
+    let (_, v) = r.json(&["check", "--rule", "N1"]);
+    assert_eq!(finding_paths(&v), ["README.md", "third_party/near/README.md", "vendor/child/README.md"], "{v}");
+    let (_, v) = r.json(&["census"]);
+    assert_eq!(v["legacy_paths"], 3, "{v}");
+    let (_, v) = r.json(&["assets"]);
+    let assets: Vec<&str> = v["items"].as_array().unwrap().iter().map(|i| i["path"].as_str().unwrap()).collect();
+    assert_eq!(assets, ["AGENTS.md"], "{v}");
+    let (_, v) = r.json(&["check", "--rule", "V3", "--external"]);
+    assert_eq!(finding_paths(&v), ["notes:notes/NOTES.md"], "{v}");
+}
+
+#[test]
 fn a_public_clone_mapped_in_roots_toml_is_neither_counted_nor_censused() {
     let private = common::repo();
     let toml = private.read("spec.toml")

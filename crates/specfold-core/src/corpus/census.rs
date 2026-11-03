@@ -62,6 +62,7 @@ pub fn take(c: &Corpus, g: &Graph) -> Census {
         WalkBuilder::new(&c.cfg.root)
             .hidden(false)
             .require_git(false)
+            .filter_entry(crate::workspace::nested::outside(&c.cfg))
             .build()
             .flatten()
             .filter_map(|e| crate::paths::rel_of(&c.cfg.root, e.path()))

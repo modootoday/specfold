@@ -116,7 +116,8 @@ impl Rule for ExternalCites {
         let re = body::path_cite_re(cfg.spec_dir());
         for (name, ext) in &cfg.raw.external {
             let dir = cfg.expand_path(&ext.path);
-            for e in WalkBuilder::new(&dir).standard_filters(false).build().flatten() {
+            for e in WalkBuilder::new(&dir).standard_filters(false).filter_entry(nested::outside(cfg)).build().flatten()
+            {
                 if !e.file_type().is_some_and(|t| t.is_file()) || e.path().extension().is_none_or(|x| x != "md") {
                     continue;
                 }

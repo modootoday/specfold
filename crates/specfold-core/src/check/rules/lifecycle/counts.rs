@@ -94,6 +94,7 @@ fn extra_files(ctx: &Ctx) -> Vec<String> {
     }
     WalkBuilder::new(&cfg.root)
         .hidden(false)
+        .filter_entry(crate::workspace::nested::outside(cfg))
         .build()
         .flatten()
         .filter_map(|e| crate::paths::rel_of(&cfg.root, e.path()))

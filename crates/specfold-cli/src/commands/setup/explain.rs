@@ -15,7 +15,7 @@ const CONFIG_HELP: &[(&str, &str)] = &[
     ),
     (
         "[owners] root, kinds, manifests, retired, pending, nested",
-        "The root owner id; owner kinds as pattern + id template ({1}, {2} …) + manifest requirement; the manifest list; directories whose code is gone; spec directories not yet imported; and nested: independent projects mounted here (a submodule with its own spec.toml, documents and CI). A nested project is never an owner: this repository does not read its documents (so its ids never clash with an owner's), governs into it are another project's (P1, L5), V1, L6 and Z1 do not walk into it, and one with a spec.toml is the read-only remote named after its last path segment. A submodule an owner kind claims is that owner's code; any other submodule is another project for placement.",
+        "The root owner id; owner kinds as pattern + id template ({1}, {2} …) + manifest requirement; the manifest list; directories whose code is gone; spec directories not yet imported; and nested: independent projects mounted here (a submodule with its own spec.toml, documents and CI). A nested project is never an owner: this repository does not read its documents (so its ids never clash with an owner's), governs into it are another project's (P1, L5), no walk from the root enters it (V1, V3, L6, N1, Z1, the census and [[assets]]), and one with a spec.toml is the read-only remote named after its last path segment. A submodule an owner kind claims is that owner's code; any other submodule is another project for placement.",
     ),
     (
         "[public] paths, companion, detect, submodules_manifest",

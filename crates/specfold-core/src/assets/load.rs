@@ -34,7 +34,8 @@ pub(super) fn base(path: &str) -> String {
     lit.join("/")
 }
 
-fn files(root: &Path, def: &AssetRoot) -> Vec<String> {
+fn files(cfg: &Config, def: &AssetRoot) -> Vec<String> {
+    let root = &cfg.root;
     let Some(want) = matcher(&def.path) else { return vec![] };
     let exclude: Vec<PathMatch> = def.exclude.iter().filter_map(|e| matcher(e)).collect();
     let start = root.join(base(def.path.trim_end_matches('/')));
@@ -42,7 +43,9 @@ fn files(root: &Path, def: &AssetRoot) -> Vec<String> {
         return vec![];
     }
     let mut out = vec![];
-    for e in WalkBuilder::new(&start).hidden(false).build().flatten() {
+    for e in
+        WalkBuilder::new(&start).hidden(false).filter_entry(crate::workspace::nested::outside(cfg)).build().flatten()
+    {
         if !e.file_type().is_some_and(|t| t.is_file()) {
             continue;
         }
@@ -71,7 +74,7 @@ pub fn load(cfg: &Config) -> Vec<Asset> {
     let mut seen = BTreeSet::new();
     let mut out = vec![];
     for def in &cfg.raw.assets {
-        for rel in files(&cfg.root, def) {
+        for rel in files(cfg, def) {
             if seen.insert(rel.clone())
                 && let Some(a) = read(&cfg.root, def.kind, rel)
             {
