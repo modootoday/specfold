@@ -3,7 +3,9 @@
 Release notes for each version are also on
 [GitHub releases](https://github.com/modootoday/specfold/releases).
 
-## Unreleased
+## 0.7.1 - 2026-11-03
+
+0.7.1 fixes five problems found adopting 0.7.0. No command, flag or spec.toml key is added or renamed, and the specfold-core library only gains items. One behaviour changes on purpose: `spec new --from` on a type that starts as a draft supersedes the old document when the new one becomes active, not when it is created.
 
 ### Changed
 
