@@ -3,7 +3,9 @@
 Release notes for each version are also on
 [GitHub releases](https://github.com/modootoday/specfold/releases).
 
-## Unreleased
+## 0.6.2 - 2026-11-03
+
+0.6.2 stops reading bash tests such as `[[ -f x ]]` and `[[ $a == b ]]` in code comments and scripts as `[[references]]`, and keeps the test suite off the user's own `roots.toml`. A link written with spaces inside its brackets, `[[ adr:x/1 ]]`, is no longer read; write `[[adr:x/1]]`.
 
 ### Fixes
 
