@@ -114,6 +114,10 @@ name = "placement"
 path = "tests/rules/placement.rs"
 
 [[test]]
+name = "project_boundaries"
+path = "tests/rules/project_boundaries.rs"
+
+[[test]]
 name = "preview_default"
 path = "tests/contract/preview_default.rs"
 
