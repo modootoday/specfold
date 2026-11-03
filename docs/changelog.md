@@ -18,6 +18,7 @@ In a project that uses specfold, one user-facing change can be a `change` docume
 
 | version | notes |
 | --- | --- |
+| 0.6.0 | [v0.6.0 on GitHub](https://github.com/modootoday/specfold/releases/tag/v0.6.0) |
 | 0.5.1 | [v0.5.1 on GitHub](https://github.com/modootoday/specfold/releases/tag/v0.5.1) |
 | 0.5.0 | [v0.5.0 on GitHub](https://github.com/modootoday/specfold/releases/tag/v0.5.0) |
 | 0.4.0 | [v0.4.0 on GitHub](https://github.com/modootoday/specfold/releases/tag/v0.4.0) |

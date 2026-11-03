@@ -3,9 +3,9 @@
 Release notes for each version are also on
 [GitHub releases](https://github.com/modootoday/specfold/releases).
 
-## Unreleased
+## 0.6.0 - 2026-11-03
 
-Documents about a product kept in its own repository and mounted as a submodule go to that product's spec directory again, `spec -C <dir> new` starts from the owner of `<dir>`, a workspace can declare the independent projects it mounts (`[owners] nested`) instead of turning rules off for them, a draft can be superseded, and ranged checks stop pointing at things outside their range.
+0.6.0 is a minor release because it adds configuration keys an older binary rejects (`[owners] nested`, a guard's `nested`), and because P1 now sees governs into a submodule owner that 0.5 left out, so a document that governs code of two owners is reported where it was not before. Documents about a product kept in its own repository and mounted as a submodule go to that product's spec directory again, `spec -C <dir> new` starts from the owner of `<dir>`, a workspace can declare the independent projects it mounts (`[owners] nested`) instead of turning rules off for them, a draft can be superseded, and ranged checks stop pointing at things outside their range.
 
 ### Upgrade notes
 
