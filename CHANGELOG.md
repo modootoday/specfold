@@ -3,6 +3,12 @@
 Release notes for each version are also on
 [GitHub releases](https://github.com/modootoday/specfold/releases).
 
+## Unreleased
+
+### Fixes
+
+- Run inside a public repository that `roots.toml` maps to a private spec root, a repository path (`spec new --governs`, `spec context`, `spec graph governs`, and the directory `spec new` starts from) was read from the spec root, so `--governs src/a.rs` placed the document at the root owner. It is now read below the spec root's `[public]` path that the repository is a copy of: the entry's new optional `public` key, else the only public path, else the one named like the repository's directory. When none applies, a path that does not exist under the spec root is refused and the message says how to name it.
+
 ## 0.6.0 - 2026-11-03
 
 0.6.0 is a minor release because it adds configuration keys an older binary rejects (`[owners] nested`, a guard's `nested`), and because P1 now sees governs into a submodule owner that 0.5 left out, so a document that governs code of two owners is reported where it was not before. Documents about a product kept in its own repository and mounted as a submodule go to that product's spec directory again, `spec -C <dir> new` starts from the owner of `<dir>`, a workspace can declare the independent projects it mounts (`[owners] nested`) instead of turning rules off for them, a draft can be superseded, and ranged checks stop pointing at things outside their range.

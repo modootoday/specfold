@@ -50,6 +50,19 @@ Run inside the public repository, every command reads and writes the private dir
 resolve there and nothing is written in the public tree. A spec.toml in the repository itself
 always wins; without a mapping nothing changes.
 
+When the private directory publishes the repository as one of its `[public] paths`, a path typed
+inside the public repository (`spec new --governs src/a.rs`, `spec context`, `spec graph governs`)
+is read below that public path, so `src/a.rs` is `packages/cli/src/a.rs`. The public path is the
+entry's `public` key, else the only one listed, else the one whose last part is the repository's
+directory name. When none applies, a path that does not exist in the private directory is refused:
+
+```toml
+[[root]]
+repo = "~/src/cli"
+spec = "~/src/workspace"
+public = "packages/cli"   # needed only when [public] lists several and none is named like the repository
+```
+
 ## Documents
 
 | table | controls |

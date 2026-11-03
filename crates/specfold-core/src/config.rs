@@ -1,6 +1,7 @@
 //! Project configuration (spec.toml).
 
 pub mod cache_gc;
+pub mod clone_path;
 pub mod defaults;
 pub mod paths;
 pub mod private_root;

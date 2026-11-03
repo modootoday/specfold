@@ -290,3 +290,72 @@ fn an_id_prefix_resolves_from_the_user_level_roots_file_and_an_unknown_one_is_na
     let (code, t) = run(&["show", &id, "--root", other.path().to_str().unwrap()]);
     assert!(code == 0 && t.contains("Over there"), "{t}");
 }
+
+/// A spec root publishing packages/cli (its documents kept with services/shop), and a public
+/// clone of that package outside it, mapped in a roots.toml that does not exist yet.
+fn spec_root_and_public_clone(public: &str) -> (common::Repo, tempfile::TempDir, std::path::PathBuf) {
+    let private = common::repo();
+    let toml = private.read("spec.toml");
+    let head = toml.split("[public]").next().unwrap();
+    private.write(
+        "spec.toml",
+        &format!(
+            "{head}[[owners.kinds]]\npattern = \"packages/*\"\nid = \"pkg.{{1}}\"\n[public]\npaths = [{public}]\n[public.companion]\n\"packages/cli\" = \"services/shop\"\n"
+        ),
+    );
+    private.write("packages/cli/Cargo.toml", "[package]\nname = \"cli\"\n");
+    private.commit("publish packages/cli");
+    let outside = tempfile::tempdir().unwrap();
+    let clone = outside.path().join("cli-public");
+    std::fs::create_dir_all(clone.join("src")).unwrap();
+    assert!(std::process::Command::new("git").args(["init", "-q"]).current_dir(&clone).status().unwrap().success());
+    (private, outside, clone)
+}
+
+fn run_in(private: &common::Repo, dir: &std::path::Path, roots: &std::path::Path, args: &[&str]) -> (i32, String) {
+    let out = private.spec().current_dir(dir).env("SPECFOLD_ROOTS", roots).args(args).output().unwrap();
+    let both = String::from_utf8_lossy(&out.stdout).into_owned() + &String::from_utf8_lossy(&out.stderr);
+    (out.status.code().unwrap_or(-1), both)
+}
+
+#[test]
+fn e1_a_path_typed_in_a_mapped_public_clone_is_read_below_its_public_path() {
+    let (private, outside, clone) = spec_root_and_public_clone("\"packages/cli\"");
+    let roots = outside.path().join("roots.toml");
+    let (code, before) =
+        run_in(&private, private.path(), &roots, &["new", "adr", "X", "--governs", "services/shop/src"]);
+    assert!(code == 0 && before.contains("would create adr:shop/"), "without roots.toml nothing changes: {before}");
+    let (_, want) =
+        run_in(&private, private.path(), &roots, &["new", "adr", "X", "--governs", "packages/cli/src/a.rs"]);
+    assert!(want.contains("would create adr:shop/"), "{want}");
+    std::fs::write(
+        &roots,
+        format!("[[root]]\nrepo = \"{}\"\nspec = \"{}\"\n", clone.display(), private.path().display()),
+    )
+    .unwrap();
+    let (code, t) = run_in(&private, &clone, &roots, &["new", "adr", "X", "--governs", "src/a.rs"]);
+    assert!(code == 0 && t.contains("would create adr:shop/"), "{t}");
+    assert_eq!(t.lines().nth(1), want.lines().nth(1), "the same owner as the spec root's own path");
+    let (code, t) = run_in(&private, &clone.join("src"), &roots, &["context", "a.rs"]);
+    assert!(code == 0 && t.contains("packages/cli/src/a.rs  (owner pkg.cli)"), "{t}");
+    let (code, t) = run_in(&private, &clone, &roots, &["new", "adr", "X"]);
+    assert!(code == 0 && t.contains("would create adr:shop/"), "the clone itself is packages/cli: {t}");
+    let names: Vec<_> = std::fs::read_dir(&clone).unwrap().map(|e| e.unwrap().file_name()).collect();
+    assert_eq!(names.len(), 2, "previews write nothing in the clone: {names:?}");
+}
+
+#[test]
+fn e1_a_clone_no_public_path_names_refuses_paths_missing_from_the_spec_root() {
+    let (private, outside, clone) = spec_root_and_public_clone("\"libs/open\", \"packages/cli\"");
+    let roots = outside.path().join("roots.toml");
+    let entry = format!("[[root]]\nrepo = \"{}\"\nspec = \"{}\"\n", clone.display(), private.path().display());
+    std::fs::write(&roots, &entry).unwrap();
+    let (code, t) = run_in(&private, &clone, &roots, &["new", "adr", "X", "--governs", "src/a.rs"]);
+    assert!(code == 2 && t.contains("no [public] path there is named for that repository"), "{t}");
+    assert!(t.contains("add public =") && !t.contains("would create"), "{t}");
+    let (code, t) = run_in(&private, &clone, &roots, &["new", "adr", "X", "--governs", "services/shop/src"]);
+    assert!(code == 0 && t.contains("would create adr:shop/"), "a path the spec root has is read there: {t}");
+    std::fs::write(&roots, format!("{entry}public = \"packages/cli\"\n")).unwrap();
+    let (code, t) = run_in(&private, &clone, &roots, &["graph", "governs", "src/a.rs", "--json"]);
+    assert!(code == 0 && t.contains("spec context packages/cli/src/a.rs"), "{t}");
+}

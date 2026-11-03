@@ -8,6 +8,7 @@
 //! [[root]]
 //! repo = "~/src/public-lib"
 //! spec = "~/notes/public-lib-spec"
+//! public = "libs/public-lib"   # optional: its [public] path in the spec root
 //! [prefix]
 //! lib = "~/src/other-lib"   # spec show lib:<id>
 //! ```
@@ -29,6 +30,18 @@ struct Roots {
 struct Entry {
     repo: String,
     spec: String,
+    /// The `[public]` path of the spec root this repository is a copy of, when the spec root
+    /// publishes more than one and none is named like the repository's directory.
+    #[serde(default)]
+    public: Option<String>,
+}
+
+/// A repository mapped to a private spec root.
+pub struct Mapping {
+    /// The private directory holding the documents and its spec.toml.
+    pub spec: PathBuf,
+    /// The `public` key of the entry, as written.
+    pub public: Option<String>,
 }
 
 /// The user-level mapping file: `$SPECFOLD_ROOTS`, else `$XDG_CONFIG_HOME/specfold/roots.toml`,
@@ -56,11 +69,16 @@ pub fn prefixes() -> Vec<(String, PathBuf)> {
 
 /// The private root mapped to the repository at `repo`, when the mapping file names it.
 pub fn mapped(repo: &Path) -> Option<PathBuf> {
+    mapping(repo).map(|m| m.spec)
+}
+
+/// The mapping entry for the repository at `repo`, when the mapping file names it.
+pub fn mapping(repo: &Path) -> Option<Mapping> {
     let roots = read()?;
     let canon = |p: &Path| p.canonicalize().ok();
     let me = canon(repo)?;
     roots.root.into_iter().find_map(|e| {
         let r = paths::expand(Path::new("/"), &e.repo);
-        (canon(&r)? == me).then(|| paths::expand(Path::new("/"), &e.spec))
+        (canon(&r)? == me).then(|| Mapping { spec: paths::expand(Path::new("/"), &e.spec), public: e.public })
     })
 }

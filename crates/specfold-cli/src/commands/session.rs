@@ -118,12 +118,19 @@ pub fn repo_path(s: &Session, p: &str) -> String {
     }
 }
 
-/// The directory the command runs in (after -C), relative to the repository root; `None` at the
-/// root or outside it.
+/// The directory the command runs in (after -C), relative to the repository root, or through
+/// its public path inside a mapped public repository (E1); `None` at the root or outside it.
 pub fn here(s: &Session) -> Option<String> {
+    use specfold_core::config::clone_path::{self, ClonePath};
     let cwd = std::env::current_dir().ok()?.canonicalize().ok()?;
     let root = s.corpus.cfg.root.canonicalize().ok()?;
-    let rel = cwd.strip_prefix(&root).ok()?.to_string_lossy().replace('\\', "/");
+    let rel = match cwd.strip_prefix(&root) {
+        Ok(r) => r.to_string_lossy().replace('\\', "/"),
+        Err(_) => match clone_path::locate(&s.corpus.cfg, &cwd) {
+            ClonePath::Mapped(rel) => rel,
+            _ => return None,
+        },
+    };
     (!rel.is_empty()).then_some(rel)
 }
 
@@ -146,9 +153,30 @@ fn resolve_missing(abs: &Path) -> Option<PathBuf> {
     None
 }
 
+/// E1: a code path. Typed inside a public repository that roots.toml maps to this spec root, it
+/// is read below the `[public]` path that repository is a copy of, not from the spec root.
+pub fn code_path(s: &Session, p: &str) -> Result<String> {
+    use specfold_core::config::clone_path::{self, ClonePath};
+    let cfg = &s.corpus.cfg;
+    let path = PathBuf::from(p);
+    let abs = if path.is_absolute() { path } else { std::env::current_dir()?.join(path) };
+    let Some(abs) = resolve_missing(&abs).filter(|a| !a.starts_with(&cfg.root)) else { return Ok(repo_path(s, p)) };
+    match clone_path::locate(cfg, &abs) {
+        ClonePath::Outside => Ok(repo_path(s, p)),
+        ClonePath::Mapped(rel) => Ok(rel),
+        ClonePath::Unmapped { rel, .. } if cfg.root.join(&rel).exists() => Ok(rel),
+        ClonePath::Unmapped { clone, rel } => bail!(
+            "'{p}' is {rel} in {}, which {} maps to {}, but no [public] path there is named for that repository and {rel} does not exist under the spec root; add public = \"<its [public] path>\" to that [[root]] entry, or give the path as the spec root names it; next: spec explain config",
+            clone.display(),
+            specfold_core::config::private_root::file().unwrap_or_default().display(),
+            cfg.root.display()
+        ),
+    }
+}
+
 /// C130: a path a document can govern: inside the repository, below its root.
 pub fn governed_path(s: &Session, p: &str) -> Result<String> {
-    let rel = repo_path(s, p);
+    let rel = code_path(s, p)?;
     if p.trim().is_empty() || rel.is_empty() || rel.starts_with('/') || rel.split('/').any(|c| c == "..") {
         bail!("'{p}' is not a path inside the repository; give a file or folder below {}", s.corpus.cfg.root.display());
     }
