@@ -3,7 +3,22 @@
 Release notes for each version are also on
 [GitHub releases](https://github.com/modootoday/specfold/releases).
 
-## Unreleased
+## 0.7.0 - 2026-11-03
+
+0.7.0 is a minor release because the specfold-core library breaks: its modules are grouped by context and `Config.root` is `Config.spec_home`. The command line has no breaking change: every command and flag of 0.6.2 keeps its name and meaning, and a repository that uses none of the new keys gets the same output and exit codes. A type can keep its documents in a directory of its own (`[types.<name>] dir`), number them (`key = "number"`), choose which statuses are current and ignore a README or template there; `spec sync visibility` writes the manifest V1 reads.
+
+An older `spec` refuses a spec.toml that uses the new `[types.<name>]` keys (`dir`, `current`, `ignore`), `key = "number"` or the `"url|link"` field kind, as it does any key it does not know.
+
+### Breaking changes for specfold-core library users
+
+None of these reach the command line. Code that uses specfold-core directly must update:
+
+- **Module moves.** `markdown` is `model::markdown`; `graph`, `search` and `translation` are under `corpus`; `placement` and `remotes` under `workspace`; `audit` and `guards` under `check`; `import` and `files` under `authoring`; `runner` under `plugins`; `shell` under `suggest`. The crate root keeps its re-exports (`Config`, `Corpus`, `LoadOptions`, `census`, `trace`, `Graph`, `Doc`, `DocId`) and has no aliases for the moved modules. `config::reader::newer_schema` is `config::validate::newer_schema`.
+- **Remotes and project boundaries moved.** `specfold_core::remotes` is `specfold_core::workspace::remotes` (`Remote`, `Loaded`, `Consumer`, `load`, `resolve` and the rest). `remotes::is_external` and `remotes::submodule_at` are `workspace::projects::is_external` and `workspace::projects::submodule_at`; `workspace::nested` is gone (`workspace::walk` and `workspace::projects::nested_remotes` replace it), and `workspace::projects::submodule_urls` pairs each submodule with its `.gitmodules` URL.
+- **Config fields renamed.** `Config.root` is `Config.spec_home`, the directory holding spec.toml. The new `Config.repo_root` is the repository the configuration was found from: the spec home, or under a `roots.toml` mapping the public repository mapped to it. Code paths typed there are named from `repo_root`.
+- **Visibility manifest.** It has one owner, `workspace::visibility`: its format, the `Forge` trait with `GitHub`, and `measure`.
+- **New public fields and variants.** `TypeDef` gains `dir`, `current` and `ignore`; `TypeOverride` gains `dir`, `current` and `ignore`; `corpus::SpecRoot` gains `ty` and `former`. A struct literal that lists every field must add them (`TypeOverride` has `Default`). `KeyKind::Number` and `FieldKind::UrlOrLink` are new variants, so an exhaustive `match` on either enum needs an arm.
+- **One git call per corpus load.** `Corpus::load` reads spec.toml at HEAD (`git show`) to find type directories the working spec.toml dropped; outside a repository it reads nothing.
 
 ### Added
 
@@ -20,10 +35,6 @@ Release notes for each version are also on
 ### Fixes
 
 - A nested project (`[owners] nested`) was still walked by four readers that start at the repository root: N1 read the files `[check] count_paths` matched inside it, the census counted its `[forbid] paths` matches as legacy paths, `[[assets]]` roots read its skills, rules and instructions, and V3 read its notes when an `[external]` root contained it. They now leave it out, as V1, L6 and Z1 already did.
-
-### specfold-core
-
-The library's modules are grouped by context; the command line is unchanged. Code that uses specfold-core directly imports the new paths: `markdown` is `model::markdown`; `graph`, `search` and `translation` are under `corpus`; `placement` and `remotes` under `workspace`; `audit` and `guards` under `check`; `import` and `files` under `authoring`; `runner` under `plugins`; `shell` under `suggest`. `remotes::is_external` and `remotes::submodule_at` are `workspace::projects::is_external` and `::submodule_at`; `workspace::nested` is gone (`workspace::walk` and `workspace::projects::nested_remotes` replace it). `Config.root` is `Config.spec_home`, and the new `Config.repo_root` is the public repository a `roots.toml` mapping was found from. The visibility manifest has one owner, `workspace::visibility` (its format, the `Forge` trait with `GitHub`, and `measure`), and `workspace::projects::submodule_urls` pairs each submodule with its `.gitmodules` URL.
 
 ## 0.6.2 - 2026-11-03
 
