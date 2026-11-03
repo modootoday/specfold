@@ -3,7 +3,6 @@
 
 use crate::corpus::Corpus;
 use crate::corpus::graph::Graph;
-use crate::model::lifecycle;
 use serde::Serialize;
 use std::collections::BTreeMap;
 
@@ -29,7 +28,7 @@ fn size(c: &Corpus, i: usize) -> u64 {
 /// splits groups larger than `budget` bytes.
 pub fn build(c: &Corpus, g: &Graph, owners: &[String], budget: u64) -> Vec<Pack> {
     let current = |i: usize| {
-        c.docs[i].status().as_deref().is_some_and(lifecycle::is_current)
+        c.docs[i].status().is_some_and(|s| c.cfg.registry.is_current(&c.docs[i].id.ty, &s))
             && (owners.is_empty() || owners.contains(&c.docs[i].id.owner))
     };
     let mut groups: BTreeMap<String, Vec<usize>> = BTreeMap::new();

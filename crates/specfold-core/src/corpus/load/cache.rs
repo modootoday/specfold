@@ -59,12 +59,8 @@ impl ScanCache {
             .as_ref()
             .and_then(|f| std::fs::read(f).ok())
             .and_then(|b| serde_json::from_slice::<Stored>(&b).ok())
-            .filter(|s| s.format == FORMAT && s.spec_dir == cfg.spec_dir())
-            .unwrap_or_else(|| Stored {
-                format: FORMAT.into(),
-                spec_dir: cfg.spec_dir().into(),
-                entries: HashMap::new(),
-            });
+            .filter(|s| s.format == FORMAT && s.spec_dir == cfg.cite_key())
+            .unwrap_or_else(|| Stored { format: FORMAT.into(), spec_dir: cfg.cite_key(), entries: HashMap::new() });
         ScanCache { file, stored, dirty: false }
     }
 

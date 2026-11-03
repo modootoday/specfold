@@ -3,7 +3,7 @@
 
 use crate::model::doctype::KeyKind;
 use crate::model::registry::Registry;
-use crate::model::stamp;
+use crate::model::{number, stamp};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Role {
@@ -41,6 +41,18 @@ pub fn split_stem(kind: KeyKind, stem: &str) -> Result<(String, String), String>
             }
             if !stamp::is_slug(slug) {
                 return Err(format!("'{slug}' after the timestamp is not a kebab-case slug"));
+            }
+            Ok((key.to_string(), slug.to_string()))
+        }
+        KeyKind::Number => {
+            let (key, slug) = stem.split_once('-').unwrap_or((stem, ""));
+            if !number::is_number(key) {
+                return Err(format!(
+                    "name must start with a number of at least four digits, written without extra zeros (0001, 12345), got '{stem}'"
+                ));
+            }
+            if !stamp::is_slug(slug) {
+                return Err(format!("'{slug}' after the number is not a kebab-case slug"));
             }
             Ok((key.to_string(), slug.to_string()))
         }
@@ -128,5 +140,18 @@ mod tests {
         assert!(matches!(locate(&r, "adr/ADR-001-x.adr.md"), Location::Stray(_)));
         assert!(matches!(locate(&r, "evidence/20260101000000-x.evidence.md"), Location::Stray(_)));
         assert!(matches!(locate(&r, "sot/notes.md"), Location::Stray(_)));
+    }
+
+    #[test]
+    fn number_keys_place_files_and_refuse_other_names() {
+        let o = crate::model::registry::TypeOverride { key: Some(KeyKind::Number), ..Default::default() };
+        let r = Registry::new(&BTreeMap::from([("proposal".to_string(), o)]));
+        let Location::Doc(p) = locate(&r, "proposal/0042-scan-cache.proposal.md") else { panic!() };
+        assert_eq!((p.key.as_str(), p.slug.as_str()), ("0042", "scan-cache"));
+        let Location::Doc(p) = locate(&r, "proposal/12345-big/index.proposal.md") else { panic!() };
+        assert_eq!(p.key, "12345");
+        for bad in ["proposal/42-x.proposal.md", "proposal/00042-x.proposal.md", "proposal/scan-cache.proposal.md"] {
+            assert!(matches!(locate(&r, bad), Location::Stray(_)), "{bad}");
+        }
     }
 }

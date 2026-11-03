@@ -127,7 +127,7 @@ pub fn run(
 ) -> Vec<Extract> {
     let start = Instant::now();
     let use_cache = matches!(src, Source::Disk) && targets.iter().all(|(_, o)| o.is_none());
-    let key = format!("{}\n{}", cfg.spec_dir(), p.history.iter().map(|r| r.as_str()).collect::<Vec<_>>().join("\n"));
+    let key = format!("{}\n{}", cfg.cite_key(), p.history.iter().map(|r| r.as_str()).collect::<Vec<_>>().join("\n"));
     let file = if use_cache { cache_file(cfg) } else { None };
     if let Some(f) = &file
         && let Some(d) = f.parent()

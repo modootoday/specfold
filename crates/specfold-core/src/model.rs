@@ -6,6 +6,7 @@ pub mod doctype;
 pub mod id;
 pub mod lifecycle;
 pub mod markdown;
+pub mod number;
 pub mod registry;
 pub mod stamp;
 

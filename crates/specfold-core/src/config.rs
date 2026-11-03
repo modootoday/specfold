@@ -7,6 +7,7 @@ pub mod paths;
 pub mod private_root;
 pub mod reader;
 pub mod starter;
+pub mod type_dirs;
 pub mod types;
 pub mod upgrade;
 pub mod validate;

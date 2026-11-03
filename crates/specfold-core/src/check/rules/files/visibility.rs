@@ -110,7 +110,7 @@ impl Rule for ExternalCites {
             return;
         }
         let cfg = &ctx.corpus.cfg;
-        let re = body::path_cite_re(cfg.spec_dir());
+        let re = cfg.path_cite_re();
         for (name, ext) in &cfg.raw.external {
             let dir = cfg.expand_path(&ext.path);
             for e in walk(cfg, &dir).standard_filters(false).build().flatten() {

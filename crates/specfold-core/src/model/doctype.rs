@@ -11,6 +11,20 @@ pub enum KeyKind {
     Stamp,
     /// A kebab-case name chosen by the author.
     Slug,
+    /// A sequence number of at least four digits (`0001`): the owner's next free one, or one
+    /// the author picks.
+    Number,
+}
+
+impl KeyKind {
+    /// The key after `key`, taken when two documents would share one; a slug has none.
+    pub fn next_after(self, key: &str) -> Option<String> {
+        match self {
+            KeyKind::Stamp => super::stamp::next_stamp(key),
+            KeyKind::Number => super::number::next(key),
+            KeyKind::Slug => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -77,9 +91,21 @@ pub struct TypeDef {
     /// Groups of fields that may not share a value, e.g. `[["authors", "approvers"]]` (rule S8).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub distinct: Vec<Vec<String>>,
+    /// The directory holding this type's documents, relative to the owner's root, instead of
+    /// `<spec dir>/<type>`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dir: Option<String>,
+    /// Statuses `find`, `context` and the audit show by default; empty means draft and active.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub current: Vec<String>,
 }
 
 impl TypeDef {
+    /// Whether a document of this type in `status` is shown without `--all`.
+    pub fn is_current(&self, status: &str) -> bool {
+        if self.current.is_empty() { lifecycle::is_current(status) } else { self.current.iter().any(|s| s == status) }
+    }
+
     pub fn transition_allowed(&self, from: &str, to: &str) -> bool {
         if from == to {
             return true;
@@ -121,6 +147,8 @@ impl From<Spec<'_>> for TypeDef {
             kinds: BTreeMap::new(),
             placeholders: default_placeholders(),
             distinct: vec![],
+            dir: None,
+            current: vec![],
         }
     }
 }

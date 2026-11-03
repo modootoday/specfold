@@ -15,6 +15,10 @@ pub struct SpecRoot {
     pub tier: Tier,
     /// The owner is not imported yet: its typed documents are read, its old layout is not.
     pub pending: bool,
+    /// The one type whose documents this directory holds directly (`[types.<name>] dir`); none
+    /// for a spec directory, which holds a subdirectory per type.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ty: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]

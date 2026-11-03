@@ -146,6 +146,10 @@ name = "translations"
 path = "tests/rules/translations.rs"
 
 [[test]]
+name = "type_layout"
+path = "tests/flows/type_layout.rs"
+
+[[test]]
 name = "visibility"
 path = "tests/io/visibility.rs"
 

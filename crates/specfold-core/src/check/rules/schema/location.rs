@@ -3,6 +3,7 @@
 use crate::check::context::{Ctx, key_line};
 use crate::check::finding::Finding;
 use crate::check::rule::{Rule, RuleInfo};
+use crate::model::Tier;
 
 pub struct IdMatchesPath;
 pub struct Placement;
@@ -45,7 +46,7 @@ impl Rule for Placement {
         &RuleInfo {
             id: "S3",
             title: "every file in a spec directory belongs to a document",
-            explain: "A spec directory holds only type directories, and in them only `<key>-<slug>.<type>.md` files or document bundles. Anything else (old layouts, notes without a type, loose attachments) is reported. Create documents with `spec new`, attach files with `spec attach`, bring old layouts in with `spec import`.",
+            explain: "A spec directory holds only type directories, and in them only `<key>-<slug>.<type>.md` files or document bundles. A type with its own directory (`[types.<name>] dir`) holds the same files there, and its documents still in the spec directory are reported with the move that takes them over (`spec mv <id> --write`). Anything else (old layouts, notes without a type, loose attachments) is reported. Create documents with `spec new`, attach files with `spec attach`, bring old layouts in with `spec import`.",
             on_commit: true,
         }
     }
@@ -54,6 +55,26 @@ impl Rule for Placement {
         for s in &ctx.corpus.strays {
             if ctx.scope.covers_path(&s.path) {
                 out.push(Finding::error("S3", &s.path, 1, s.reason.clone()));
+            }
+        }
+        for (i, d) in ctx.corpus.docs.iter().enumerate() {
+            if d.tier != Tier::Committed || !ctx.scope.covers(i) {
+                continue;
+            }
+            let Some(dir) = ctx.corpus.cfg.registry.get(&d.id.ty).and_then(|t| t.dir.as_deref()) else { continue };
+            if ctx.corpus.spec_root_of(i).is_some_and(|r| r.ty.is_none()) {
+                out.push(
+                    Finding::error(
+                        "S3",
+                        &d.path,
+                        1,
+                        format!(
+                            "{} documents live in {dir}/ ([types.{}] dir), not in the spec directory",
+                            d.id.ty, d.id.ty
+                        ),
+                    )
+                    .fix_cmd(format!("spec mv {} --write", crate::suggest::shell::word(&d.id))),
+                );
             }
         }
     }

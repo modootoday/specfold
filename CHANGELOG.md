@@ -9,6 +9,9 @@ Release notes for each version are also on
 
 - `spec sync visibility` writes the `[public] submodules_manifest` that V1 reads, which until now had to be kept by hand. It lists every submodule (gitlinks first, then `.gitmodules`), asks GitHub through the `gh` client whether each one is public, and previews the manifest until `--write`. The file keeps its key order and its submodules' order; a run that finds nothing new leaves it untouched, `measuredAt` included. A submodule URL off github.com, a submodule with no URL, or no way to reach GitHub stops the run and writes nothing.
 - V1's findings for a missing or stale manifest end with `next: spec sync visibility --write`.
+- `[types.<name>] dir` keeps a type's documents in a directory of its own, relative to each owner's root, such as `adr/` or `proposals/` at the top of a repository, instead of `<[spec] dir>/<type>/`. Ids, citations, `spec new`, `spec mv`, every check, the census, translations, the language server and export treat them as before. spec.toml is refused when such a directory is absolute, climbs out of the owner, is the owner's root, overlaps `[spec] dir` or `[local] path`, is shared by two types or lies in another type's. Documents left in the spec directory after `dir` is set are reported by S3 with `spec mv <id> --write`, which moves them over.
+- `[types.<name>] key = "number"` names documents `NNNN-<slug>.<type>.md` with ids `<type>:<owner>/NNNN`. `spec new` takes the owner's next free number, padded to four digits; `spec new --number N` picks one and is refused when it is taken.
+- `[types.<name>] current` lists the statuses `spec find`, `spec context` and `spec audit` show without `--all`, so a type with its own lifecycle (draft, accepted, final, withdrawn) keeps its accepted and final documents in view. Without it, draft and active stay the current statuses.
 
 ### Fixes
 

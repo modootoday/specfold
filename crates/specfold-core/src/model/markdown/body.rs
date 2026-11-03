@@ -102,9 +102,20 @@ pub fn strip_code_spans(line: &str) -> String {
 
 /// Builds the regex that finds plain-text paths into `<spec_dir>/` ending in `.md`.
 pub fn path_cite_re(spec_dir: &str) -> Regex {
+    path_cite_re_with(spec_dir, &[])
+}
+
+/// [`path_cite_re`], also finding `<dir>/….<type>.md` for each `(dir, type)` kept in a directory
+/// of its own. Such a directory is an ordinary name, so only document file names count there.
+pub fn path_cite_re_with(spec_dir: &str, type_dirs: &[(String, String)]) -> Regex {
     let dir = regex::escape(spec_dir);
-    Regex::new(&format!(r"(?:[A-Za-z0-9_.@-]+/)*{dir}/[A-Za-z0-9_./@-]+\.md"))
-        .expect("an escaped spec dir always forms a valid regex")
+    let mut tail = format!(r"{dir}/[A-Za-z0-9_./@-]+\.md");
+    if !type_dirs.is_empty() {
+        let own =
+            type_dirs.iter().map(|(d, t)| format!(r"{}/[A-Za-z0-9_./@-]+\.{}\.md", regex::escape(d), regex::escape(t)));
+        tail = format!("(?:{tail}|{})", own.collect::<Vec<_>>().join("|"));
+    }
+    Regex::new(&format!(r"(?:[A-Za-z0-9_.@-]+/)*{tail}")).expect("escaped directory names always form a valid regex")
 }
 
 /// `first_line` is the 1-based line number of the body's first line in the file.

@@ -2,7 +2,6 @@
 
 use super::super::types::{Item, Kind};
 use crate::corpus::Corpus;
-use crate::model::lifecycle;
 use regex::{Regex, RegexBuilder};
 
 fn matcher(patterns: &[String]) -> Option<Regex> {
@@ -17,7 +16,7 @@ pub fn run(c: &Corpus, docs: &[usize], out: &mut Vec<Item>) {
     let Some(re) = matcher(&c.cfg.raw.audit.open_item_patterns) else { return };
     for &i in docs {
         let d = &c.docs[i];
-        if !d.status().as_deref().is_some_and(lifecycle::is_current) {
+        if !d.status().is_some_and(|s| c.cfg.registry.is_current(&d.id.ty, &s)) {
             continue;
         }
         for file in std::iter::once(&d.path).chain(&d.chapters) {

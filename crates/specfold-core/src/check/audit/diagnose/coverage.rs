@@ -4,7 +4,6 @@
 use super::super::types::{Item, Kind};
 use crate::corpus::Corpus;
 use crate::corpus::graph::Graph;
-use crate::model::lifecycle;
 use std::collections::HashSet;
 
 pub fn run(c: &Corpus, g: &Graph, docs: &[usize], out: &mut Vec<Item>) {
@@ -14,7 +13,7 @@ pub fn run(c: &Corpus, g: &Graph, docs: &[usize], out: &mut Vec<Item>) {
     }
     for &i in docs {
         let d = &c.docs[i];
-        if !types.contains(&d.id.ty) || !d.status().as_deref().is_some_and(lifecycle::is_current) {
+        if !types.contains(&d.id.ty) || !d.status().is_some_and(|s| c.cfg.registry.is_current(&d.id.ty, &s)) {
             continue;
         }
         let cited: HashSet<&str> =

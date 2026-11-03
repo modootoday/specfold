@@ -9,7 +9,6 @@ use crate::check::rule::{Rule, RuleInfo};
 use crate::check::scope::Range;
 use crate::corpus::graph::Resolution;
 use crate::corpus::trace;
-use crate::model::markdown::body::path_cite_re;
 use crate::workspace::owners::{PathMatch, matcher};
 use crate::workspace::vcs;
 use regex::Regex;
@@ -150,7 +149,7 @@ impl Rule for CitesOutside {
             exclude: cfg.exclude.iter().filter_map(|p| matcher(p)).collect(),
         };
         let history: Vec<Regex> = cfg.history.iter().filter_map(|r| Regex::new(r).ok()).collect();
-        let spec_paths = path_cite_re(ctx.corpus.cfg.spec_dir());
+        let spec_paths = ctx.corpus.cfg.path_cite_re();
         let start = std::time::Instant::now();
         let list = targets(ctx, &files);
         if trace::enabled() {

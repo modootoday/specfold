@@ -2,7 +2,7 @@
 
 use super::map::SourceRule;
 use crate::model::doctype::{KeyKind, TypeDef};
-use crate::model::stamp;
+use crate::model::{number, stamp};
 use crate::workspace::vcs;
 use regex::Captures;
 use std::path::Path;
@@ -39,6 +39,12 @@ pub fn choose(root: &Path, rule: &SourceRule, ty: &TypeDef, src: &Source) -> (St
         .unwrap_or_else(|| "untitled".into());
     if ty.key == KeyKind::Slug {
         return (slug.clone(), slug);
+    }
+    // A number type keeps the number a source's name captures (`ADR-0007` gives 0007); taken
+    // or missing ones move on to the next free number when the row is placed.
+    if ty.key == KeyKind::Number {
+        let n = cap("key").and_then(|k| k.chars().filter(char::is_ascii_digit).collect::<String>().parse().ok());
+        return (number::key(n.filter(|n| *n > 0).unwrap_or(1)), slug);
     }
     let from_name = || cap("key").and_then(|k| normalize_stamp(&k));
     let from_created = || created.and_then(normalize_stamp);

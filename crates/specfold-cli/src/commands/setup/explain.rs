@@ -32,7 +32,7 @@ const CONFIG_HELP: &[(&str, &str)] = &[
     ),
     (
         "[types.<name>]",
-        "Override or disable a built-in type, or add one: key, form, statuses, initial, sealed, fields, template, transitions (from → [to], rule T2), require_when (status → required keys, rule S6), sections (headings every document needs, rule S7), and for rule S8: fields as a table of value kinds (people, url, date, link), placeholders (default TBD, Pending, TODO, ?) and distinct groups.",
+        "Override or disable a built-in type, or add one: key (stamp, slug, or number: NNNN-<slug>.<type>.md, the owner's next free number or spec new --number N), form, statuses, initial, sealed, fields, template, transitions (from → [to], rule T2), require_when (status → required keys, rule S6), sections (headings every document needs, rule S7), current (the statuses find, context and audit show without --all; default draft and active), dir (a directory of the type's own, relative to each owner's root, instead of <spec dir>/<type>; it may not leave the owner, overlap the spec or local directory, or share or nest with another type's), and for rule S8: fields as a table of value kinds (people, url, date, link), placeholders (default TBD, Pending, TODO, ?) and distinct groups.",
     ),
     ("[forbid] paths, patterns", "Retired layouts and identifiers that must not come back (rule Z1)."),
     ("[aliases] file", "The frozen alias table written by spec import."),

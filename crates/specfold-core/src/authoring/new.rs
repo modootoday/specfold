@@ -5,9 +5,9 @@ use super::plan::Plan;
 use super::set;
 use crate::corpus::Corpus;
 use crate::corpus::graph::{Graph, Resolution};
-use crate::model::doctype::KeyKind;
+use crate::model::doctype::{KeyKind, TypeDef};
 use crate::model::markdown::frontmatter::{edit, render};
-use crate::model::{DocId, Tier, stamp};
+use crate::model::{DocId, Tier, number, stamp};
 use crate::workspace::placement::{self, paths};
 use anyhow::{Result, anyhow, bail};
 use serde::Serialize;
@@ -27,8 +27,10 @@ pub struct NewDoc {
     pub local: bool,
     /// Force a bundle directory even for a single-file type.
     pub bundle: bool,
-    /// Fixed key, for imports; otherwise now.
+    /// Fixed key, for imports; otherwise now. A taken one moves to the next free key.
     pub key: Option<String>,
+    /// For number-keyed types: this number, refused when taken; otherwise the next free one.
+    pub number: Option<u64>,
     /// Body to write instead of the type's template (audit records, generated documents).
     pub body: Option<String>,
     /// Documents this one depends on (`rel.depends_on`), e.g. what a change note updates.
@@ -95,6 +97,49 @@ fn current_owner<'a>(c: &'a Corpus, req: &NewDoc) -> &'a crate::workspace::Owner
     if o.retired { c.owners.root() } else { o }
 }
 
+/// The first free number key of `ty` documents under `owner`, above every one taken.
+pub fn next_number(c: &Corpus, ty: &str, owner: &str) -> String {
+    let taken = c.docs.iter().filter(|d| d.id.ty == ty && d.id.owner == owner).map(|d| d.id.key.as_str());
+    number::next_free(taken)
+}
+
+/// The key of a new document: its slug, the given or next free number, or the given or current
+/// timestamp, moved on past keys already taken. A taken slug or `--number` is refused.
+fn choose_key(c: &Corpus, g: &Graph, ty: &TypeDef, owner: &str, slug: &str, req: &NewDoc) -> Result<String> {
+    if req.number.is_some() && ty.key != KeyKind::Number {
+        bail!("--number is for types with key = \"number\"; {} documents are keyed by {}", ty.name, key_word(ty.key));
+    }
+    let mut key = match ty.key {
+        KeyKind::Slug => slug.to_string(),
+        KeyKind::Stamp => req.key.clone().unwrap_or_else(stamp::now_stamp),
+        KeyKind::Number => match (req.number, &req.key) {
+            (Some(n), _) => number::key(n),
+            (None, Some(k)) => k.clone(),
+            (None, None) => next_number(c, &ty.name, owner),
+        },
+    };
+    while g.by_id.contains_key(&DocId::new(&ty.name, owner, &key).to_string()) {
+        match ty.key {
+            KeyKind::Slug => bail!("{}:{owner}/{key} already exists; choose another --slug", ty.name),
+            KeyKind::Number if req.number.is_some() => bail!(
+                "{}:{owner}/{key} already exists; choose another --number, or leave it out for the next free one ({})",
+                ty.name,
+                next_number(c, &ty.name, owner)
+            ),
+            _ => key = ty.key.next_after(&key).ok_or_else(|| anyhow!("bad key {key}"))?,
+        }
+    }
+    Ok(key)
+}
+
+fn key_word(k: KeyKind) -> &'static str {
+    match k {
+        KeyKind::Stamp => "timestamp",
+        KeyKind::Slug => "slug",
+        KeyKind::Number => "number",
+    }
+}
+
 pub fn plan(c: &Corpus, g: &Graph, req: &NewDoc) -> Result<(Created, Plan)> {
     let ty = c
         .cfg
@@ -136,16 +181,7 @@ pub fn plan(c: &Corpus, g: &Graph, req: &NewDoc) -> Result<(Created, Plan)> {
     if !stamp::is_slug(&slug) {
         bail!("'{slug}' is not a kebab-case slug; pass --slug in lowercase words joined by '-'");
     }
-    let mut key = match ty.key {
-        KeyKind::Slug => slug.clone(),
-        KeyKind::Stamp => req.key.clone().unwrap_or_else(stamp::now_stamp),
-    };
-    while g.by_id.contains_key(&DocId::new(&ty.name, &owner.id, &key).to_string()) {
-        match ty.key {
-            KeyKind::Slug => bail!("{}:{}/{key} already exists; choose another --slug", ty.name, owner.id),
-            KeyKind::Stamp => key = stamp::next_stamp(&key).ok_or_else(|| anyhow!("bad stamp {key}"))?,
-        }
-    }
+    let key = choose_key(c, g, ty, &owner.id, &slug, req)?;
     let id = DocId::new(&ty.name, &owner.id, &key);
     let tier = if req.local { Tier::Local } else { Tier::Committed };
     let dir = paths::type_dir(&c.cfg, &c.owners, owner, tier, ty);
@@ -235,11 +271,12 @@ pub fn translation(c: &Corpus, g: &Graph, from: &str, lang: &str, title: Option<
     let mut key = match ty.key {
         KeyKind::Slug => slug.clone(),
         KeyKind::Stamp => stamp::now_stamp(),
+        KeyKind::Number => next_number(c, &ty.name, &owner.id),
     };
     while g.by_id.contains_key(&DocId::new(&ty.name, &owner.id, &key).to_string()) {
-        match ty.key {
-            KeyKind::Slug => bail!("{}:{}/{key} already exists: the '{lang}' translation is there", ty.name, owner.id),
-            KeyKind::Stamp => key = stamp::next_stamp(&key).ok_or_else(|| anyhow!("bad stamp {key}"))?,
+        match ty.key.next_after(&key) {
+            None => bail!("{}:{}/{key} already exists: the '{lang}' translation is there", ty.name, owner.id),
+            Some(next) => key = next,
         }
     }
     let id = DocId::new(&ty.name, &owner.id, &key);

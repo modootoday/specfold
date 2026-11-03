@@ -113,7 +113,7 @@ fn read_source<'a>(c: &Corpus, map: &ImportMap, u: &'a Unit, ty: &TypeDef) -> Re
         let body = if generated { "" } else { split.body };
         body_meta::people(&mut old, body);
     }
-    let scanned = body::scan(split.body, split.body_line, &body::path_cite_re(c.cfg.spec_dir()));
+    let scanned = body::scan(split.body, split.body_line, &c.cfg.path_cite_re());
     let name = name_of(&u.source).trim_end_matches(".md");
     let name_re = rule.name.as_deref().map(Regex::new).transpose().map_err(|e| anyhow!("bad name regex: {e}"))?;
     let caps = name_re.as_ref().and_then(|r| r.captures(name_of(&u.source)));
@@ -272,8 +272,8 @@ fn unique_key(ty: &TypeDef, owner: &str, mut k: String, taken: &BTreeSet<String>
             break;
         }
         k = match ty.key {
-            KeyKind::Stamp => stamp::next_stamp(&k).unwrap_or(k),
             KeyKind::Slug => format!("{k}-2"),
+            kind => kind.next_after(&k).unwrap_or(k),
         };
     }
     k

@@ -32,6 +32,10 @@ pub struct NewArgs {
     /// For slug-keyed types: the slug (defaults to the title).
     #[arg(long)]
     pub slug: Option<String>,
+    /// For number-keyed types: this number (e.g. a pull request's) instead of the next free one;
+    /// refused when taken.
+    #[arg(long, value_name = "N", value_parser = clap::value_parser!(u64).range(1..), conflicts_with = "translation")]
+    pub number: Option<u64>,
     /// Supersede this document; its status becomes superseded. With --translation: the
     /// document to translate.
     #[arg(long)]

@@ -5,7 +5,6 @@ use super::{aliases, assemble, walk};
 use crate::config::Config;
 use crate::corpus::types::{Corpus, LoadOptions, SpecRoot};
 use crate::corpus::{roots, trace};
-use crate::model::markdown::body;
 use crate::workspace::Owners;
 
 impl Corpus {
@@ -20,7 +19,11 @@ impl Corpus {
         }
         let mut pending = vec![];
         for root in &all_roots {
-            let files = walk::files(&cfg, &root.dir, root.tier);
+            let mut files = walk::files(&cfg, &root.dir, root.tier);
+            // A type's own directory is an ordinary one: an owner nested in it keeps its files.
+            if root.ty.is_some() {
+                files.retain(|f| owners.containing(f).id == root.owner);
+            }
             pending.extend(assemble::group(&cfg, root, &files, &mut strays));
         }
         let t = trace::phase("walk", t);
@@ -28,7 +31,7 @@ impl Corpus {
             pending.iter().flat_map(|p| std::iter::once(p.main.clone()).chain(p.chapters.iter().cloned())).collect();
         let mut cache = ScanCache::open(&cfg);
         let t = trace::phase("cache-open", t);
-        let mut scans = cache.scan_all(&cfg.spec_home, &to_scan, &body::path_cite_re(cfg.spec_dir()));
+        let mut scans = cache.scan_all(&cfg.spec_home, &to_scan, &cfg.path_cite_re());
         let t = trace::phase("scan", t);
         cache.save();
         let t = trace::phase("cache-save", t);

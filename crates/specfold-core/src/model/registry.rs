@@ -31,6 +31,8 @@ pub struct TypeOverride {
     pub sections: Option<Vec<String>>,
     pub placeholders: Option<Vec<String>>,
     pub distinct: Option<Vec<Vec<String>>>,
+    pub dir: Option<String>,
+    pub current: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone)]
@@ -87,6 +89,12 @@ fn apply(t: &mut TypeDef, o: &TypeOverride) {
     if let Some(v) = &o.sections {
         t.sections = v.clone();
     }
+    if let Some(v) = &o.dir {
+        t.dir = Some(v.clone());
+    }
+    if let Some(v) = &o.current {
+        t.current = v.clone();
+    }
 }
 
 /// `[types.<name>]` tables that look like typos: a name that is not built in, close to one that
@@ -117,6 +125,14 @@ pub fn suspect_overrides(overrides: &BTreeMap<String, TypeOverride>) -> Vec<Stri
         for s in t.require_when.keys().filter(|s| !t.statuses.contains(s)) {
             out.push(format!(
                 "[types.{}] require_when names status '{s}', which {} documents never have, so it never applies; statuses: {}",
+                t.name,
+                t.name,
+                t.statuses.join(", ")
+            ));
+        }
+        for s in t.current.iter().filter(|s| !t.statuses.contains(s)) {
+            out.push(format!(
+                "[types.{}] current names status '{s}', which {} documents never have; statuses: {}",
                 t.name,
                 t.name,
                 t.statuses.join(", ")
@@ -170,6 +186,14 @@ impl Registry {
 
     pub fn get(&self, name: &str) -> Option<&TypeDef> {
         self.types.iter().find(|t| t.name == name)
+    }
+
+    /// Whether a `ty` document in `status` is shown without `--all` ([`TypeDef::is_current`]).
+    pub fn is_current(&self, ty: &str, status: &str) -> bool {
+        match self.get(ty) {
+            Some(t) => t.is_current(status),
+            None => super::lifecycle::is_current(status),
+        }
     }
 
     pub fn names(&self) -> Vec<&str> {

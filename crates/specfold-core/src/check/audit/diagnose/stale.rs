@@ -21,7 +21,8 @@ pub fn run(c: &Corpus, docs: &[usize], out: &mut Vec<Item>) {
         if let Some(pin) = d.str_field("verified_at") {
             // Commits to documents are not changes to the code they describe, and the pin's own
             // commit would otherwise always count.
-            let docs = vec![format!("**/{}/**", c.cfg.spec_dir()), format!("{}/**", c.cfg.spec_dir())];
+            let dirs = std::iter::once(c.cfg.spec_dir().to_string()).chain(c.cfg.type_dirs().into_iter().map(|t| t.0));
+            let docs: Vec<String> = dirs.flat_map(|d| [format!("**/{d}/**"), format!("{d}/**")]).collect();
             let repin = format!("spec set {} verified_at=HEAD --write", crate::suggest::shell::word(&d.id));
             let (detail, next) = match vcs::commits_since(&c.cfg.spec_home, &pin, &governs, &docs) {
                 // No diff can start from a pin git does not know; re-pinning is the only step.

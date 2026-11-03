@@ -92,6 +92,29 @@ impl Config {
         &self.raw.spec.dir
     }
 
+    /// `(directory, type)` for each type kept in a directory of its own (`[types.<name>] dir`),
+    /// the directory relative to an owner's root.
+    pub fn type_dirs(&self) -> Vec<(String, String)> {
+        let own =
+            |t: &crate::model::TypeDef| Some((super::type_dirs::normalize(t.dir.as_deref()?).ok()?, t.name.clone()));
+        self.registry.types.iter().filter_map(own).collect()
+    }
+
+    /// The regex that finds plain-text paths to documents: into the spec directory, or to a
+    /// document file in a type's own directory.
+    pub fn path_cite_re(&self) -> regex::Regex {
+        crate::model::markdown::body::path_cite_re_with(self.spec_dir(), &self.type_dirs())
+    }
+
+    /// What a scan's path citations depend on, so a cache of scans is dropped when it changes.
+    pub fn cite_key(&self) -> String {
+        let mut key = self.spec_dir().to_string();
+        for (dir, ty) in self.type_dirs() {
+            key.push_str(&format!("\n{dir}={ty}"));
+        }
+        key
+    }
+
     pub fn manifests(&self) -> Vec<String> {
         match &self.raw.owners.manifests {
             Some(m) => m.clone(),

@@ -41,7 +41,12 @@ impl Owners {
 
     /// The spec directory of an owner, relative to the repository root.
     pub fn spec_dir(&self, owner: &Owner, dir: &str) -> String {
-        if owner.path.is_empty() { dir.to_string() } else { format!("{}/{dir}", owner.path) }
+        self.within(owner, dir)
+    }
+
+    /// `rel`, a path relative to the owner's root, relative to the repository root.
+    pub fn within(&self, owner: &Owner, rel: &str) -> String {
+        if owner.path.is_empty() { rel.to_string() } else { format!("{}/{rel}", owner.path) }
     }
 }
 

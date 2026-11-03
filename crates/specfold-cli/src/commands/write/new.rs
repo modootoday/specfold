@@ -32,6 +32,9 @@ fn rerun(a: &NewArgs) -> String {
             cmd.push_str(&format!(" {}", opt(flag, v)));
         }
     }
+    if let Some(n) = a.number {
+        cmd.push_str(&format!(" --number {n}"));
+    }
     for (flag, vs) in [("--governs", &a.governs), ("--depends-on", &a.depends_on)] {
         for v in vs {
             cmd.push_str(&format!(" {}", opt(flag, v)));
@@ -77,22 +80,22 @@ fn create(g: &Global, a: &NewArgs) -> Result<Output> {
         local: a.local,
         bundle: a.bundle,
         key: None,
+        number: a.number,
         body: None,
         depends_on: depends_on(a)?,
         here: s.loc.here(&s.corpus.cfg),
     };
     let (mut created, mut plan) = new::plan(&s.corpus, &s.graph, &req)?;
-    // C206: a timestamp id is reserved with create-new before the write; a clash with a run in
-    // another process takes the next second.
+    // C206: a timestamp or number id is reserved with create-new before the write; a clash with
+    // a run in another process takes the next key. A --number the author picked is not moved.
+    let kind = s.corpus.cfg.registry.get(&ty).map(|t| t.key).filter(|_| a.number.is_none());
     for _ in 0..120 {
         let key = created.id.rsplit('/').next().unwrap_or_default().to_string();
-        if !a.write
-            || !specfold_core::model::stamp::is_stamp(&key)
-            || reserve(&s.corpus.cfg.spec_home, &created.id, &created.path, &key)
-        {
+        let next = kind.and_then(|k| k.next_after(&key));
+        if !a.write || next.is_none() || reserve(&s.corpus.cfg.spec_home, &created.id, &created.path, &key) {
             break;
         }
-        req.key = specfold_core::model::stamp::next_stamp(&key);
+        req.key = next;
         (created, plan) = new::plan(&s.corpus, &s.graph, &req)?;
     }
     let o = Output::new("new")

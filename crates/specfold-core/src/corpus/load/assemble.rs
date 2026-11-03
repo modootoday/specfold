@@ -34,7 +34,12 @@ pub fn group(cfg: &Config, root: &SpecRoot, files: &[String], strays: &mut Vec<S
             continue;
         }
         let rest = path.strip_prefix(&format!("{}/", root.dir)).unwrap_or(path);
-        match locate(&cfg.registry, rest) {
+        // A type's own directory reads as that type's subdirectory of a spec directory.
+        let rest = match &root.ty {
+            Some(ty) => format!("{ty}/{rest}"),
+            None => rest.to_string(),
+        };
+        match locate(&cfg.registry, &rest) {
             Location::Stray(_) if root.pending => {}
             Location::Stray(reason) => strays.push(Stray { path: path.clone(), reason }),
             Location::Doc(p) => {

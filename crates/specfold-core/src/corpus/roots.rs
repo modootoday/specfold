@@ -7,15 +7,19 @@ use crate::model::Tier;
 use crate::workspace::Owners;
 
 pub fn committed(cfg: &Config, owners: &Owners) -> Vec<SpecRoot> {
-    owners
-        .list
-        .iter()
-        .filter_map(|o| {
-            let dir = owners.spec_dir(o, cfg.spec_dir());
-            let root = SpecRoot { owner: o.id.clone(), dir, tier: Tier::Committed, pending: o.pending };
-            cfg.spec_home.join(&root.dir).is_dir().then_some(root)
-        })
-        .collect()
+    let type_dirs = cfg.type_dirs();
+    let mut out = vec![];
+    for o in &owners.list {
+        let spec = (owners.spec_dir(o, cfg.spec_dir()), None);
+        let own = type_dirs.iter().map(|(d, t)| (owners.within(o, d), Some(t.clone())));
+        for (dir, ty) in std::iter::once(spec).chain(own) {
+            let root = SpecRoot { owner: o.id.clone(), dir, tier: Tier::Committed, pending: o.pending, ty };
+            if cfg.spec_home.join(&root.dir).is_dir() {
+                out.push(root);
+            }
+        }
+    }
+    out
 }
 
 /// `.spec.local/<owner-id>/` directories. Unknown owner ids are reported as strays.
@@ -34,7 +38,7 @@ pub fn local(cfg: &Config, owners: &Owners, strays: &mut Vec<Stray>) -> Vec<Spec
             strays.push(Stray { path: rel, reason: format!("'{name}' is not an owner id") });
             continue;
         }
-        out.push(SpecRoot { owner: name, dir: rel, tier: Tier::Local, pending: false });
+        out.push(SpecRoot { owner: name, dir: rel, tier: Tier::Local, pending: false, ty: None });
     }
     out.sort_by(|a, b| a.dir.cmp(&b.dir));
     out

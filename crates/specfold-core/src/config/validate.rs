@@ -44,6 +44,9 @@ pub fn loaded(path: &Path, text: &str, raw: &RawConfig) -> Result<()> {
             path.display()
         );
     }
+    if let Some(why) = super::type_dirs::problem(raw) {
+        bail!("{}: {why}; next: spec explain config", path.display());
+    }
     if let Some((why, value)) = pattern_problem(raw) {
         let at = text.lines().position(|l| l.contains(&value)).map(|n| format!(" at line {}", n + 1));
         bail!("{}{}: {why}; next: spec explain config", path.display(), at.unwrap_or_default());

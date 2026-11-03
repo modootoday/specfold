@@ -2,11 +2,11 @@
 
 use super::types::{Hit, Query};
 use crate::corpus::Corpus;
-use crate::model::{Doc, lifecycle};
+use crate::model::{Doc, Registry};
 
-fn passes_filters(d: &Doc, q: &Query) -> bool {
+fn passes_filters(r: &Registry, d: &Doc, q: &Query) -> bool {
     let status = d.status().unwrap_or_default();
-    (q.all || lifecycle::is_current(&status))
+    (q.all || r.is_current(&d.id.ty, &status))
         && (q.types.is_empty() || q.types.contains(&d.id.ty))
         && (q.owners.is_empty() || q.owners.contains(&d.id.owner))
         && (q.statuses.is_empty() || q.statuses.contains(&status))
@@ -52,7 +52,7 @@ pub fn find(c: &Corpus, q: &Query) -> Vec<Hit> {
     let mut hits: Vec<Hit> = c
         .docs
         .iter()
-        .filter(|d| passes_filters(d, q))
+        .filter(|d| passes_filters(&c.cfg.registry, d, q))
         .filter_map(|d| {
             let (score, excerpt) = match score_meta(d, &words) {
                 Some(s) => (s, None),

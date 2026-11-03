@@ -6,7 +6,6 @@ use crate::session;
 use anyhow::Result;
 use serde_json::json;
 use specfold_core::corpus::graph::query;
-use specfold_core::model::lifecycle;
 use specfold_core::workspace::remotes;
 use std::collections::BTreeSet;
 
@@ -26,7 +25,7 @@ pub fn run(g: &Global, a: &ContextArgs) -> Result<Output> {
         for gv in query::governing(&s.corpus, &rel) {
             let d = &s.corpus.docs[gv.idx];
             let status = d.status().unwrap_or_default();
-            if (!a.all && !lifecycle::is_current(&status)) || !seen.insert(gv.idx) {
+            if (!a.all && !s.corpus.cfg.registry.is_current(&d.id.ty, &status)) || !seen.insert(gv.idx) {
                 continue;
             }
             let verify = d.list_field("verify");
@@ -73,7 +72,7 @@ fn remote(mut o: Output, cfg: &specfold_core::config::Config, rel: &str, name: &
     for gv in query::governing(&l.corpus, inner) {
         let d = &l.corpus.docs[gv.idx];
         let status = d.status().unwrap_or_default();
-        if !all && !lifecycle::is_current(&status) {
+        if !all && !l.corpus.cfg.registry.is_current(&d.id.ty, &status) {
             continue;
         }
         let id = format!("{name}:{}", d.id);

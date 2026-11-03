@@ -31,9 +31,9 @@ pub fn take(c: &Corpus, g: &Graph) -> Census {
     let mut by_type = BTreeMap::new();
     let mut by_status = BTreeMap::new();
     let (mut links, mut broken, mut via_alias, mut cites, mut attachments, mut bytes) = (0, 0, 0, 0, 0, 0u64);
-    for d in &c.docs {
-        let root =
-            c.roots.iter().find(|r| crate::paths::is_below(&d.path, &r.dir)).map(|r| r.dir.clone()).unwrap_or_default();
+    for (i, d) in c.docs.iter().enumerate() {
+        // A type's own directory is a root of its own, so it is counted on its own line.
+        let root = c.spec_root_of(i).map(|r| r.dir.clone()).unwrap_or_default();
         *by_root.entry(root).or_insert(0) += 1;
         *by_type.entry(d.id.ty.clone()).or_insert(0) += 1;
         *by_status.entry(d.status().unwrap_or_else(|| "(none)".into())).or_insert(0) += 1;

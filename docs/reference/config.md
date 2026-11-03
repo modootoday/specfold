@@ -86,12 +86,73 @@ public = "packages/cli"   # needed only when [public] lists several and none is 
 
 | table | controls |
 | --- | --- |
-| `[types.<name>]` | override, disable or add a type: key, statuses, fields, transitions, required sections |
+| `[types.<name>]` | override, disable or add a type: key, statuses, fields, transitions, required sections, `current`, `dir` |
 | `[types.<name>]` values (S8) | `fields = { approvers = "people", resolution = "url", review_by = "date", decision = "link" }` adds the keys and their kinds (a list still replaces the built-in keys); `placeholders = [...]` (default `TBD`, `Pending`, `TODO`, `?`); `distinct = [["authors", "approvers"]]`. Checked only where `require_when` requires the field |
+| `[types.<name>] key` | `"stamp"` (a UTC timestamp, the default for new types), `"slug"`, or `"number"`: files are `NNNN-<slug>.<type>.md` and ids `<type>:<owner>/NNNN` |
+| `[types.<name>] current` | the statuses `spec find`, `spec context` and `spec audit` show without `--all`; by default `draft` and `active` |
+| `[types.<name>] dir` | a directory of the type's own, relative to each owner's root, instead of `<[spec] dir>/<type>` |
 | `[forbid]` | retired layouts and identifiers (rule Z1) |
 | `[aliases]` | the frozen alias table written by `spec import` |
 | `[files]` | `inline_max_bytes`, `scan_max_bytes` (repository text attachments up to this size are read by rule U2; 1 MiB by default), and `[files.store]`: `kind = "dir"` with `path`, or `kind = "command"` with `put`/`get`/`exists` argv templates (see the example) |
 | `[[assets]]` | agent skills, rules, subagents and instruction files |
+
+### A type in a directory of its own
+
+By default every document lives in `<owner>/<[spec] dir>/<type>/`. A type with `dir` keeps its
+documents in that directory instead, relative to the owner's root: the directory holding spec.toml
+for the root owner, the owner's directory for every other owner. A repository that publishes its
+decisions and proposals at the top, as many open specifications do, can write:
+
+```toml
+[types.adr]
+dir = "adr"              # adr/20260101000000-use-files.adr.md, services/shop/adr/… for the shop
+
+[types.proposal]
+about = "An enhancement proposal."
+key = "number"           # proposals/0001-scan-cache.proposal.md, id proposal:<owner>/0001
+dir = "proposals"
+```
+
+Documents there are like any other: the same file names and bundles, ids, citations, `spec new`,
+`spec mv`, every check, the census, translations, the language server and export. Only the
+committed tier moves; the local tier keeps `<[local] path>/<owner>/<type>/`. A file in the
+directory that is no document of the type is reported by S3, as in a spec directory; a nested
+owner's files there stay that owner's.
+
+`spec check` refuses a spec.toml where a `dir` is absolute or climbs out of the owner (`..`),
+names the owner's root itself, overlaps `[spec] dir` or `[local] path` (lies in it or holds it), is
+shared by two types, or lies inside another type's `dir`: each would give one path two readings.
+
+Setting `dir` on a type that already has documents leaves them where they are; S3 reports each one
+with the move that takes it over, `spec mv <id> --write`, which also rewrites every reference.
+Dropping `dir` again needs the files moved back first, since documents outside every known
+directory are no longer read.
+
+### Numbered documents
+
+With `key = "number"`, `spec new` takes the owner's next free number, one above the highest in use,
+padded to four digits (`0001`; wider numbers stay as they are). `spec new <type> --number 42` picks
+one instead, such as a pull request's number, and is refused when the number is taken. `spec mv`
+keeps the number, also across owners, where it must be free.
+
+### A proposal lifecycle
+
+`statuses`, `transitions`, `require_when`, `fields` and `current` together describe a lifecycle such
+as Draft → Accepted → Final, with Withdrawn from either open state:
+
+```toml
+[types.proposal]
+statuses = ["draft", "accepted", "final", "withdrawn"]
+current = ["draft", "accepted", "final"]   # spec find shows final proposals; withdrawn ones need --all
+fields = { conformance = "url" }           # or "link" for a document in the repository
+
+[types.proposal.transitions]
+draft = ["accepted", "withdrawn"]
+accepted = ["final", "withdrawn"]
+
+[types.proposal.require_when]
+final = ["conformance"]                    # S6: final needs it; S8: it must be an http(s) URL
+```
 
 ## Checks
 
