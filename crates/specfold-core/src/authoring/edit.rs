@@ -3,9 +3,9 @@
 
 use super::plan::Plan;
 use crate::corpus::Corpus;
-use crate::markdown::tables::{self, RowChange};
-use crate::markdown::{frontmatter, frontmatter::edit, sections};
 use crate::model::doc::Doc;
+use crate::model::markdown::tables::{self, RowChange};
+use crate::model::markdown::{frontmatter, frontmatter::edit, sections};
 use crate::model::stamp;
 use anyhow::{Result, anyhow, bail};
 use serde_json::Value;
@@ -127,7 +127,7 @@ fn duplicate_rows(e: anyhow::Error, d: &Doc, head: &str, lines: &[&str], section
     let Some(dup) = e.downcast_ref::<tables::DuplicateRows>() else { return e };
     let first = head.matches('\n').count() + 1;
     let at: Vec<String> = dup.rows.iter().map(|r| (r + first).to_string()).collect();
-    let id = crate::shell::word(&d.id);
+    let id = crate::suggest::shell::word(&d.id);
     match section {
         None if dup.tables > 1 => anyhow::anyhow!(
             "'{}' names {} rows in {} tables (lines {}); name the section with --section; next: spec show {id}",
@@ -141,7 +141,7 @@ fn duplicate_rows(e: anyhow::Error, d: &Doc, head: &str, lines: &[&str], section
                 let above = dup.rows.first().map_or(0, |r| *r);
                 lines[..above].iter().rev().find(|l| l.starts_with('#')).map(|l| l.trim_start_matches('#').trim())
             };
-            let s = crate::shell::opt("--section", section.or_else(heading).unwrap_or("<section>"));
+            let s = crate::suggest::shell::opt("--section", section.or_else(heading).unwrap_or("<section>"));
             anyhow::anyhow!(
                 "several rows have the key '{}' (lines {}); --row edits one row; next: spec edit {id} {s}",
                 dup.key,
@@ -228,7 +228,7 @@ fn plan_new_section(
 /// C208: text that opens a code fence and never closes it would turn every later heading of the
 /// document into code.
 fn refuse_open_fence(text: &str) -> Result<()> {
-    let mut fence = crate::markdown::Fence::default();
+    let mut fence = crate::model::markdown::Fence::default();
     let mut opened = 0;
     for (n, line) in text.lines().enumerate() {
         if fence.step(line) && fence.inside() {
@@ -244,13 +244,13 @@ fn refuse_open_fence(text: &str) -> Result<()> {
 /// C125: section text may hold sub-headings, but a heading at the section's level or above would
 /// start another section (and could duplicate one).
 fn refuse_headings(text: &str, level: usize) -> Result<()> {
-    let mut fence = crate::markdown::Fence::default();
+    let mut fence = crate::model::markdown::Fence::default();
     for line in text.lines() {
         if fence.step(line) || fence.inside() {
             continue;
         }
         let t = line.trim();
-        if crate::markdown::atx(line).is_some_and(|(hashes, _)| hashes <= level) {
+        if crate::model::markdown::atx(line).is_some_and(|(hashes, _)| hashes <= level) {
             bail!(
                 "the text holds the heading '{}', which would start a new section; add it with --new-section, or use a deeper heading ({})",
                 t.trim(),

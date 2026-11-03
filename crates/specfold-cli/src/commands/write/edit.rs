@@ -6,8 +6,8 @@ use crate::output::Output;
 use crate::session;
 use anyhow::{Context, Result};
 use specfold_core::authoring::edit::{self, Edit, Mode};
-use specfold_core::markdown::tables::RowChange;
-use specfold_core::shell::quote;
+use specfold_core::model::markdown::tables::RowChange;
+use specfold_core::suggest::shell::quote;
 use std::io::Read;
 
 const SHOWN: usize = 40;
@@ -78,7 +78,7 @@ pub fn run(g: &Global, a: &EditArgs) -> Result<Output> {
             // A missing section: the next step is the same edit adding it.
             if let (Some(sec), Some((head, _))) = (&a.section, msg.split_once("; to add it: --new-section")) {
                 let mut cmd =
-                    format!("spec edit {} {}", quote(&a.doc), specfold_core::shell::opt("--new-section", sec));
+                    format!("spec edit {} {}", quote(&a.doc), specfold_core::suggest::shell::opt("--new-section", sec));
                 cmd.push_str(&text_flag(a, false));
                 cmd.push_str(" --write");
                 anyhow::bail!("{head}; next: {cmd}");
@@ -107,19 +107,19 @@ pub fn run(g: &Global, a: &EditArgs) -> Result<Output> {
     }
     let mut rerun = format!("spec edit {}", quote(&a.doc));
     if let Some(sec) = &a.section {
-        rerun.push_str(&format!(" {}", specfold_core::shell::opt("--section", sec)));
+        rerun.push_str(&format!(" {}", specfold_core::suggest::shell::opt("--section", sec)));
     }
     if let Some(n) = &a.new_section {
-        rerun.push_str(&format!(" {}", specfold_core::shell::opt("--new-section", n)));
+        rerun.push_str(&format!(" {}", specfold_core::suggest::shell::opt("--new-section", n)));
     }
     if let Some(n) = &a.after {
-        rerun.push_str(&format!(" {}", specfold_core::shell::opt("--after", n)));
+        rerun.push_str(&format!(" {}", specfold_core::suggest::shell::opt("--after", n)));
     }
     if let Some(r) = &a.row {
-        rerun.push_str(&format!(" {}", specfold_core::shell::opt("--row", r)));
+        rerun.push_str(&format!(" {}", specfold_core::suggest::shell::opt("--row", r)));
     }
     for c in &a.cell {
-        rerun.push_str(&format!(" {}", specfold_core::shell::opt("--cell", c)));
+        rerun.push_str(&format!(" {}", specfold_core::suggest::shell::opt("--cell", c)));
     }
     if a.append {
         rerun.push_str(" --append");
@@ -127,7 +127,11 @@ pub fn run(g: &Global, a: &EditArgs) -> Result<Output> {
     rerun.push_str(&text_flag(a, cells_only));
     rerun.push_str(" --write");
     let o = preview::finish(o, &out.plan, &s.corpus.cfg.spec_home, a.write, &rerun)?;
-    Ok(if a.write { o.next(format!("spec check  # then: spec show {}", specfold_core::shell::word(&id))) } else { o })
+    Ok(if a.write {
+        o.next(format!("spec check  # then: spec show {}", specfold_core::suggest::shell::word(&id)))
+    } else {
+        o
+    })
 }
 
 /// Where the text came from, as flags for a command to paste.
@@ -137,7 +141,7 @@ fn text_flag(a: &EditArgs, cells_only: bool) -> String {
         (Some(t), _) => format!(" --text={}", quote(t)),
         (None, Some(p)) if p.as_os_str() == "-" => " --file <saved-input>".into(),
         (None, None) => " --file <saved-input>".into(),
-        (None, Some(p)) => format!(" {}", specfold_core::shell::opt("--file", &p.display().to_string())),
+        (None, Some(p)) => format!(" {}", specfold_core::suggest::shell::opt("--file", &p.display().to_string())),
     }
 }
 

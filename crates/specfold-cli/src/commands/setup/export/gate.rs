@@ -22,7 +22,7 @@ pub(super) fn guard(
     // The built-in secrets check runs unless a public guard already reads secrets, over the
     // source files so a hit names the line to fix; a line already reported is not repeated.
     let covered = cfg.raw.guards.iter().any(|g| g.public && g.secrets);
-    let builtin = if covered { vec![] } else { specfold_core::guards::builtin_secrets(sources) };
+    let builtin = if covered { vec![] } else { specfold_core::check::guards::builtin_secrets(sources) };
     for (g, f) in builtin {
         if !gate.hits.iter().any(|(_, h, _)| h.path == f.path && h.line == f.line) {
             gate.hits.push((g, f, false));
@@ -54,11 +54,11 @@ pub(super) fn unscanned(c: &specfold_core::corpus::Corpus, only: &[usize]) -> Op
     let max = c.cfg.raw.files.scan_max_bytes;
     let mut skipped: Vec<String> = only
         .iter()
-        .flat_map(|&i| specfold_core::guards::secrets::attachment_scan(&c.cfg.spec_home, &c.docs[i], max).1)
+        .flat_map(|&i| specfold_core::check::guards::secrets::attachment_scan(&c.cfg.spec_home, &c.docs[i], max).1)
         .collect();
     skipped.sort();
     skipped.dedup();
-    specfold_core::guards::secrets::skipped_note(&c.cfg.spec_home, &skipped, max)
+    specfold_core::check::guards::secrets::skipped_note(&c.cfg.spec_home, &skipped, max)
 }
 
 /// The files the exported documents come from (main file and chapters) and their repository
@@ -68,7 +68,7 @@ pub(super) fn source_blobs(c: &specfold_core::corpus::Corpus, only: &[usize]) ->
     let max = c.cfg.raw.files.scan_max_bytes;
     for &i in only {
         let d = &c.docs[i];
-        let attachments = specfold_core::guards::secrets::scanned_attachments(&c.cfg.spec_home, d, max);
+        let attachments = specfold_core::check::guards::secrets::scanned_attachments(&c.cfg.spec_home, d, max);
         for path in std::iter::once(&d.path).chain(&d.chapters).chain(&attachments) {
             if let Ok(bytes) = std::fs::read(c.cfg.spec_home.join(path)) {
                 blobs.push((path.clone(), bytes));

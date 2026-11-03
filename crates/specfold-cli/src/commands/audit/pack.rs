@@ -5,7 +5,7 @@ use crate::output::Output;
 use crate::session::Session;
 use anyhow::Result;
 use serde_json::to_value;
-use specfold_core::audit::pack;
+use specfold_core::check::audit::pack;
 
 pub fn run(s: &Session, a: &AuditArgs) -> Result<Output> {
     let packs = pack::build(&s.corpus, &s.graph, &a.owners, a.budget);

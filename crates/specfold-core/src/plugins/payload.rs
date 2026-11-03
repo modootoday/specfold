@@ -1,7 +1,7 @@
 //! What plugins receive: a compact, stable view of the corpus and graph.
 
 use crate::corpus::Corpus;
-use crate::graph::Graph;
+use crate::corpus::graph::Graph;
 use serde_json::{Value, json};
 
 pub fn docs(c: &Corpus, only: Option<&[usize]>) -> Value {

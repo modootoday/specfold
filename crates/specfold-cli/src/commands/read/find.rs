@@ -5,8 +5,8 @@ use crate::output::Output;
 use crate::session;
 use anyhow::Result;
 use serde_json::to_value;
-use specfold_core::markdown::{frontmatter, tasks};
-use specfold_core::search::{self, Query};
+use specfold_core::corpus::search::{self, Query};
+use specfold_core::model::markdown::{frontmatter, tasks};
 
 /// Unchecked task items in a document and its chapters.
 fn open_tasks(root: &std::path::Path, files: &[&str]) -> usize {
@@ -60,8 +60,8 @@ pub fn run(g: &Global, a: &FindArgs) -> Result<Output> {
         o = o.item(v, text);
     }
     Ok(match hits.first() {
-        Some(h) if a.open_tasks => o.next(format!("spec show {} --tasks", specfold_core::shell::word(&h.id))),
-        Some(h) => o.next(format!("spec show {}", specfold_core::shell::word(&h.id))),
+        Some(h) if a.open_tasks => o.next(format!("spec show {} --tasks", specfold_core::suggest::shell::word(&h.id))),
+        Some(h) => o.next(format!("spec show {}", specfold_core::suggest::shell::word(&h.id))),
         None if a.open_tasks => o.foot("no document has open task items"),
         None if !a.all => {
             // The same search with --all, so the next line runs as written.
@@ -69,18 +69,18 @@ pub fn run(g: &Global, a: &FindArgs) -> Result<Output> {
             // C229: words starting with `-` go last, after `--`.
             let dash = a.words.iter().any(|w| w.starts_with('-'));
             if !dash {
-                cmd.extend(a.words.iter().map(|w| specfold_core::shell::quote(w)));
+                cmd.extend(a.words.iter().map(|w| specfold_core::suggest::shell::quote(w)));
             }
             for (flag, list) in
                 [("--type", &a.types), ("--owner", &a.owners), ("--status", &a.statuses), ("--tag", &a.tags)]
             {
-                cmd.extend(list.iter().map(|v| specfold_core::shell::opt(flag, v)));
+                cmd.extend(list.iter().map(|v| specfold_core::suggest::shell::opt(flag, v)));
             }
             if a.body {
                 cmd.push("--body".into());
             }
             if dash {
-                cmd.push(specfold_core::shell::positionals(&a.words));
+                cmd.push(specfold_core::suggest::shell::positionals(&a.words));
             }
             o.foot("nothing current matches").next(cmd.join(" "))
         }

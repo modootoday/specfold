@@ -4,7 +4,7 @@
 use crate::check::context::{Ctx, key_line};
 use crate::check::finding::Finding;
 use crate::check::rule::{Rule, RuleInfo};
-use crate::graph::Resolution;
+use crate::corpus::graph::Resolution;
 use crate::model::doctype::FieldKind;
 use crate::model::stamp;
 use serde_json::{Map, Value};
@@ -79,7 +79,7 @@ impl Rule for RequiredValues {
             let line = |k: &str| key_line(ctx, &d.path, k.strip_prefix("rel.").map(|_| "rel").unwrap_or(k));
             let warn = |k: &str, msg: String| {
                 Finding::warn("S8", &d.path, line(k), msg)
-                    .fix_cmd(format!("spec set {} {k}=… --write", crate::shell::word(&d.id)))
+                    .fix_cmd(format!("spec set {} {k}=… --write", crate::suggest::shell::word(&d.id)))
             };
             for k in required {
                 let Some(v) = get(fm, k) else { continue };

@@ -6,7 +6,7 @@ use crate::session;
 use anyhow::Result;
 use serde_json::to_value;
 use specfold_core::census;
-use specfold_core::translation::{self, State};
+use specfold_core::corpus::translation::{self, State};
 
 pub fn run(g: &Global, a: &CensusArgs) -> Result<Output> {
     let s = session::open(g)?;
@@ -17,7 +17,7 @@ pub fn run(g: &Global, a: &CensusArgs) -> Result<Output> {
     }
     if a.translations {
         // C236: a --lang that is not a language tag is refused, as set refuses a bad lang value.
-        if let Some(p) = a.lang.iter().find_map(|l| specfold_core::translation::lang_problem(l)) {
+        if let Some(p) = a.lang.iter().find_map(|l| specfold_core::corpus::translation::lang_problem(l)) {
             anyhow::bail!("{p}; next: spec census --translations --lang ko");
         }
         return translations(&s, &a.lang, &a.fail_on);
@@ -92,7 +92,7 @@ fn translations(s: &session::Session, langs: &[String], fail_on: &str) -> Result
         .map(|t| {
             format!(
                 "spec set {} --source-rev --write  # after updating the translation",
-                specfold_core::shell::word(&t.id)
+                specfold_core::suggest::shell::word(&t.id)
             )
         })
         .unwrap_or_else(|| "spec check --rule R1 --rule L3".to_string());

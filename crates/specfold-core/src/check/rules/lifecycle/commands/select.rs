@@ -1,7 +1,7 @@
 //! Which documents a command run reaches, and which of their `verify` entries are commands.
 
 use crate::check::context::Ctx;
-use crate::graph::query;
+use crate::corpus::graph::query;
 use crate::model::Doc;
 use crate::workspace::owners::matcher;
 

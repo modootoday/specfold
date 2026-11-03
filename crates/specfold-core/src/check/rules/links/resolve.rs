@@ -5,9 +5,9 @@ use crate::check::context::Ctx;
 use crate::check::finding::Finding;
 use crate::check::rule::skipped;
 use crate::check::rule::{Rule, RuleInfo};
-use crate::graph::Resolution;
+use crate::corpus::graph::Resolution;
 use crate::model::RefText;
-use crate::shell::quote;
+use crate::suggest::shell::quote;
 
 pub struct LinksResolve;
 
@@ -65,7 +65,7 @@ impl Rule for LinksResolve {
                             )
                             .fix_cmd(format!(
                                 "spec fix --rule L1 --pick {} --write {}:{}",
-                                crate::shell::word(&c[0]),
+                                crate::suggest::shell::word(&c[0]),
                                 quote(&l.path),
                                 l.line
                             ))

@@ -5,7 +5,7 @@ use super::select::selected;
 use crate::check::context::Ctx;
 use crate::check::finding::Finding;
 use crate::check::rule::{Rule, RuleInfo};
-use crate::runner::{self, Job};
+use crate::plugins::runner::{self, Job};
 
 pub struct GeneratedInSync;
 

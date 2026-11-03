@@ -22,8 +22,10 @@ pub(super) fn built_in(g: &Global, a: &ExportArgs) -> Result<Output> {
                 return e;
             }
             // A fresh directory beside the refused one is accepted.
-            let fresh =
-                specfold_core::shell::quote(&format!("{}-export", out.display().to_string().trim_end_matches('/')));
+            let fresh = specfold_core::suggest::shell::quote(&format!(
+                "{}-export",
+                out.display().to_string().trim_end_matches('/')
+            ));
             anyhow!("{m}; next: spec export markdown --target {} --out {fresh}{kept}", target.name())
         })?;
     let opts = markdown::Options { target, local: a.local, banner: a.banner };
@@ -63,7 +65,7 @@ pub(super) fn built_in(g: &Global, a: &ExportArgs) -> Result<Output> {
         _ => o,
     };
     // Replacing an earlier export overwrites files outside the repository: --yes confirms it (CLI-3).
-    let again = specfold_core::shell::quote(&out.display().to_string());
+    let again = specfold_core::suggest::shell::quote(&out.display().to_string());
     if a.dry_run {
         return Ok(dry_run(o, a, &tree, &previous, out, target, &again));
     }
@@ -97,7 +99,7 @@ fn built_in_args(a: &ExportArgs) -> Result<(markdown::Target, &std::path::Path, 
     let names = markdown::Target::ALL.join(", ");
     let first = markdown::Target::ALL[0];
     let out_word =
-        a.out.as_ref().map_or("export".to_string(), |p| specfold_core::shell::quote(&p.display().to_string()));
+        a.out.as_ref().map_or("export".to_string(), |p| specfold_core::suggest::shell::quote(&p.display().to_string()));
     let Some(t) = &a.target else {
         bail!(
             "spec export markdown needs --target ({names}); next: spec export markdown --target {first} --out {out_word}{kept}"
@@ -176,7 +178,8 @@ fn foreign_files(
     for p in &theirs {
         o = o.foot(format!("keep   {p}  (not from an export; move it or export elsewhere)"));
     }
-    let fresh = specfold_core::shell::quote(&format!("{}-export", out.display().to_string().trim_end_matches('/')));
+    let fresh =
+        specfold_core::suggest::shell::quote(&format!("{}-export", out.display().to_string().trim_end_matches('/')));
     Some(o.next(format!("spec export markdown --target {target} --out {fresh}")))
 }
 

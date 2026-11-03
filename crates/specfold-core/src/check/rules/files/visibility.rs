@@ -4,9 +4,9 @@
 use crate::check::context::Ctx;
 use crate::check::finding::Finding;
 use crate::check::rule::{Rule, RuleInfo};
-use crate::graph::Resolution;
-use crate::markdown::body;
+use crate::corpus::graph::Resolution;
 use crate::model::Tier;
+use crate::model::markdown::body;
 use crate::workspace::exposure::{self, Exposed};
 use crate::workspace::walk;
 
@@ -38,7 +38,7 @@ impl Rule for NotInPublic {
             }
         }
         for Exposed { path: p, reason } in &report.exposed {
-            let base = crate::placement::literal_base(p);
+            let base = crate::workspace::placement::literal_base(p);
             let dir = cfg.spec_home.join(&base);
             if !dir.is_dir() {
                 continue;

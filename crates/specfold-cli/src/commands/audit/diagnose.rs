@@ -5,7 +5,7 @@ use crate::output::Output;
 use crate::session::Session;
 use anyhow::{Result, bail};
 use serde_json::to_value;
-use specfold_core::audit::{self, Diagnosis, Filter, Kind};
+use specfold_core::check::audit::{self, Diagnosis, Filter, Kind};
 
 pub fn kind(s: &str) -> Result<Kind> {
     Ok(match s {

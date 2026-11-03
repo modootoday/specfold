@@ -2,8 +2,8 @@
 //! submodules from an offline visibility manifest, and what `[public] detect` finds (a docs/
 //! site, a static-site generator, an npm package or a crate that would ship a spec directory).
 
+use crate::authoring::files::hash;
 use crate::config::Config;
-use crate::files::hash;
 use crate::workspace::owners::matcher;
 use serde::Deserialize;
 use std::collections::BTreeMap;
@@ -175,7 +175,7 @@ pub fn scan(cfg: &Config) -> Report {
     }
     detect(cfg, &mut out);
     // C1: a nested project publishes itself under its own rules and checks.
-    out.exposed.retain(|e| !cfg.raw.owners.in_nested(&crate::placement::literal_base(&e.path)));
+    out.exposed.retain(|e| !cfg.raw.owners.in_nested(&crate::workspace::placement::literal_base(&e.path)));
     out.exposed.sort_by(|a, b| a.path.cmp(&b.path));
     out.exposed.dedup_by(|a, b| a.path == b.path);
     out

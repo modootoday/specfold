@@ -123,7 +123,7 @@ pub fn execute(argv: Vec<String>) -> Executed {
         with_dir(&mut output, d, &loc);
     } else if let Some(up) = loc.up_to_root() {
         // C262: from a subfolder, shell commands in undo and next still name root paths.
-        with_dirs(&mut output, "", &specfold_core::shell::quote(&up), false);
+        with_dirs(&mut output, "", &specfold_core::suggest::shell::quote(&up), false);
     }
     Executed { output, format, page, raw: None, serve_mcp: false }
 }

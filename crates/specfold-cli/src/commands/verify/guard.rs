@@ -5,7 +5,7 @@ use crate::output::{Code, Output, findings};
 use crate::session;
 use anyhow::Result;
 use serde_json::json;
-use specfold_core::guards::{self, GuardRange};
+use specfold_core::check::guards::{self, GuardRange};
 
 pub fn run(g: &Global, a: &GuardArgs) -> Result<Output> {
     let cfg = session::config(g)?;
@@ -35,7 +35,7 @@ pub fn run(g: &Global, a: &GuardArgs) -> Result<Output> {
                 .next(format!("spec guard{names} --write-baseline --yes")));
         }
         // C247: the files just written, ready to commit.
-        let paths: Vec<String> = files.iter().map(specfold_core::shell::word).collect();
+        let paths: Vec<String> = files.iter().map(specfold_core::suggest::shell::word).collect();
         return Ok(if paths.is_empty() { o } else { o.next(format!("git add {}", paths.join(" "))) });
     }
     // C205/C220: a single rev scans its own history; an empty or open-ended range scans nothing useful.
@@ -188,7 +188,11 @@ fn range_problem(r: &str) -> Option<(String, String)> {
     if t.contains("..") {
         return None;
     }
-    let next = if t.contains(char::is_whitespace) { base } else { specfold_core::shell::quote(&format!("{t}..HEAD")) };
+    let next = if t.contains(char::is_whitespace) {
+        base
+    } else {
+        specfold_core::suggest::shell::quote(&format!("{t}..HEAD"))
+    };
     Some((
         format!(
             "--range '{r}' is a single revision, which would scan its own history; give a range such as <rev>..HEAD (or staged, push, all)"

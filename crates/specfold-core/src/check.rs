@@ -1,8 +1,11 @@
-//! Checks over the corpus: rules, their scope, and the findings they report.
+//! Checks over the corpus: rules, their scope and the findings they report; guards over any
+//! file and commit message; and audits of what passes yet needs attention.
 
+pub mod audit;
 pub mod baseline;
 pub mod context;
 pub mod finding;
+pub mod guards;
 pub mod rule;
 pub mod rules;
 pub mod runner;

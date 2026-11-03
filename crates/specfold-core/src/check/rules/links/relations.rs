@@ -4,7 +4,7 @@ use super::targets::{allowed_targets, ids, remote_problem, remote_status};
 use crate::check::context::{Ctx, key_line};
 use crate::check::finding::Finding;
 use crate::check::rule::{Rule, RuleInfo};
-use crate::graph::{DOC_RELATIONS, Resolution};
+use crate::corpus::graph::{DOC_RELATIONS, Resolution};
 
 pub struct RelationsResolve;
 

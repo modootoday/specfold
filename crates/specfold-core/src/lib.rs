@@ -9,30 +9,19 @@
 #![deny(clippy::print_stdout)]
 
 pub mod assets;
-pub mod audit;
 pub mod authoring;
 pub mod check;
 pub mod config;
 pub mod corpus;
 pub mod export;
-pub mod files;
-pub mod graph;
-pub mod guards;
-pub mod import;
-pub mod markdown;
 pub mod model;
 pub mod paths;
-pub mod placement;
 pub mod plugins;
-pub mod runner;
-pub mod search;
-pub mod shell;
 pub mod suggest;
-pub mod translation;
 pub mod workspace;
 
 pub use config::Config;
+pub use corpus::graph::Graph;
 pub use corpus::{Corpus, LoadOptions};
 pub use corpus::{census, trace};
-pub use graph::Graph;
 pub use model::{Doc, DocId};

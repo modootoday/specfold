@@ -34,7 +34,7 @@ pub fn current(c: &Corpus, idx: usize) -> usize {
 pub fn way_on(c: &Corpus, idx: usize) -> Option<String> {
     successors(c, idx).first()?;
     let cur = &c.docs[current(c, idx)];
-    let id = crate::shell::word(cur.id.to_string());
+    let id = crate::suggest::shell::word(cur.id.to_string());
     let title = cur.title.clone().unwrap_or_else(|| cur.slug.replace('-', " ")).replace('\'', "");
     let edit = format!("spec edit {id} --text '…' --write");
     // Only an active document can be superseded (a draft is changed in place).

@@ -2,7 +2,7 @@
 //! migration before and after, and to confirm an old layout is gone.
 
 use crate::corpus::Corpus;
-use crate::graph::{Graph, Resolution};
+use crate::corpus::graph::{Graph, Resolution};
 use crate::workspace::owners::matcher;
 use serde::Serialize;
 use std::collections::BTreeMap;

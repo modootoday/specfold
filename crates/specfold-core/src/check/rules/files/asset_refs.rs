@@ -75,7 +75,7 @@ impl Rule for AssetRefsExist {
         let commands = &ctx.opts.commands;
         for a in assets::load(&ctx.corpus.cfg) {
             let dir = root.join(&a.path).parent().map(Path::to_path_buf).unwrap_or_else(|| root.clone());
-            let mut fenced = crate::markdown::Fence::default();
+            let mut fenced = crate::model::markdown::Fence::default();
             for (i, line) in a.body().lines().enumerate() {
                 let n = a.body_line + i;
                 if fenced.step(line) {

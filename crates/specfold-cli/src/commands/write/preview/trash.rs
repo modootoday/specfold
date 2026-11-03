@@ -150,7 +150,7 @@ pub fn undo(plan: &Plan, root: &Path, kept: &Saved) -> String {
     paths.retain(|p| !ignored.contains(p));
     trash.sort();
     trash.dedup();
-    let w = specfold_core::shell::quote;
+    let w = specfold_core::suggest::shell::quote;
     let mut parts = vec![];
     for p in &ignored {
         parts.push(format!("rm -f -- {}", w(p)));

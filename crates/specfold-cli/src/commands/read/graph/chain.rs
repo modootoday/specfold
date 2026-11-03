@@ -4,7 +4,7 @@ use crate::output::Output;
 use crate::session::{self, Session};
 use anyhow::Result;
 use serde_json::{Value, json};
-use specfold_core::graph::query;
+use specfold_core::corpus::graph::query;
 use std::collections::BTreeSet;
 
 /// `chain`: the supersede chain through the target.
@@ -36,7 +36,7 @@ pub fn chain(s: &Session, t: &str, mut o: Output) -> Result<Output> {
             .next("spec check --rule T1"));
     }
     let last = id(*chain.last().unwrap_or(&idx));
-    Ok(o.field("current", last.clone()).next(format!("spec show {}", specfold_core::shell::word(&last))))
+    Ok(o.field("current", last.clone()).next(format!("spec show {}", specfold_core::suggest::shell::word(&last))))
 }
 
 /// The documents `idx` supersedes, nearest first.

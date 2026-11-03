@@ -1,7 +1,7 @@
 //! What specfold extracts from one Markdown file. This is the unit the cache stores.
 
-use crate::markdown::{body, frontmatter};
 use crate::model::doc::Frontmatter;
+use crate::model::markdown::{body, frontmatter};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};

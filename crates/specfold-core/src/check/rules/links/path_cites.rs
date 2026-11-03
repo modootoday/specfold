@@ -5,7 +5,7 @@ use crate::check::context::Ctx;
 use crate::check::finding::Finding;
 use crate::check::rule::skipped;
 use crate::check::rule::{Rule, RuleInfo};
-use crate::graph::Resolution;
+use crate::corpus::graph::Resolution;
 use crate::suggest::distance;
 
 pub struct NoPathCites;

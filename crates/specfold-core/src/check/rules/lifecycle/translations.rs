@@ -4,7 +4,7 @@
 use crate::check::context::{Ctx, key_line};
 use crate::check::finding::{Finding, Severity};
 use crate::check::rule::{Rule, RuleInfo};
-use crate::translation::{self, KEY, RELATION};
+use crate::corpus::translation::{self, KEY, RELATION};
 
 pub struct TranslationsCurrent;
 
@@ -77,7 +77,7 @@ impl Rule for TranslationsCurrent {
                 ));
             }
             let line = key_line(ctx, &d.path, KEY);
-            let fix = format!("spec set {} --source-rev --write", crate::shell::word(&d.id));
+            let fix = format!("spec set {} --source-rev --write", crate::suggest::shell::word(&d.id));
             if targets.len() > 1 {
                 out.push(Finding::warn(
                     "R1",
@@ -203,7 +203,7 @@ fn check_remote(ctx: &Ctx, i: usize, out: &mut Vec<Finding>) {
     if ctx.scope.covers(i)
         && let Some((rid, now)) = translation::source_ref(c, i).and_then(|r| crate::workspace::remotes::rev(&c.cfg, &r))
     {
-        let fix = format!("spec set {} --source-rev --write", crate::shell::word(&d.id));
+        let fix = format!("spec set {} --source-rev --write", crate::suggest::shell::word(&d.id));
         let line = key_line(ctx, &d.path, KEY);
         match d.str_field(KEY) {
             None => out.push(

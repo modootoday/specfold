@@ -4,7 +4,7 @@
 use super::plan::Plan;
 use crate::check::finding::{Finding, Fix};
 use crate::corpus::Corpus;
-use crate::markdown::frontmatter::edit;
+use crate::model::markdown::frontmatter::edit;
 use crate::model::stamp;
 use crate::workspace::vcs;
 use anyhow::Result;
@@ -163,10 +163,10 @@ pub fn translation_pairs(c: &Corpus) -> Result<(Plan, usize)> {
     let mut plan = Plan::default();
     let mut n = 0;
     for (i, d) in c.docs.iter().enumerate() {
-        if crate::translation::source_ref(c, i).is_some() {
+        if crate::corpus::translation::source_ref(c, i).is_some() {
             continue;
         }
-        let Some(inf) = crate::translation::inferred(c, i) else { continue };
+        let Some(inf) = crate::corpus::translation::inferred(c, i) else { continue };
         let Some(src) = inf.source else { continue };
         let Ok(t) = std::fs::read_to_string(c.cfg.spec_home.join(&d.path)) else { continue };
         let source = c.docs[src].id.to_string();
@@ -174,7 +174,10 @@ pub fn translation_pairs(c: &Corpus) -> Result<(Plan, usize)> {
             m.entry("lang").or_insert_with(|| Value::String(inf.lang.clone()));
             let rel = m.entry("rel").or_insert_with(|| Value::Object(Default::default()));
             if let Value::Object(r) = rel {
-                r.insert(crate::translation::RELATION.into(), Value::Array(vec![Value::String(source.clone())]));
+                r.insert(
+                    crate::corpus::translation::RELATION.into(),
+                    Value::Array(vec![Value::String(source.clone())]),
+                );
             }
             let ordered = edit::ordered(std::mem::take(m));
             *m = ordered;

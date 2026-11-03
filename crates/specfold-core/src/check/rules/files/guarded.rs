@@ -2,9 +2,9 @@
 
 use crate::check::context::Ctx;
 use crate::check::finding::Finding;
+use crate::check::guards::{self, GuardRange};
 use crate::check::rule::{Rule, RuleInfo};
 use crate::check::scope::Range;
-use crate::guards::{self, GuardRange};
 
 pub struct GuardsPass;
 

@@ -5,9 +5,9 @@ use super::page::Page;
 use super::rewrite::rewrite;
 use super::types::{Options, Target, Tree};
 use crate::corpus::Corpus;
+use crate::corpus::graph::Graph;
 use crate::export::links;
-use crate::graph::Graph;
-use crate::markdown::{body, frontmatter};
+use crate::model::markdown::{body, frontmatter};
 use crate::model::{Tier, stamp::slugify};
 use std::collections::{BTreeMap, HashMap, HashSet};
 

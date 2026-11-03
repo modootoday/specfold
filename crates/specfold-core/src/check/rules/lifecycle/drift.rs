@@ -5,7 +5,7 @@ use crate::check::context::Ctx;
 use crate::check::finding::Finding;
 use crate::check::rule::skipped;
 use crate::check::rule::{Rule, RuleInfo};
-use crate::graph::query::governing;
+use crate::corpus::graph::query::governing;
 use crate::model::Tier;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -82,13 +82,13 @@ impl Rule for GovernedCodeDrift {
             let fix = match note {
                 Some(&n) => format!(
                     "spec set {} rel.depends_on+={} --write",
-                    crate::shell::word(&c.docs[n].id),
-                    crate::shell::word(&d.id)
+                    crate::suggest::shell::word(&c.docs[n].id),
+                    crate::suggest::shell::word(&d.id)
                 ),
                 None => format!(
                     "spec new change --title {} --depends-on {} --write",
-                    crate::shell::quote(&format!("Code change under {}", d.id.owner)),
-                    crate::shell::word(&d.id)
+                    crate::suggest::shell::quote(&format!("Code change under {}", d.id.owner)),
+                    crate::suggest::shell::word(&d.id)
                 ),
             };
             out.push(
@@ -110,9 +110,9 @@ impl Rule for GovernedCodeDrift {
 fn governs_inside(c: &crate::corpus::Corpus, note: usize, doc: usize) -> bool {
     let theirs = c.docs[note].rel().remove("governs").unwrap_or_default();
     let mine = c.docs[doc].rel().remove("governs").unwrap_or_default();
-    theirs.iter().map(|g| crate::placement::literal_base(g)).any(|p| {
+    theirs.iter().map(|g| crate::workspace::placement::literal_base(g)).any(|p| {
         mine.iter().any(|s| {
-            let base = crate::placement::literal_base(s);
+            let base = crate::workspace::placement::literal_base(s);
             crate::workspace::owners::matcher(s).is_some_and(|m| m.is_match(&p))
                 || (!base.is_empty() && crate::paths::is_under(&p, &base))
         })

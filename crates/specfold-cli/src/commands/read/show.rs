@@ -7,7 +7,7 @@ use crate::output::Output;
 use crate::session;
 use anyhow::{Result, bail};
 use serde_json::{Value, json};
-use specfold_core::markdown::{frontmatter, sections, tasks};
+use specfold_core::model::markdown::{frontmatter, sections, tasks};
 
 pub fn run(g: &Global, a: &ShowArgs) -> Result<Output> {
     let (s, doc, remote) = session::open_for(g, &a.doc)?;
@@ -51,7 +51,7 @@ pub fn run(g: &Global, a: &ShowArgs) -> Result<Output> {
             ));
             cont = Some(format!(
                 "spec show {} --section '{}'",
-                specfold_core::shell::word(&shown),
+                specfold_core::suggest::shell::word(&shown),
                 first.replace('\'', "")
             ));
         }
@@ -103,13 +103,13 @@ pub fn run(g: &Global, a: &ShowArgs) -> Result<Output> {
     } else if a.tasks && done < total {
         format!(
             "spec show {} --body   # finish the open items, then spec set {} updated=today --write",
-            specfold_core::shell::word(&shown),
-            specfold_core::shell::word(&d.id)
+            specfold_core::suggest::shell::word(&shown),
+            specfold_core::suggest::shell::word(&d.id)
         )
     } else if a.section.is_some() || a.body {
-        format!("spec graph impact {}", specfold_core::shell::word(&d.id))
+        format!("spec graph impact {}", specfold_core::suggest::shell::word(&d.id))
     } else {
-        format!("spec show {} --section <heading>", specfold_core::shell::word(&shown))
+        format!("spec show {} --section <heading>", specfold_core::suggest::shell::word(&shown))
     };
     Ok(o.next(next))
 }
@@ -160,7 +160,7 @@ fn task_json(file: &str, body_line: usize, t: tasks::Task) -> Value {
 /// with the headings of the sections left out. Headings inside code fences do not count.
 fn split_at_headings(body: &str, budget: usize) -> (String, Vec<String>) {
     let mut starts = vec![];
-    let (mut pos, mut fence) = (0, specfold_core::markdown::Fence::default());
+    let (mut pos, mut fence) = (0, specfold_core::model::markdown::Fence::default());
     for line in body.split_inclusive('\n') {
         let t = line.trim_start();
         if fence.step(t) {

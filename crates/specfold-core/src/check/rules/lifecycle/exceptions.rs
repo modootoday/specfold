@@ -56,13 +56,13 @@ impl Rule for ExceptionsReviewed {
                     )
                     .fix_cmd(format!(
                         "spec set {} rel.exception_of-={} --write",
-                        crate::shell::word(&me),
-                        crate::shell::word(&me)
+                        crate::suggest::shell::word(&me),
+                        crate::suggest::shell::word(&me)
                     )),
                 );
             }
             let line = key_line(ctx, &d.path, "review_by");
-            let fix = format!("spec set {} review_by=<YYYY-MM-DD> --write", crate::shell::word(&d.id));
+            let fix = format!("spec set {} review_by=<YYYY-MM-DD> --write", crate::suggest::shell::word(&d.id));
             match d.str_field("review_by") {
                 None => out.push(
                     Finding::warn("T5", &d.path, 1, "an exception (rel.exception_of) needs review_by: YYYY-MM-DD")

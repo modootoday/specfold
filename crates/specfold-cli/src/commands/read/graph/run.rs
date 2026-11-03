@@ -146,7 +146,7 @@ fn whole(s: &Session, a: &GraphArgs, jsonl: bool, mut o: Output) -> Result<Outpu
             let mut l = vec![format!("{} documents, {} edges", c.docs.len(), s.graph.edges.len())];
             l.extend(tree(s, a.depth, glyphs(a.ascii)));
             return Ok(l.into_iter().fold(o, |o, x| o.head(x)).next(match c.docs.first() {
-                Some(d) => format!("spec graph impact {}", specfold_core::shell::word(&d.id)),
+                Some(d) => format!("spec graph impact {}", specfold_core::suggest::shell::word(&d.id)),
                 None => "spec graph".into(),
             }));
         }

@@ -5,7 +5,7 @@ use super::load::{dir, load};
 use super::types::{Consumer, Loaded, Remote};
 use crate::config::Config;
 use crate::corpus::Corpus;
-use crate::graph::Resolution;
+use crate::corpus::graph::Resolution;
 use crate::model::RefText;
 use std::sync::Arc;
 
@@ -50,7 +50,7 @@ pub fn rev(cfg: &Config, text: &str) -> Option<(String, String)> {
     let l = load(cfg, name)?;
     match l.graph.resolve(rest) {
         Resolution::Doc { idx, .. } => {
-            Some((format!("{name}:{}", l.corpus.docs[idx].id), crate::translation::rev_of(&l.corpus, idx)?))
+            Some((format!("{name}:{}", l.corpus.docs[idx].id), crate::corpus::translation::rev_of(&l.corpus, idx)?))
         }
         _ => None,
     }

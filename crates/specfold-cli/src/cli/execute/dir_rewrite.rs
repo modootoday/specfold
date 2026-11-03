@@ -6,10 +6,10 @@ use crate::output::Output;
 /// C161/C163: commands to paste work from where -C was typed: spec gets `-C <dir>`, git gets
 /// `git -C <dir>`, any other shell command `cd <dir> &&`.
 pub(super) fn with_dir(o: &mut Output, dir: &std::path::Path, loc: &crate::commands::session::Location) {
-    let w = specfold_core::shell::quote(&dir.display().to_string());
+    let w = specfold_core::suggest::shell::quote(&dir.display().to_string());
     // C192: undo and fix name files from the repository root, so shell commands run there.
     let root = loc.root_as_typed();
-    let r = root.map(|r| specfold_core::shell::quote(&r.display().to_string())).unwrap_or_else(|| w.clone());
+    let r = root.map(|r| specfold_core::suggest::shell::quote(&r.display().to_string())).unwrap_or_else(|| w.clone());
     with_dirs(o, &w, &r, true);
 }
 

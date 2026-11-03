@@ -3,9 +3,9 @@
 
 use crate::check::context::Ctx;
 use crate::check::finding::{Finding, Severity};
+use crate::check::guards;
 use crate::check::rule::skipped;
 use crate::check::rule::{Rule, RuleInfo};
-use crate::guards;
 use crate::model::Tier;
 
 pub struct NoSecrets;

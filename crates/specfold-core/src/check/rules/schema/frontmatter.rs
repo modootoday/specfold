@@ -3,8 +3,8 @@
 use crate::check::context::{Ctx, key_line};
 use crate::check::finding::Finding;
 use crate::check::rule::{Rule, RuleInfo};
-use crate::shell::quote;
 use crate::suggest::distance;
+use crate::suggest::shell::quote;
 
 /// Frontmatter keys every document may carry.
 const COMMON_KEYS: &[&str] = &[

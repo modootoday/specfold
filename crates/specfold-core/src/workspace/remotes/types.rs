@@ -2,7 +2,7 @@
 //! another repository's document.
 
 use crate::corpus::Corpus;
-use crate::graph::Graph;
+use crate::corpus::graph::Graph;
 use std::path::PathBuf;
 
 /// What `<name>:<id>` names.

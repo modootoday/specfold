@@ -4,7 +4,7 @@
 use crate::check::context::{Ctx, key_line};
 use crate::check::finding::Finding;
 use crate::check::rule::{Rule, RuleInfo};
-use crate::markdown::frontmatter::{self, Parsed};
+use crate::model::markdown::frontmatter::{self, Parsed};
 use crate::model::stamp;
 use sha2::{Digest, Sha256};
 
@@ -90,7 +90,7 @@ impl Rule for ForwardOnly {
                     .fix_cmd(format!(
                         "spec new {} --from {} --title '…' --write",
                         d.id.ty,
-                        crate::shell::word(&d.id)
+                        crate::suggest::shell::word(&d.id)
                     )),
                 );
             }

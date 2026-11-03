@@ -75,8 +75,8 @@ impl Rule for AliasesClean {
                         .with_candidates(ids.clone())
                         .fix_cmd(format!(
                             "spec fix --rule I2 --pick {} --write {}:1",
-                            crate::shell::word(&ctx.corpus.docs[i].id),
-                            crate::shell::quote(&ctx.corpus.docs[i].path)
+                            crate::suggest::shell::word(&ctx.corpus.docs[i].id),
+                            crate::suggest::shell::quote(&ctx.corpus.docs[i].path)
                         )),
                     );
                 }

@@ -2,7 +2,7 @@
 //! documents that point at them.
 
 use crate::corpus::Corpus;
-use crate::graph::Graph;
+use crate::corpus::graph::Graph;
 use crate::workspace::vcs;
 use anyhow::{Result, anyhow};
 use std::collections::BTreeSet;
@@ -49,7 +49,7 @@ fn slug_of(p: &str) -> Option<&str> {
 
 /// Documents with a relation or link that now resolves to nothing and names a deleted slug or path.
 fn dangling(c: &Corpus, g: &Graph, slugs: &BTreeSet<&str>) -> Vec<usize> {
-    use crate::graph::{DOC_RELATIONS, Resolution};
+    use crate::corpus::graph::{DOC_RELATIONS, Resolution};
     let names = |t: &str| {
         let t = t.split('#').next().unwrap_or(t).trim_end_matches('/');
         let last = t.rsplit(['/', ':']).next().unwrap_or(t);

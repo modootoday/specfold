@@ -76,7 +76,7 @@ pub(super) fn rewrite(
 /// Removes `{#anchor}` from headings outside code fences.
 pub(super) fn strip_anchors(text: &str) -> String {
     let re = regex::Regex::new(r"\s*\{#[A-Za-z0-9][A-Za-z0-9_.-]*\}\s*$").expect("static regex is valid");
-    let mut fence = crate::markdown::Fence::default();
+    let mut fence = crate::model::markdown::Fence::default();
     let mut out = String::new();
     for line in text.split_inclusive('\n') {
         let tr = line.trim_start();

@@ -1,7 +1,7 @@
 //! Runnable next commands for usage errors clap reports (C133, C165, C229).
 
 use crate::cli::args::Cli;
-use specfold_core::shell::quote;
+use specfold_core::suggest::shell::quote;
 
 /// A runnable command for a usage error the command line can be repaired from: a missing
 /// document filled with a real id, `spec new` with its title.
@@ -33,13 +33,13 @@ pub(crate) fn usage_example(
                 None if words.len() > 1 => words[1..].join(" "),
                 None => "Use one payment provider".to_string(),
             };
-            let mut cmd = format!("spec new {} {}", quote(ty), specfold_core::shell::opt("--title", &title));
+            let mut cmd = format!("spec new {} {}", quote(ty), specfold_core::suggest::shell::opt("--title", &title));
             // C165: everything else the user gave (--from, --governs, --write, ...) carries over.
             for (k, v) in opts.iter().filter(|(k, _)| k != "--title" && k != "--json") {
                 cmd.push(' ');
                 // C229: a value starting with `-` is written `--opt=value`.
                 match v {
-                    Some(v) => cmd.push_str(&specfold_core::shell::opt(k, v)),
+                    Some(v) => cmd.push_str(&specfold_core::suggest::shell::opt(k, v)),
                     None => cmd.push_str(k),
                 }
             }

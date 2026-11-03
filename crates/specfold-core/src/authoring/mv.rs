@@ -3,10 +3,10 @@
 use super::plan::Plan;
 use super::refs;
 use crate::corpus::Corpus;
-use crate::markdown::frontmatter::edit;
 use crate::model::doctype::KeyKind;
+use crate::model::markdown::frontmatter::edit;
 use crate::model::{DocId, Tier, stamp};
-use crate::placement::{self, paths};
+use crate::workspace::placement::{self, paths};
 use anyhow::{Result, anyhow, bail};
 use serde::Serialize;
 use serde_json::Value;

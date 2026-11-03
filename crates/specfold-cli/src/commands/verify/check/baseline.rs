@@ -38,7 +38,7 @@ pub(super) fn write_baseline(s: &session::Session, a: &CheckArgs, findings: &[Fi
         .field("measured_on", b.measured_on.clone())
         .field("baselined", total)
         .foot(format!("{total} error(s) in {} rule/path pair(s) recorded in {rel}", b.counts.len()))
-        .next(format!("git add {}", specfold_core::shell::word(&rel))))
+        .next(format!("git add {}", specfold_core::suggest::shell::word(&rel))))
 }
 
 /// The summary's note on errors the baseline holds back.

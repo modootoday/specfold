@@ -335,7 +335,7 @@ fn c176_context_next_for_an_ungoverned_path_runs_as_printed() {
             // `'…'` is the placeholder the reader fills in.
             .arg(format!(
                 "{} {}",
-                specfold_core::shell::quote(&bin),
+                specfold_core::suggest::shell::quote(&bin),
                 next.trim_start_matches("spec ").replace("'…'", &format!("Totals{n}"))
             ))
             .current_dir(r.path())

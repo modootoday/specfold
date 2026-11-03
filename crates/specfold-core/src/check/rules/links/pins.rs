@@ -4,7 +4,7 @@
 use crate::check::context::{Ctx, key_line};
 use crate::check::finding::Finding;
 use crate::check::rule::{Rule, RuleInfo};
-use crate::translation;
+use crate::corpus::translation;
 use crate::workspace::remotes::{self, Remote};
 
 pub struct PinsHold;
@@ -33,11 +33,11 @@ impl Rule for PinsHold {
             };
             for (target, rev) in pins {
                 let rev = rev.as_str().unwrap_or_default();
-                let fix = format!("spec set {} --pin {target} --write", crate::shell::word(&d.id));
+                let fix = format!("spec set {} --pin {target} --write", crate::suggest::shell::word(&d.id));
                 if translation::rev_problem(rev).is_some() {
                     let msg = format!(
                         "pin of {target}: pin value '{rev}' is not sha256:<12 hex>; pin it again or remove it (spec set {} --unpin {target} --write)",
-                        crate::shell::word(&d.id)
+                        crate::suggest::shell::word(&d.id)
                     );
                     out.push(Finding::warn("L7", &d.path, line, msg).fix_cmd(fix));
                     continue;

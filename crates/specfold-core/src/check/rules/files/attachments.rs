@@ -1,12 +1,12 @@
 //! P2, P3, E1, E2: every non-Markdown file belongs to a document's `files` list, small files stay
 //! in the repository, and recorded hashes match.
 
+use crate::authoring::files::hash_cache::HashCache;
+use crate::authoring::files::{ignore_file, store};
 use crate::check::context::Ctx;
 use crate::check::finding::Finding;
 use crate::check::rule::{Rule, RuleInfo};
-use crate::files::hash_cache::HashCache;
-use crate::files::{ignore_file, store};
-use crate::shell::quote;
+use crate::suggest::shell::quote;
 
 pub struct Registered;
 pub struct SizeLimit;
@@ -37,7 +37,7 @@ impl Rule for Registered {
                 }
                 out.push(Finding::error("P2", f, 1, format!("not listed in {}'s files", d.id)).fix_cmd(format!(
                     "spec attach {} {} --write",
-                    crate::shell::word(&d.id),
+                    crate::suggest::shell::word(&d.id),
                     quote(f)
                 )));
             }
@@ -84,7 +84,7 @@ impl Rule for SizeLimit {
                         )
                         .fix_cmd(format!(
                             "spec attach {} {} --store --write",
-                            crate::shell::word(&d.id),
+                            crate::suggest::shell::word(&d.id),
                             quote(f)
                         )),
                     );
@@ -132,8 +132,9 @@ impl Rule for HashesMatch {
                     let full = base.join(&e.path);
                     let leaky = std::fs::metadata(&full)
                         .is_ok_and(|m| m.len() <= ctx.corpus.cfg.raw.files.scan_max_bytes)
-                        && std::fs::read(&full)
-                            .is_ok_and(|b| !crate::guards::secrets::find(&String::from_utf8_lossy(&b)).is_empty());
+                        && std::fs::read(&full).is_ok_and(|b| {
+                            !crate::check::guards::secrets::find(&String::from_utf8_lossy(&b)).is_empty()
+                        });
                     let f = if leaky {
                         Finding::error(
                             "E1",
@@ -149,7 +150,7 @@ impl Rule for HashesMatch {
                         Finding::error("E1", &d.path, 1, format!("{} changed since it was attached", e.path)).fix_cmd(
                             format!(
                                 "spec attach {} {} --write",
-                                crate::shell::word(&d.id),
+                                crate::suggest::shell::word(&d.id),
                                 quote(&format!("{}/{}", d.base_dir(), e.path))
                             ),
                         )

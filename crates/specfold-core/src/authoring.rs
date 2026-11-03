@@ -1,9 +1,11 @@
-//! Writing documents: create, change, move and fix. Every operation returns a plan; nothing
-//! touches the disk until the plan is applied.
+//! Writing documents: create, change, move, fix and import them, and keep their attachments.
+//! Every operation returns a plan; nothing touches the disk until the plan is applied.
 
 pub mod edit;
+pub mod files;
 pub mod fix;
 pub mod forbid;
+pub mod import;
 pub mod mv;
 pub mod new;
 pub mod plan;

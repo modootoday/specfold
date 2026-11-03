@@ -4,8 +4,8 @@
 use crate::check::context::Ctx;
 use crate::check::finding::Finding;
 use crate::check::rule::{Rule, RuleInfo};
-use crate::markdown::counts::{self, Marker};
-use crate::search::{self, Query};
+use crate::corpus::search::{self, Query};
+use crate::model::markdown::counts::{self, Marker};
 use crate::workspace::owners::matcher;
 
 pub struct CountsMatch;

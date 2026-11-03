@@ -3,7 +3,7 @@
 use crate::check::context::{Ctx, key_line};
 use crate::check::finding::Finding;
 use crate::check::rule::{Rule, RuleInfo};
-use crate::graph::query;
+use crate::corpus::graph::query;
 
 pub struct SupersedePairs;
 
@@ -76,7 +76,7 @@ impl Rule for SupersedePairs {
 /// C204: the command that marks `d` superseded; through a middle status when the lifecycle
 /// has no direct move (draft), else dropping the relation on the successor.
 fn superseded_fix(ctx: &Ctx, d: &crate::model::Doc, status: &str, successor: usize) -> String {
-    let me = crate::shell::word(&d.id);
+    let me = crate::suggest::shell::word(&d.id);
     let Some(ty) = ctx.corpus.cfg.registry.get(&d.id.ty) else {
         return format!("spec set {me} status=superseded --write");
     };
@@ -86,7 +86,11 @@ fn superseded_fix(ctx: &Ctx, d: &crate::model::Doc, status: &str, successor: usi
     match ty.statuses.iter().find(|m| ty.transition_allowed(status, m) && ty.transition_allowed(m, "superseded")) {
         Some(m) => format!("spec set {me} status={m} --write && spec set {me} status=superseded --write"),
         None => {
-            format!("spec set {} rel.supersedes-={} --write", crate::shell::word(&ctx.corpus.docs[successor].id), d.id)
+            format!(
+                "spec set {} rel.supersedes-={} --write",
+                crate::suggest::shell::word(&ctx.corpus.docs[successor].id),
+                d.id
+            )
         }
     }
 }

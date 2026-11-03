@@ -1,9 +1,11 @@
-//! The data model: identifiers, types, lifecycle and documents.
+//! The data model: identifiers, types, lifecycle and documents, and the Markdown files
+//! documents are made of.
 
 pub mod doc;
 pub mod doctype;
 pub mod id;
 pub mod lifecycle;
+pub mod markdown;
 pub mod registry;
 pub mod stamp;
 

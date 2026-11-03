@@ -4,11 +4,11 @@
 use super::plan::Plan;
 use super::set;
 use crate::corpus::Corpus;
-use crate::graph::{Graph, Resolution};
-use crate::markdown::frontmatter::{edit, render};
+use crate::corpus::graph::{Graph, Resolution};
 use crate::model::doctype::KeyKind;
+use crate::model::markdown::frontmatter::{edit, render};
 use crate::model::{DocId, Tier, stamp};
-use crate::placement::{self, paths};
+use crate::workspace::placement::{self, paths};
 use anyhow::{Result, anyhow, bail};
 use serde::Serialize;
 use serde_json::{Map, Value, json};
@@ -203,13 +203,13 @@ pub fn translation(c: &Corpus, g: &Graph, from: &str, lang: &str, title: Option<
         );
     }
     let Resolution::Doc { idx, .. } = g.resolve(from) else { bail!("--from {from} names no single document") };
-    if let Some(orig) = crate::translation::source_ref(c, idx) {
+    if let Some(orig) = crate::corpus::translation::source_ref(c, idx) {
         bail!(
             "--from {} is itself a translation of {orig}; translate the original instead: spec new --translation {lang} --from {orig} --write",
             c.docs[idx].id
         );
     }
-    if crate::translation::lang_problem(lang).is_some() {
+    if crate::corpus::translation::lang_problem(lang).is_some() {
         bail!("--translation '{lang}' is not a language tag like ko or pt-br");
     }
     let src = &c.docs[idx];
@@ -249,7 +249,7 @@ pub fn translation(c: &Corpus, g: &Graph, from: &str, lang: &str, title: Option<
     let path = paths::main_file(&dir, ty, &stem, bundle);
     super::forbid::refuse(c, &path, "change [forbid] paths or translate in another place")?;
     let read = |p: &str| std::fs::read_to_string(c.cfg.spec_home.join(p)).map_err(|e| anyhow!("cannot read {p}: {e}"));
-    let rev = crate::translation::rev_of(c, idx).ok_or_else(|| anyhow!("cannot read {}", src.path))?;
+    let rev = crate::corpus::translation::rev_of(c, idx).ok_or_else(|| anyhow!("cannot read {}", src.path))?;
     let today = stamp::now_value();
     let mut fm = Map::new();
     fm.insert("id".into(), Value::String(id.to_string()));
@@ -261,10 +261,10 @@ pub fn translation(c: &Corpus, g: &Graph, from: &str, lang: &str, title: Option<
     fm.insert("created".into(), Value::String(today.clone()));
     fm.insert("updated".into(), Value::String(today));
     fm.insert("lang".into(), Value::String(lang.to_string()));
-    fm.insert(crate::translation::KEY.into(), Value::String(rev));
-    fm.insert("rel".into(), json!({ crate::translation::RELATION: [src.id.to_string()] }));
+    fm.insert(crate::corpus::translation::KEY.into(), Value::String(rev));
+    fm.insert("rel".into(), json!({ crate::corpus::translation::RELATION: [src.id.to_string()] }));
     let mut plan = Plan::default();
-    let body = crate::markdown::frontmatter::split(&read(&src.path)?).body.to_string();
+    let body = crate::model::markdown::frontmatter::split(&read(&src.path)?).body.to_string();
     plan.write(&path, format!("{}{body}", render(&edit::ordered(fm))), true);
     if let Some(src_dir) = &src.dir {
         let new_dir = path.rsplit_once('/').map(|x| x.0).unwrap_or("").to_string();

@@ -7,7 +7,7 @@ use crate::output::Output;
 use crate::session::{self, Session};
 use anyhow::{Result, bail};
 use serde_json::{Value, json};
-use specfold_core::graph::query;
+use specfold_core::corpus::graph::query;
 use std::collections::{BTreeSet, VecDeque};
 
 /// `impact`: the documents that reach the target, and the agent assets that read them.
@@ -58,7 +58,7 @@ pub(super) fn impact(s: &Session, a: &GraphArgs, t: &str, mut o: Output) -> Resu
         );
     }
     Ok(o.head(format!("documents that reach {} (relation, distance):", id(idx)))
-        .next(format!("spec show {} --rel", specfold_core::shell::word(id(idx)))))
+        .next(format!("spec show {} --rel", specfold_core::suggest::shell::word(id(idx)))))
 }
 
 /// `governs`: the documents that govern a path.
@@ -72,7 +72,7 @@ pub(super) fn governs_query(s: &Session, t: &str, mut o: Output) -> Result<Outpu
             format!("{:<36} {}", id(gv.idx), gv.pattern),
         );
     }
-    Ok(o.next(format!("spec context {}", specfold_core::shell::word(&rel))))
+    Ok(o.next(format!("spec context {}", specfold_core::suggest::shell::word(&rel))))
 }
 
 /// `consumers`: the documents here and in remotes that point at the target.
@@ -121,7 +121,7 @@ pub(super) fn consumers(s: &Session, t: &str, mut o: Output) -> Result<Output> {
     }
     Ok(o.field("target", shown.clone())
         .field("searched", scope)
-        .next(format!("spec show {}", specfold_core::shell::word(&shown))))
+        .next(format!("spec show {}", specfold_core::suggest::shell::word(&shown))))
 }
 
 struct Reach {

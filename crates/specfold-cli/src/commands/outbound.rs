@@ -6,8 +6,8 @@
 use anyhow::{Result, bail};
 use serde_json::{Value, json};
 use specfold_core::check::finding::{Finding, Severity};
+use specfold_core::check::guards;
 use specfold_core::config::{Config, GuardDef};
-use specfold_core::guards;
 
 pub struct Gate {
     /// (guard, finding, whether an override let it through)
@@ -100,7 +100,7 @@ pub fn gate(
 /// Refuses text holding a redaction marker the document does not already hold: it was read
 /// through `spec mcp`, and writing it back would replace the real value with the marker.
 pub fn refuse_redacted(root: &std::path::Path, doc_path: &str, text: &str) -> Result<()> {
-    let marker = specfold_core::guards::secrets::MARKER;
+    let marker = specfold_core::check::guards::secrets::MARKER;
     if !text.contains(marker) {
         return Ok(());
     }

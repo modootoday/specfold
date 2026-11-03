@@ -5,7 +5,7 @@ use super::dir_rewrite::with_dirs;
 use super::run::Executed;
 use crate::cli::usage::{format_json, typed_dir, usage_example};
 use crate::output::{Code, Format, Output, Page};
-use specfold_core::shell::quote;
+use specfold_core::suggest::shell::quote;
 
 /// A command line clap refused: its help or version text as is, or a usage error that names
 /// the command meant and the one next command to try.

@@ -3,9 +3,9 @@
 
 use crate::config::Config;
 use crate::corpus::Corpus;
-use crate::graph::{Graph, Resolution};
-use crate::markdown::body::{is_wiki_link, wiki_re};
+use crate::corpus::graph::{Graph, Resolution};
 use crate::model::RefText;
+use crate::model::markdown::body::{is_wiki_link, wiki_re};
 use crate::workspace::remotes::{self, Remote};
 use serde::Serialize;
 
@@ -147,7 +147,7 @@ pub fn md_ref_defs(body: &str) -> Vec<MdLink> {
 
 /// Calls `each(line_start, captures)` for every match of `re` outside fences and inline code.
 pub(crate) fn outside_code(body: &str, re: &regex::Regex, mut each: impl FnMut(usize, &regex::Captures)) {
-    let mut fence = crate::markdown::Fence::default();
+    let mut fence = crate::model::markdown::Fence::default();
     let mut offset = 0;
     for line in body.split_inclusive('\n') {
         let start = offset;

@@ -1,8 +1,8 @@
 //! One asset file as read: its kind, location, frontmatter and text.
 
 use crate::config::types::AssetKind;
-use crate::graph::{Graph, Resolution};
-use crate::markdown::frontmatter;
+use crate::corpus::graph::{Graph, Resolution};
+use crate::model::markdown::frontmatter;
 use serde_json::{Map, Value};
 use std::collections::BTreeSet;
 

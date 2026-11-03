@@ -81,7 +81,7 @@ fn quoted_option_values_go_through_opt() {
     for f in files("src") {
         let s = std::fs::read_to_string(&f).expect("read source");
         for (n, l) in s.lines().enumerate() {
-            let t = l.replace("specfold_core::shell::", "").replace("crate::shell::", "");
+            let t = l.replace("specfold_core::suggest::shell::", "").replace("crate::suggest::shell::", "");
             let Some(at) = t.find(" {}\", quote(") else { continue };
             let flag = t[..at].rsplit([' ', '"']).next().unwrap_or("");
             if flag.starts_with("--") && !["--write", "--yes", "--force", "--all"].contains(&flag) {

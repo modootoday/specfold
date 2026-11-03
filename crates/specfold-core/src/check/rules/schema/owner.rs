@@ -5,7 +5,7 @@ use crate::check::finding::Finding;
 use crate::check::rule::skipped;
 use crate::check::rule::{Rule, RuleInfo};
 use crate::model::Tier;
-use crate::placement;
+use crate::workspace::placement;
 
 pub struct OwnerMatches;
 
@@ -41,8 +41,8 @@ impl Rule for OwnerMatches {
                     )
                     .fix_cmd(format!(
                         "spec mv {} --owner {} --write",
-                        crate::shell::word(&d.id),
-                        crate::shell::word(&decision.owner.id)
+                        crate::suggest::shell::word(&d.id),
+                        crate::suggest::shell::word(&decision.owner.id)
                     )),
                 );
             }

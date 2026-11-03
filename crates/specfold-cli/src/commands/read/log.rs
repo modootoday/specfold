@@ -5,7 +5,7 @@ use crate::output::Output;
 use crate::session;
 use anyhow::{Result, bail};
 use serde_json::json;
-use specfold_core::audit::history;
+use specfold_core::check::audit::history;
 
 pub fn run(g: &Global, a: &LogArgs) -> Result<Output> {
     let s = session::open(g)?;
@@ -36,7 +36,7 @@ pub fn run(g: &Global, a: &LogArgs) -> Result<Output> {
         }
     }
     Ok(match first {
-        Some(id) => o.next(format!("spec show {} --rel", specfold_core::shell::quote(&id))),
+        Some(id) => o.next(format!("spec show {} --rel", specfold_core::suggest::shell::quote(&id))),
         None => o,
     })
 }

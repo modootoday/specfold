@@ -18,7 +18,7 @@ pub fn run(g: &Global, a: &NewArgs) -> Result<Output> {
 
 /// The same `spec new` with --write: the next step of a preview.
 fn rerun(a: &NewArgs) -> String {
-    use specfold_core::shell::{opt, word};
+    use specfold_core::suggest::shell::{opt, word};
     let mut cmd = String::from("spec new");
     if let Some(ty) = &a.ty {
         cmd.push_str(&format!(" {}", word(ty)));
@@ -135,12 +135,13 @@ fn create(g: &Global, a: &NewArgs) -> Result<Output> {
     // A slug taken from a few ASCII letters of a mostly non-ASCII title rarely names the
     // document: the next step is to name it.
     Ok(match (&created.slug_note, !a.write) {
-        (Some(_), false) => {
-            o.next(format!("spec mv {} --slug <kebab-case-name> --write", specfold_core::shell::word(&created.id)))
-        }
+        (Some(_), false) => o.next(format!(
+            "spec mv {} --slug <kebab-case-name> --write",
+            specfold_core::suggest::shell::word(&created.id)
+        )),
         (Some(_), true) => o.next("rerun with --slug <kebab-case-name>"),
         (None, true) => o,
-        (None, false) => o.next(format!("spec show {}", specfold_core::shell::word(&created.id))),
+        (None, false) => o.next(format!("spec show {}", specfold_core::suggest::shell::word(&created.id))),
     })
 }
 
@@ -198,7 +199,7 @@ fn translation(s: &session::Session, a: &NewArgs, lang: &str) -> Result<Output> 
         .head(created.owner_reason.clone())
         .head("the body is the source's: translate it; source_rev already records the source it was copied from");
     let o = preview::finish(o, &plan, &s.corpus.cfg.spec_home, a.write, &rerun(a))?;
-    Ok(if !a.write { o } else { o.next(format!("spec show {}", specfold_core::shell::word(&created.id))) })
+    Ok(if !a.write { o } else { o.next(format!("spec show {}", specfold_core::suggest::shell::word(&created.id))) })
 }
 
 /// The local directory is meant to stay out of git; the first local document makes sure it does,

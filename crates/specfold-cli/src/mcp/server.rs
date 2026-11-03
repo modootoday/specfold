@@ -29,7 +29,7 @@ fn redact(text: String) -> String {
         return text;
     }
     let Ok(mut v) = serde_json::from_str::<Value>(&text) else {
-        return specfold_core::guards::secrets::redact(&text).0;
+        return specfold_core::check::guards::secrets::redact(&text).0;
     };
     let n = walk(&mut v);
     if n == 0 {
@@ -44,7 +44,7 @@ fn redact(text: String) -> String {
 fn walk(v: &mut Value) -> usize {
     match v {
         Value::String(s) => {
-            let (r, n) = specfold_core::guards::secrets::redact(s);
+            let (r, n) = specfold_core::check::guards::secrets::redact(s);
             if n > 0 {
                 *s = r;
             }

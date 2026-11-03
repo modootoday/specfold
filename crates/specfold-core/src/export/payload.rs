@@ -3,10 +3,10 @@
 
 use super::links;
 use crate::corpus::Corpus;
-use crate::graph::Graph;
-use crate::markdown::frontmatter;
+use crate::corpus::graph::Graph;
+use crate::corpus::translation;
+use crate::model::markdown::frontmatter;
 use crate::plugins::payload;
-use crate::translation;
 use serde_json::{Value, json};
 
 /// The extras a plugin can ask for in `describe`'s `wants`.

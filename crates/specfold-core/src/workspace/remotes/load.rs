@@ -2,8 +2,8 @@
 
 use super::types::Loaded;
 use crate::config::Config;
+use crate::corpus::graph::Graph;
 use crate::corpus::{Corpus, LoadOptions};
-use crate::graph::Graph;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, OnceLock};

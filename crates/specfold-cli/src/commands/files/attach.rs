@@ -10,18 +10,21 @@ use std::io::Read;
 /// How much of one file the upload guard reads.
 const SCAN_LIMIT: u64 = 64 * 1024 * 1024;
 use serde_json::to_value;
-use specfold_core::files::attach;
+use specfold_core::authoring::files::attach;
 
 use super::replace::{self, Clash};
 
 /// The rerun line with the same document, files, place and folder.
 fn again(a: &AttachArgs, flags: &str) -> String {
-    let files: Vec<String> = a.files.iter().map(|p| specfold_core::shell::word(p.display())).collect();
-    let into =
-        if a.into.is_empty() { String::new() } else { format!(" {}", specfold_core::shell::opt("--into", &a.into)) };
+    let files: Vec<String> = a.files.iter().map(|p| specfold_core::suggest::shell::word(p.display())).collect();
+    let into = if a.into.is_empty() {
+        String::new()
+    } else {
+        format!(" {}", specfold_core::suggest::shell::opt("--into", &a.into))
+    };
     format!(
         "spec attach {} {}{}{into}{flags}",
-        specfold_core::shell::word(&a.doc),
+        specfold_core::suggest::shell::word(&a.doc),
         files.join(" "),
         if a.store { " --store" } else { "" }
     )
@@ -72,8 +75,11 @@ pub fn run(g: &Global, a: &AttachArgs) -> Result<Output> {
     let files: Vec<std::path::PathBuf> = a.files.iter().map(|p| s.loc.arg_path(p)).collect();
     let plan = attach::plan(&s.corpus, d, &files, &a.into, place)?;
     // C143: every next keeps --into, so it attaches where the preview showed.
-    let into =
-        if a.into.is_empty() { String::new() } else { format!(" {}", specfold_core::shell::opt("--into", &a.into)) };
+    let into = if a.into.is_empty() {
+        String::new()
+    } else {
+        format!(" {}", specfold_core::suggest::shell::opt("--into", &a.into))
+    };
     let mut o = Output::new("attach").field("id", d.id.to_string());
     if let Some((from, to)) = &plan.to_bundle {
         o = o.head(format!("{from} becomes a bundle: {to}"));
@@ -103,7 +109,8 @@ pub fn run(g: &Global, a: &AttachArgs) -> Result<Output> {
             }
             if f.store == "store" { &mut uploads } else { &mut kept }.push((f.path.clone(), bytes));
         }
-        let mut gate = outbound::gate(&s.corpus.cfg, specfold_core::guards::reads_content, &uploads, &a.allow_hit)?;
+        let mut gate =
+            outbound::gate(&s.corpus.cfg, specfold_core::check::guards::reads_content, &uploads, &a.allow_hit)?;
         gate.add_builtin(&uploads, &a.allow_hit, false);
         gate.add_builtin(&kept, &a.allow_hit, true);
         if !gate.hits.is_empty() || !uploads.is_empty() {
@@ -114,14 +121,14 @@ pub fn run(g: &Global, a: &AttachArgs) -> Result<Output> {
         }
         if gate.refuses() {
             let refusing = gate.refusing();
-            let files: Vec<String> = a.files.iter().map(|p| specfold_core::shell::word(p.display())).collect();
+            let files: Vec<String> = a.files.iter().map(|p| specfold_core::suggest::shell::word(p.display())).collect();
             let allow: Vec<String> = refusing.iter().map(|g| format!("--allow-hit {g}")).collect();
             return Ok(o
                 .code(Code::Findings)
                 .foot(format!("nothing uploaded: guard {} refuses a file bound for the store", refusing.join(", ")))
                 .next(format!(
                     "spec attach {} {}{}{into} --write --yes {}",
-                    specfold_core::shell::word(&a.doc),
+                    specfold_core::suggest::shell::word(&a.doc),
                     files.join(" "),
                     if a.store { " --store" } else { "" },
                     allow.join(" ")
@@ -146,7 +153,7 @@ pub fn run(g: &Global, a: &AttachArgs) -> Result<Output> {
                 .field("undo", undo.clone())
                 .foot(format!("undo (puts the replaced files and the document back): {undo}"));
         }
-        return Ok(o.foot("attached").next(format!("spec files {}", specfold_core::shell::word(&d.id))));
+        return Ok(o.foot("attached").next(format!("spec files {}", specfold_core::suggest::shell::word(&d.id))));
     }
     let confirm = if uploads || !clashes.is_empty() { " --yes" } else { "" };
     Ok(o.foot("preview only; nothing was written").next(again(a, &format!(" --write{confirm}{force}"))))

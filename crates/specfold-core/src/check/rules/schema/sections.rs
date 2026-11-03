@@ -8,13 +8,13 @@ pub struct RequiredSections;
 
 /// The headings of a Markdown text outside code fences, without `#` marks or a `{#anchor}`.
 fn headings(text: &str) -> Vec<String> {
-    let mut fence = crate::markdown::Fence::default();
+    let mut fence = crate::model::markdown::Fence::default();
     let mut out = vec![];
     for l in text.lines() {
         if fence.step(l) || fence.inside() {
             continue;
         }
-        let Some((_, h)) = crate::markdown::atx(l) else { continue };
+        let Some((_, h)) = crate::model::markdown::atx(l) else { continue };
         let h = match h.rfind(" {#") {
             Some(i) if h.ends_with('}') => &h[..i],
             _ => h,
@@ -54,8 +54,8 @@ impl Rule for RequiredSections {
                     let msg = format!("missing section '{s}' (required for {})", ty.name);
                     let add = format!(
                         "spec edit {} {} --text \"…\" --write",
-                        crate::shell::word(&d.id),
-                        crate::shell::opt("--new-section", s.trim())
+                        crate::suggest::shell::word(&d.id),
+                        crate::suggest::shell::opt("--new-section", s.trim())
                     );
                     out.push(Finding::warn("S7", &d.path, 1, msg).fix_cmd(add));
                 }

@@ -5,7 +5,7 @@ use super::{aliases, assemble, walk};
 use crate::config::Config;
 use crate::corpus::types::{Corpus, LoadOptions, SpecRoot};
 use crate::corpus::{roots, trace};
-use crate::markdown::body;
+use crate::model::markdown::body;
 use crate::workspace::Owners;
 
 impl Corpus {

@@ -34,6 +34,7 @@ pub fn run(g: &Global, a: &VerifyArgs) -> Result<Output> {
         if list.iter().any(|f| f.message.contains("[verify] shell")) {
             return Ok(o.code(Code::Findings).next("spec doctor"));
         }
-        o.code(Code::Findings).next(format!("spec show {} --section verification", specfold_core::shell::quote(&id)))
+        o.code(Code::Findings)
+            .next(format!("spec show {} --section verification", specfold_core::suggest::shell::quote(&id)))
     })
 }

@@ -4,7 +4,7 @@
 use crate::check::context::{Ctx, key_line};
 use crate::check::finding::Finding;
 use crate::model::Doc;
-use crate::runner::{Job, Outcome, Settings, Verdict};
+use crate::plugins::runner::{Job, Outcome, Settings, Verdict};
 use regex::Regex;
 use std::time::Duration;
 

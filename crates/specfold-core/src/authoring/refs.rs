@@ -54,7 +54,7 @@ pub fn rewrite_rel(map: &mut Map<String, Value>, old: &str, new: &str) -> bool {
 /// inline, angle-bracket, percent-encoded and reference-definition forms, outside code.
 pub fn rewrite_relative_links(body: &str, file: &str, old: &str, new: &str) -> String {
     let dir = file.rsplit_once('/').map(|x| x.0).unwrap_or("");
-    crate::markdown::link_dest::rewrite(body, |target| {
+    crate::model::markdown::link_dest::rewrite(body, |target| {
         let local = !target.is_empty() && !target.contains("://") && !target.starts_with('/');
         let joined = if dir.is_empty() { target.to_string() } else { format!("{dir}/{target}") };
         (local && normalize(&joined).as_deref() == Some(old)).then(|| relative(file, new))
@@ -67,7 +67,7 @@ pub fn rewrite_relative_links(body: &str, file: &str, old: &str, new: &str) -> S
 pub fn rewrite_bundle_links(body: &str, file: &str, old_dir: &str, new_dir: &str) -> String {
     let dir = file.rsplit_once('/').map(|x| x.0).unwrap_or("");
     let prefix = format!("{old_dir}/");
-    crate::markdown::link_dest::rewrite(body, |target| {
+    crate::model::markdown::link_dest::rewrite(body, |target| {
         let local = !target.is_empty() && !target.contains("://") && !target.starts_with('/');
         let joined = if dir.is_empty() { target.to_string() } else { format!("{dir}/{target}") };
         let rest = normalize(&joined).filter(|_| local)?.strip_prefix(&prefix)?.to_string();

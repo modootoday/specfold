@@ -3,7 +3,7 @@
 
 use super::plan::Plan;
 use crate::corpus::Corpus;
-use crate::markdown::frontmatter::edit;
+use crate::model::markdown::frontmatter::edit;
 use crate::model::stamp;
 use anyhow::{Result, anyhow, bail};
 use serde_json::{Map, Value};
@@ -131,10 +131,10 @@ fn move_hint(ty: &crate::model::doctype::TypeDef, from: &str, to: &str, id: &str
     if to == "superseded" && from == "draft" {
         return format!(
             "a draft has not taken effect, so nothing supersedes it: make it active first with `spec set {} status=active --write`, then run `spec new {} --title '…' --from {} --write`; or change the draft itself with `spec edit {} --text '…' --write`",
-            crate::shell::word(id),
+            crate::suggest::shell::word(id),
             ty.name,
-            crate::shell::word(id),
-            crate::shell::word(id)
+            crate::suggest::shell::word(id),
+            crate::suggest::shell::word(id)
         );
     }
     if to == "superseded" && ty.transition_allowed("active", "superseded") && from != "active" {
@@ -198,7 +198,7 @@ fn plan_with(c: &Corpus, idx: usize, assigns: &[Assign], successor_pending: bool
                     ty.statuses.iter().filter(|s| **s != from && ty.transition_allowed(&from, s)).collect();
                 let pick = finishing_status(&a.value, &reachable);
                 let next = pick
-                    .map(|s| format!("; next: spec set {} status={s} --write", crate::shell::word(&d.id)))
+                    .map(|s| format!("; next: spec set {} status={s} --write", crate::suggest::shell::word(&d.id)))
                     .unwrap_or_default();
                 bail!(
                     "status '{}' is not allowed for {} (allowed: {}; from '{from}': {}){next}",
@@ -225,7 +225,7 @@ fn plan_with(c: &Corpus, idx: usize, assigns: &[Assign], successor_pending: bool
                 .any(|o| o.rel().get("supersedes").is_some_and(|l| l.iter().any(|x| x.trim_matches(['[', ']']) == me)));
             if a.value == "superseded" && !succeeded && !successor_pending {
                 let title = d.title.clone().unwrap_or_else(|| d.slug.replace('-', " ")).replace('\'', "");
-                let w = crate::shell::word(&me);
+                let w = crate::suggest::shell::word(&me);
                 bail!(
                     "nothing supersedes {me} yet, so status=superseded would fail T1; when a newer document replaces it, record that on the newer one with `spec set <newer-id> rel.supersedes+={w} --write` and run this again; otherwise write the successor, which marks this one superseded (edit the title); next: spec new {} --from {w} --title '{title}' --write",
                     ty.name

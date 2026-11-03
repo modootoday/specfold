@@ -2,7 +2,7 @@
 
 use super::Session;
 use anyhow::{Result, bail};
-use specfold_core::graph::Resolution;
+use specfold_core::corpus::graph::Resolution;
 
 /// Resolves a reference to one document: id, alias, path, or a unique slug.
 pub fn resolve(s: &Session, text: &str) -> Result<usize> {

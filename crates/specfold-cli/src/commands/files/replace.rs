@@ -4,7 +4,7 @@
 
 use crate::commands::write::preview::{TRASH, fresh_bin};
 use anyhow::Result;
-use specfold_core::files::{attach::Plan, hash};
+use specfold_core::authoring::files::{attach::Plan, hash};
 use specfold_core::model::Doc;
 use std::path::Path;
 
@@ -49,5 +49,5 @@ pub fn keep(root: &Path, doc_path: &str, clashes: &[Clash]) -> Result<Option<Str
         }
         std::fs::copy(root.join(rel), dst)?;
     }
-    Ok(Some(format!("cp -Rp {}/. .", specfold_core::shell::quote(&bin))))
+    Ok(Some(format!("cp -Rp {}/. .", specfold_core::suggest::shell::quote(&bin))))
 }

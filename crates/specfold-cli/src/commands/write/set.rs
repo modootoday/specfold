@@ -6,7 +6,7 @@ use crate::output::Output;
 use crate::session;
 use anyhow::{Result, anyhow, bail};
 use specfold_core::authoring::set::{self, Assign, Op};
-use specfold_core::translation;
+use specfold_core::corpus::translation;
 
 /// CLI-1: `set` previews unless --write (--dry-run previews too), as every write command does.
 pub fn run(g: &Global, a: &SetArgs) -> Result<Output> {
@@ -98,7 +98,7 @@ pub fn run(g: &Global, a: &SetArgs) -> Result<Output> {
             .field("written", false)
             .field("changed", false)
             .foot("no change: the document already has these values")
-            .next(format!("spec show {}", specfold_core::shell::word(&id))));
+            .next(format!("spec show {}", specfold_core::suggest::shell::word(&id))));
     }
     if !open.is_empty() && !a.force {
         let shown_open: Vec<String> = open.iter().take(5).map(|t| format!("open  {t}")).collect();
@@ -113,8 +113,8 @@ pub fn run(g: &Global, a: &SetArgs) -> Result<Output> {
             ))
             .next(format!(
                 "spec show {} --tasks   # tick or drop them; or archive anyway: spec set {} {} --write --force",
-                specfold_core::shell::word(&id),
-                specfold_core::shell::word(&id),
+                specfold_core::suggest::shell::word(&id),
+                specfold_core::suggest::shell::word(&id),
                 a.assignments.join(" ")
             ));
         let o = shown_open.into_iter().fold(o, |o, l| o.foot(l));
@@ -161,7 +161,7 @@ fn pin_problem(s: &session::Session, target: &str) -> String {
 
 /// The open task lines of a plan that `assigns` archives; empty for anything else.
 fn open_tasks(c: &specfold_core::corpus::Corpus, idx: usize, assigns: &[Assign]) -> Vec<String> {
-    use specfold_core::markdown::{frontmatter, tasks};
+    use specfold_core::model::markdown::{frontmatter, tasks};
     let d = &c.docs[idx];
     let archives = assigns.iter().any(|x| x.key == "status" && matches!(x.op, Op::Set) && x.value == "archived");
     if d.id.ty != "plan" || !archives {
@@ -229,12 +229,12 @@ fn check_next(s: &session::Session, a: &SetArgs, assigns: &[Assign], ty: &str, i
         rules.push("T5");
     }
     let rules: Vec<String> = rules.iter().map(|r| format!("--rule {r}")).collect();
-    format!("spec check {}  # then: spec show {}", rules.join(" "), specfold_core::shell::word(id))
+    format!("spec check {}  # then: spec show {}", rules.join(" "), specfold_core::suggest::shell::word(id))
 }
 
 /// The same `spec set` with --write: the next step of a preview.
 fn rerun(a: &SetArgs) -> String {
-    use specfold_core::shell::{opt, word};
+    use specfold_core::suggest::shell::{opt, word};
     let mut words: Vec<String> = std::iter::once(word(&a.doc)).chain(a.assignments.iter().map(word)).collect();
     if a.source_rev {
         words.push("--source-rev".into());

@@ -7,7 +7,7 @@ use crate::check::finding::Finding;
 use crate::check::rule::skipped;
 use crate::check::rule::{Rule, RuleInfo};
 use crate::export::links::{MdLink, md_links, md_ref_defs};
-use crate::markdown::frontmatter::split;
+use crate::model::markdown::frontmatter::split;
 use crate::paths::normalize;
 use std::collections::BTreeSet;
 
@@ -19,7 +19,7 @@ pub struct ImageAlt;
 pub fn fragments(body: &str) -> BTreeSet<String> {
     let mut out = BTreeSet::new();
     let mut seen: std::collections::HashMap<String, usize> = Default::default();
-    for (_, text) in crate::markdown::sections::outline(body) {
+    for (_, text) in crate::model::markdown::sections::outline(body) {
         let (text, anchor) = match text.rsplit_once("{#") {
             Some((t, a)) if a.ends_with('}') => (t.trim().to_string(), Some(a.trim_end_matches('}').to_string())),
             _ => (text, None),
@@ -41,7 +41,7 @@ fn has_scheme(t: &str) -> bool {
 }
 
 fn decode(p: &str) -> String {
-    crate::markdown::link_dest::decode(p)
+    crate::model::markdown::link_dest::decode(p)
 }
 
 /// The links of every file of one document, with the line each sits on.

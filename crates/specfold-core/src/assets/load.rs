@@ -3,7 +3,7 @@
 use super::asset::Asset;
 use crate::config::Config;
 use crate::config::types::{AssetKind, AssetRoot};
-use crate::markdown::frontmatter::{self, Parsed};
+use crate::model::markdown::frontmatter::{self, Parsed};
 use crate::workspace::owners::{PathMatch, matcher};
 use std::collections::BTreeSet;
 use std::path::Path;

@@ -2,7 +2,7 @@
 
 use super::scope::Scope;
 use crate::corpus::Corpus;
-use crate::graph::Graph;
+use crate::corpus::graph::Graph;
 use crate::workspace::vcs;
 
 #[derive(Debug, Clone, Default)]

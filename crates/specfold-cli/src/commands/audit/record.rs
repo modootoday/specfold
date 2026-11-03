@@ -24,5 +24,5 @@ pub fn run(s: &Session, a: &AuditArgs, body: String) -> Result<Output> {
     Ok(o.head(format!("recorded {}  {}", created.id, created.path))
         .field("undo", undo.clone())
         .foot(format!("undo: {undo}"))
-        .next(format!("spec show {}", specfold_core::shell::word(&created.id))))
+        .next(format!("spec show {}", specfold_core::suggest::shell::word(&created.id))))
 }

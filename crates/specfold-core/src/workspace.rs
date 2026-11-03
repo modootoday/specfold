@@ -1,7 +1,9 @@
-//! The repository around the documents: its owners, what it publishes and its version control.
+//! The repository around the documents: its owners, where a document is placed, the projects
+//! inside it and in other repositories, what it publishes and its version control.
 
 pub mod exposure;
 pub mod owners;
+pub mod placement;
 pub mod projects;
 pub mod remotes;
 pub mod vcs;

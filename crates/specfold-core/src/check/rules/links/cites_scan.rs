@@ -68,7 +68,7 @@ pub fn extract(text: &str, only: Option<&BTreeSet<usize>>, p: &Patterns) -> Extr
             continue;
         }
         let mut seen = BTreeSet::new();
-        for c in crate::markdown::body::wiki_links(line) {
+        for c in crate::model::markdown::body::wiki_links(line) {
             let target = c[1].trim().to_string();
             seen.insert(target.clone());
             out.wiki.push((no, c[0].to_string(), target));

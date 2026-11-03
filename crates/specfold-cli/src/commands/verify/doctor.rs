@@ -7,7 +7,7 @@ use crate::output::{Code, Output};
 use crate::session;
 use anyhow::Result;
 use serde_json::json;
-use specfold_core::graph::Resolution;
+use specfold_core::corpus::graph::Resolution;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 

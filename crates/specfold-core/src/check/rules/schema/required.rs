@@ -50,7 +50,7 @@ impl Rule for RequiredByStatus {
                     )
                     .fix_cmd(format!(
                         "spec set {} {} --write",
-                        crate::shell::word(&d.id),
+                        crate::suggest::shell::word(&d.id),
                         missing.iter().map(|k| format!("{k}=…")).collect::<Vec<_>>().join(" ")
                     )),
                 );

@@ -5,7 +5,7 @@ use crate::output::Output;
 use crate::session;
 use anyhow::Result;
 use serde_json::json;
-use specfold_core::graph::query;
+use specfold_core::corpus::graph::query;
 use specfold_core::model::lifecycle;
 use specfold_core::workspace::remotes;
 use std::collections::BTreeSet;
@@ -46,7 +46,7 @@ pub fn run(g: &Global, a: &ContextArgs) -> Result<Output> {
         let p = a.paths.first().cloned().unwrap_or_default();
         return Ok(o.next(format!(
             "spec new sot --governs {} --title '…' --write",
-            specfold_core::shell::word(specfold_core::workspace::escape_glob(&p))
+            specfold_core::suggest::shell::word(specfold_core::workspace::escape_glob(&p))
         )));
     }
     if first.is_none() {
@@ -55,9 +55,9 @@ pub fn run(g: &Global, a: &ContextArgs) -> Result<Output> {
     // C172: only a sot has a `rule` section; any other type is shown whole.
     let id = first.unwrap_or_default();
     let next = if id.starts_with("sot:") {
-        format!("spec show {} --section rule", specfold_core::shell::word(&id))
+        format!("spec show {} --section rule", specfold_core::suggest::shell::word(&id))
     } else {
-        format!("spec show {}", specfold_core::shell::word(&id))
+        format!("spec show {}", specfold_core::suggest::shell::word(&id))
     };
     Ok(o.next(next))
 }
