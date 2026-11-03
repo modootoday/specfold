@@ -197,7 +197,7 @@ pub fn plan(c: &Corpus, g: &Graph, req: &NewDoc) -> Result<(Created, Plan)> {
 /// with the source's body and chapters copied and lang, rel.translation_of, source_rev recorded.
 pub fn translation(c: &Corpus, g: &Graph, from: &str, lang: &str, title: Option<&str>) -> Result<(Created, Plan)> {
     use crate::config::types::TranslationLayout as L;
-    if let Some((name, rest)) = crate::remotes::split(&c.cfg, from) {
+    if let Some((name, rest)) = crate::workspace::remotes::split(&c.cfg, from) {
         bail!(
             "--from {from} is in the remote {name}, which specfold reads but never copies from; copy {rest} into this repository first (or translate it in that repository), then: spec new --translation {lang} --from <the local id> --write. A local translation may still name a remote source in rel.translation_of; R1 tracks it"
         );

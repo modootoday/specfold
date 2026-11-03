@@ -58,8 +58,8 @@ pub fn open(g: &Global) -> Result<Session> {
 /// named in `[remotes]` (read-only), with the id left to resolve there and the remote's name.
 pub fn open_for(g: &Global, doc: &str) -> Result<(Session, String, Option<String>)> {
     let cfg = config(g)?;
-    if let Some((name, rest)) = specfold_core::remotes::split(&cfg, doc) {
-        let dir = specfold_core::remotes::dir(&cfg, name).unwrap_or_default();
+    if let Some((name, rest)) = specfold_core::workspace::remotes::split(&cfg, doc) {
+        let dir = specfold_core::workspace::remotes::dir(&cfg, name).unwrap_or_default();
         if !dir.is_dir() {
             bail!(
                 "the remote {name} is not on disk ({}); check it out there or fix [remotes.{name}] path",

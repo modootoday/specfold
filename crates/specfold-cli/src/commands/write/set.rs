@@ -27,8 +27,8 @@ pub fn run(g: &Global, a: &SetArgs) -> Result<Output> {
     )?;
     if a.source_rev {
         let d = &s.corpus.docs[idx];
-        let remote =
-            translation::source_ref(&s.corpus, idx).and_then(|r| specfold_core::remotes::rev(&s.corpus.cfg, &r));
+        let remote = translation::source_ref(&s.corpus, idx)
+            .and_then(|r| specfold_core::workspace::remotes::rev(&s.corpus.cfg, &r));
         let src = translation::source_of(&s.corpus, &s.graph, idx);
         if let (None, Some((_, rev))) = (src, remote) {
             shown.push(format!("{}={rev}", translation::KEY));
@@ -47,7 +47,7 @@ pub fn run(g: &Global, a: &SetArgs) -> Result<Output> {
         }
     }
     for target in &a.pin {
-        let Some((rid, rev)) = specfold_core::remotes::rev(&s.corpus.cfg, target) else {
+        let Some((rid, rev)) = specfold_core::workspace::remotes::rev(&s.corpus.cfg, target) else {
             bail!("{}", pin_problem(&s, target));
         };
         let key = format!("pins.{rid}");
@@ -62,7 +62,7 @@ pub fn run(g: &Global, a: &SetArgs) -> Result<Output> {
             .and_then(|p| p.as_object())
             .map(|m| m.keys().cloned().collect())
             .unwrap_or_default();
-        let key = specfold_core::remotes::rev(&s.corpus.cfg, target).map(|(rid, _)| rid);
+        let key = specfold_core::workspace::remotes::rev(&s.corpus.cfg, target).map(|(rid, _)| rid);
         let Some(key) = key.filter(|k| pins.contains(k)).or_else(|| pins.iter().find(|p| *p == target).cloned()) else {
             bail!(
                 "{} has no pin {target} (pinned: {}); next: spec show {}",
@@ -127,7 +127,7 @@ pub fn run(g: &Global, a: &SetArgs) -> Result<Output> {
 
 /// Why `--pin <target>` names nothing to pin, with the next step for that case.
 fn pin_problem(s: &session::Session, target: &str) -> String {
-    use specfold_core::remotes::{self, Remote};
+    use specfold_core::workspace::remotes::{self, Remote};
     let cfg = &s.corpus.cfg;
     let known: Vec<&str> = cfg.raw.remotes.keys().map(String::as_str).collect();
     let known = if known.is_empty() { "none configured".to_string() } else { format!("known: {}", known.join(", ")) };

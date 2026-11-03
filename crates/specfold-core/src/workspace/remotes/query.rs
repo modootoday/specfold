@@ -1,96 +1,19 @@
-//! Documents in other repositories. `[remotes.<name>] path = "../shared"` lets a reference or a
-//! relation name a document there as `<name>:<id>` (`shared:adr:org/20261030000000`). The other
-//! repository is read from a directory already on disk and never written. A remote whose
-//! directory is absent (a CI job without that checkout) is skipped, not reported; a remote that
-//! is present but lacks the id is an error like any missing document.
+//! Questions about remote references: which remote a reference names, what it resolves to, its
+//! source revision and status, and who names a document from elsewhere.
 
+use super::load::{dir, load};
+use super::types::{Consumer, Loaded, Remote};
 use crate::config::Config;
-use crate::corpus::{Corpus, LoadOptions};
-use crate::graph::{Graph, Resolution};
+use crate::corpus::Corpus;
+use crate::graph::Resolution;
 use crate::model::RefText;
-use std::collections::HashMap;
-use std::path::PathBuf;
-use std::sync::{Arc, Mutex, OnceLock};
-
-/// What `<name>:<id>` names.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Remote {
-    /// Not a remote reference: no configured remote of that name.
-    Local,
-    /// The remote is configured but its directory is not on disk.
-    Absent {
-        name: String,
-        path: PathBuf,
-    },
-    /// One document: its id, type, title and absolute file path.
-    Found {
-        name: String,
-        id: String,
-        ty: String,
-        title: String,
-        file: PathBuf,
-    },
-    Missing {
-        name: String,
-        id: String,
-    },
-    MissingAnchor {
-        name: String,
-        id: String,
-        anchor: String,
-    },
-    Ambiguous {
-        name: String,
-        ids: Vec<String>,
-    },
-}
-
-pub struct Loaded {
-    pub corpus: Corpus,
-    pub graph: Graph,
-}
-
-type Cache = Mutex<HashMap<PathBuf, Option<Arc<Loaded>>>>;
-
-fn cache() -> &'static Cache {
-    static C: OnceLock<Cache> = OnceLock::new();
-    C.get_or_init(Default::default)
-}
+use std::sync::Arc;
 
 /// The remote a reference names, and the rest of the reference. A configured type name is never a
 /// remote, so `adr:x/y` stays a local id even with a remote called `adr`.
 pub fn split<'a>(cfg: &Config, text: &'a str) -> Option<(&'a str, &'a str)> {
     let (name, rest) = text.trim().split_once(':')?;
     (cfg.raw.remotes.contains_key(name) && cfg.registry.get(name).is_none()).then_some((name, rest))
-}
-
-/// The remote's directory: the first of `path` and `paths` on disk, else `path`.
-pub fn dir(cfg: &Config, name: &str) -> Option<PathBuf> {
-    let r = cfg.raw.remotes.get(name)?;
-    let first = cfg.expand_path(&r.path);
-    Some(r.paths.iter().map(|p| cfg.expand_path(p)).find(|p| p.is_dir()).filter(|_| !first.is_dir()).unwrap_or(first))
-}
-
-/// Loads the remote corpus once per process; `None` when the directory is absent.
-pub fn load(cfg: &Config, name: &str) -> Option<Arc<Loaded>> {
-    let dir = dir(cfg, name)?;
-    let mut c = cache().lock().unwrap_or_else(|e| e.into_inner());
-    c.entry(dir.clone())
-        .or_insert_with(|| {
-            if !dir.is_dir() {
-                return None;
-            }
-            let start = std::time::Instant::now();
-            let rc = Config::discover(&dir).ok()?;
-            let corpus = Corpus::load(rc, &LoadOptions { include_local: false });
-            let graph = Graph::build(&corpus);
-            if crate::corpus::trace::enabled() {
-                let ms = start.elapsed().as_secs_f64() * 1000.0;
-                eprintln!("specfold:   remote {name:<12} {ms:>7.1} ms, {} documents", corpus.docs.len());
-            }
-            Some(Arc::new(Loaded { corpus, graph }))
-        })
-        .clone()
 }
 
 /// Resolves `<name>:<id>[#anchor]` against the remote repository.
@@ -132,6 +55,7 @@ pub fn rev(cfg: &Config, text: &str) -> Option<(String, String)> {
         _ => None,
     }
 }
+
 /// F2: the status of the remote document `<name>:<id>` and, when another document there
 /// supersedes it, that document's id (`<name>:<id>`).
 pub fn status(cfg: &Config, text: &str) -> Option<(String, Option<String>)> {
@@ -141,17 +65,6 @@ pub fn status(cfg: &Config, text: &str) -> Option<(String, Option<String>)> {
     let me = l.corpus.docs[idx].id.to_string();
     let by = l.corpus.docs.iter().find(|d| d.rel().get("supersedes").is_some_and(|v| v.contains(&me)));
     Some((l.corpus.docs[idx].status().unwrap_or_default(), by.map(|d| format!("{name}:{}", d.id))))
-}
-
-/// A document in this repository or a remote that names another repository's document.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Consumer {
-    /// `.` for this repository, else the remote's name.
-    pub repo: String,
-    pub id: String,
-    pub path: String,
-    /// `rel.<kind>` or `pins`.
-    pub via: String,
 }
 
 /// The documents, here and in every remote on disk, whose relations or pins name the document at

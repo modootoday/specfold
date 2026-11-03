@@ -5,8 +5,8 @@ use crate::check::context::Ctx;
 use crate::check::finding::Finding;
 use crate::check::rule::{Rule, RuleInfo};
 use crate::check::rules::support::key_line;
-use crate::remotes::{self, Remote};
 use crate::translation;
+use crate::workspace::remotes::{self, Remote};
 
 pub struct PinsHold;
 

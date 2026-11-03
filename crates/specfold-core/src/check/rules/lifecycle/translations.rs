@@ -202,7 +202,7 @@ fn check_remote(ctx: &Ctx, i: usize, out: &mut Vec<Finding>) {
     let d = &c.docs[i];
     // A source in a remote repository: compare its body with source_rev.
     if ctx.scope.covers(i)
-        && let Some((rid, now)) = translation::source_ref(c, i).and_then(|r| crate::remotes::rev(&c.cfg, &r))
+        && let Some((rid, now)) = translation::source_ref(c, i).and_then(|r| crate::workspace::remotes::rev(&c.cfg, &r))
     {
         let fix = format!("spec set {} --source-rev --write", crate::shell::word(&d.id));
         let line = key_line(ctx, &d.path, KEY);

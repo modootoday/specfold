@@ -77,15 +77,17 @@ fn targets(ctx: &Ctx, files: &Files) -> Vec<(String, Option<BTreeSet<usize>>)> {
 
 /// Remote lookups already made in this run: each touches the filesystem, and a target is often
 /// cited many times (B2).
-type Memo = HashMap<String, crate::remotes::Remote>;
+type Memo = HashMap<String, crate::workspace::remotes::Remote>;
 
 fn judge(ctx: &Ctx, memo: &mut Memo, at: (&str, usize), written: &str, target: &str, by_path: bool) -> Option<Finding> {
     let (path, line) = at;
     let id_of = |idx: usize| ctx.corpus.docs[idx].id.to_string();
     if !by_path {
-        use crate::remotes::Remote;
-        let found =
-            memo.entry(target.to_string()).or_insert_with(|| crate::remotes::resolve(&ctx.corpus.cfg, target)).clone();
+        use crate::workspace::remotes::Remote;
+        let found = memo
+            .entry(target.to_string())
+            .or_insert_with(|| crate::workspace::remotes::resolve(&ctx.corpus.cfg, target))
+            .clone();
         let problem = match found {
             Remote::Local => None,
             Remote::Absent { .. } | Remote::Found { .. } => return None,

@@ -150,8 +150,8 @@ fn corpus_problems(g: &Global, p: &mut Problems) {
 fn remotes(cfg: &specfold_core::config::Config, mut o: Output) -> Output {
     let mut remotes = vec![];
     for (name, r) in &cfg.raw.remotes {
-        let dir = specfold_core::remotes::dir(cfg, name).unwrap_or_default();
-        let docs = specfold_core::remotes::load(cfg, name).map(|l| l.corpus.docs.len());
+        let dir = specfold_core::workspace::remotes::dir(cfg, name).unwrap_or_default();
+        let docs = specfold_core::workspace::remotes::load(cfg, name).map(|l| l.corpus.docs.len());
         let state = match docs {
             Some(n) => format!("{n} documents"),
             None => "absent: references to it are not checked".into(),

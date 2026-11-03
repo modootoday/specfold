@@ -10,7 +10,7 @@ use std::sync::{Mutex, OnceLock};
 /// remote checked out within this repository, or inside a submodule no owner kind claims. P1 and
 /// L5 leave it out; D1 still matches it.
 pub fn is_external(cfg: &Config, governs: &str) -> bool {
-    if crate::remotes::split(cfg, governs).is_some() {
+    if crate::workspace::remotes::split(cfg, governs).is_some() {
         return true;
     }
     let g = governs.trim_start_matches("./").trim_end_matches('/');

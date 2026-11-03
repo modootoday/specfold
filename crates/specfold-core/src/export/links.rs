@@ -6,7 +6,7 @@ use crate::corpus::Corpus;
 use crate::graph::{Graph, Resolution};
 use crate::markdown::body::{is_wiki_link, wiki_re};
 use crate::model::RefText;
-use crate::remotes::{self, Remote};
+use crate::workspace::remotes::{self, Remote};
 use serde::Serialize;
 
 /// One reference as written: `span` is the byte range of `[[…]]` in the body.

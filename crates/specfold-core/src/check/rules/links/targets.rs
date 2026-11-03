@@ -11,8 +11,8 @@ pub(super) fn ids(ctx: &Ctx, list: &[usize]) -> Vec<String> {
 /// the remote's directory is absent, which is not reported), `Some(Some(problem))` otherwise.
 /// With a relation, the target's type is checked as for local targets.
 pub(super) fn remote_problem(ctx: &Ctx, text: &str, rel: Option<(&str, &str)>) -> Option<Option<String>> {
-    use crate::remotes::Remote;
-    Some(match crate::remotes::resolve(&ctx.corpus.cfg, text) {
+    use crate::workspace::remotes::Remote;
+    Some(match crate::workspace::remotes::resolve(&ctx.corpus.cfg, text) {
         Remote::Local => return None,
         Remote::Absent { .. } => None,
         Remote::Found { ty, .. } => match rel.map(|(kind, own)| (allowed_targets(kind), kind, own)) {
@@ -40,7 +40,7 @@ pub(super) fn remote_status(
     if !ctx.corpus.cfg.raw.check.remote_status || kind == "supersedes" {
         return;
     }
-    let Some((status, by)) = crate::remotes::status(&ctx.corpus.cfg, t) else { return };
+    let Some((status, by)) = crate::workspace::remotes::status(&ctx.corpus.cfg, t) else { return };
     if !matches!(status.as_str(), "superseded" | "archived" | "rejected") {
         return;
     }

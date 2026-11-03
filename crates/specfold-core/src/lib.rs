@@ -24,7 +24,6 @@ pub mod model;
 pub mod paths;
 pub mod placement;
 pub mod plugins;
-pub mod remotes;
 pub mod runner;
 pub mod search;
 pub mod shell;

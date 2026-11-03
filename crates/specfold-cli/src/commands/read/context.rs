@@ -7,7 +7,7 @@ use anyhow::Result;
 use serde_json::json;
 use specfold_core::graph::query;
 use specfold_core::model::lifecycle;
-use specfold_core::remotes;
+use specfold_core::workspace::remotes;
 use std::collections::BTreeSet;
 
 pub fn run(g: &Global, a: &ContextArgs) -> Result<Output> {

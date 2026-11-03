@@ -79,7 +79,7 @@ pub(super) fn governs_query(s: &Session, t: &str, mut o: Output) -> Result<Outpu
 pub(super) fn consumers(s: &Session, t: &str, mut o: Output) -> Result<Output> {
     let c = &s.corpus;
     let id = |i: usize| c.docs[i].id.to_string();
-    use specfold_core::remotes::{self, Remote};
+    use specfold_core::workspace::remotes::{self, Remote};
     let (shown, file) = match remotes::resolve(&c.cfg, t) {
         Remote::Local => {
             let idx = session::resolve(s, t)?;
