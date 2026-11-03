@@ -44,7 +44,7 @@ pub fn loaded(path: &Path, text: &str, raw: &RawConfig) -> Result<()> {
             path.display()
         );
     }
-    if let Some(why) = super::type_dirs::problem(raw) {
+    if let Some(why) = super::type_dirs::problem(raw).or_else(|| super::type_ignore::problem(raw)) {
         bail!("{}: {why}; next: spec explain config", path.display());
     }
     if let Some((why, value)) = pattern_problem(raw) {

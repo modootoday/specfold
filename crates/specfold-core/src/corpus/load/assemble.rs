@@ -28,19 +28,20 @@ struct Group {
 pub fn group(cfg: &Config, root: &SpecRoot, files: &[String], strays: &mut Vec<Stray>) -> Vec<Pending> {
     // specfold's own files (the alias table, the check baseline) may sit in a spec directory.
     let own = [cfg.raw.aliases.file.as_deref(), cfg.raw.check.baseline.as_deref()];
+    let ignores = crate::config::type_ignore::matchers(&cfg.registry);
+    // [types.<name>] ignore: a README or template in the type's directory is no stray.
+    let ignored = |rest: &str| {
+        let Some((ty, inner)) = rest.split_once('/') else { return false };
+        ignores.iter().any(|(t, set)| t == ty && set.is_match(inner))
+    };
     let mut groups: BTreeMap<(String, String), Group> = BTreeMap::new();
     for path in files {
         if own.contains(&Some(path.as_str())) {
             continue;
         }
-        let rest = path.strip_prefix(&format!("{}/", root.dir)).unwrap_or(path);
-        // A type's own directory reads as that type's subdirectory of a spec directory.
-        let rest = match &root.ty {
-            Some(ty) => format!("{ty}/{rest}"),
-            None => rest.to_string(),
-        };
+        let rest = rest_of(root, path);
         match locate(&cfg.registry, &rest) {
-            Location::Stray(_) if root.pending => {}
+            Location::Stray(_) if root.pending || ignored(&rest) => {}
             Location::Stray(reason) => strays.push(Stray { path: path.clone(), reason }),
             Location::Doc(p) => {
                 let g = groups.entry((p.ty.clone(), p.stem.clone())).or_default();
@@ -60,7 +61,7 @@ pub fn group(cfg: &Config, root: &SpecRoot, files: &[String], strays: &mut Vec<S
                 out.push(Pending { root: root.clone(), main, placed, chapters: g.chapters, attachments: g.attachments })
             }
             (None, Some(p)) => {
-                for f in g.chapters.into_iter().chain(g.attachments) {
+                for f in g.chapters.into_iter().chain(g.attachments).filter(|f| !ignored(&rest_of(root, f))) {
                     strays.push(Stray { path: f, reason: format!("bundle has no index.{}.md", p.ty) });
                 }
             }
@@ -68,6 +69,16 @@ pub fn group(cfg: &Config, root: &SpecRoot, files: &[String], strays: &mut Vec<S
         }
     }
     out
+}
+
+/// `path` relative to `root`, read as inside a spec directory: a type's own directory reads as
+/// that type's subdirectory.
+fn rest_of(root: &SpecRoot, path: &str) -> String {
+    let rest = path.strip_prefix(&format!("{}/", root.dir)).unwrap_or(path);
+    match &root.ty {
+        Some(ty) => format!("{ty}/{rest}"),
+        None => rest.to_string(),
+    }
 }
 
 fn located<'a>(path: &str, items: impl Iterator<Item = (usize, &'a String)>) -> Vec<Located<String>> {

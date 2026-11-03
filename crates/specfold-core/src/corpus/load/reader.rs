@@ -24,7 +24,10 @@ impl Corpus {
             if root.ty.is_some() {
                 files.retain(|f| owners.containing(f).id == root.owner);
             }
-            pending.extend(assemble::group(&cfg, root, &files, &mut strays));
+            // A former type directory is no spec directory any more: its other files are not strays.
+            let mut dropped = vec![];
+            let to = if root.former { &mut dropped } else { &mut strays };
+            pending.extend(assemble::group(&cfg, root, &files, to));
         }
         let t = trace::phase("walk", t);
         let to_scan: Vec<String> =

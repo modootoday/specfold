@@ -33,6 +33,7 @@ pub struct TypeOverride {
     pub distinct: Option<Vec<Vec<String>>>,
     pub dir: Option<String>,
     pub current: Option<Vec<String>>,
+    pub ignore: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone)]
@@ -94,6 +95,9 @@ fn apply(t: &mut TypeDef, o: &TypeOverride) {
     }
     if let Some(v) = &o.current {
         t.current = v.clone();
+    }
+    if let Some(v) = &o.ignore {
+        t.ignore = v.clone();
     }
 }
 

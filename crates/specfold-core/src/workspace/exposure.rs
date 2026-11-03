@@ -1,6 +1,7 @@
 //! Which paths of the repository get published, and why: configured public paths, public
 //! submodules from an offline visibility manifest, and what `[public] detect` finds (a docs/
-//! site, a static-site generator, an npm package or a crate that would ship a spec directory).
+//! site, a static-site generator, an npm package or a crate that would ship a spec directory or
+//! a type's own directory).
 
 use crate::config::Config;
 use crate::workspace::owners::matcher;
@@ -66,29 +67,38 @@ fn list_takes(list: &[String], spec_dir: &str) -> bool {
     taken && !dropped
 }
 
+/// The directories of a package at `dir` that hold documents: its spec directory, and each type
+/// directory (`[types.<name>] dir`) that exists there. The spec directory comes first.
+fn doc_dirs(cfg: &Config, dir: &str) -> Vec<String> {
+    let own = cfg.type_dirs().into_iter().map(|(d, _)| d);
+    let present = own.filter(|d| cfg.spec_home.join(join(dir, d)).is_dir());
+    std::iter::once(cfg.spec_dir().to_string()).chain(present).collect()
+}
+
 fn npm(cfg: &Config, dir: &str, text: &str, out: &mut Report) {
     let Ok(v) = serde_json::from_str::<serde_json::Value>(text) else { return };
     if v.get("private").and_then(|p| p.as_bool()) == Some(true) {
         return;
     }
-    let spec = cfg.spec_dir();
+    let pkg = join(dir, "package.json");
     match v.get("files").and_then(|f| f.as_array()) {
         Some(files) => {
             let list: Vec<String> = files.iter().filter_map(|f| f.as_str().map(str::to_string)).collect();
-            if list_takes(&list, spec) {
-                out.exposed.push(Exposed {
-                    path: join(dir, spec),
-                    reason: format!("npm files in {}", join(dir, "package.json")),
-                });
+            for d in doc_dirs(cfg, dir).iter().filter(|d| list_takes(&list, d)) {
+                out.exposed.push(Exposed { path: join(dir, d), reason: format!("npm files in {pkg}") });
             }
         }
         None => {
             let ignore = std::fs::read_to_string(cfg.spec_home.join(join(dir, ".npmignore"))).unwrap_or_default();
-            if !ignore.lines().any(|l| l.trim().trim_matches('/') == spec) {
-                out.exposed.push(Exposed {
-                    path: dir.to_string(),
-                    reason: format!("{} has no files list", join(dir, "package.json")),
-                });
+            let ignored = |d: &str| ignore.lines().any(|l| l.trim().trim_matches('/') == d);
+            let shipped: Vec<String> = doc_dirs(cfg, dir).into_iter().filter(|d| !ignored(d)).collect();
+            // A shipped spec directory exposes the whole package, as before type directories.
+            let paths = match shipped.first() {
+                Some(d) if d == cfg.spec_dir() => vec![dir.to_string()],
+                _ => shipped.iter().map(|d| join(dir, d)).collect(),
+            };
+            for path in paths {
+                out.exposed.push(Exposed { path, reason: format!("{pkg} has no files list") });
             }
         }
     }
@@ -103,15 +113,15 @@ fn cargo(cfg: &Config, dir: &str, text: &str, out: &mut Report) {
     let list = |k: &str| -> Option<Vec<String>> {
         pkg.get(k).and_then(|a| a.as_array()).map(|a| a.iter().filter_map(|s| s.as_str().map(str::to_string)).collect())
     };
-    let spec = cfg.spec_dir();
-    let shipped = match (list("include"), list("exclude")) {
-        (Some(inc), _) => list_takes(&inc, spec),
-        (None, Some(exc)) => !list_takes(&exc, spec),
+    let (include, exclude) = (list("include"), list("exclude"));
+    let shipped = |d: &str| match (&include, &exclude) {
+        (Some(inc), _) => list_takes(inc, d),
+        (None, Some(exc)) => !list_takes(exc, d),
         (None, None) => true,
     };
-    if shipped {
+    for d in doc_dirs(cfg, dir).iter().filter(|d| shipped(d)) {
         out.exposed
-            .push(Exposed { path: join(dir, spec), reason: format!("a published crate, {}", join(dir, "Cargo.toml")) });
+            .push(Exposed { path: join(dir, d), reason: format!("a published crate, {}", join(dir, "Cargo.toml")) });
     }
 }
 

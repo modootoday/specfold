@@ -10,7 +10,7 @@ pub struct Query {
     pub owners: Vec<String>,
     pub statuses: Vec<String>,
     pub tags: Vec<String>,
-    /// Include superseded, archived and rejected documents.
+    /// Include documents past their type's current statuses ([`crate::model::TypeDef::is_current`]).
     pub all: bool,
     /// Also search the body text.
     pub text: bool,

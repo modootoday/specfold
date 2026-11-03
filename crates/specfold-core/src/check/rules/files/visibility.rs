@@ -23,7 +23,7 @@ impl Rule for NotInPublic {
         &RuleInfo {
             id: "V1",
             title: "no spec documents under public paths",
-            explain: "Published paths hold no spec document: those listed in [public] paths, public submodules in [public] submodules_manifest (which must match .gitmodules; `spec sync visibility --write` measures it again), and what [public] detect finds (a docs/ site, a static-site generator, an npm package or crate that would ship the spec directory). A nested project ([owners] nested) is left to its own checks. Material about them is stored with their private companion ([public.companion]) or at the root. `spec mv <id>` moves a document to where it belongs.",
+            explain: "Published paths hold no spec document: those listed in [public] paths, public submodules in [public] submodules_manifest (which must match .gitmodules; `spec sync visibility --write` measures it again), and what [public] detect finds (a docs/ site, a static-site generator, an npm package or crate whose `files` or `include` would ship the spec directory or a type's own directory, `[types.<name>] dir`). A nested project ([owners] nested) is left to its own checks. Material about them is stored with their private companion ([public.companion]) or at the root. `spec mv <id>` moves a document to where it belongs.",
             on_commit: true,
         }
     }

@@ -19,6 +19,10 @@ pub struct SpecRoot {
     /// for a spec directory, which holds a subdirectory per type.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ty: Option<String>,
+    /// A type directory the working spec.toml dropped while HEAD's still has it: its documents
+    /// are read only so that S3 can name them and `spec mv` can take them over.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub former: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]

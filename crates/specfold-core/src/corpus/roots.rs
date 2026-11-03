@@ -8,12 +8,14 @@ use crate::workspace::Owners;
 
 pub fn committed(cfg: &Config, owners: &Owners) -> Vec<SpecRoot> {
     let type_dirs = cfg.type_dirs();
+    let former = crate::config::former_type_dirs::former(cfg);
     let mut out = vec![];
     for o in &owners.list {
-        let spec = (owners.spec_dir(o, cfg.spec_dir()), None);
-        let own = type_dirs.iter().map(|(d, t)| (owners.within(o, d), Some(t.clone())));
-        for (dir, ty) in std::iter::once(spec).chain(own) {
-            let root = SpecRoot { owner: o.id.clone(), dir, tier: Tier::Committed, pending: o.pending, ty };
+        let spec = (owners.spec_dir(o, cfg.spec_dir()), None, false);
+        let own = type_dirs.iter().map(|(d, t)| (owners.within(o, d), Some(t.clone()), false));
+        let gone = former.iter().map(|(d, t)| (owners.within(o, d), Some(t.clone()), true));
+        for (dir, ty, former) in std::iter::once(spec).chain(own).chain(gone) {
+            let root = SpecRoot { owner: o.id.clone(), dir, tier: Tier::Committed, pending: o.pending, ty, former };
             if cfg.spec_home.join(&root.dir).is_dir() {
                 out.push(root);
             }
@@ -38,7 +40,7 @@ pub fn local(cfg: &Config, owners: &Owners, strays: &mut Vec<Stray>) -> Vec<Spec
             strays.push(Stray { path: rel, reason: format!("'{name}' is not an owner id") });
             continue;
         }
-        out.push(SpecRoot { owner: name, dir: rel, tier: Tier::Local, pending: false, ty: None });
+        out.push(SpecRoot { owner: name, dir: rel, tier: Tier::Local, pending: false, ty: None, former: false });
     }
     out.sort_by(|a, b| a.dir.cmp(&b.dir));
     out

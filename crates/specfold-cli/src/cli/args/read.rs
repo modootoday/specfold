@@ -10,7 +10,8 @@ pub struct ContextArgs {
     /// Code paths you are about to change.
     #[arg(required = true)]
     pub paths: Vec<String>,
-    /// Include superseded and archived documents.
+    /// Include documents past their type's current statuses (draft and active unless
+    /// [types.<name>] current lists others), such as superseded and archived ones.
     #[arg(long)]
     pub all: bool,
 }
@@ -34,7 +35,8 @@ pub struct FindArgs {
     /// Only documents with these tags (repeatable).
     #[arg(long = "tag", id = "tag", value_name = "TAG")]
     pub tags: Vec<String>,
-    /// Include superseded, archived and rejected documents.
+    /// Include documents past their type's current statuses (draft and active unless
+    /// [types.<name>] current lists others), such as superseded, archived and rejected ones.
     #[arg(long)]
     pub all: bool,
     /// Also search body text (old name: --text).

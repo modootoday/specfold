@@ -48,6 +48,9 @@ pub enum FieldKind {
     Date,
     /// A document id, alias or path (`[[...]]` allowed) that resolves.
     Link,
+    /// Either an http(s) URL or a document link, e.g. a conformance report kept anywhere.
+    #[serde(rename = "url|link")]
+    UrlOrLink,
 }
 
 /// Values that stand for "not decided yet": rejected where a status requires the field (S8).
@@ -98,6 +101,10 @@ pub struct TypeDef {
     /// Statuses `find`, `context` and the audit show by default; empty means draft and active.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub current: Vec<String>,
+    /// Globs, relative to the type's directory, of files that are neither documents nor strays
+    /// (a README, a template); rule S3 leaves them alone.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ignore: Vec<String>,
 }
 
 impl TypeDef {
@@ -149,6 +156,7 @@ impl From<Spec<'_>> for TypeDef {
             distinct: vec![],
             dir: None,
             current: vec![],
+            ignore: vec![],
         }
     }
 }

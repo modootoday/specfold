@@ -86,11 +86,12 @@ public = "packages/cli"   # needed only when [public] lists several and none is 
 
 | table | controls |
 | --- | --- |
-| `[types.<name>]` | override, disable or add a type: key, statuses, fields, transitions, required sections, `current`, `dir` |
-| `[types.<name>]` values (S8) | `fields = { approvers = "people", resolution = "url", review_by = "date", decision = "link" }` adds the keys and their kinds (a list still replaces the built-in keys); `placeholders = [...]` (default `TBD`, `Pending`, `TODO`, `?`); `distinct = [["authors", "approvers"]]`. Checked only where `require_when` requires the field |
+| `[types.<name>]` | override, disable or add a type: key, statuses, fields, transitions, required sections, `current`, `dir`, `ignore` |
+| `[types.<name>]` values (S8) | `fields = { approvers = "people", resolution = "url", review_by = "date", decision = "link", conformance = "url\|link" }` adds the keys and their kinds (`"url\|link"` takes either an http(s) URL or a document; a list still replaces the built-in keys); `placeholders = [...]` (default `TBD`, `Pending`, `TODO`, `?`); `distinct = [["authors", "approvers"]]`. Checked only where `require_when` requires the field |
 | `[types.<name>] key` | `"stamp"` (a UTC timestamp, the default for new types), `"slug"`, or `"number"`: files are `NNNN-<slug>.<type>.md` and ids `<type>:<owner>/NNNN` |
 | `[types.<name>] current` | the statuses `spec find`, `spec context` and `spec audit` show without `--all`; by default `draft` and `active` |
 | `[types.<name>] dir` | a directory of the type's own, relative to each owner's root, instead of `<[spec] dir>/<type>` |
+| `[types.<name>] ignore` | globs relative to the type's directory, such as `["README.md", "TEMPLATE.md"]`: files there that are neither documents nor strays (S3) |
 | `[forbid]` | retired layouts and identifiers (rule Z1) |
 | `[aliases]` | the frozen alias table written by `spec import` |
 | `[files]` | `inline_max_bytes`, `scan_max_bytes` (repository text attachments up to this size are read by rule U2; 1 MiB by default), and `[files.store]`: `kind = "dir"` with `path`, or `kind = "command"` with `put`/`get`/`exists` argv templates (see the example) |
@@ -117,7 +118,9 @@ Documents there are like any other: the same file names and bundles, ids, citati
 `spec mv`, every check, the census, translations, the language server and export. Only the
 committed tier moves; the local tier keeps `<[local] path>/<owner>/<type>/`. A file in the
 directory that is no document of the type is reported by S3, as in a spec directory; a nested
-owner's files there stay that owner's.
+owner's files there stay that owner's. `ignore = ["README.md", "TEMPLATE.md"]` keeps an index
+page or a template there (globs relative to the type's directory; `**/README.md` reaches
+subdirectories). It works the same for a type kept in the spec directory.
 
 `spec check` refuses a spec.toml where a `dir` is absolute or climbs out of the owner (`..`),
 names the owner's root itself, overlaps `[spec] dir` or `[local] path` (lies in it or holds it), is
@@ -125,8 +128,11 @@ shared by two types, or lies inside another type's `dir`: each would give one pa
 
 Setting `dir` on a type that already has documents leaves them where they are; S3 reports each one
 with the move that takes it over, `spec mv <id> --write`, which also rewrites every reference.
-Dropping `dir` again needs the files moved back first, since documents outside every known
-directory are no longer read.
+Dropping or changing `dir` while documents remain in the old directory is refused by S3 (`documents
+remain in former type dir <p>; move them with spec mv first`), whatever range the check runs on,
+so the pre-commit hook stops the change. The old directory is the one spec.toml at HEAD names:
+until the change is committed its documents are still read, and `spec mv <id> --write` takes each
+to where the type keeps them now. A change committed past the check leaves them unread.
 
 ### Numbered documents
 
@@ -144,7 +150,7 @@ as Draft → Accepted → Final, with Withdrawn from either open state:
 [types.proposal]
 statuses = ["draft", "accepted", "final", "withdrawn"]
 current = ["draft", "accepted", "final"]   # spec find shows final proposals; withdrawn ones need --all
-fields = { conformance = "url" }           # or "link" for a document in the repository
+fields = { conformance = "url" }           # "link" for a document, "url|link" for either
 
 [types.proposal.transitions]
 draft = ["accepted", "withdrawn"]

@@ -40,21 +40,22 @@ fn bad_kind(ctx: &Ctx, kind: FieldKind, s: &str) -> Option<String> {
     match kind {
         FieldKind::People if s.is_empty() => Some("an empty name".into()),
         FieldKind::People => None,
-        FieldKind::Url => {
-            let ok = (s.starts_with("https://") || s.starts_with("http://"))
-                && s.len() > 8
-                && !s.contains(char::is_whitespace);
-            (!ok).then(|| format!("'{s}' is not an http(s) URL"))
-        }
+        FieldKind::Url => (!is_url(s)).then(|| format!("'{s}' is not an http(s) URL")),
         FieldKind::Date => (!stamp::is_date_value(s)).then(|| format!("'{s}' is not a YYYY-MM-DD date")),
-        FieldKind::Link => {
-            let t = s.trim_start_matches("[[").trim_end_matches("]]");
-            match ctx.graph.resolve(t) {
-                Resolution::Doc { .. } => None,
-                _ => Some(format!("'{s}' names no document")),
-            }
+        FieldKind::Link => (!is_link(ctx, s)).then(|| format!("'{s}' names no document")),
+        FieldKind::UrlOrLink => {
+            (!is_url(s) && !is_link(ctx, s)).then(|| format!("'{s}' is neither an http(s) URL nor a document"))
         }
     }
+}
+
+fn is_url(s: &str) -> bool {
+    (s.starts_with("https://") || s.starts_with("http://")) && s.len() > 8 && !s.contains(char::is_whitespace)
+}
+
+fn is_link(ctx: &Ctx, s: &str) -> bool {
+    let t = s.trim_start_matches("[[").trim_end_matches("]]");
+    matches!(ctx.graph.resolve(t), Resolution::Doc { .. })
 }
 
 impl Rule for RequiredValues {
@@ -62,7 +63,7 @@ impl Rule for RequiredValues {
         &RuleInfo {
             id: "S8",
             title: "a required field has a usable value",
-            explain: "Where `require_when` requires a field for a document's status, S6 checks it is there and S8 checks its value: not a placeholder (`[types.<t>] placeholders`, default TBD, Pending, TODO, ?; whole value, any case), of the kind declared in `[types.<t>] fields = { approvers = \"people\", resolution = \"url\", review_by = \"date\", decision = \"link\" }`, and not shared by two fields of a `distinct = [[\"authors\", \"approvers\"]]` group. A warning by default; `[check] fail_on` can make it fail. `spec set <id> <field>=… --write` gives the real value.",
+            explain: "Where `require_when` requires a field for a document's status, S6 checks it is there and S8 checks its value: not a placeholder (`[types.<t>] placeholders`, default TBD, Pending, TODO, ?; whole value, any case), of the kind declared in `[types.<t>] fields = { approvers = \"people\", resolution = \"url\", review_by = \"date\", decision = \"link\" }` (`\"url|link\"` takes either), and not shared by two fields of a `distinct = [[\"authors\", \"approvers\"]]` group. A warning by default; `[check] fail_on` can make it fail. `spec set <id> <field>=… --write` gives the real value.",
             on_commit: true,
         }
     }

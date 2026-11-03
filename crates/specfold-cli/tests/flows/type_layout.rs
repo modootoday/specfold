@@ -234,3 +234,143 @@ fn a_repo_without_type_dirs_or_number_keys_keeps_its_layout() {
     assert_eq!(v["by_root"], serde_json::json!({"services/shop/.spec": 1}));
     assert_eq!(v["owners_with_docs"], 1);
 }
+
+fn finding_paths(v: &Value) -> Vec<String> {
+    v["items"].as_array().unwrap().iter().map(|f| f["path"].as_str().unwrap().to_string()).collect()
+}
+
+#[test]
+fn type_ignore_globs_keep_readmes_and_templates_out_of_s3() {
+    let r = common::repo();
+    add_config(&r, "[types.adr]\ndir = \"adr\"\nignore = [\"README.md\", \"TEMPLATE.md\"]\n");
+    add_config(&r, "[types.sot]\nignore = [\"**/README.md\"]\n");
+    r.new_doc("adr", "services/shop/src", "Pick store");
+    for f in ["adr/README.md", "adr/TEMPLATE.md", "adr/notes.md", "adr/old/README.md"] {
+        r.write(f, "x\n");
+    }
+    r.write(".spec/sot/README.md", "x\n");
+    r.write(".spec/sot/area/README.md", "x\n");
+    r.write(".spec/sot/notes.md", "x\n");
+    let (code, v) = r.json(&["check", "--rule", "S3"]);
+    assert_eq!(code, 1, "{v}");
+    let mut paths = finding_paths(&v);
+    paths.sort();
+    assert_eq!(paths, [".spec/sot/notes.md", "adr/notes.md", "adr/old/README.md"], "{v}");
+    let (_, v) = r.json(&["census"]);
+    assert_eq!(v["strays"], 3, "{v}");
+}
+
+#[test]
+fn type_ignore_globs_outside_the_type_dir_are_refused() {
+    let r = common::repo();
+    let base = r.read("spec.toml");
+    for (extra, want) in [
+        ("[types.adr]\nignore = [\"../README.md\"]\n", "inside the type's directory"),
+        ("[types.adr]\nignore = [\"/README.md\"]\n", "inside the type's directory"),
+        ("[types.adr]\nignore = [\"a[\"]\n", "is not a glob"),
+    ] {
+        r.write("spec.toml", &(base.clone() + extra));
+        let (code, text) = run(&r, &["find"]);
+        assert_eq!(code, 2, "{extra}: {text}");
+        assert!(text.contains("[types.adr] ignore") && text.contains(want), "{extra}: {text}");
+    }
+}
+
+#[test]
+fn url_or_link_fields_take_a_url_or_a_document() {
+    let r = common::repo();
+    add_config(
+        &r,
+        &format!(
+            "{PROPOSAL}statuses = [\"draft\", \"final\"]\nfields = {{ conformance = \"url|link\" }}\n[types.proposal.transitions]\ndraft = [\"final\"]\n[types.proposal.require_when]\nfinal = [\"conformance\"]\n"
+        ),
+    );
+    let sot = r.new_doc("sot", "services/shop/src", "Conformance report");
+    let id = r.json(&["new", "proposal", "--title", "Cache", "--write"]).1["id"].as_str().unwrap().to_string();
+    assert_eq!(r.json(&["set", &id, "conformance=no-such-thing", "--write"]).0, 0);
+    assert_eq!(r.json(&["set", &id, "status=final", "--write"]).0, 0);
+    let (_, v) = r.json(&["check", "--rule", "S8"]);
+    let msg = v["items"][0]["message"].to_string();
+    assert!(
+        msg.contains("conformance should be url|link") && msg.contains("neither an http(s) URL nor a document"),
+        "{v}"
+    );
+    for value in ["https://example.com/report", sot.as_str()] {
+        assert_eq!(r.json(&["set", &id, &format!("conformance={value}"), "--write"]).0, 0);
+        let (code, v) = r.json(&["check", "--rule", "S8"]);
+        assert_eq!((code, v["items"].as_array().unwrap().len()), (0, 0), "{value}: {v}");
+    }
+    let (_, v) = r.json(&["schema", "proposal"]);
+    assert_eq!(v["type"]["kinds"]["conformance"], "url|link", "{v}");
+}
+
+#[test]
+fn find_and_context_all_name_the_current_statuses() {
+    let r = common::repo();
+    for cmd in ["find", "context"] {
+        let (code, text) = r.text(&[cmd, "--help"]);
+        assert_eq!(code, 0);
+        assert!(text.contains("current statuses") && text.contains("[types.<name>] current"), "{cmd}: {text}");
+    }
+}
+
+#[test]
+fn v1_finds_type_dirs_that_published_packages_ship() {
+    let r = common::repo();
+    add_config(&r, ADR_DIR);
+    r.write(
+        "spec.toml",
+        &r.read("spec.toml").replace("[public]\n", "[public]\ndetect = [\"npm-files\", \"cargo-include\"]\n"),
+    );
+    r.write("services/shop/package.json", "{\"name\": \"shop\", \"files\": [\"dist\", \"adr\"]}\n");
+    r.write("libs/auth/Cargo.toml", "[package]\nname = \"auth\"\ninclude = [\"src/**\"]\n");
+    r.new_doc("adr", "services/shop/src", "Shop store");
+    r.write("libs/auth/src/lib.rs", "\n");
+    r.new_doc("adr", "libs/auth/src", "Auth store");
+    let (code, v) = r.json(&["check", "--rule", "V1"]);
+    assert_eq!(code, 1, "{v}");
+    let text = v.to_string();
+    assert!(
+        text.contains("inside the published path services/shop/adr (npm files in services/shop/package.json)"),
+        "{v}"
+    );
+    assert!(!text.contains("libs/auth/adr"), "the crate includes only src: {v}");
+    r.write("services/shop/package.json", "{\"name\": \"shop\", \"files\": [\"dist\"]}\n");
+    r.write("libs/auth/Cargo.toml", "[package]\nname = \"auth\"\ninclude = [\"src/**\", \"adr/**\"]\n");
+    let (code, v) = r.json(&["check", "--rule", "V1"]);
+    assert_eq!(code, 1, "{v}");
+    let text = v.to_string();
+    assert!(text.contains("published path libs/auth/adr (a published crate, libs/auth/Cargo.toml)"), "{v}");
+    assert!(!text.contains("services/shop/adr"), "{v}");
+    r.write("libs/auth/Cargo.toml", "[package]\nname = \"auth\"\npublish = false\n");
+    r.write("services/shop/package.json", "{\"name\": \"shop\", \"files\": [\"dist\"]}\n");
+    assert_eq!(r.json(&["check", "--rule", "V1"]).0, 0);
+}
+
+#[test]
+fn dropping_a_type_dir_with_documents_left_is_refused_until_they_move() {
+    let r = common::repo();
+    let base = r.read("spec.toml");
+    add_config(&r, ADR_DIR);
+    let adr = r.json(&["new", "adr", "--title", "Use files", "--write"]).1["id"].as_str().unwrap().to_string();
+    r.write("adr/README.md", "index\n");
+    r.commit("adr dir");
+    r.write("spec.toml", &base);
+    let want = "documents remain in former type dir adr; move them with spec mv first";
+    let (code, v) = r.json(&["check"]);
+    assert_eq!(code, 1, "{v}");
+    assert_eq!(finding_paths(&v).len(), 1, "the README is no stray in a former type dir: {v}");
+    assert!(v["items"][0]["message"].to_string().contains(want), "{v}");
+    assert!(v["items"][0]["fix"].to_string().contains(&format!("spec mv {adr} --write")), "{v}");
+    r.git(&["add", "spec.toml"]);
+    let (code, v) = r.json(&["check", "--staged"]);
+    assert_eq!(code, 1, "the commit that drops dir is refused: {v}");
+    assert!(v.to_string().contains(want), "{v}");
+    let (code, v) = r.json(&["mv", &adr, "--write"]);
+    assert_eq!(code, 0, "{v}");
+    assert!(v["path"].as_str().unwrap().starts_with(".spec/adr/"), "{v}");
+    assert_eq!(r.json(&["check"]).0, 0);
+    r.commit("adr back in the spec directory");
+    assert_eq!(r.json(&["check"]).0, 0);
+    assert_eq!(r.json(&["resolve", &adr]).1["id"], adr.as_str());
+}
