@@ -285,11 +285,11 @@ pub struct EditArgs {
 
 #[derive(Debug, Clone, Args)]
 #[command(
-    after_help = "Copies each [[assets]] root's copy_of source over that root, for example:\n  [[assets]]\n  kind = \"skill\"\n  path = \".claude/skills\"\n  copy_of = \".agents/skills\"\nOnly roots with copy_of are written, only inside that root; the source is never changed and symbolic links are refused. Files missing from the source stay unless --prune. spec fix never touches assets.\n\nExamples:\n  spec sync assets              # preview\n  spec sync assets --write\n  spec sync assets --prune --write --yes"
+    after_help = "Copies each [[assets]] root's copy_of source over that root, for example:\n  [[assets]]\n  kind = \"skill\"\n  path = \".claude/skills\"\n  copy_of = \".agents/skills\"\nOnly roots with copy_of are written, only inside that root; the source is never changed and symbolic links are refused. Files missing from the source stay unless --prune. spec fix never touches assets.\n\nspec sync visibility asks GitHub, through the gh client, whether each submodule is public and writes [public] submodules_manifest with the .gitmodules hash; an unchanged result leaves the file as it is. A URL off github.com, or no way to reach GitHub, refuses the run.\n\nExamples:\n  spec sync assets              # preview\n  spec sync assets --write\n  spec sync assets --prune --write --yes\n  spec sync visibility          # preview\n  spec sync visibility --write"
 )]
 pub struct SyncArgs {
-    /// What to sync: assets.
-    #[arg(value_parser = ["assets"])]
+    /// What to sync: assets, or visibility (the submodule visibility manifest).
+    #[arg(value_parser = ["assets", "visibility"])]
     pub what: String,
     /// Also remove files in a copy that its source does not have.
     #[arg(long)]

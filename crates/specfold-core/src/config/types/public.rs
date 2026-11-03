@@ -16,6 +16,6 @@ pub struct PublicSection {
     #[serde(default)]
     pub detect: Vec<String>,
     /// An offline manifest of submodule visibility ({"gitmodulesSha256", "submodules": {path:
-    /// {"visibility"}}}), written by a tool that may ask the hosting service.
+    /// {"url", "visibility"}}}), written by `spec sync visibility`.
     pub submodules_manifest: Option<String>,
 }

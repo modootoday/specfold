@@ -2,11 +2,9 @@
 //! submodules from an offline visibility manifest, and what `[public] detect` finds (a docs/
 //! site, a static-site generator, an npm package or a crate that would ship a spec directory).
 
-use crate::authoring::files::hash;
 use crate::config::Config;
 use crate::workspace::owners::matcher;
-use serde::Deserialize;
-use std::collections::BTreeMap;
+use crate::workspace::visibility::{self, WRITE_COMMAND};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Exposed {
@@ -29,18 +27,6 @@ const SITE_FILES: &[&str] = &[
     "book.toml",
 ];
 
-#[derive(Deserialize)]
-struct Manifest {
-    #[serde(rename = "gitmodulesSha256")]
-    gitmodules_sha256: String,
-    submodules: BTreeMap<String, ManifestEntry>,
-}
-
-#[derive(Deserialize)]
-struct ManifestEntry {
-    visibility: String,
-}
-
 #[derive(Debug, Default)]
 pub struct Report {
     pub exposed: Vec<Exposed>,
@@ -53,18 +39,16 @@ fn join(dir: &str, name: &str) -> String {
 }
 
 fn manifest(cfg: &Config, rel: &str, out: &mut Report) {
-    let read = std::fs::read_to_string(cfg.spec_home.join(rel));
-    let parsed = read.ok().and_then(|t| serde_json::from_str::<Manifest>(&t).ok());
-    let Some(m) = parsed else {
-        out.problems.push((rel.to_string(), format!("{rel} is missing or not a visibility manifest")));
+    let Some(m) = visibility::manifest::read(&cfg.spec_home, rel) else {
+        let msg = format!("{rel} is missing or not a visibility manifest; next: {WRITE_COMMAND}");
+        out.problems.push((rel.to_string(), msg));
         return;
     };
-    let actual = hash::file(&cfg.spec_home.join(".gitmodules")).map(|(sha, _)| sha).unwrap_or_default();
-    if actual != m.gitmodules_sha256 {
-        out.problems.push((rel.to_string(), format!("{rel} is older than .gitmodules; write it again")));
+    if visibility::manifest::gitmodules_sha256(&cfg.spec_home) != m.gitmodules_sha256 {
+        out.problems.push((rel.to_string(), format!("{rel} is older than .gitmodules; next: {WRITE_COMMAND}")));
     }
     for (path, e) in m.submodules {
-        if e.visibility.eq_ignore_ascii_case("public") {
+        if e.is_public() {
             out.exposed.push(Exposed { path, reason: format!("a public submodule in {rel}") });
         }
     }

@@ -189,6 +189,7 @@ fn a_visibility_manifest_older_than_gitmodules_is_reported() {
     assert_eq!(code, 1, "{v}");
     let text = v.to_string();
     assert!(text.contains("older than .gitmodules") && text.contains("public submodule"), "{text}");
+    assert!(text.contains("next: spec sync visibility --write"), "{text}");
 }
 
 #[test]

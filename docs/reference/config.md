@@ -26,6 +26,25 @@ An explicit `[remotes.<name>]` of the same name wins. `spec context` on a path i
 submodule shows that project's owner and documents; write them from inside the submodule. Off by
 default, so nothing changes until it is set.
 
+`[public] submodules_manifest = "<file>.json"` names a manifest of which submodules are public;
+V1 then treats each public one as a published path. The manifest records the SHA-256 of
+`.gitmodules` it was measured against, and V1 reports it when `.gitmodules` has changed since.
+`spec sync visibility` measures it: it reads every submodule's URL from `.gitmodules`, asks GitHub
+through the `gh` client whether each repository is public, and previews the manifest;
+`spec sync visibility --write` writes it. A run that finds nothing new leaves the file as it is,
+`measuredAt` included. A submodule URL off github.com, or no way to reach GitHub, stops the run
+and writes nothing.
+
+```json
+{
+  "gitmodulesSha256": "<sha-256 of .gitmodules>",
+  "measuredAt": "2026-01-02T03:04:05Z",
+  "submodules": {
+    "services/blog": { "url": "https://github.com/acme/blog.git", "visibility": "PUBLIC" }
+  }
+}
+```
+
 ### A private root for a public repository
 
 A repository with no spec.toml can keep its documents in a private directory outside its tree.

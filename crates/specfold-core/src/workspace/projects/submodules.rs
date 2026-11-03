@@ -7,12 +7,25 @@ use std::path::Path;
 /// Repository-relative paths of every submodule, gitlinks first.
 pub fn submodules(root: &Path) -> Vec<String> {
     let mut out = crate::workspace::vcs::gitlinks(root);
-    for p in declared(root) {
+    for (p, _) in declared(root) {
         if !out.contains(&p) {
             out.push(p);
         }
     }
     out
+}
+
+/// Every submodule with the `url` `.gitmodules` gives it, in the order of `submodules`; a gitlink
+/// that `.gitmodules` does not declare has none.
+pub fn submodule_urls(root: &Path) -> Vec<(String, Option<String>)> {
+    let declared = declared(root);
+    submodules(root)
+        .into_iter()
+        .map(|path| {
+            let url = declared.iter().find(|(p, _)| *p == path).and_then(|(_, u)| u.clone());
+            (path, url)
+        })
+        .collect()
 }
 
 /// A1: the submodules that carry their own spec.toml, as (remote name, path); the last path
@@ -27,13 +40,47 @@ pub fn submodule_remotes(root: &Path) -> Vec<(String, String)> {
         .collect()
 }
 
-/// The `path` entries of `.gitmodules`.
-fn declared(root: &Path) -> Vec<String> {
+/// The `path` of each `.gitmodules` section, with the `url` of the same section.
+fn declared(root: &Path) -> Vec<(String, Option<String>)> {
     let Ok(text) = std::fs::read_to_string(root.join(".gitmodules")) else { return vec![] };
-    text.lines()
-        .filter_map(|line| line.split_once('='))
-        .filter(|(k, _)| k.trim() == "path")
-        .map(|(_, v)| v.trim().trim_matches('"').trim_end_matches('/').to_string())
-        .filter(|p| !p.is_empty())
-        .collect()
+    let mut out: Vec<(String, Option<String>)> = vec![];
+    let (mut path, mut url): (Option<String>, Option<String>) = (None, None);
+    let mut flush = |path: &mut Option<String>, url: &mut Option<String>| {
+        if let Some(p) = path.take().filter(|p| !p.is_empty()) {
+            out.push((p, url.take()));
+        }
+        *url = None;
+    };
+    for line in text.lines() {
+        if line.trim_start().starts_with('[') {
+            flush(&mut path, &mut url);
+            continue;
+        }
+        let Some((k, v)) = line.split_once('=') else { continue };
+        let v = v.trim().trim_matches('"');
+        match k.trim() {
+            "path" => path = Some(v.trim_end_matches('/').to_string()),
+            "url" => url = Some(v.to_string()),
+            _ => {}
+        }
+    }
+    flush(&mut path, &mut url);
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn declared_pairs_each_path_with_its_section_url() {
+        let dir = tempfile::tempdir().unwrap();
+        let text = "[submodule \"a\"]\n\turl = https://example.com/a.git\n\tpath = libs/a/\n[submodule \"b\"]\n\tpath = \"libs/b\"\n";
+        std::fs::write(dir.path().join(".gitmodules"), text).unwrap();
+        let got = declared(dir.path());
+        assert_eq!(
+            got,
+            vec![("libs/a".to_string(), Some("https://example.com/a.git".to_string())), ("libs/b".to_string(), None)]
+        );
+    }
 }

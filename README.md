@@ -92,7 +92,7 @@ times and task items: [docs/concepts/index.md](docs/concepts/index.md).
 | `spec edit` | Replace or append to a section or the whole body; previews until `--write` |
 | `spec mv` | Move or rename a document and rewrite every reference to it |
 | `spec fix` | Apply fixes that need no judgement |
-| `spec sync` | Copy asset sources over the [[assets]] roots that declare copy_of; previews until `--write` |
+| `spec sync` | Bring asset copies or the submodule visibility manifest in line with their source; previews until `--write` |
 | `spec attach` | Register files with a document, in the repository or the store |
 | `spec fetch` | Download a document's stored attachments, verified by hash |
 | `spec files` | A document's attachments and where each is kept |

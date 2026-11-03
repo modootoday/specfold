@@ -226,6 +226,7 @@ fn cli1_writes_need_write_flag_everywhere() {
         vec!["mv", &sot, "--slug", "basket", "--dry-run"],
         vec!["fix", "--dry-run"],
         vec!["sync", "assets", "--dry-run"],
+        vec!["sync", "visibility", "--dry-run"],
         vec!["audit", "--dry-run"],
         vec!["set", &adr, "tags+=money", "--dry-run"],
     ] {

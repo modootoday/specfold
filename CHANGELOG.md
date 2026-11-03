@@ -5,13 +5,18 @@ Release notes for each version are also on
 
 ## Unreleased
 
+### Added
+
+- `spec sync visibility` writes the `[public] submodules_manifest` that V1 reads, which until now had to be kept by hand. It lists every submodule (gitlinks first, then `.gitmodules`), asks GitHub through the `gh` client whether each one is public, and previews the manifest until `--write`. The file keeps its key order and its submodules' order; a run that finds nothing new leaves it untouched, `measuredAt` included. A submodule URL off github.com, a submodule with no URL, or no way to reach GitHub stops the run and writes nothing.
+- V1's findings for a missing or stale manifest end with `next: spec sync visibility --write`.
+
 ### Fixes
 
 - A nested project (`[owners] nested`) was still walked by four readers that start at the repository root: N1 read the files `[check] count_paths` matched inside it, the census counted its `[forbid] paths` matches as legacy paths, `[[assets]]` roots read its skills, rules and instructions, and V3 read its notes when an `[external]` root contained it. They now leave it out, as V1, L6 and Z1 already did.
 
 ### specfold-core
 
-The library's modules are grouped by context; the command line is unchanged. Code that uses specfold-core directly imports the new paths: `markdown` is `model::markdown`; `graph`, `search` and `translation` are under `corpus`; `placement` and `remotes` under `workspace`; `audit` and `guards` under `check`; `import` and `files` under `authoring`; `runner` under `plugins`; `shell` under `suggest`. `remotes::is_external` and `remotes::submodule_at` are `workspace::projects::is_external` and `::submodule_at`; `workspace::nested` is gone (`workspace::walk` and `workspace::projects::nested_remotes` replace it). `Config.root` is `Config.spec_home`, and the new `Config.repo_root` is the public repository a `roots.toml` mapping was found from.
+The library's modules are grouped by context; the command line is unchanged. Code that uses specfold-core directly imports the new paths: `markdown` is `model::markdown`; `graph`, `search` and `translation` are under `corpus`; `placement` and `remotes` under `workspace`; `audit` and `guards` under `check`; `import` and `files` under `authoring`; `runner` under `plugins`; `shell` under `suggest`. `remotes::is_external` and `remotes::submodule_at` are `workspace::projects::is_external` and `::submodule_at`; `workspace::nested` is gone (`workspace::walk` and `workspace::projects::nested_remotes` replace it). `Config.root` is `Config.spec_home`, and the new `Config.repo_root` is the public repository a `roots.toml` mapping was found from. The visibility manifest has one owner, `workspace::visibility` (its format, the `Forge` trait with `GitHub`, and `measure`), and `workspace::projects::submodule_urls` pairs each submodule with its `.gitmodules` URL.
 
 ## 0.6.2 - 2026-11-03
 

@@ -9,3 +9,4 @@ pub mod new;
 pub(crate) mod preview;
 pub mod set;
 pub mod sync;
+pub mod visibility;

@@ -19,7 +19,7 @@ const CONFIG_HELP: &[(&str, &str)] = &[
     ),
     (
         "[public] paths, companion, detect, submodules_manifest",
-        "Published paths that may hold no spec document, the private owner each one's documents go to, detectors that find more (pages, site-generators, npm-files, cargo-include), and an offline submodule visibility manifest checked against .gitmodules.",
+        "Published paths that may hold no spec document, the private owner each one's documents go to, detectors that find more (pages, site-generators, npm-files, cargo-include), and an offline submodule visibility manifest checked against .gitmodules, written by spec sync visibility.",
     ),
     ("[local] path", "The git-ignored directory for drafts and private notes."),
     (

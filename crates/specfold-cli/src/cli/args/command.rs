@@ -50,7 +50,7 @@ pub enum Cmd {
     Mv(write::MvArgs),
     /// Apply fixes that need no judgement.
     Fix(write::FixArgs),
-    /// Copy asset sources over the [[assets]] roots that declare copy_of; previews until --write.
+    /// Bring asset copies or the submodule visibility manifest in line with their source; previews until --write.
     Sync(write::SyncArgs),
     /// Register files with a document, in the repository or the store.
     Attach(write::AttachArgs),
