@@ -3,7 +3,9 @@
 Release notes for each version are also on
 [GitHub releases](https://github.com/modootoday/specfold/releases).
 
-## Unreleased
+## 0.7.2 - 2026-11-05
+
+0.7.2 makes staged and ranged runs fast again on changes that touch thousands of files, such as a directory turned into a submodule. No command, flag, spec.toml key, finding or exit code changes, and the specfold-core library only gains items.
 
 ### Fixes
 
