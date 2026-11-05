@@ -66,6 +66,55 @@ fn a_thousand_documents_stay_within_bounds() {
     }
 }
 
+/// A folder of 3,000 governed files turned into a submodule holding the same files, staged.
+fn gitlink_conversion() -> (common::Repo, common::Repo) {
+    let source = common::Repo::new(tempfile::tempdir().unwrap());
+    source.git(&["init", "-q", "-b", "main"]);
+    source.git(&["config", "user.email", "test@example.com"]);
+    source.git(&["config", "user.name", "tester"]);
+    for i in 0..3000 {
+        source.write(&format!("p{}/f{i}.rs", i / 100), "fn g() {}\n");
+    }
+    source.commit("gen");
+    let r = common::repo();
+    let globs = ["services/s{o}", "services/s{o}/src/**/*.rs", "services/s{o}/gen/**", "*.toml", "services/*/gen/**"];
+    for o in 0..20 {
+        for j in 0..50 {
+            let g = globs[j % globs.len()].replace("{o}", &o.to_string());
+            r.write(
+                &format!("services/s{o}/.spec/sot/d{j}.sot.md"),
+                &format!(
+                    "---\nid: sot:s{o}/d{j}\ntitle: Doc {o} {j}\nstatus: active\ncreated: 2026-01-01T00:00:00Z\nupdated: 2026-01-01T00:00:00Z\nrel:\n  governs: ['{g}']\n---\n\n# Doc {o} {j}\n"
+                ),
+            );
+        }
+    }
+    for i in 0..3000 {
+        r.write(&format!("services/s0/gen/p{}/f{i}.rs", i / 100), "fn g() {}\n");
+    }
+    r.commit("corpus");
+    r.git(&["rm", "-r", "-q", "services/s0/gen"]);
+    let url = source.path().to_str().unwrap();
+    r.git(&["-c", "protocol.file.allow=always", "submodule", "add", "-q", url, "services/s0/gen"]);
+    (r, source)
+}
+
+#[test]
+fn d1_and_verify_on_a_three_thousand_file_gitlink_conversion_stay_within_bounds() {
+    let (r, _source) = gitlink_conversion();
+    // Before the governs index this took minutes; the bound leaves room for debug builds.
+    let bound = Duration::from_secs(60);
+    let (code, v, _) = timed(&r, &["check", "--staged", "--rule", "D1"], bound);
+    assert_eq!(code, 0, "D1 is a warning: {v}");
+    // Owner s0 governs its tree and its gen folder; every owner governs services/*/gen.
+    assert_eq!(v["by_rule"]["D1"]["warnings"], 10 + 10 + 20 * 10, "{v}");
+    let items = v["items"].as_array().unwrap();
+    assert!(items.iter().all(|f| f["message"].as_str().unwrap().contains("(+5995 more)")), "{v}");
+    r.git(&["commit", "-qm", "gitlink"]);
+    let (code, v, _) = timed(&r, &["verify", "--changed", "HEAD~1"], bound);
+    assert_eq!(code, 0, "{v}");
+}
+
 #[test]
 #[ignore = "benchmark: cargo test --release --test scale -- --ignored --nocapture"]
 fn ten_thousand_documents_timings() {

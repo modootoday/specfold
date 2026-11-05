@@ -5,7 +5,7 @@ use crate::check::context::Ctx;
 use crate::check::finding::Finding;
 use crate::check::rule::skipped;
 use crate::check::rule::{Rule, RuleInfo};
-use crate::corpus::graph::query::governing;
+use crate::corpus::graph::query::GoverningIndex;
 use crate::model::Tier;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -46,18 +46,14 @@ impl Rule for GovernedCodeDrift {
         let changed = ctx.scope.paths.iter().map(|p| (p.as_str(), p.as_str()));
         let removed = ctx.scope.gone.iter().zip(&gone).map(|(p, shown)| (p.as_str(), shown.as_str()));
         let specific = c.cfg.raw.check.d1_specific();
+        // Compiled once: a gitlink conversion stages thousands of removed files.
+        let index = GoverningIndex::filtered(c, |i| {
+            let d = &c.docs[i];
+            let explicit = d.rel().get("governs").is_some_and(|v| !v.is_empty());
+            explicit && d.tier == Tier::Committed && d.status().as_deref() == Some("active") && !skipped(d, "D1")
+        });
         for (p, shown) in changed.chain(removed).filter(|(p, _)| !own.contains(&p.to_string())) {
-            let asked: Vec<_> = governing(c, p)
-                .into_iter()
-                .filter(|g| {
-                    let d = &c.docs[g.idx];
-                    let explicit = d.rel().get("governs").is_some_and(|v| !v.is_empty());
-                    explicit
-                        && d.tier == Tier::Committed
-                        && d.status().as_deref() == Some("active")
-                        && !skipped(d, "D1")
-                })
-                .collect();
+            let asked = index.governing(c, p);
             // `governing` lists the narrowest claims first.
             let top = asked.first().map(|g| g.specificity).unwrap_or(0);
             for g in asked.into_iter().filter(|g| !specific || g.specificity == top) {

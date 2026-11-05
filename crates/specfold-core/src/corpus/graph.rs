@@ -1,6 +1,7 @@
 //! The graph derived from documents. It is computed on every run and never stored.
 
 mod build;
+mod governs;
 pub mod query;
 mod types;
 

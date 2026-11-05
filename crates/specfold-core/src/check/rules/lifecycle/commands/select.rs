@@ -30,15 +30,15 @@ pub fn selected(ctx: &Ctx) -> Vec<usize> {
         say_full_run(ctx, p);
         return all();
     }
+    let index = query::GoverningIndex::new(ctx.corpus);
     let mut out: Vec<usize> =
-        ctx.scope.paths.iter().flat_map(|p| query::governing(ctx.corpus, p).into_iter().map(|g| g.idx)).collect();
+        ctx.scope.paths.iter().flat_map(|p| index.governing(ctx.corpus, p).into_iter().map(|g| g.idx)).collect();
+    let gitlinks: Vec<&String> = ctx.scope.paths.iter().filter(|p| is_gitlink(ctx, p)).collect();
     for (i, d) in ctx.corpus.docs.iter().enumerate() {
         let commands = verify_commands(d);
         let governs = d.rel().get("governs").cloned().unwrap_or_default();
-        let reached = ctx.scope.paths.iter().any(|p| {
-            commands.iter().any(|c| c.contains(p.as_str()))
-                || (is_gitlink(ctx, p) && governs.iter().any(|g| crate::paths::is_below(g, p)))
-        });
+        let reached = ctx.scope.paths.iter().any(|p| commands.iter().any(|c| c.contains(p.as_str())))
+            || gitlinks.iter().any(|p| governs.iter().any(|g| crate::paths::is_below(g, p)));
         if reached {
             out.push(i);
         }

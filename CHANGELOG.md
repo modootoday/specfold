@@ -3,6 +3,17 @@
 Release notes for each version are also on
 [GitHub releases](https://github.com/modootoday/specfold/releases).
 
+## Unreleased
+
+### Fixes
+
+- D1 (`spec check --staged`, `--changed`) took minutes on a change of thousands of files: for every changed or removed path it compiled every document's `governs` globs again. The globs are compiled once per run and filed by the literal folder a match must lie in, so each path is matched only against the documents that can claim it. A directory of 3,000 files turned into a submodule, under 2,400 governing documents, takes 1.7 s instead of 371 s. Findings, their order and their fixes are unchanged.
+- `spec verify --changed` chose its sources of truth the same way, twice (X1 and G1), and looked on disk once per document and changed path for a submodule. It uses the same index and looks once per path: 1.6 s instead of 372 s on the same change.
+
+### Added
+
+- specfold-core: `corpus::graph::query::GoverningIndex` answers `governing` for many paths with the globs compiled once; `query::governing` keeps its signature and result.
+
 ## 0.7.1 - 2026-11-03
 
 0.7.1 fixes five problems found adopting 0.7.0. No command, flag or spec.toml key is added or renamed, and the specfold-core library only gains items. One behaviour changes on purpose: `spec new --from` on a type that starts as a draft supersedes the old document when the new one becomes active, not when it is created.
