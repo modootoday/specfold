@@ -786,6 +786,7 @@ fn c186_shared_baseline_paths_are_compared_after_resolving_dots() {
     assert_ne!(r.json(&["guard", "--write-baseline"]).0, 2, "different files load");
 }
 
+#[cfg(unix)]
 #[test]
 fn c194_shared_baseline_paths_are_compared_through_symbolic_links() {
     let r = common::repo();
@@ -802,6 +803,7 @@ fn c194_shared_baseline_paths_are_compared_through_symbolic_links() {
     assert!(v["error"].as_str().unwrap().contains("'g1' and 'g2' both write the baseline file"), "{v}");
 }
 
+#[cfg(unix)]
 #[test]
 fn c195_a_baseline_through_a_link_into_a_missing_folder_and_back_is_the_same_file() {
     let r = common::repo();

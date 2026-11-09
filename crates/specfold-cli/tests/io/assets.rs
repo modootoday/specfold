@@ -213,8 +213,6 @@ fn sync_assets_refuses_paths_that_leave_the_repository_or_overlap_the_source() {
     let r = common::repo();
     let base = r.read("spec.toml");
     r.write(".agents/skills/pdf-tools/SKILL.md", "---\nname: pdf-tools\ndescription: D.\n---\n");
-    let outside =
-        r.path().parent().unwrap().join(format!("{}-outside", r.path().file_name().unwrap().to_string_lossy()));
     for (path, src) in [
         ("../escape", ".agents/skills"),
         ("/tmp/escape", ".agents/skills"),
@@ -231,6 +229,8 @@ fn sync_assets_refuses_paths_that_leave_the_repository_or_overlap_the_source() {
 
     #[cfg(unix)]
     {
+        let outside =
+            r.path().parent().unwrap().join(format!("{}-outside", r.path().file_name().unwrap().to_string_lossy()));
         std::fs::create_dir_all(&outside).unwrap();
         std::os::unix::fs::symlink(&outside, r.path().join(".claude")).unwrap();
         r.write(
