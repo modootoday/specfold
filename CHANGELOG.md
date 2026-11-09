@@ -8,6 +8,7 @@ Release notes for each version are also on
 ### Fixed
 
 - B1 no longer judges files inside a submodule by a budget that only matches them: a full run lists tracked files with the files of checked-out submodules, so `**/AGENTS.md` measured every submodule's AGENTS.md, which the parent repository does not own. Inside a gitlink only a budget that names it explicitly counts: one whose literal prefix (the path segments before the first one holding `*`, `?`, `[` or `{`) is the submodule's path or lies below it, such as `vendor/lib/AGENTS.md` or `vendor/lib/**/*.md`; `**/AGENTS.md` and `vendor/**` do not. `spec check --rule B1 --path <file>` inside a submodule that no such budget names passes with a note, and `--json` lists it under `out_of_scope` (`path`, `gitlink`).
+- X1 and G1 take turns on one command pool. Rules run in parallel, and each started its own `[verify] jobs` workers, so a run could hold twice the configured commands at once. A run now stays within `jobs` light commands plus one heavy one; the default for `jobs` is unchanged (the number of CPUs, at most 8). Each command's deadline is counted from its own start, as before; the rule texts and the configuration reference now say so, and tests pin that a command waiting for a worker loses none of its deadline while one that hangs still fails at it.
 
 ## 0.8.0 - 2026-11-09
 

@@ -1,5 +1,6 @@
 //! Runs a batch of commands: identical ones once, light ones on a worker pool, heavy ones one at a
-//! time in their own lane alongside it. Results come back in the order the jobs were given.
+//! time in their own lane alongside it. Results come back in the order the jobs were given. Each
+//! command's deadline starts when it is spawned, so time spent queued never counts against it.
 
 use super::shell::{self, Outcome, Verdict};
 use super::tools;
@@ -8,6 +9,10 @@ use std::collections::{HashMap, VecDeque};
 use std::path::Path;
 use std::sync::Mutex;
 use std::time::Duration;
+
+/// Rules run in parallel and X1 and G1 each call `run`; one batch at a time keeps the process
+/// within `jobs` light commands plus one heavy one.
+static BATCH: Mutex<()> = Mutex::new(());
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Job {
@@ -80,6 +85,7 @@ pub fn run(root: &Path, jobs: &[Job], settings: &Settings) -> Vec<Outcome> {
     let serial: Mutex<VecDeque<usize>> = Mutex::new((0..unique.len()).filter(|&i| heavy(unique[i])).collect());
     let done: Mutex<Vec<Option<Outcome>>> = Mutex::new(vec![None; unique.len()]);
     let shell_prog = settings.shell.as_deref();
+    let _turn = BATCH.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     std::thread::scope(|s| {
         s.spawn(|| drain(root, &serial, &unique, &done, shell_prog));
         for _ in 0..settings.workers() {
@@ -125,5 +131,57 @@ mod tests {
         let out = run(dir.path(), &[job("no-such-tool-xyz && touch ran")], &Settings::default());
         assert!(matches!(&out[0].verdict, Verdict::CannotRun(m) if m.contains("no-such-tool-xyz")));
         assert!(!dir.path().join("ran").exists());
+    }
+
+    /// Jobs that each record how many of them were running at their start, in `dir/peak`.
+    fn counted(prefix: &str, n: usize, timeout: Duration) -> Vec<Job> {
+        (0..n)
+            .map(|i| Job {
+                cmd: format!("touch run.{prefix}{i}; ls run.* | wc -l >> peak; sleep 0.8; rm run.{prefix}{i}"),
+                env: vec![],
+                timeout,
+            })
+            .collect()
+    }
+
+    fn peak(dir: &Path) -> usize {
+        let text = std::fs::read_to_string(dir.join("peak")).expect("every job appends to peak");
+        text.lines().filter_map(|l| l.trim().parse::<usize>().ok()).max().expect("peak holds counts")
+    }
+
+    #[test]
+    fn parallel_batches_take_turns_within_one_pool_budget() {
+        let dir = tempfile::tempdir().unwrap();
+        let settings = Settings { jobs: 2, serial: vec![], shell: None };
+        std::thread::scope(|s| {
+            for prefix in ["a", "b"] {
+                let (dir, settings) = (dir.path(), &settings);
+                s.spawn(move || run(dir, &counted(prefix, 2, Duration::from_secs(10)), settings));
+            }
+        });
+        assert!(peak(dir.path()) <= 2, "two batches of two ran at most two at once, saw {}", peak(dir.path()));
+    }
+
+    #[test]
+    fn queued_commands_keep_their_whole_deadline() {
+        let dir = tempfile::tempdir().unwrap();
+        let cap = Duration::from_millis(2000);
+        let started = std::time::Instant::now();
+        let out = run(dir.path(), &counted("q", 6, cap), &Settings { jobs: 2, serial: vec![], shell: None });
+        assert!(started.elapsed() > cap, "six jobs two at a time outlast one cap: {:?}", started.elapsed());
+        assert!(out.iter().all(|o| o.verdict == Verdict::Pass), "{out:?}");
+        assert!(peak(dir.path()) <= 2, "at most two ran at once, saw {}", peak(dir.path()));
+    }
+
+    #[test]
+    fn a_hang_in_the_pool_fails_at_its_cap_and_frees_its_worker() {
+        let dir = tempfile::tempdir().unwrap();
+        let cap = Duration::from_millis(500);
+        let hang = Job { cmd: "sleep 30".into(), env: vec![], timeout: cap };
+        let after = Job { cmd: "true".into(), env: vec![], timeout: cap };
+        let out = run(dir.path(), &[hang, after], &Settings { jobs: 1, serial: vec![], shell: None });
+        assert_eq!(out[0].verdict, Verdict::Timeout);
+        assert!(out[0].elapsed >= cap && out[0].elapsed < Duration::from_secs(5), "{:?}", out[0].elapsed);
+        assert_eq!(out[1].verdict, Verdict::Pass);
     }
 }

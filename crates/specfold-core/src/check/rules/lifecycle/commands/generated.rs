@@ -14,7 +14,7 @@ impl Rule for GeneratedInSync {
         &RuleInfo {
             id: "G1",
             title: "generated documents match their generator",
-            explain: "A document produced from code names its generator in `generated_by`. That command is run with SPECFOLD_CHECK=1 and must exit 0 when the document is current; hand edits are caught here.",
+            explain: "A document produced from code names its generator in `generated_by`. That command is run with SPECFOLD_CHECK=1 and must exit 0 when the document is current; hand edits are caught here. Generators run in the same pool as X1's verify commands, taking turns with them, and each has its own deadline ([verify] timeout_ms, or verify_timeout_ms on the document) counted from when it starts.",
             on_commit: false,
         }
     }

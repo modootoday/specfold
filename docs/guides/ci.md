@@ -56,7 +56,8 @@ document's baseline entries with it. Once known errors are fixed, `spec check` s
 ## Verify sources of truth
 
 `spec verify` runs the `verify` commands of `sot` documents (rule **X1**). `[verify]` sets the
-deadline, parallel jobs and the shell.
+deadline, parallel jobs and the shell. Each command's deadline counts from its own start, so a
+command waiting for a worker loses none of it.
 
 ## In CI
 

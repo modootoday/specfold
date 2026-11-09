@@ -14,7 +14,7 @@ impl Rule for VerifyPasses {
         &RuleInfo {
             id: "X1",
             title: "a source of truth's verify commands pass",
-            explain: "A sot lists in `verify` the commands that prove the code obeys it. They run for every sot whose governed code changed, with a deadline ([verify] timeout_ms, or verify_timeout_ms on the document), in parallel and each distinct command once. A command whose program is not installed is reported as unable to run rather than passing or failing, because a check that cannot run proves nothing.",
+            explain: "A sot lists in `verify` the commands that prove the code obeys it. They run for every sot whose governed code changed, each distinct command once: at most [verify] jobs at a time beside one lane for heavy commands ([verify] serial), in one pool that X1 and G1 take turns using. Each command has its own deadline ([verify] timeout_ms, or verify_timeout_ms on the document) counted from when it starts, so a command waiting its turn loses none of it. A command whose program is not installed is reported as unable to run rather than passing or failing, because a check that cannot run proves nothing.",
             on_commit: false,
         }
     }

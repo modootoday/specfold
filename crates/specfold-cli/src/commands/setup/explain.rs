@@ -59,7 +59,7 @@ const CONFIG_HELP: &[(&str, &str)] = &[
     ),
     (
         "[verify] timeout_ms, jobs, serial, full_run_on, shell",
-        "How spec verify runs commands: the default deadline, parallel workers, regexes for heavy commands run one at a time, paths whose change runs every check (an edit of spec.toml that touches only [remotes] or [check] baseline does not; a full run says why on stderr), and the shell (sh unless set, bash for bash syntax).",
+        "How spec verify runs commands: the default deadline (counted from each command's own start, so time waiting for a worker does not use it), parallel workers, regexes for heavy commands run one at a time, paths whose change runs every check (an edit of spec.toml that touches only [remotes] or [check] baseline does not; a full run says why on stderr), and the shell (sh unless set, bash for bash syntax).",
     ),
     (
         "[write] max_files",

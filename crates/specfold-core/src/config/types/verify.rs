@@ -6,7 +6,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct VerifySection {
-    /// Default deadline per command; a document's `verify_timeout_ms` overrides it.
+    /// Default deadline per command, counted from its own start; a document's `verify_timeout_ms`
+    /// overrides it.
     #[serde(default = "defaults::verify_timeout_ms")]
     pub timeout_ms: u64,
     /// Commands run at once; 0 means the number of CPUs, at most 8.
