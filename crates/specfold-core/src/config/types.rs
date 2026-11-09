@@ -19,7 +19,7 @@ pub use audit::AuditSection;
 pub use files::{FilesSection, StoreDef};
 pub use guards::{GuardDef, GuardFixtures, RegexRule, RegexSpec};
 pub use layout::{ExternalRoot, LocalSection, RemoteRoot, SpecSection};
-pub use limits::{BudgetLimit, BudgetsSection, GeneratedSection};
+pub use limits::{BudgetLimit, BudgetsSection, GeneratedSection, RatchetSection};
 pub use owners::{OwnerKind, OwnersSection};
 pub use plugins::PluginDef;
 pub use public::PublicSection;

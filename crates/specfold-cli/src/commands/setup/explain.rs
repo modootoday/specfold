@@ -86,6 +86,10 @@ const CONFIG_HELP: &[(&str, &str)] = &[
         "\"<file>[#<key>]\": a JSON or TOML manifest of files another tool generates (entries with path and optionally source or sources). Generated copies are left out of agent-asset and citation checks, their sources are checked; rule G2 reports a manifest that cannot be read and a source that does not exist.",
     ),
     (
+        "[ratchet] rules, file",
+        "Rules whose warning counts, per rule and per owner, may only fall (rule W1): a full spec check fails when a count rises above the committed record in file; spec check --write-ratchet --yes lowers the record to a run and records rules not yet in it.",
+    ),
+    (
         "[translations] layout, languages, source_lang, strict",
         "Translations paired by place (rule R2): layout suffix (`<slug>-<lang>` beside the source) or dir (the same slug under a `<lang>` owner), none by default; the languages the layout and spec census --translations use, the sources' language, and strict to make R2 errors. rel.translation_of and lang in frontmatter win over the layout.",
     ),

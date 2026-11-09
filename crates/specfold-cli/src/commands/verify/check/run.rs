@@ -1,6 +1,6 @@
 //! One `spec check` run: the findings, the summary, the exit code and the next command.
 
-use super::baseline::{held_note, write_baseline};
+use super::baseline::{held_note, write_baseline, write_ratchet};
 use super::ci::{Ctx, ci_output};
 use super::scope::{
     budget_measures, check_fail_on, check_rule_names, checked_range, documents_named, overlay_stdin, range_of,
@@ -74,6 +74,9 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
         check::run(&s.corpus, &s.graph, range, &opts, &Selection { only: a.rules.clone(), skip: a.skip.clone() })?;
     if a.write_baseline {
         return write_baseline(&s, a, &report.findings);
+    }
+    if a.write_ratchet {
+        return write_ratchet(&s, a, &report);
     }
     let held = hold(&s, a, &mut report, &only, &opts)?;
     let (errors, warnings) = findings::counts(&held.list);
@@ -156,6 +159,12 @@ fn summary(s: &session::Session, report: &check::Report, held: &Held, t: &Tally)
     if !report.gitlinks.is_empty() {
         o = o.field("gitlinks", super::gitlinks::json(&report.gitlinks));
     }
+    if let Some(j) = &report.ratchet {
+        o = o.field(
+            "ratchet",
+            serde_json::json!({"rose": j.rises.len(), "fell": j.falls.len(), "unrecorded": j.unrecorded}),
+        );
+    }
     o.field(
         "by_rule",
         t.by_rule
@@ -183,6 +192,12 @@ fn text(s: &session::Session, a: &CheckArgs, o: Output, report: &check::Report, 
     ));
     let o = t.checked.iter().fold(o, |o, (_, line)| o.foot(line.clone()));
     let o = super::gitlinks::lines(&report.gitlinks).into_iter().fold(o, |o, l| o.foot(l));
+    let fell = report.ratchet.as_ref().map_or(0, |j| j.falls.len());
+    let o = if fell > 0 {
+        o.foot(format!("W1: {fell} ratcheted count(s) fell; spec check --write-ratchet --yes records them"))
+    } else {
+        o
+    };
     let o = owners::annotate(o, &s.corpus.cfg.spec_home, &held.others);
     let mut o = t
         .excluded

@@ -1,5 +1,5 @@
 //! External sources (V3): ids and backticked repository paths, per source, with paths inside a
-//! gitlink read from the commit it pins.
+//! gitlink read from the commit it pins; and warning counts held by `[ratchet]` (W1).
 
 #[path = "../common/mod.rs"]
 mod common;
@@ -103,4 +103,37 @@ fn v3_a_staged_run_checks_a_changed_source_in_the_repository() {
     r.git(&["add", "AGENTS.md"]);
     let (_, v) = r.json(&["check", "--staged", "--rule", "V3"]);
     assert_eq!(found(&v).len(), 1, "{v}");
+}
+
+fn w1(v: &Value) -> Vec<(String, String)> {
+    let items = v["items"].as_array().unwrap().iter().filter(|f| f["rule"] == "W1");
+    items.map(|f| (f["severity"].as_str().unwrap().into(), f["message"].as_str().unwrap().into())).collect()
+}
+
+#[test]
+fn w1_ratcheted_warning_counts_may_fall_but_not_rise() {
+    let r = common::repo();
+    let (mem, id) = memory(&r, "ids = true\n[ratchet]\nrules = [\"V3\"]\nfile = \".spec-ratchet.json\"\n");
+    let (code, v) = r.json(&["check"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(w1(&v), [("warn".into(), "no recorded counts for V3; record them".into())], "{v}");
+    let (_, v) = r.json(&["check", "--write-ratchet"]);
+    assert_eq!(v["written"], false, "a preview writes nothing: {v}");
+    let (code, v) = r.json(&["check", "--write-ratchet", "--yes"]);
+    assert_eq!((code, &v["written"]), (0, &Value::Bool(true)), "{v}");
+    let rec: Value = serde_json::from_str(&r.read(".spec-ratchet.json")).unwrap();
+    assert_eq!(rec["counts"]["V3"]["external.memory"], 2, "{rec}");
+    let note = mem.path().join("note.md");
+    let text = std::fs::read_to_string(&note).unwrap();
+    std::fs::write(&note, format!("{text}And adr:ws/20990101000002.\n")).unwrap();
+    let (code, v) = r.json(&["check"]);
+    assert_eq!(code, 1, "{v}");
+    let msg = "V3 warnings of external.memory rose from 2 to 3; fix the new ones (the record only falls)";
+    assert_eq!(w1(&v), [("error".into(), msg.into())], "{v}");
+    std::fs::write(&note, format!("Only {id} and adr:ws/20990101000000.\n")).unwrap();
+    let (code, v) = r.json(&["check"]);
+    assert_eq!((code, v["ratchet"]["fell"].as_u64()), (0, Some(1)), "{v}");
+    assert_eq!(r.json(&["check", "--write-ratchet", "--yes"]).0, 0);
+    let rec: Value = serde_json::from_str(&r.read(".spec-ratchet.json")).unwrap();
+    assert_eq!(rec["counts"]["V3"]["external.memory"], 1, "{rec}");
 }

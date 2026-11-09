@@ -176,6 +176,7 @@ final = ["conformance"]                    # S6: final needs it; S8: it must be 
 | `[mcp]` | `redact`: hide secrets in what `spec mcp` returns (on by default) |
 | `[budgets]` | size limits per path glob (rule B1): `paths` (`"AGENTS.md" = { bytes = 12288, lines = 200 }`) and `from = "<file>#<key>"`, a TOML or JSON table that another tool owns; an unreadable source is an error |
 | `[generated]` | `manifest = "<file>[#<key>]"`: files another tool generates and their sources (rule G2); generated copies are left out of asset and citation checks |
+| `[ratchet]` | `rules` whose warning counts per owner may only fall, recorded in `file` (rule W1); `spec check --write-ratchet --yes` lowers the record |
 
 ### Limits owned by another file
 

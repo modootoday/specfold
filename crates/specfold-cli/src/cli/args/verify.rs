@@ -67,6 +67,10 @@ pub struct CheckArgs {
     /// Record today's errors as the baseline ([check] baseline); a full run on a clean tree only.
     #[arg(long, conflicts_with_all = ["staged", "changed", "rule", "skip"])]
     pub write_baseline: bool,
+    /// Lower the [ratchet] record to this full run's warning counts (preview; --yes writes):
+    /// counts that fell, and rules not recorded yet; a count that rose is kept as recorded.
+    #[arg(long, conflicts_with_all = ["staged", "changed", "path", "files", "commits", "write_baseline"])]
+    pub write_ratchet: bool,
     /// Confirm an action that deletes, overwrites, sends files out, or writes more than [write] max_files files (with its write flag).
     #[arg(long)]
     pub yes: bool,

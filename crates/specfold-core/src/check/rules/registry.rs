@@ -56,5 +56,6 @@ pub fn catalog() -> Vec<Box<dyn Rule>> {
         Box::new(schema::UntrackedLeftOut),
         Box::new(files::SizeBudgets),
         Box::new(files::GeneratedManifest),
+        Box::new(files::RatchetHolds),
     ]
 }

@@ -27,6 +27,8 @@ pub struct Report {
     pub checked_paths: Option<std::collections::BTreeSet<String>>,
     /// Gitlinks the change adds or moves, each one event (see `Scope.gitlinks`).
     pub gitlinks: Vec<crate::workspace::vcs::GitlinkMove>,
+    /// W1: a full run's warning counts held against `[ratchet] file`; None when not judged.
+    pub ratchet: Option<super::limits::ratchet::Judged>,
 }
 
 impl Report {
@@ -76,13 +78,23 @@ pub fn run(c: &Corpus, g: &Graph, range: Range, opts: &Options, sel: &Selection)
     order(&mut findings);
     findings.dedup_by(|a, b| a.rule == b.rule && a.path == b.path && a.line == b.line && a.message == b.message);
     let rules_run: Vec<&'static str> = rules.iter().map(|r| r.info().id).collect();
+    // W1 counts what the other rules found, so it runs after them, on full runs only.
+    let ratchet = if scope.is_all() && rules_run.contains(&"W1") {
+        let mut held = vec![];
+        let j = super::limits::ratchet::findings(c, &findings, &rules_run, &mut held);
+        findings.extend(held);
+        order(&mut findings);
+        j
+    } else {
+        None
+    };
     let docs_checked = if scope.is_all() { c.docs.len() } else { scope.with_neighbours.len() };
     let checked_paths = (!scope.is_all()).then(|| {
         let docs =
             scope.with_neighbours.iter().flat_map(|&i| std::iter::once(&c.docs[i].path).chain(&c.docs[i].chapters));
         scope.paths.iter().chain(&scope.gone).chain(docs).cloned().collect()
     });
-    Ok(Report { findings, rules_run, docs_checked, checked_paths, gitlinks: scope.gitlinks.clone() })
+    Ok(Report { findings, rules_run, docs_checked, checked_paths, gitlinks: scope.gitlinks.clone(), ratchet })
 }
 
 /// Findings by level, a secret first within its level (it is what to fix before anything else,

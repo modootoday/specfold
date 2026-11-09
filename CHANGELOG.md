@@ -16,11 +16,12 @@ Release notes for each version are also on
 - `spec check --path <file>` (repeatable) judges named repository files, documents or not, instead of a run over the repository; with `--stdin-path` naming one of them its text comes from standard input. `spec check --rule B1 --path <file> --json` adds `budgets`: per file `path`, `bytes`, `lines`, `over` and `limits` (`glob`, `source`, `max_bytes`, `max_lines`, `over_bytes`, `over_lines`). D1 and guards (U1) do not run on named paths.
 - `[generated] manifest = "<file>[#<key>]"` and rule G2: a JSON or TOML manifest of files another tool generates (entries with `path` and optionally `source` or `sources`). Generated copies are left out of the agent-asset rules (A1-A4, H1) and of L6; G2 reports a manifest that cannot be read and a source that does not exist.
 - `[external.<name>] check_paths = true` and `ids = true` (rule V3, off by default): every backticked repository path in the source must exist, a path inside a submodule counting when the commit its gitlink pins holds it, and every document id it names, bare or in `[[…]]`, must resolve. They run without `--external`, over the whole source in a full run and over its changed files in staged and ranged runs. An external `path` may now be one file and may lie in the repository. V3 runs at commit.
+- `[ratchet] rules = [...]`, `file = "<path>"` and rule W1: the warning counts of those rules per owner (the owner of the path, or `external.<name>`) are kept in a committed record (`spec.ratchet.v1`); a full run that finds more fails, and `spec check --write-ratchet` (preview; `--yes` writes) records every count that fell and every rule not recorded yet. A count rises only by editing the record. `--json` adds `ratchet` (`rose`, `fell`, `unrecorded`).
 
 ### For specfold-core library users
 
-- New public fields: `Config.tracked`, `Corpus.untracked`, `Scope.gitlinks`, `Report.gitlinks`, `Expansion.moves`, `ExternalRoot.check_paths` and `ids`, and `RawConfig.budgets` and `generated`; `Range::Paths` is a new variant. A struct literal or an exhaustive `match` on them must add them.
-- An older `spec` refuses a spec.toml that uses `[budgets]`, `[generated]` or the new `[external.<name>]` keys, as it does any key it does not know.
+- New public fields: `Config.tracked`, `Corpus.untracked`, `Scope.gitlinks`, `Report.gitlinks`, `Report.ratchet`, `Expansion.moves`, `ExternalRoot.check_paths` and `ids`, and `RawConfig.budgets`, `generated` and `ratchet`; `Range::Paths` is a new variant. A struct literal or an exhaustive `match` on them must add them.
+- An older `spec` refuses a spec.toml that uses `[budgets]`, `[generated]`, `[ratchet]` or the new `[external.<name>]` keys, as it does any key it does not know.
 
 ## 0.7.2 - 2026-11-05
 

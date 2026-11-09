@@ -3,4 +3,5 @@
 
 pub mod budgets;
 pub mod generated;
+pub mod ratchet;
 pub mod source;

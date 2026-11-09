@@ -19,7 +19,7 @@ pub use attachments::{HashesMatch, Registered, SizeLimit, StoredExist};
 pub use external::ExternalCites;
 pub use guarded::GuardsPass;
 pub use hidden::HiddenChars;
-pub use limits::{GeneratedManifest, SizeBudgets};
+pub use limits::{GeneratedManifest, RatchetHolds, SizeBudgets};
 pub use machine_paths::NoMachinePaths;
 pub use secrets::NoSecrets;
 pub use visibility::{NoLocalCites, NotInPublic};

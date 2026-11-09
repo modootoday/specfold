@@ -175,10 +175,16 @@ its own code can therefore belong to a narrower owner than in 0.4.0, and P1 repo
 | rule | checks that |
 | --- | --- |
 | **B1** | files stay within the bytes and lines `[budgets]` sets for their glob, read from spec.toml or from another file; an unreadable source is an error |
+| **W1** | the warning counts `[ratchet]` records per rule and owner do not rise |
 
 B1 runs at commit on the changed files, in a full run on every file a budget names, and on named
 files with `spec check --rule B1 --path <file> --json` (see the configuration reference for the
 JSON). Generated files are measured too, since their size is what a reader loads.
+
+W1 keeps a pile of warnings from growing while it is worked down. `[ratchet] rules = ["L8"]` and
+`file = ".spec/ratchet.json"` record, per rule and owner, the warnings a full run finds; a later
+full run that finds more fails, and `spec check --write-ratchet --yes` takes every count that fell.
+A count only rises by editing the record, which a review then sees.
 
 ## Guards
 

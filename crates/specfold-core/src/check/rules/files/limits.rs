@@ -8,6 +8,21 @@ use crate::check::rule::{Rule, RuleInfo};
 
 pub struct SizeBudgets;
 pub struct GeneratedManifest;
+pub struct RatchetHolds;
+
+impl Rule for RatchetHolds {
+    fn info(&self) -> &RuleInfo {
+        &RuleInfo {
+            id: "W1",
+            title: "ratcheted warning counts only fall",
+            explain: "`[ratchet] rules = [\"L8\", \"V3\"]` with `file = \"<path>\"` keeps, per rule and per owner (the owner of the finding's path, or `external.<name>` for an external source), the number of warnings a full run found, in a committed JSON record (`spec.ratchet.v1`). A full `spec check` that runs those rules compares: a count above the record is an error naming the rule, the owner and both counts; a ratcheted rule with no entry yet is a warning. `spec check --write-ratchet` previews and `--write-ratchet --yes` writes the record lowered to this run: counts that fell are taken, rules not yet recorded are recorded whole, and a count that rose stays as recorded, so raising one is an edit of the file made on purpose. Staged and ranged runs see part of the tree and do not judge it. W1 judges only the rules that ran, so `--rule W1` alone judges nothing; run `spec check`, or `spec check --rule L8 --rule W1`. A record that cannot be read is an error.",
+            on_commit: false,
+        }
+    }
+
+    /// The runner judges W1 after every other rule, from their findings.
+    fn run(&self, _ctx: &Ctx, _out: &mut Vec<Finding>) {}
+}
 
 /// The files B1 measures: in a full run every file the walk reads that a budget names, else the
 /// changed or named files a budget names.

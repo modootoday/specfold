@@ -1,5 +1,5 @@
-//! Limits a project keeps on its files: size budgets (B1) and generated files named by a
-//! manifest (G2).
+//! Limits a project keeps on its files: size budgets (B1), generated files named by a manifest
+//! (G2), and warning counts that may only fall (W1).
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -35,4 +35,15 @@ pub struct GeneratedSection {
     /// `source` or `sources`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub manifest: Option<String>,
+}
+
+/// `[ratchet]`: rules whose warning counts per owner may only fall.
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct RatchetSection {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub rules: Vec<String>,
+    /// The committed record of the counts, relative to the spec home.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file: Option<String>,
 }

@@ -2,8 +2,8 @@
 
 use super::{
     AliasSection, AssetRoot, AuditSection, BudgetsSection, CheckSection, CitesSection, ExternalRoot, FilesSection,
-    ForbidSection, GeneratedSection, GuardDef, LocalSection, OwnersSection, PluginDef, PublicSection, RemoteRoot,
-    SpecSection, TranslationsSection, VerifySection,
+    ForbidSection, GeneratedSection, GuardDef, LocalSection, OwnersSection, PluginDef, PublicSection, RatchetSection,
+    RemoteRoot, SpecSection, TranslationsSection, VerifySection,
 };
 use crate::model::registry::TypeOverride;
 use serde::{Deserialize, Serialize};
@@ -60,6 +60,9 @@ pub struct RawConfig {
     /// Files another tool generates, from its manifest (rule G2).
     #[serde(default)]
     pub generated: GeneratedSection,
+    /// Rules whose warning counts per owner may only fall (rule W1).
+    #[serde(default)]
+    pub ratchet: RatchetSection,
 }
 
 /// Bounds on what one command writes (CLI-7).
