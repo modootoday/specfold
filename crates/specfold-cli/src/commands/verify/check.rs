@@ -3,6 +3,7 @@
 
 mod baseline;
 mod ci;
+mod gitlinks;
 mod run;
 mod scope;
 

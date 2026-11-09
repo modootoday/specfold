@@ -8,10 +8,11 @@ Release notes for each version are also on
 ### Changed
 
 - A full `spec check` reads only the files git tracks, the local directory (`[local] path`) and the external roots spec.toml names; `.git` is never read by any walk. Documents in a spec directory that git does not track are no longer checked one by one: the new rule S9 reports them in one warning with their count and first paths, and the first 100 in `candidates` with `--json`. `spec check --include-untracked` (or `SPECFOLD_INCLUDE_UNTRACKED=1`) reads every file on disk as before. `--staged`, `--changed`, `--commits` and files named on the command line read what they read before. A draft made with `spec new --write` is checked by a full run once it is added (`git add`), or when named (`spec check <file>`).
+- D1 reads a moved gitlink as one change. A pin bump is named once per document (`<path> (pin <old>..<new>, N file(s) changed inside)`) instead of listing every file that changed inside the submodule. A folder turned into a submodule (a split) compares each file with what the repository held at the same path: files moved in with the same content are neither removed nor changed, so a split of thousands of unchanged files asks nothing; new or different files and files the submodule lacks are still asked about. `spec check --staged` and `--changed` list such gitlinks under `gitlinks` in `--json` (`path`, `kind` split, bump or added, `old`, `new`, `moved`, `changed`) and in one line each.
 
 ### For specfold-core library users
 
-- New public fields: `Config.tracked` and `Corpus.untracked`. A struct literal that lists every field must add them.
+- New public fields: `Config.tracked`, `Corpus.untracked`, `Scope.gitlinks`, `Report.gitlinks` and `Expansion.moves`. A struct literal that lists every field must add them.
 
 ## 0.7.2 - 2026-11-05
 

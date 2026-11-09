@@ -108,6 +108,14 @@ the old and new commits, so a README-only bump does not ask a document that gove
 When the submodule is not checked out or lacks either commit, the pointer stands for the whole
 directory and D1 adds a warning: `submodule objects missing; … next: git submodule update`.
 
+A moved gitlink is one change for D1, whatever it holds. A pin bump is named once per document,
+`vendor/lib (pin a1b2c3d..e4f5a6b, 12 file(s) changed inside)`, instead of file by file. A folder
+turned into a submodule (a split) compares each file with what the repository held at the same
+path: a file moved in with the same content is neither removed nor changed, so a split of
+thousands of unchanged files asks nothing; only new or different files, and files the submodule
+lacks, are asked about. `--json` lists each one under `gitlinks` with its `kind` (`split`,
+`bump`, `added`), the two commits and the `moved` and `changed` counts.
+
 An overview or census that governs a whole tree (`governs: [services]`) is asked about every file
 below it, beside the narrower document. `[check] d1 = "specific"` asks only the most specific
 documents governing each file; the default `"all"` keeps asking every one.

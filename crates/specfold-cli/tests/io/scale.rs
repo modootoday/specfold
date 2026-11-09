@@ -106,10 +106,11 @@ fn d1_and_verify_on_a_three_thousand_file_gitlink_conversion_stay_within_bounds(
     let bound = Duration::from_secs(60);
     let (code, v, _) = timed(&r, &["check", "--staged", "--rule", "D1"], bound);
     assert_eq!(code, 0, "D1 is a warning: {v}");
-    // Owner s0 governs its tree and its gen folder; every owner governs services/*/gen.
-    assert_eq!(v["by_rule"]["D1"]["warnings"], 10 + 10 + 20 * 10, "{v}");
-    let items = v["items"].as_array().unwrap();
-    assert!(items.iter().all(|f| f["message"].as_str().unwrap().contains("(+5995 more)")), "{v}");
+    // The files moved into the submodule unchanged: one split, nothing removed or changed.
+    assert!(v["by_rule"].get("D1").is_none(), "{v}");
+    let split = &v["gitlinks"][0];
+    assert_eq!((split["path"].as_str(), split["kind"].as_str()), (Some("services/s0/gen"), Some("split")), "{v}");
+    assert_eq!((split["moved"].as_u64(), split["changed"].as_u64()), (Some(3000), Some(0)), "{v}");
     r.git(&["commit", "-qm", "gitlink"]);
     let (code, v, _) = timed(&r, &["verify", "--changed", "HEAD~1"], bound);
     assert_eq!(code, 0, "{v}");

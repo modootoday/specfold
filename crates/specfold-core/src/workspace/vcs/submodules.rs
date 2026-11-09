@@ -30,15 +30,45 @@ pub struct Expansion {
     pub expanded: Vec<String>,
     /// Gitlinks whose checkout or commits are missing; the pointer stands for the whole directory.
     pub missing: Vec<String>,
+    /// Every expanded gitlink: a new one (a split, when files of the outer repository moved into
+    /// it) or a pin bump, with what it holds back from the change.
+    pub moves: Vec<GitlinkMove>,
+}
+
+/// One gitlink a change adds or moves, read as one event rather than as its files.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GitlinkMove {
+    pub path: String,
+    /// The commit pinned before; None for a gitlink the change adds.
+    pub old: Option<String>,
+    pub new: String,
+    /// Repository-relative files that changed inside it (in `Expansion.files`).
+    pub changed: Vec<String>,
+    /// For an added gitlink: files the outer repository held at the same path with the same
+    /// content, so the change moved them rather than deleting and adding them.
+    pub moved: Vec<String>,
+}
+
+impl GitlinkMove {
+    /// Whether the change adds this gitlink over files that were in the outer repository.
+    pub fn is_split(&self) -> bool {
+        self.old.is_none() && !self.moved.is_empty()
+    }
 }
 
 /// Every moved gitlink of a change, expanded into the files changed inside it where possible.
 pub fn expand(root: &Path, side: Side) -> Expansion {
     let mut args = vec!["diff", "--raw", "-z", "--no-abbrev", "--diff-filter=AM"];
-    match side {
-        Side::Staged => args.push("--cached"),
-        Side::Since(base) => args.push(base),
-    }
+    let base = match side {
+        Side::Staged => {
+            args.push("--cached");
+            "HEAD"
+        }
+        Side::Since(base) => {
+            args.push(base);
+            base
+        }
+    };
     let Some(out) = git(root, &args) else { return Expansion::default() };
     let fields = split_nul(out);
     let mut e = Expansion::default();
@@ -50,11 +80,14 @@ pub fn expand(root: &Path, side: Side) -> Expansion {
             continue;
         }
         let sub = root.join(path);
-        let inner = if sub.join(".git").exists() { inner_changes(&sub, old_mode, old, new) } else { None };
-        match inner {
-            Some(files) => {
-                e.files.extend(files.into_iter().map(|f| format!("{path}/{f}")));
+        let added = old_mode != "160000" || old == ZERO;
+        let read =
+            sub.join(".git").exists().then(|| inner_changes(root, &sub, (path, base), added, old, new)).flatten();
+        match read {
+            Some(m) => {
+                e.files.extend(m.changed.iter().cloned());
                 e.expanded.push(path.clone());
+                e.moves.push(m);
             }
             None => e.missing.push(path.clone()),
         }
@@ -64,23 +97,56 @@ pub fn expand(root: &Path, side: Side) -> Expansion {
     e
 }
 
-/// Files changed inside one submodule between the recorded commit and the new one; a working-tree
-/// side has no recorded commit, so the checkout's HEAD stands for it.
-fn inner_changes(sub: &Path, old_mode: &str, old: &str, new: &str) -> Option<Vec<String>> {
-    let head;
+/// What one submodule's gitlink stands for: the files changed between the recorded commit and
+/// the new one, or for a new gitlink every file in it, less those the outer repository held at
+/// `base` with the same blob. A working-tree side has no recorded commit, so HEAD stands for it.
+fn inner_changes(
+    root: &Path,
+    sub: &Path,
+    (path, base): (&str, &str),
+    added: bool,
+    old: &str,
+    new: &str,
+) -> Option<GitlinkMove> {
     let new = if new == ZERO {
-        let out = git(sub, &["rev-parse", "HEAD"])?;
-        head = String::from_utf8_lossy(&out).trim().to_string();
-        head.as_str()
+        String::from_utf8_lossy(&git(sub, &["rev-parse", "HEAD"])?).trim().to_string()
     } else {
-        new
+        new.to_string()
     };
-    let listed = if old_mode != "160000" || old == ZERO {
-        git(sub, &["ls-tree", "-r", "-z", "--name-only", new])
-    } else {
-        git(sub, &["diff", "--name-only", "-z", "--diff-filter=ACMR", old, new])
-    };
-    listed.map(split_nul)
+    let at = |p: &str| format!("{path}/{p}");
+    if !added {
+        let listed = git(sub, &["diff", "--name-only", "-z", "--diff-filter=ACMR", old, &new])?;
+        let changed = split_nul(listed).iter().map(|p| at(p)).collect();
+        return Some(GitlinkMove { path: path.into(), old: Some(old.into()), new, changed, moved: vec![] });
+    }
+    let inner = blobs(sub, &new, None)?;
+    let outer: std::collections::HashMap<String, String> =
+        blobs(root, base, Some(&format!("{path}/"))).unwrap_or_default().into_iter().collect();
+    let (mut changed, mut moved) = (vec![], vec![]);
+    for (p, blob) in inner {
+        let p = at(&p);
+        if outer.get(&p) == Some(&blob) { moved.push(p) } else { changed.push(p) }
+    }
+    Some(GitlinkMove { path: path.into(), old: None, new, changed, moved })
+}
+
+/// `(path, blob)` of every file in `rev`'s tree, under `prefix` when given.
+fn blobs(repo: &Path, rev: &str, prefix: Option<&str>) -> Option<Vec<(String, String)>> {
+    let mut args = vec!["ls-tree", "-r", "-z", "--full-tree", rev];
+    if let Some(p) = prefix {
+        args.extend(["--", p]);
+    }
+    let entries = split_nul(git(repo, &args)?);
+    Some(
+        entries
+            .iter()
+            .filter_map(|e| {
+                let (meta, p) = e.split_once('\t')?;
+                let blob = meta.split(' ').nth(2)?;
+                Some((p.to_string(), blob.to_string()))
+            })
+            .collect(),
+    )
 }
 
 /// Repository-relative paths of every gitlink (submodule) the index records.

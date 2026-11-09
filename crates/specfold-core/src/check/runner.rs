@@ -25,6 +25,8 @@ pub struct Report {
     /// D2: the paths a ranged or staged run looked at (changed files and the files of the
     /// documents it checked); `None` for a full run, which looks at everything.
     pub checked_paths: Option<std::collections::BTreeSet<String>>,
+    /// Gitlinks the change adds or moves, each one event (see `Scope.gitlinks`).
+    pub gitlinks: Vec<crate::workspace::vcs::GitlinkMove>,
 }
 
 impl Report {
@@ -71,18 +73,23 @@ pub fn run(c: &Corpus, g: &Graph, range: Range, opts: &Options, sel: &Selection)
     let t = crate::trace::phase("rules", t);
     let mut findings = super::severity::apply(c, findings);
     crate::trace::phase("severity", t);
-    // A secret comes first among findings of its level: it is what to fix before anything else,
-    // and an attachment that changed because of it (E1) should not be re-attached first.
-    let secret = |f: &Finding| f.rule == "U2" || (f.rule == "U1" && f.message.starts_with("[secrets]"));
-    findings.sort_by(|a, b| {
-        (a.severity, !secret(a), &a.path, a.line, &a.rule).cmp(&(b.severity, !secret(b), &b.path, b.line, &b.rule))
-    });
+    order(&mut findings);
     findings.dedup_by(|a, b| a.rule == b.rule && a.path == b.path && a.line == b.line && a.message == b.message);
+    let rules_run: Vec<&'static str> = rules.iter().map(|r| r.info().id).collect();
     let docs_checked = if scope.is_all() { c.docs.len() } else { scope.with_neighbours.len() };
     let checked_paths = (!scope.is_all()).then(|| {
         let docs =
             scope.with_neighbours.iter().flat_map(|&i| std::iter::once(&c.docs[i].path).chain(&c.docs[i].chapters));
         scope.paths.iter().chain(&scope.gone).chain(docs).cloned().collect()
     });
-    Ok(Report { findings, rules_run: rules.iter().map(|r| r.info().id).collect(), docs_checked, checked_paths })
+    Ok(Report { findings, rules_run, docs_checked, checked_paths, gitlinks: scope.gitlinks.clone() })
+}
+
+/// Findings by level, a secret first within its level (it is what to fix before anything else,
+/// and an attachment that changed because of it should not be re-attached first), then by place.
+fn order(findings: &mut [Finding]) {
+    let secret = |f: &Finding| f.rule == "U2" || (f.rule == "U1" && f.message.starts_with("[secrets]"));
+    findings.sort_by(|a, b| {
+        (a.severity, !secret(a), &a.path, a.line, &a.rule).cmp(&(b.severity, !secret(b), &b.path, b.line, &b.rule))
+    });
 }

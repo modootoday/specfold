@@ -1,4 +1,5 @@
-//! What a run reads from the repository: tracked files in a full run (S9), and never `.git`.
+//! What a run reads from the repository: tracked files in a full run (S9), never `.git`, and
+//! moved gitlinks read as one split or one pin bump (D1).
 
 #[path = "../common/mod.rs"]
 mod common;
@@ -68,4 +69,73 @@ fn s9_the_local_directory_is_still_read_in_a_full_run() {
     let (_, v) = check_tracked(&r, &[]);
     assert!(rules(&v).contains(&"S2".to_string()), "{v}");
     assert!(!rules(&v).contains(&"S9".to_string()), "{v}");
+}
+
+fn git_in(dir: &std::path::Path, args: &[&str]) {
+    let ok = std::process::Command::new("git")
+        .args(["-c", "user.email=t@t", "-c", "user.name=t", "-c", "protocol.file.allow=always"])
+        .args(args)
+        .current_dir(dir)
+        .status()
+        .unwrap()
+        .success();
+    assert!(ok, "git {args:?}");
+}
+
+/// vendor/lib/src with a.rs, b.rs and d.rs under an active document, committed; then the folder
+/// replaced, staged, by a submodule holding a.rs unchanged, b.rs changed and c.rs new.
+fn split_repo() -> (common::Repo, common::Repo, String) {
+    let lib = common::Repo::new(tempfile::tempdir().unwrap());
+    git_in(lib.path(), &["init", "-q", "-b", "main"]);
+    lib.write("src/a.rs", "fn a() {}\n");
+    lib.write("src/b.rs", "fn b() { 2 }\n");
+    lib.write("src/c.rs", "fn c() {}\n");
+    git_in(lib.path(), &["add", "-A"]);
+    git_in(lib.path(), &["commit", "-qm", "lib"]);
+    let r = common::repo();
+    for f in ["a", "b", "d"] {
+        r.write(&format!("vendor/lib/src/{f}.rs"), &format!("fn {f}() {{}}\n"));
+    }
+    let id = r.new_doc("sot", "vendor/lib/src", "Vendored lib");
+    assert_eq!(r.json(&["set", &id, "status=active", "--write"]).0, 0);
+    r.commit("vendored");
+    r.git(&["rm", "-r", "-q", "vendor/lib"]);
+    git_in(r.path(), &["submodule", "add", "-q", lib.path().to_str().unwrap(), "vendor/lib"]);
+    (r, lib, id)
+}
+
+#[test]
+fn d1_a_folder_split_into_a_submodule_is_one_change_not_removals() {
+    let (r, _lib, _) = split_repo();
+    let (_, v) = r.json(&["check", "--staged", "--rule", "D1"]);
+    let split = &v["gitlinks"][0];
+    assert_eq!(split["kind"], "split", "{v}");
+    assert_eq!((split["moved"].as_u64(), split["changed"].as_u64()), (Some(1), Some(2)), "{v}");
+    let items = v["items"].as_array().unwrap();
+    assert_eq!(items.len(), 1, "{v}");
+    let msg = items[0]["message"].as_str().unwrap();
+    assert!(msg.starts_with("vendor/lib (new submodule at "), "{msg}");
+    assert!(msg.contains("1 file(s) moved in unchanged, 2 new or changed"), "{msg}");
+    assert!(msg.contains("vendor/lib/src/d.rs (removed)"), "a file the submodule lacks is still removed: {msg}");
+    assert!(!msg.contains("a.rs") && !msg.contains("b.rs"), "{msg}");
+}
+
+#[test]
+fn d1_a_pin_bump_is_named_once_for_every_file_inside() {
+    let (r, lib, _) = split_repo();
+    r.commit("split");
+    let sub = r.path().join("vendor/lib");
+    std::fs::write(sub.join("src/a.rs"), "fn a() { 1 }\n").unwrap();
+    std::fs::write(sub.join("src/c.rs"), "fn c() { 1 }\n").unwrap();
+    git_in(&sub, &["commit", "-qam", "bump"]);
+    r.git(&["add", "vendor/lib"]);
+    let (_, v) = r.json(&["check", "--staged", "--rule", "D1"]);
+    assert_eq!(v["gitlinks"][0]["kind"], "bump", "{v}");
+    assert_eq!(v["gitlinks"][0]["changed"], 2, "{v}");
+    let items = v["items"].as_array().unwrap();
+    assert_eq!(items.len(), 1, "{v}");
+    let msg = items[0]["message"].as_str().unwrap();
+    assert!(msg.starts_with("vendor/lib (pin ") && msg.contains("2 file(s) changed inside"), "{msg}");
+    assert!(!msg.contains("src/a.rs") && !msg.contains("src/c.rs"), "{msg}");
+    drop(lib);
 }

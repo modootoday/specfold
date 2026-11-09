@@ -7,7 +7,25 @@ use crate::check::rule::skipped;
 use crate::check::rule::{Rule, RuleInfo};
 use crate::corpus::graph::query::GoverningIndex;
 use crate::model::Tier;
+use crate::workspace::vcs;
 use std::collections::{BTreeMap, BTreeSet};
+
+/// How D1 names a moved gitlink in place of the files inside it.
+fn label(m: &vcs::GitlinkMove) -> String {
+    let short = |c: &str| c.chars().take(7).collect::<String>();
+    match &m.old {
+        Some(old) => {
+            format!("{} (pin {}..{}, {} file(s) changed inside)", m.path, short(old), short(&m.new), m.changed.len())
+        }
+        None => format!(
+            "{} (new submodule at {}: {} file(s) moved in unchanged, {} new or changed)",
+            m.path,
+            short(&m.new),
+            m.moved.len(),
+            m.changed.len()
+        ),
+    }
+}
 
 pub struct GovernedCodeDrift;
 
@@ -19,7 +37,7 @@ impl Rule for GovernedCodeDrift {
         &RuleInfo {
             id: "D1",
             title: "changed code moves its governing document",
-            explain: "In a staged or ranged run (`spec check --staged`, `--changed`), each changed file that is not a document is matched against the explicit `rel.governs` globs of active, committed documents. A document whose governed code changed is expected to change in the same range, or to be named by a `change` note that changes in the range, or to cover a path that such a note governs (a note on the source file speaks for its test beside it); otherwise this warning lists the changed paths. Documents that govern only through their owner directory are not asked, and a full run never reports D1. Deleted files and the old paths of renamed files count as changed. With `[check] d1 = \"specific\"` only the most specific of the documents governing a file are asked, so an overview governing a whole tree (`governs: [services]`) is not asked about a file a narrower document governs. Update the document (or its `verified_at`), link a change note already in the range (`spec set <note> rel.depends_on+=<id> --write`, the fix D1 prints when there is one), or write a change note that links it: `spec new change --title … --depends-on <id> --write` (a `[[<id>]]` link in its body works too); where the change type is disabled, the fix pins the document instead: `spec set <id> verified_at=HEAD --write`. See it with `spec check --staged --rule D1`.",
+            explain: "In a staged or ranged run (`spec check --staged`, `--changed`), each changed file that is not a document is matched against the explicit `rel.governs` globs of active, committed documents. A document whose governed code changed is expected to change in the same range, or to be named by a `change` note that changes in the range, or to cover a path that such a note governs (a note on the source file speaks for its test beside it); otherwise this warning lists the changed paths. Documents that govern only through their owner directory are not asked, and a full run never reports D1. Deleted files and the old paths of renamed files count as changed. A submodule pointer the change moves (a pin bump) is one change, named once per document as `<path> (pin <old>..<new>, N file(s) changed inside)` and asked of the documents that govern the files changed inside it. A submodule the change adds where the repository held files (a split) is one change too: files that moved into it with the same content are neither removed nor changed, and only the files new or different there are asked about, under the same one name. With `[check] d1 = \"specific\"` only the most specific of the documents governing a file are asked, so an overview governing a whole tree (`governs: [services]`) is not asked about a file a narrower document governs. Update the document (or its `verified_at`), link a change note already in the range (`spec set <note> rel.depends_on+=<id> --write`, the fix D1 prints when there is one), or write a change note that links it: `spec new change --title … --depends-on <id> --write` (a `[[<id>]]` link in its body works too); where the change type is disabled, the fix pins the document instead: `spec set <id> verified_at=HEAD --write`. See it with `spec check --staged --rule D1`.",
             on_commit: true,
         }
     }
@@ -43,7 +61,10 @@ impl Rule for GovernedCodeDrift {
             c.docs.iter().flat_map(|d| std::iter::once(&d.path).chain(&d.chapters).chain(&d.bundle_files)).collect();
         let mut drift: BTreeMap<usize, Vec<&str>> = BTreeMap::new();
         let gone: Vec<String> = ctx.scope.gone.iter().map(|p| format!("{p} (removed)")).collect();
-        let changed = ctx.scope.paths.iter().map(|p| (p.as_str(), p.as_str()));
+        // A moved gitlink is one change: its files are named by one label, not one by one.
+        let labels: Vec<(&vcs::GitlinkMove, String)> = ctx.scope.gitlinks.iter().map(|m| (m, label(m))).collect();
+        let shown = |p: &str| labels.iter().find(|(m, _)| crate::paths::is_below(p, &m.path)).map(|(_, l)| l.as_str());
+        let changed = ctx.scope.paths.iter().map(|p| (p.as_str(), shown(p).unwrap_or(p.as_str())));
         let removed = ctx.scope.gone.iter().zip(&gone).map(|(p, shown)| (p.as_str(), shown.as_str()));
         let specific = c.cfg.raw.check.d1_specific();
         // Compiled once: a gitlink conversion stages thousands of removed files.
@@ -57,7 +78,11 @@ impl Rule for GovernedCodeDrift {
             // `governing` lists the narrowest claims first.
             let top = asked.first().map(|g| g.specificity).unwrap_or(0);
             for g in asked.into_iter().filter(|g| !specific || g.specificity == top) {
-                drift.entry(g.idx).or_default().push(shown);
+                let named = drift.entry(g.idx).or_default();
+                // Paths come sorted, so a gitlink's files reach a document one after another.
+                if named.last() != Some(&shown) {
+                    named.push(shown);
+                }
             }
         }
         let notes: Vec<usize> = ctx.scope.touched.iter().copied().filter(|&i| c.docs[i].id.ty == "change").collect();

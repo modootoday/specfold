@@ -148,6 +148,9 @@ fn summary(s: &session::Session, report: &check::Report, held: &Held, t: &Tally)
     if held.baselined {
         o = o.field("baselined", held.known).field("lowerable", held.lowerable);
     }
+    if !report.gitlinks.is_empty() {
+        o = o.field("gitlinks", super::gitlinks::json(&report.gitlinks));
+    }
     o.field(
         "by_rule",
         t.by_rule
@@ -174,6 +177,7 @@ fn text(s: &session::Session, a: &CheckArgs, o: Output, report: &check::Report, 
         t.ms as f64 / 1000.0
     ));
     let o = t.checked.iter().fold(o, |o, (_, line)| o.foot(line.clone()));
+    let o = super::gitlinks::lines(&report.gitlinks).into_iter().fold(o, |o, l| o.foot(l));
     let o = owners::annotate(o, &s.corpus.cfg.spec_home, &held.others);
     let mut o = t
         .excluded

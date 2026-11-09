@@ -37,6 +37,9 @@ pub struct Scope {
     pub gone: BTreeSet<String>,
     /// Moved gitlinks whose submodule objects are missing; they stand for the whole directory.
     pub submodules_missing: Vec<String>,
+    /// Gitlinks the change adds (a split, when outer files moved into one) or bumps, each read
+    /// as one event: files moved unchanged into a new gitlink are in neither `paths` nor `gone`.
+    pub gitlinks: Vec<vcs::GitlinkMove>,
 }
 
 /// The slug a document file carries: `sot/cart.sot.md` and `sot/cart/index.md` give `cart`.
@@ -95,7 +98,7 @@ impl Scope {
         }
         let in_submodules: BTreeSet<String> = sub.files.into_iter().collect();
         paths.extend(in_submodules.iter().cloned());
-        let gone: BTreeSet<String> = match &range {
+        let mut gone: BTreeSet<String> = match &range {
             Range::All => BTreeSet::new(),
             Range::Staged => vcs::gone(root, None).unwrap_or_default().into_iter().collect(),
             Range::Changed(base) => vcs::gone(root, Some(base)).unwrap_or_default().into_iter().collect(),
@@ -103,6 +106,12 @@ impl Scope {
                 vcs::gone(root, Some(&vcs::commit_diff(root, sha))).unwrap_or_default().into_iter().collect()
             }
         };
+        // A path that now lies inside a gitlink the change adds was moved there, not removed.
+        for m in sub.moves.iter().filter(|m| m.old.is_none()) {
+            for p in m.moved.iter().chain(&m.changed) {
+                gone.remove(p);
+            }
+        }
         let mut touched = BTreeSet::new();
         if !matches!(range, Range::All) {
             for (i, d) in c.docs.iter().enumerate() {
@@ -124,7 +133,17 @@ impl Scope {
         if !slugs.is_empty() {
             with_neighbours.extend(dangling(c, g, &slugs));
         }
-        Ok(Scope { range, paths, in_submodules, touched, with_neighbours, base, gone, submodules_missing: sub.missing })
+        Ok(Scope {
+            range,
+            paths,
+            in_submodules,
+            touched,
+            with_neighbours,
+            base,
+            gone,
+            submodules_missing: sub.missing,
+            gitlinks: sub.moves,
+        })
     }
 
     pub fn is_all(&self) -> bool {
