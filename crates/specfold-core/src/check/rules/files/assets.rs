@@ -164,7 +164,7 @@ impl Rule for AssetFrontmatter {
     }
 
     fn run(&self, ctx: &Ctx, out: &mut Vec<Finding>) {
-        for a in assets::load(&ctx.corpus.cfg) {
+        for a in assets::checked(&ctx.corpus.cfg) {
             if let Some(why) = &a.invalid {
                 out.push(Finding::error("A1", &a.path, 1, format!("frontmatter cannot be read: {why}")));
                 continue;
@@ -196,7 +196,7 @@ impl Rule for AssetNamesUnique {
 
     fn run(&self, ctx: &Ctx, out: &mut Vec<Finding>) {
         let mut seen: BTreeMap<(AssetKind, String, String), Vec<String>> = BTreeMap::new();
-        for a in assets::load(&ctx.corpus.cfg) {
+        for a in assets::checked(&ctx.corpus.cfg) {
             if matches!(a.kind, AssetKind::Instructions) {
                 continue;
             }

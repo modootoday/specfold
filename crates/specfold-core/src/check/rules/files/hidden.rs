@@ -67,7 +67,7 @@ impl Rule for HiddenChars {
 pub(super) fn agent_files(ctx: &Ctx) -> Vec<(String, String)> {
     let mut seen = std::collections::HashSet::new();
     let mut out = vec![];
-    for a in assets::load(&ctx.corpus.cfg) {
+    for a in assets::checked(&ctx.corpus.cfg) {
         seen.insert(a.path.clone());
         if ctx.scope.covers_path(&a.path) {
             out.push((a.path, a.text));

@@ -73,7 +73,7 @@ impl Rule for AssetRefsExist {
     fn run(&self, ctx: &Ctx, out: &mut Vec<Finding>) {
         let root = &ctx.corpus.cfg.spec_home;
         let commands = &ctx.opts.commands;
-        for a in assets::load(&ctx.corpus.cfg) {
+        for a in assets::checked(&ctx.corpus.cfg) {
             let dir = root.join(&a.path).parent().map(Path::to_path_buf).unwrap_or_else(|| root.clone());
             let mut fenced = crate::model::markdown::Fence::default();
             for (i, line) in a.body().lines().enumerate() {

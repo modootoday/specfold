@@ -174,6 +174,27 @@ final = ["conformance"]                    # S6: final needs it; S8: it must be 
 | `[cites]` | files outside documents whose citations rule L6 checks |
 | `[write]` | `max_files`: mv, fix, sync and import need `--yes` to write more files than this at once (default 50; 0 = no bound) |
 | `[mcp]` | `redact`: hide secrets in what `spec mcp` returns (on by default) |
+| `[budgets]` | size limits per path glob (rule B1): `paths` (`"AGENTS.md" = { bytes = 12288, lines = 200 }`) and `from = "<file>#<key>"`, a TOML or JSON table that another tool owns; an unreadable source is an error |
+| `[generated]` | `manifest = "<file>[#<key>]"`: files another tool generates and their sources (rule G2); generated copies are left out of asset and citation checks |
+
+### Limits owned by another file
+
+A project whose limits are set by another tool reads them from that tool's file, so the numbers
+have one home and specfold judges them:
+
+```toml
+[budgets]
+from = "tool.toml#limits.files"   # [limits.files] "AGENTS.md" = { bytes = 12288, lines = 200 }
+
+[generated]
+manifest = "tool.lock"            # {"outputs": [{"path": ".tool/skills/x", "sources": ["skills/x/SKILL.md"]}]}
+```
+
+A caller that is about to write a file asks for one verdict, with the text on standard input:
+`spec check --rule B1 --path AGENTS.md --stdin-path AGENTS.md --json < new-text`. The exit code is
+1 when a limit is exceeded or the limits cannot be read, and the JSON carries `budgets`: for each
+file `path`, `bytes`, `lines`, `over`, and `limits` with `glob`, `source`, `max_bytes`,
+`max_lines`, `over_bytes` and `over_lines`.
 
 ## Cache
 

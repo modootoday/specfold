@@ -2,7 +2,10 @@
 
 use super::baseline::{held_note, write_baseline};
 use super::ci::{Ctx, ci_output};
-use super::scope::{check_fail_on, check_rule_names, checked_range, documents_named, overlay_stdin, range_of};
+use super::scope::{
+    budget_measures, check_fail_on, check_rule_names, checked_range, documents_named, overlay_stdin, range_of,
+    repo_paths,
+};
 use crate::cli::args::{global::Global, verify::CheckArgs};
 use crate::commands::verify::owners;
 use crate::output::{Code, Output, findings};
@@ -54,22 +57,21 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
     }
     // C116: config warnings are a line each and not findings, so -q shows them too.
     session::show_config_warnings();
-    let files: Vec<String> = a.files.iter().chain(&a.stdin_path).cloned().collect();
+    // With --path, standard input stands for one of those files, document or not.
+    let stdin_doc = a.stdin_path.as_ref().filter(|_| a.paths.is_empty());
+    let files: Vec<String> = a.files.iter().chain(stdin_doc).cloned().collect();
     // A full run reads what git tracks; files named on the command line are read as they are.
-    let full = !a.staged && a.changed.is_none() && files.is_empty();
+    let full = !a.staged && a.changed.is_none() && files.is_empty() && a.paths.is_empty();
     let untracked = a.include_untracked || std::env::var_os("SPECFOLD_INCLUDE_UNTRACKED").is_some_and(|v| v == "1");
     let s = if full && !untracked { session::open_tracked(g)? } else { session::open(g)? };
-    let only = documents_named(&s, &files, a.stdin_path.as_deref())?;
+    let only = documents_named(&s, &files, stdin_doc.map(String::as_str))?;
+    let named = repo_paths(&s, &a.paths);
     let commands = crate::cli::describe::commands().into_iter().map(|c| c.name).collect();
     let opts =
         Options { run_commands: a.run_commands, external: a.external, online: a.online, guards: a.guards, commands };
-    let mut report = check::run(
-        &s.corpus,
-        &s.graph,
-        range_of(a),
-        &opts,
-        &Selection { only: a.rules.clone(), skip: a.skip.clone() },
-    )?;
+    let range = if named.is_empty() { range_of(a) } else { check::Range::Paths(named.clone()) };
+    let mut report =
+        check::run(&s.corpus, &s.graph, range, &opts, &Selection { only: a.rules.clone(), skip: a.skip.clone() })?;
     if a.write_baseline {
         return write_baseline(&s, a, &report.findings);
     }
@@ -86,7 +88,10 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
         by_rule: by_rule(&held.list),
         checked: checked_range(&s.corpus.cfg.spec_home, a),
     };
-    let o = summary(&s, &report, &held, &t);
+    let mut o = summary(&s, &report, &held, &t);
+    if !named.is_empty() && report.rules_run.contains(&"B1") {
+        o = o.field("budgets", budget_measures(&s, &named));
+    }
     if a.format != "text" {
         let cx = Ctx {
             g,

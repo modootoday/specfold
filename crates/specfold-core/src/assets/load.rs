@@ -82,3 +82,10 @@ pub fn load(cfg: &Config) -> Vec<Asset> {
     out.sort_by(|a, b| a.path.cmp(&b.path));
     out
 }
+
+/// The assets checks read: every declared asset but those `[generated] manifest` names, whose
+/// sources are checked instead. A manifest that cannot be read leaves every asset in (G2 says why).
+pub fn checked(cfg: &Config) -> Vec<Asset> {
+    let generated = crate::check::limits::generated::load(cfg).unwrap_or_default();
+    load(cfg).into_iter().filter(|a| !generated.holds(&a.path)).collect()
+}

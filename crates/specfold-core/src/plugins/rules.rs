@@ -29,7 +29,7 @@ pub fn run(ctx: &Ctx, plugins: &[Loaded], out: &mut Vec<Finding>) {
         let scope_docs: Option<Vec<usize>> =
             (!ctx.scope.is_all()).then(|| ctx.scope.with_neighbours.iter().copied().collect());
         let params = json!({
-            "scope": match ctx.scope.range { Range::All => "all", Range::Staged => "staged", Range::Changed(_) | Range::Commit(_) => "changed" },
+            "scope": match ctx.scope.range { Range::All => "all", Range::Staged => "staged", Range::Changed(_) | Range::Commit(_) | Range::Paths(_) => "changed" },
             "rules": rules.iter().map(|r| &r.id).collect::<Vec<_>>(),
             "docs": payload::docs(ctx.corpus, scope_docs.as_deref()),
             "edges": payload::edges(ctx.corpus, ctx.graph),

@@ -8,7 +8,7 @@ pub mod sync;
 mod template;
 
 pub use asset::Asset;
-pub use load::load;
+pub use load::{checked, load};
 pub use template::template;
 
 #[cfg(test)]

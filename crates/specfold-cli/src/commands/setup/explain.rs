@@ -78,6 +78,14 @@ const CONFIG_HELP: &[(&str, &str)] = &[
         "Another repository already on disk (a sibling checkout, a submodule, a CI checkout) whose documents are named <name>:<id> in references and relations. Read-only: L1 and L3 check those targets when the directory exists and skip them when it does not; spec show and spec resolve read them. A name equal to a type name is not a remote. Id prefixes and a private root for a repository without spec.toml can also come from the user-level ~/.config/specfold/roots.toml ($SPECFOLD_ROOTS).",
     ),
     (
+        "[budgets] from, paths",
+        "Size limits per path glob, in bytes, lines or both (rule B1): paths here (`\"AGENTS.md\" = { bytes = 12288, lines = 200 }`), or from = \"<file>#<key>\" to read them from the TOML or JSON file that owns the numbers (a table of glob to { bytes, lines }, or an array of { path | paths, bytes, lines }). A source that cannot be read is an error. spec check --rule B1 --path <file> --json judges one file.",
+    ),
+    (
+        "[generated] manifest",
+        "\"<file>[#<key>]\": a JSON or TOML manifest of files another tool generates (entries with path and optionally source or sources). Generated copies are left out of agent-asset and citation checks, their sources are checked; rule G2 reports a manifest that cannot be read and a source that does not exist.",
+    ),
+    (
         "[translations] layout, languages, source_lang, strict",
         "Translations paired by place (rule R2): layout suffix (`<slug>-<lang>` beside the source) or dir (the same slug under a `<lang>` owner), none by default; the languages the layout and spec census --translations use, the sources' language, and strict to make R2 errors. rel.translation_of and lang in frontmatter win over the layout.",
     ),

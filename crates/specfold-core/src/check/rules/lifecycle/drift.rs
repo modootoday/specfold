@@ -43,7 +43,8 @@ impl Rule for GovernedCodeDrift {
     }
 
     fn run(&self, ctx: &Ctx, out: &mut Vec<Finding>) {
-        if ctx.scope.is_all() {
+        // Named paths are not a change: nothing says what they were before.
+        if ctx.scope.is_all() || matches!(ctx.scope.range, crate::check::scope::Range::Paths(_)) {
             return;
         }
         for g in &ctx.scope.submodules_missing {

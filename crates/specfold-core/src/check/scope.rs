@@ -17,6 +17,9 @@ pub enum Range {
     Changed(String),
     /// What one commit changed (`<sha>^..<sha>`), judged on the files as they are now (C3).
     Commit(String),
+    /// These repository files, documents or not, as they are on disk or in an overlay
+    /// (`spec check --path`); nothing is compared with a revision.
+    Paths(Vec<String>),
 }
 
 #[derive(Debug, Clone)]
@@ -91,6 +94,7 @@ impl Scope {
                     .ok_or_else(|| anyhow!("cannot read commit {sha}; next: git log --oneline"))?;
                 (p.into_iter().collect(), vcs::Expansion::default(), Some(vcs::parent_or_empty(root, sha)))
             }
+            Range::Paths(named) => (named.iter().cloned().collect(), vcs::Expansion::default(), None),
         };
         // C1: a moved pointer whose inside was read is not itself a change.
         for g in &sub.expanded {
@@ -99,7 +103,7 @@ impl Scope {
         let in_submodules: BTreeSet<String> = sub.files.into_iter().collect();
         paths.extend(in_submodules.iter().cloned());
         let mut gone: BTreeSet<String> = match &range {
-            Range::All => BTreeSet::new(),
+            Range::All | Range::Paths(_) => BTreeSet::new(),
             Range::Staged => vcs::gone(root, None).unwrap_or_default().into_iter().collect(),
             Range::Changed(base) => vcs::gone(root, Some(base)).unwrap_or_default().into_iter().collect(),
             Range::Commit(sha) => {

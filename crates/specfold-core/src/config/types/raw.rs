@@ -1,9 +1,9 @@
 //! spec.toml as written, one field per section.
 
 use super::{
-    AliasSection, AssetRoot, AuditSection, CheckSection, CitesSection, ExternalRoot, FilesSection, ForbidSection,
-    GuardDef, LocalSection, OwnersSection, PluginDef, PublicSection, RemoteRoot, SpecSection, TranslationsSection,
-    VerifySection,
+    AliasSection, AssetRoot, AuditSection, BudgetsSection, CheckSection, CitesSection, ExternalRoot, FilesSection,
+    ForbidSection, GeneratedSection, GuardDef, LocalSection, OwnersSection, PluginDef, PublicSection, RemoteRoot,
+    SpecSection, TranslationsSection, VerifySection,
 };
 use crate::model::registry::TypeOverride;
 use serde::{Deserialize, Serialize};
@@ -54,6 +54,12 @@ pub struct RawConfig {
     /// Agent assets read beside the documents.
     #[serde(default)]
     pub assets: Vec<AssetRoot>,
+    /// Size budgets per path glob (rule B1).
+    #[serde(default)]
+    pub budgets: BudgetsSection,
+    /// Files another tool generates, from its manifest (rule G2).
+    #[serde(default)]
+    pub generated: GeneratedSection,
 }
 
 /// Bounds on what one command writes (CLI-7).

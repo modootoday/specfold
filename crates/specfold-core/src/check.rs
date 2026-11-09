@@ -6,6 +6,7 @@ pub mod baseline;
 pub mod context;
 pub mod finding;
 pub mod guards;
+pub mod limits;
 pub mod rule;
 pub mod rules;
 pub mod runner;

@@ -161,6 +161,17 @@ its own code can therefore belong to a narrower owner than in 0.4.0, and P1 repo
 | rule | checks that |
 | --- | --- |
 | **G1** | generated documents match their generator |
+| **G2** | the `[generated] manifest` reads and the sources it names exist |
+
+## Limits
+
+| rule | checks that |
+| --- | --- |
+| **B1** | files stay within the bytes and lines `[budgets]` sets for their glob, read from spec.toml or from another file; an unreadable source is an error |
+
+B1 runs at commit on the changed files, in a full run on every file a budget names, and on named
+files with `spec check --rule B1 --path <file> --json` (see the configuration reference for the
+JSON). Generated files are measured too, since their size is what a reader loads.
 
 ## Guards
 

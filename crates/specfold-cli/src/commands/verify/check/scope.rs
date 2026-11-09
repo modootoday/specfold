@@ -98,6 +98,33 @@ pub(crate) fn documents_named(s: &session::Session, files: &[String], stdin: Opt
     Ok(out)
 }
 
+/// `--path`: the files named, as repository paths; they need not exist (a file about to be
+/// written is read from standard input).
+pub(super) fn repo_paths(s: &session::Session, named: &[String]) -> Vec<String> {
+    named
+        .iter()
+        .map(|f| {
+            let abs = s.loc.absolute(std::path::Path::new(f));
+            paths::rel_of(&s.corpus.cfg.spec_home, &abs).unwrap_or_else(|| s.loc.repo_path(f))
+        })
+        .collect()
+}
+
+/// B1's measures of the `--path` files, for the `budgets` field; empty when the budgets cannot
+/// be read (B1 reports that as an error).
+pub(super) fn budget_measures(s: &session::Session, named: &[String]) -> serde_json::Value {
+    use specfold_core::check::limits::budgets;
+    let Ok(list) = budgets::load(&s.corpus.cfg) else { return serde_json::json!([]) };
+    let measured: Vec<budgets::Measure> = named
+        .iter()
+        .filter_map(|p| {
+            let text = specfold_core::corpus::overlay::read(&s.corpus.cfg.spec_home.join(p)).ok()?;
+            budgets::measure(&list, p, text.as_bytes())
+        })
+        .collect();
+    serde_json::to_value(measured).unwrap_or_default()
+}
+
 /// `--stdin-path`: standard input stands in for that file's contents.
 pub(super) fn overlay_stdin(loc: &session::Location, p: &str) -> Result<()> {
     let abs = loc.absolute(std::path::Path::new(p));

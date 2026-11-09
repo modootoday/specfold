@@ -10,9 +10,16 @@ Release notes for each version are also on
 - A full `spec check` reads only the files git tracks, the local directory (`[local] path`) and the external roots spec.toml names; `.git` is never read by any walk. Documents in a spec directory that git does not track are no longer checked one by one: the new rule S9 reports them in one warning with their count and first paths, and the first 100 in `candidates` with `--json`. `spec check --include-untracked` (or `SPECFOLD_INCLUDE_UNTRACKED=1`) reads every file on disk as before. `--staged`, `--changed`, `--commits` and files named on the command line read what they read before. A draft made with `spec new --write` is checked by a full run once it is added (`git add`), or when named (`spec check <file>`).
 - D1 reads a moved gitlink as one change. A pin bump is named once per document (`<path> (pin <old>..<new>, N file(s) changed inside)`) instead of listing every file that changed inside the submodule. A folder turned into a submodule (a split) compares each file with what the repository held at the same path: files moved in with the same content are neither removed nor changed, so a split of thousands of unchanged files asks nothing; new or different files and files the submodule lacks are still asked about. `spec check --staged` and `--changed` list such gitlinks under `gitlinks` in `--json` (`path`, `kind` split, bump or added, `old`, `new`, `moved`, `changed`) and in one line each.
 
+### Added
+
+- `[budgets]` and rule B1: size limits in bytes, lines or both per path glob, written in spec.toml (`[budgets.paths]`) or read from the file that owns them (`from = "<file>#<key>"`, a TOML or JSON table of glob to `{ bytes, lines }`, or an array of `{ path | paths, bytes, lines }`). A limit exceeded is an error; a source that cannot be read or parsed, a table of the wrong shape, a bad glob or an entry with neither limit is an error on spec.toml, never a pass.
+- `spec check --path <file>` (repeatable) judges named repository files, documents or not, instead of a run over the repository; with `--stdin-path` naming one of them its text comes from standard input. `spec check --rule B1 --path <file> --json` adds `budgets`: per file `path`, `bytes`, `lines`, `over` and `limits` (`glob`, `source`, `max_bytes`, `max_lines`, `over_bytes`, `over_lines`). D1 and guards (U1) do not run on named paths.
+- `[generated] manifest = "<file>[#<key>]"` and rule G2: a JSON or TOML manifest of files another tool generates (entries with `path` and optionally `source` or `sources`). Generated copies are left out of the agent-asset rules (A1-A4, H1) and of L6; G2 reports a manifest that cannot be read and a source that does not exist.
+
 ### For specfold-core library users
 
-- New public fields: `Config.tracked`, `Corpus.untracked`, `Scope.gitlinks`, `Report.gitlinks` and `Expansion.moves`. A struct literal that lists every field must add them.
+- New public fields: `Config.tracked`, `Corpus.untracked`, `Scope.gitlinks`, `Report.gitlinks`, `Expansion.moves`, and `RawConfig.budgets` and `generated`; `Range::Paths` is a new variant. A struct literal or an exhaustive `match` on them must add them.
+- An older `spec` refuses a spec.toml that uses `[budgets]` or `[generated]`, as it does any key it does not know.
 
 ## 0.7.2 - 2026-11-05
 

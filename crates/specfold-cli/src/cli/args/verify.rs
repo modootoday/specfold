@@ -56,6 +56,11 @@ pub struct CheckArgs {
     /// warning). SPECFOLD_INCLUDE_UNTRACKED=1 does the same.
     #[arg(long)]
     pub include_untracked: bool,
+    /// Judge these repository files, documents or not (repeatable), instead of a run over the
+    /// repository: `spec check --rule B1 --path AGENTS.md --json`. With `--stdin-path` naming one
+    /// of them, its text is read from standard input.
+    #[arg(long = "path", id = "path", value_name = "FILE", conflicts_with_all = ["staged", "changed", "commits", "write_baseline", "files"])]
+    pub paths: Vec<String>,
     /// Show every finding, ignoring [check] baseline.
     #[arg(long, conflicts_with = "write_baseline")]
     pub no_baseline: bool,

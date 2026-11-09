@@ -29,6 +29,8 @@ impl Rule for GuardsPass {
             Range::Commit(sha) => {
                 GuardRange::Push(Some(crate::workspace::vcs::commit_diff(&ctx.corpus.cfg.spec_home, sha)))
             }
+            // Guards judge commits and trees; `spec guard` runs them on named content.
+            Range::Paths(_) => return,
         };
         match guards::run(&ctx.corpus.cfg, &[], Some(&range)) {
             Ok(f) => out.extend(f),

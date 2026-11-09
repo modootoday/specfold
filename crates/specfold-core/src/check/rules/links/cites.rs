@@ -38,6 +38,8 @@ fn id_shaped(target: &str) -> bool {
 struct Files {
     include: Vec<PathMatch>,
     exclude: Vec<PathMatch>,
+    /// Generated copies: their sources carry the citations.
+    generated: crate::check::limits::generated::Generated,
 }
 
 impl Files {
@@ -46,6 +48,7 @@ impl Files {
             && !self.exclude.iter().any(|m| m.is_match(p))
             && !ctx.graph.by_path.contains_key(p)
             && !ctx.corpus.cfg.raw.owners.in_nested(p)
+            && !self.generated.holds(p)
     }
 }
 
@@ -65,6 +68,9 @@ fn targets(ctx: &Ctx, files: &Files) -> Vec<(String, Option<BTreeSet<usize>>)> {
         Range::Staged => vcs::added_lines(root, None),
         Range::Changed(base) => vcs::added_lines(root, Some(base)),
         Range::Commit(sha) => vcs::added_lines(root, Some(&vcs::commit_diff(root, sha))),
+        Range::Paths(named) => {
+            return named.iter().filter(|p| files.wants(ctx, p)).map(|p| (p.clone(), None)).collect();
+        }
     };
     let added: HashMap<String, Vec<usize>> = added.unwrap_or_default();
     added
@@ -147,6 +153,7 @@ impl Rule for CitesOutside {
         let files = Files {
             include: cfg.paths.iter().filter_map(|p| matcher(p)).collect(),
             exclude: cfg.exclude.iter().filter_map(|p| matcher(p)).collect(),
+            generated: crate::check::limits::generated::load(&ctx.corpus.cfg).unwrap_or_default(),
         };
         let history: Vec<Regex> = cfg.history.iter().filter_map(|r| Regex::new(r).ok()).collect();
         let spec_paths = ctx.corpus.cfg.path_cite_re();
