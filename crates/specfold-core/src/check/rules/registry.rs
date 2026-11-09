@@ -53,5 +53,6 @@ pub fn catalog() -> Vec<Box<dyn Rule>> {
         Box::new(lifecycle::ExceptionsReviewed),
         Box::new(links::PinsHold),
         Box::new(lifecycle::TranslationsPlaced),
+        Box::new(schema::UntrackedLeftOut),
     ]
 }

@@ -11,6 +11,7 @@ mod owner;
 mod required;
 mod sections;
 mod status;
+mod untracked;
 mod values;
 
 pub use dates::Dates;
@@ -23,4 +24,5 @@ pub use required::RequiredByStatus;
 pub(crate) use required::has_value;
 pub use sections::RequiredSections;
 pub use status::StatusAllowed;
+pub use untracked::UntrackedLeftOut;
 pub use values::RequiredValues;

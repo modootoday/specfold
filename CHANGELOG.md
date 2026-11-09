@@ -3,6 +3,16 @@
 Release notes for each version are also on
 [GitHub releases](https://github.com/modootoday/specfold/releases).
 
+## 0.8.0 - unreleased
+
+### Changed
+
+- A full `spec check` reads only the files git tracks, the local directory (`[local] path`) and the external roots spec.toml names; `.git` is never read by any walk. Documents in a spec directory that git does not track are no longer checked one by one: the new rule S9 reports them in one warning with their count and first paths, and the first 100 in `candidates` with `--json`. `spec check --include-untracked` (or `SPECFOLD_INCLUDE_UNTRACKED=1`) reads every file on disk as before. `--staged`, `--changed`, `--commits` and files named on the command line read what they read before. A draft made with `spec new --write` is checked by a full run once it is added (`git add`), or when named (`spec check <file>`).
+
+### For specfold-core library users
+
+- New public fields: `Config.tracked` and `Corpus.untracked`. A struct literal that lists every field must add them.
+
 ## 0.7.2 - 2026-11-05
 
 0.7.2 makes staged and ranged runs fast again on changes that touch thousands of files, such as a directory turned into a submodule. No command, flag, spec.toml key, finding or exit code changes, and the specfold-core library only gains items.

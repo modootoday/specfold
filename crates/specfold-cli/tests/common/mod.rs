@@ -52,6 +52,9 @@ impl Repo {
         c.current_dir(self.path())
             .envs(self.isolated_env())
             .env("SPECFOLD_CACHE", self.path().join(".cache"))
+            // Fixtures write documents without adding them; tests of the tracked-only default
+            // remove this.
+            .env("SPECFOLD_INCLUDE_UNTRACKED", "1")
             // Box drawing depends on the locale: pin it so tests do not follow the host.
             .env("LC_ALL", "C.UTF-8")
             .env_remove("LC_CTYPE")

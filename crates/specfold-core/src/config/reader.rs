@@ -20,6 +20,9 @@ pub struct Config {
     pub registry: Registry,
     /// True when no spec.toml was found and defaults are in use.
     pub implicit: bool,
+    /// When set, walks from the spec home read only these files, plus the local directory and
+    /// anything outside the repository (`spec check` sets it for a full run).
+    pub tracked: Option<std::sync::Arc<vcs::TrackedSet>>,
 }
 
 impl Config {
@@ -85,7 +88,24 @@ impl Config {
             raw.remotes.entry(name).or_insert(crate::config::types::RemoteRoot { path, paths: vec![], auto: false });
         }
         let registry = Registry::new(&raw.types);
-        Config { repo_root: root.clone(), spec_home: root, raw, registry, implicit }
+        Config { repo_root: root.clone(), spec_home: root, raw, registry, implicit, tracked: None }
+    }
+
+    /// The same configuration with walks kept to the files git tracks; unchanged outside git.
+    pub fn tracked_only(mut self) -> Self {
+        self.tracked = vcs::TrackedSet::load(&self.spec_home).map(std::sync::Arc::new);
+        self
+    }
+
+    /// Whether a walk from the spec home reads the repository path `rel` (a file, or a folder
+    /// when `dir`): everything without `tracked`, else tracked files and the local directory.
+    pub fn reads(&self, rel: &str, dir: bool) -> bool {
+        let Some(t) = &self.tracked else { return true };
+        let local = self.local_dir();
+        if rel.is_empty() || crate::paths::is_under(rel, local) {
+            return true;
+        }
+        if dir { t.has_dir(rel) || t.has_file(rel) } else { t.has_file(rel) }
     }
 
     pub fn spec_dir(&self) -> &str {

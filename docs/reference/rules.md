@@ -21,6 +21,12 @@ description: Every rule spec check runs, grouped by family.
 | **S6** | a status has the fields it requires |
 | **S7** | a document has the sections its type requires (`spec new` writes them; the finding names the `spec edit --new-section` command) |
 | **S8** | a required field has a usable value: not a placeholder (`TBD`, `Pending`, `TODO`, `?` by default), of its declared kind, distinct where asked (warning) |
+| **S9** | a full run names the untracked documents it left out, in one warning (warning) |
+
+A full `spec check` reads the files git tracks, the local directory (`[local] path`) and the
+external roots spec.toml names, and never `.git`. Documents not yet added are left out and counted
+by S9; `spec check --include-untracked` (or `SPECFOLD_INCLUDE_UNTRACKED=1`) reads every file on
+disk, as before 0.8.0. `--staged`, `--changed` and files named on the command line are unchanged.
 
 ## Identity
 

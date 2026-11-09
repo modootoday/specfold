@@ -17,4 +17,4 @@ pub use passing::{Passing, passing, range_end};
 pub use refs::{commit_diff, commit_log, head, is_ancestor_of_head, parent_or_empty, resolve, upstream};
 pub use repo::{git_root, is_repo};
 pub use submodules::{Expansion, Side, expand as expand_submodules, gitlinks, submodule_changes};
-pub use tracked::{blob_id, committed, ignored, past_blobs, tracked};
+pub use tracked::{TrackedSet, blob_id, committed, ignored, past_blobs, tracked};

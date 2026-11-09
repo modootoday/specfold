@@ -18,8 +18,9 @@ impl Corpus {
             all_roots.extend(roots::local(&cfg, &owners, &mut strays));
         }
         let mut pending = vec![];
+        let mut untracked = vec![];
         for root in &all_roots {
-            let mut files = walk::files(&cfg, &root.dir, root.tier);
+            let mut files = walk::files(&cfg, &root.dir, root.tier, &mut untracked);
             // A type's own directory is an ordinary one: an owner nested in it keeps its files.
             if root.ty.is_some() {
                 files.retain(|f| owners.containing(f).id == root.owner);
@@ -43,7 +44,9 @@ impl Corpus {
         strays.sort_by(|a, b| a.path.cmp(&b.path));
         let aliases = aliases::load(&cfg);
         trace::phase("assemble", t);
-        Corpus { cfg, owners, roots: all_roots, docs, strays, aliases }
+        untracked.sort();
+        untracked.dedup();
+        Corpus { cfg, owners, roots: all_roots, docs, strays, aliases, untracked }
     }
 }
 

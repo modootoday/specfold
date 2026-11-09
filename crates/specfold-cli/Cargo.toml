@@ -130,6 +130,10 @@ name = "remotes"
 path = "tests/io/remotes.rs"
 
 [[test]]
+name = "repo_scope"
+path = "tests/rules/repo_scope.rs"
+
+[[test]]
 name = "rules"
 path = "tests/rules/rules.rs"
 

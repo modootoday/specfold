@@ -10,4 +10,4 @@ mod walk;
 pub use inner::{is_external, submodule_at};
 pub use nested::nested_remotes;
 pub use submodules::{submodule_remotes, submodule_urls, submodules};
-pub use walk::{walk, walk_across};
+pub use walk::{walk, walk_across, walk_untracked};

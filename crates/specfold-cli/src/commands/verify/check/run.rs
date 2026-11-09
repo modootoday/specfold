@@ -54,8 +54,11 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
     }
     // C116: config warnings are a line each and not findings, so -q shows them too.
     session::show_config_warnings();
-    let s = session::open(g)?;
     let files: Vec<String> = a.files.iter().chain(&a.stdin_path).cloned().collect();
+    // A full run reads what git tracks; files named on the command line are read as they are.
+    let full = !a.staged && a.changed.is_none() && files.is_empty();
+    let untracked = a.include_untracked || std::env::var_os("SPECFOLD_INCLUDE_UNTRACKED").is_some_and(|v| v == "1");
+    let s = if full && !untracked { session::open_tracked(g)? } else { session::open(g)? };
     let only = documents_named(&s, &files, a.stdin_path.as_deref())?;
     let commands = crate::cli::describe::commands().into_iter().map(|c| c.name).collect();
     let opts =

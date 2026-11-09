@@ -46,6 +46,9 @@ pub struct Corpus {
     pub docs: Vec<Doc>,
     pub strays: Vec<Stray>,
     pub aliases: AliasTable,
+    /// Markdown files in committed spec directories that git does not track, left out because
+    /// the configuration reads tracked files only (`Config.tracked`); empty otherwise.
+    pub untracked: Vec<String>,
 }
 
 #[derive(Debug, Clone, Default)]

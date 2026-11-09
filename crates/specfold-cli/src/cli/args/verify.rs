@@ -51,6 +51,11 @@ pub struct CheckArgs {
     /// without failing.
     #[arg(long = "fail-on", value_name = "RULE")]
     pub fail_on: Vec<String>,
+    /// In a full run, also read files git does not track (by default a full run reads tracked
+    /// files, the local directory and external roots, and names untracked documents in one S9
+    /// warning). SPECFOLD_INCLUDE_UNTRACKED=1 does the same.
+    #[arg(long)]
+    pub include_untracked: bool,
     /// Show every finding, ignoring [check] baseline.
     #[arg(long, conflicts_with = "write_baseline")]
     pub no_baseline: bool,

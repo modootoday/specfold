@@ -10,4 +10,4 @@ pub mod vcs;
 pub mod visibility;
 
 pub use owners::{Owner, Owners, escape_glob, literal_prefix};
-pub use projects::{walk, walk_across};
+pub use projects::{walk, walk_across, walk_untracked};

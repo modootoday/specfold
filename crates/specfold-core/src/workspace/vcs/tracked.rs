@@ -11,6 +11,43 @@ pub fn tracked(root: &Path, bases: &[String]) -> Option<Vec<String>> {
     git(root, &args).map(split_nul)
 }
 
+/// The files git tracks (index, submodules included) and every folder above one, so a walk can
+/// keep to them; a full `spec check` reads nothing else from the repository.
+#[derive(Debug, Default)]
+pub struct TrackedSet {
+    files: std::collections::HashSet<String>,
+    dirs: std::collections::HashSet<String>,
+}
+
+impl TrackedSet {
+    /// None outside a git repository, where every file counts.
+    pub fn load(root: &Path) -> Option<Self> {
+        let files = tracked(root, &[])?;
+        let mut set = TrackedSet::default();
+        for f in files {
+            let mut dir = f.as_str();
+            while let Some((up, _)) = dir.rsplit_once('/') {
+                if !set.dirs.insert(up.to_string()) {
+                    break;
+                }
+                dir = up;
+            }
+            set.files.insert(f);
+        }
+        Some(set)
+    }
+
+    /// Whether git tracks the repository path `rel`.
+    pub fn has_file(&self, rel: &str) -> bool {
+        self.files.contains(rel)
+    }
+
+    /// Whether some tracked file lies below the repository folder `rel`.
+    pub fn has_dir(&self, rel: &str) -> bool {
+        self.dirs.contains(rel)
+    }
+}
+
 /// The git blob ids `path` has had in any commit, newest first; empty outside git.
 pub fn past_blobs(root: &Path, path: &str) -> Vec<String> {
     let Some(out) = git(root, &["log", "--format=", "--raw", "--no-abbrev", "--", path]) else { return vec![] };

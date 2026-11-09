@@ -45,7 +45,18 @@ pub fn config_quiet(g: &Global) -> Result<Config> {
 }
 
 pub fn open(g: &Global) -> Result<Session> {
+    open_with(g, false)
+}
+
+/// A session whose walks read only the files git tracks (and the local directory), with the
+/// documents left out listed in `Corpus.untracked`: a full `spec check`.
+pub fn open_tracked(g: &Global) -> Result<Session> {
+    open_with(g, true)
+}
+
+fn open_with(g: &Global, tracked: bool) -> Result<Session> {
     let cfg = config(g)?;
+    let cfg = if tracked { cfg.tracked_only() } else { cfg };
     let loc = location(g).rooted(&cfg);
     let corpus = Corpus::load(cfg, &LoadOptions { include_local: !g.no_local });
     let t = std::time::Instant::now();
