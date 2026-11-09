@@ -3,7 +3,11 @@
 Release notes for each version are also on
 [GitHub releases](https://github.com/modootoday/specfold/releases).
 
-## 0.8.0 - unreleased
+## 0.8.0 - 2026-11-09
+
+0.8.0 is a minor release because a full `spec check` changes its default: it reads the files git tracks and names untracked documents in one S9 warning instead of checking them. D1 reads a moved gitlink as one change, and four new spec.toml sections add checks: size budgets (`[budgets]`, B1, with `spec check --path` and `--stdin-path`), generated files (`[generated]`, G2), path and id checks for external sources (`[external.<name>] check_paths` and `ids`, V3) and a warning ratchet (`[ratchet]`, W1, with `spec check --write-ratchet`). Every command and flag of 0.7.2 keeps its name and meaning; `spec check --include-untracked` restores the old full-run default.
+
+An older `spec` refuses a spec.toml that uses `[budgets]`, `[generated]`, `[ratchet]` or the new `[external.<name>]` keys (`check_paths`, `ids`), as it does any key it does not know.
 
 ### Changed
 
@@ -21,7 +25,6 @@ Release notes for each version are also on
 ### For specfold-core library users
 
 - New public fields: `Config.tracked`, `Corpus.untracked`, `Scope.gitlinks`, `Report.gitlinks`, `Report.ratchet`, `Expansion.moves`, `ExternalRoot.check_paths` and `ids`, and `RawConfig.budgets`, `generated` and `ratchet`; `Range::Paths` is a new variant. A struct literal or an exhaustive `match` on them must add them.
-- An older `spec` refuses a spec.toml that uses `[budgets]`, `[generated]`, `[ratchet]` or the new `[external.<name>]` keys, as it does any key it does not know.
 
 ## 0.7.2 - 2026-11-05
 
