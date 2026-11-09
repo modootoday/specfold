@@ -179,7 +179,10 @@ its own code can therefore belong to a narrower owner than in 0.4.0, and P1 repo
 
 B1 runs at commit on the changed files, in a full run on every file a budget names, and on named
 files with `spec check --rule B1 --path <file> --json` (see the configuration reference for the
-JSON). Generated files are measured too, since their size is what a reader loads.
+JSON). Generated files are measured too, since their size is what a reader loads. A file inside a
+submodule belongs to that repository, so only a budget that names the submodule explicitly judges
+it: one whose literal prefix (the segments before the first wildcard) is the submodule's path or
+lies below it, such as `vendor/lib/AGENTS.md`; `**/AGENTS.md` does not.
 
 W1 keeps a pile of warnings from growing while it is worked down. `[ratchet] rules = ["L8"]` and
 `file = ".spec/ratchet.json"` record, per rule and owner, the warnings a full run finds; a later

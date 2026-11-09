@@ -195,7 +195,9 @@ A caller that is about to write a file asks for one verdict, with the text on st
 `spec check --rule B1 --path AGENTS.md --stdin-path AGENTS.md --json < new-text`. The exit code is
 1 when a limit is exceeded or the limits cannot be read, and the JSON carries `budgets`: for each
 file `path`, `bytes`, `lines`, `over`, and `limits` with `glob`, `source`, `max_bytes`,
-`max_lines`, `over_bytes` and `over_lines`.
+`max_lines`, `over_bytes` and `over_lines`. A file inside a submodule is judged only by a budget
+whose literal prefix reaches into the submodule (`vendor/lib/**/*.md`, not `**/*.md`); otherwise
+it passes with a note and is listed under `out_of_scope` with its `path` and `gitlink`.
 
 ## Cache
 

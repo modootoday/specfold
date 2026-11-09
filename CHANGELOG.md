@@ -3,6 +3,12 @@
 Release notes for each version are also on
 [GitHub releases](https://github.com/modootoday/specfold/releases).
 
+## 0.8.1 - unreleased
+
+### Fixed
+
+- B1 no longer judges files inside a submodule by a budget that only matches them: a full run lists tracked files with the files of checked-out submodules, so `**/AGENTS.md` measured every submodule's AGENTS.md, which the parent repository does not own. Inside a gitlink only a budget that names it explicitly counts: one whose literal prefix (the path segments before the first one holding `*`, `?`, `[` or `{`) is the submodule's path or lies below it, such as `vendor/lib/AGENTS.md` or `vendor/lib/**/*.md`; `**/AGENTS.md` and `vendor/**` do not. `spec check --rule B1 --path <file>` inside a submodule that no such budget names passes with a note, and `--json` lists it under `out_of_scope` (`path`, `gitlink`).
+
 ## 0.8.0 - 2026-11-09
 
 0.8.0 is a minor release because a full `spec check` changes its default: it reads the files git tracks and names untracked documents in one S9 warning instead of checking them. D1 reads a moved gitlink as one change, and four new spec.toml sections add checks: size budgets (`[budgets]`, B1, with `spec check --path` and `--stdin-path`), generated files (`[generated]`, G2), path and id checks for external sources (`[external.<name>] check_paths` and `ids`, V3) and a warning ratchet (`[ratchet]`, W1, with `spec check --write-ratchet`). Every command and flag of 0.7.2 keeps its name and meaning; `spec check --include-untracked` restores the old full-run default.

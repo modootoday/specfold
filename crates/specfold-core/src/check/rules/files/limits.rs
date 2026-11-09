@@ -25,10 +25,11 @@ impl Rule for RatchetHolds {
 }
 
 /// The files B1 measures: in a full run every file the walk reads that a budget names, else the
-/// changed or named files a budget names.
-fn candidates(ctx: &Ctx, list: &[budgets::Budget]) -> Vec<String> {
+/// changed or named files a budget names. Inside a submodule only a budget naming it explicitly
+/// counts.
+fn candidates(ctx: &Ctx, list: &[budgets::Budget], links: &[String]) -> Vec<String> {
     let cfg = &ctx.corpus.cfg;
-    let wanted = |p: &str| list.iter().any(|b| b.matches(p));
+    let wanted = |p: &str| !budgets::applicable(list, links, p).is_empty();
     if !ctx.scope.is_all() {
         return ctx.scope.paths.iter().filter(|p| wanted(p)).cloned().collect();
     }
@@ -47,10 +48,11 @@ fn measures(ctx: &Ctx) -> anyhow::Result<Vec<budgets::Measure>> {
     if list.is_empty() {
         return Ok(vec![]);
     }
+    let links = crate::workspace::projects::submodules(&ctx.corpus.cfg.spec_home);
     let mut out = vec![];
-    for p in candidates(ctx, &list) {
+    for p in candidates(ctx, &list, &links) {
         let Some(text) = ctx.current(&p) else { continue };
-        out.extend(budgets::measure(&list, &p, text.as_bytes()));
+        out.extend(budgets::measure(&budgets::applicable(&list, &links, &p), &p, text.as_bytes()));
     }
     Ok(out)
 }
@@ -60,7 +62,7 @@ impl Rule for SizeBudgets {
         &RuleInfo {
             id: "B1",
             title: "files stay within their size budgets",
-            explain: "`[budgets]` sets a limit in bytes, lines or both per path glob: in spec.toml (`[budgets.paths] \"AGENTS.md\" = { bytes = 12288, lines = 200 }`) or in another file that owns the numbers (`[budgets] from = \"<file>#<key>\"`, a TOML or JSON table of glob to `{ bytes, lines }`, or an array of `{ path | paths, bytes, lines }`). A full run measures every file the walk reads that a glob names; `--staged` and `--changed` measure the changed files; `spec check --rule B1 --path <file> --json` measures one file, and with `--stdin-path <file>` the text on standard input instead of the file on disk. Each limit exceeded is an error naming the size, the limit and where it was set. A source that cannot be read or parsed, a table of the wrong shape, a bad glob, or an entry with neither limit is an error on spec.toml, never a pass. Generated files are measured too: their size is what a reader loads. Shorten the file, or change the limit where it is set. `--json` adds `budgets`: each file judged with `path`, `bytes`, `lines`, `over`, and `limits` (`glob`, `source`, `max_bytes`, `max_lines`, `over_bytes`, `over_lines`).",
+            explain: "`[budgets]` sets a limit in bytes, lines or both per path glob: in spec.toml (`[budgets.paths] \"AGENTS.md\" = { bytes = 12288, lines = 200 }`) or in another file that owns the numbers (`[budgets] from = \"<file>#<key>\"`, a TOML or JSON table of glob to `{ bytes, lines }`, or an array of `{ path | paths, bytes, lines }`). A full run measures every file the walk reads that a glob names; `--staged` and `--changed` measure the changed files; `spec check --rule B1 --path <file> --json` measures one file, and with `--stdin-path <file>` the text on standard input instead of the file on disk. A file inside a submodule (a gitlink) belongs to that repository, not this one, so only a budget that names it explicitly judges it: one whose literal prefix, the path segments before the first one holding `*`, `?`, `[` or `{`, is the submodule's path or lies below it (`vendor/lib/AGENTS.md`, `vendor/lib/**/*.md`); `**/AGENTS.md`, `*.md` and `vendor/**` match there without naming it. `--path` naming a file inside a submodule that no such budget names reports it as out of scope (a note, and `out_of_scope` in `--json`) and passes. Each limit exceeded is an error naming the size, the limit and where it was set. A source that cannot be read or parsed, a table of the wrong shape, a bad glob, or an entry with neither limit is an error on spec.toml, never a pass. Generated files are measured too: their size is what a reader loads. Shorten the file, or change the limit where it is set. `--json` adds `budgets`: each file judged with `path`, `bytes`, `lines`, `over`, and `limits` (`glob`, `source`, `max_bytes`, `max_lines`, `over_bytes`, `over_lines`).",
             on_commit: true,
         }
     }

@@ -3,8 +3,8 @@
 use super::baseline::{held_note, write_baseline, write_ratchet};
 use super::ci::{Ctx, ci_output};
 use super::scope::{
-    budget_measures, check_fail_on, check_rule_names, checked_range, documents_named, overlay_stdin, range_of,
-    repo_paths,
+    budget_measures, budget_out_of_scope, check_fail_on, check_rule_names, checked_range, documents_named,
+    overlay_stdin, range_of, repo_paths,
 };
 use crate::cli::args::{global::Global, verify::CheckArgs};
 use crate::commands::verify::owners;
@@ -94,6 +94,16 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
     let mut o = summary(&s, &report, &held, &t);
     if !named.is_empty() && report.rules_run.contains(&"B1") {
         o = o.field("budgets", budget_measures(&s, &named));
+        let outside = budget_out_of_scope(&s, &named);
+        if !outside.is_empty() {
+            let json: Vec<_> = outside.iter().map(|(p, l)| serde_json::json!({"path": p, "gitlink": l})).collect();
+            o = o.field("out_of_scope", json);
+        }
+        for (p, l) in &outside {
+            o = o.foot(format!(
+                "B1: {p} is inside the submodule {l} and no budget names it explicitly; out of scope, not judged"
+            ));
+        }
     }
     if a.format != "text" {
         let cx = Ctx {

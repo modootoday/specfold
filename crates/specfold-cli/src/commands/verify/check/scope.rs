@@ -115,14 +115,30 @@ pub(super) fn repo_paths(s: &session::Session, named: &[String]) -> Vec<String> 
 pub(super) fn budget_measures(s: &session::Session, named: &[String]) -> serde_json::Value {
     use specfold_core::check::limits::budgets;
     let Ok(list) = budgets::load(&s.corpus.cfg) else { return serde_json::json!([]) };
+    let links = specfold_core::workspace::projects::submodules(&s.corpus.cfg.spec_home);
     let measured: Vec<budgets::Measure> = named
         .iter()
         .filter_map(|p| {
             let text = specfold_core::corpus::overlay::read(&s.corpus.cfg.spec_home.join(p)).ok()?;
-            budgets::measure(&list, p, text.as_bytes())
+            budgets::measure(&budgets::applicable(&list, &links, p), p, text.as_bytes())
         })
         .collect();
     serde_json::to_value(measured).unwrap_or_default()
+}
+
+/// The `--path` files B1 leaves alone: inside a submodule, with no budget naming it explicitly,
+/// each with that submodule.
+pub(super) fn budget_out_of_scope(s: &session::Session, named: &[String]) -> Vec<(String, String)> {
+    use specfold_core::check::limits::budgets;
+    let list = budgets::load(&s.corpus.cfg).unwrap_or_default();
+    let links = specfold_core::workspace::projects::submodules(&s.corpus.cfg.spec_home);
+    named
+        .iter()
+        .filter_map(|p| {
+            let link = budgets::gitlink_of(&links, p)?;
+            budgets::applicable(&list, &links, p).is_empty().then(|| (p.clone(), link.to_string()))
+        })
+        .collect()
 }
 
 /// `--stdin-path`: standard input stands in for that file's contents.

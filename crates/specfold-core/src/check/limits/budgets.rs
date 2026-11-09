@@ -22,6 +22,32 @@ impl Budget {
     pub fn matches(&self, path: &str) -> bool {
         self.m.is_match(path)
     }
+
+    /// Whether the glob names paths inside the submodule at `link` explicitly: its literal
+    /// prefix, the segments before the first one holding `*`, `?`, `[` or `{`, is `link` or lies
+    /// below it. `**/AGENTS.md` or `apps/**` match inside a submodule without naming it.
+    pub fn names_inside(&self, link: &str) -> bool {
+        crate::paths::is_under(&literal_prefix(&self.glob), link)
+    }
+}
+
+/// The segments of `glob` before the first one with a wildcard, joined by `/`.
+fn literal_prefix(glob: &str) -> String {
+    let segs: Vec<&str> =
+        glob.trim_end_matches('/').split('/').take_while(|s| !s.contains(['*', '?', '[', '{'])).collect();
+    segs.join("/")
+}
+
+/// The submodule among `links` that `path` lies inside, if any.
+pub fn gitlink_of<'a>(links: &'a [String], path: &str) -> Option<&'a str> {
+    links.iter().map(String::as_str).find(|l| crate::paths::is_below(path, l))
+}
+
+/// The budgets that judge `path`: those whose glob matches it, except that inside a submodule
+/// only those naming it explicitly count, as the parent repository does not own its files.
+pub fn applicable(list: &[Budget], links: &[String], path: &str) -> Vec<Budget> {
+    let link = gitlink_of(links, path);
+    list.iter().filter(|b| b.matches(path) && link.is_none_or(|l| b.names_inside(l))).cloned().collect()
 }
 
 /// What a file measures and the limits that apply to it, in the order they were read.
@@ -152,6 +178,22 @@ mod tests {
         let m = measure(&budgets, "a.md", b"x\ny").unwrap();
         assert_eq!((m.lines, m.over), (2, false));
         assert!(measure(&budgets, "b.txt", b"").is_none());
+    }
+
+    #[test]
+    fn only_a_literal_prefix_reaching_a_gitlink_names_paths_inside_it() {
+        let link = "vendor/lib";
+        let named = |g: &str| b(g, Some(1), None).names_inside(link);
+        assert!(named("vendor/lib/AGENTS.md") && named("vendor/lib/**/*.md") && named("vendor/lib"));
+        assert!(!named("**/AGENTS.md") && !named("vendor/**/AGENTS.md") && !named("AGENTS.md"));
+        assert!(!named("vendor") && !named("vendor/library/*.md") && !named("*.md"));
+        let links = vec![link.to_string()];
+        let list = [b("**/AGENTS.md", Some(1), None), b("vendor/lib/AGENTS.md", None, Some(1))];
+        let globs = |p: &str| applicable(&list, &links, p).into_iter().map(|b| b.glob).collect::<Vec<_>>();
+        assert_eq!(globs("vendor/lib/AGENTS.md"), ["vendor/lib/AGENTS.md"]);
+        assert_eq!(globs("vendor/lib/x/AGENTS.md"), Vec::<String>::new());
+        assert_eq!(globs("AGENTS.md"), ["**/AGENTS.md"]);
+        assert_eq!(gitlink_of(&links, "vendor/lib"), None);
     }
 
     #[test]

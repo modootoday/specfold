@@ -83,6 +83,84 @@ fn b1_a_full_run_measures_every_file_a_budget_names() {
     assert_eq!(paths, ["services/shop/README.md"], "{v}");
 }
 
+fn git_in(dir: &std::path::Path, args: &[&str]) {
+    let ok = std::process::Command::new("git")
+        .args(["-c", "user.email=t@t", "-c", "user.name=t", "-c", "protocol.file.allow=always"])
+        .args(args)
+        .current_dir(dir)
+        .output()
+        .unwrap()
+        .status
+        .success();
+    assert!(ok, "git {args:?}");
+}
+
+/// A repository whose submodule `vendor/lib` holds an AGENTS.md of three lines, beside a root
+/// one of three lines, with `budgets` in spec.toml.
+fn with_submodule(budgets: &str) -> (common::Repo, common::Repo) {
+    let lib = common::Repo::new(tempfile::tempdir().unwrap());
+    git_in(lib.path(), &["init", "-q", "-b", "main"]);
+    lib.write("AGENTS.md", "one\ntwo\nthree\n");
+    git_in(lib.path(), &["add", "-A"]);
+    git_in(lib.path(), &["commit", "-qm", "lib"]);
+    let r = common::repo();
+    git_in(r.path(), &["submodule", "add", "-q", lib.path().to_str().unwrap(), "vendor/lib"]);
+    r.write("AGENTS.md", "one\ntwo\nthree\n");
+    r.write("spec.toml", &(r.read("spec.toml") + "[budgets.paths]\n" + budgets));
+    git_in(r.path(), &["add", "-A"]);
+    git_in(r.path(), &["commit", "-qm", "submodule"]);
+    (r, lib)
+}
+
+fn tracked_json(r: &common::Repo, args: &[&str]) -> (i32, Value) {
+    let out = r.spec().env_remove("SPECFOLD_INCLUDE_UNTRACKED").args(args).arg("--json").output().unwrap();
+    (out.status.code().unwrap_or(-1), serde_json::from_slice(&out.stdout).unwrap())
+}
+
+fn budget_of(f: &Value) -> &str {
+    f["message"].as_str().unwrap().rsplit_once('(').map_or("", |(_, g)| g)
+}
+
+fn found(v: &Value) -> Vec<(&str, &str)> {
+    v["items"].as_array().unwrap().iter().map(|f| (f["path"].as_str().unwrap(), budget_of(f))).collect()
+}
+
+#[test]
+fn b1_a_full_run_leaves_a_gitlink_to_its_own_repository() {
+    let (r, _lib) = with_submodule("\"**/AGENTS.md\" = { lines = 1 }\n\"vendor/**\" = { lines = 1 }\n");
+    for run in [tracked_json(&r, &["check", "--rule", "B1"]), r.json(&["check", "--rule", "B1"])] {
+        let (code, v) = run;
+        assert_eq!(code, 1, "{v}");
+        assert_eq!(found(&v), [("AGENTS.md", "**/AGENTS.md in spec.toml)")], "{v}");
+    }
+}
+
+#[test]
+fn b1_a_budget_whose_literal_prefix_reaches_a_gitlink_judges_inside_it() {
+    let (r, _lib) = with_submodule("\"**/AGENTS.md\" = { lines = 9 }\n\"vendor/lib/AGENTS.md\" = { lines = 2 }\n");
+    let (code, v) = tracked_json(&r, &["check", "--rule", "B1"]);
+    assert_eq!(code, 1, "{v}");
+    assert_eq!(found(&v), [("vendor/lib/AGENTS.md", "vendor/lib/AGENTS.md in spec.toml)")], "{v}");
+    let (code, v) = r.json(&["check", "--rule", "B1", "--path", "vendor/lib/AGENTS.md"]);
+    assert_eq!(code, 1, "{v}");
+    let limits: Vec<&str> =
+        v["budgets"][0]["limits"].as_array().unwrap().iter().map(|l| l["glob"].as_str().unwrap()).collect();
+    assert_eq!(limits, ["vendor/lib/AGENTS.md"], "{v}");
+    assert!(v.get("out_of_scope").is_none(), "{v}");
+}
+
+#[test]
+fn b1_a_path_inside_a_gitlink_no_budget_names_is_out_of_scope() {
+    let (r, _lib) = with_submodule("\"**/AGENTS.md\" = { lines = 1 }\n");
+    let (code, v) = r.json(&["check", "--rule", "B1", "--path", "vendor/lib/AGENTS.md"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["budgets"], serde_json::json!([]), "{v}");
+    assert_eq!(v["out_of_scope"], serde_json::json!([{"path": "vendor/lib/AGENTS.md", "gitlink": "vendor/lib"}]));
+    let (code, text) = r.text(&["check", "--rule", "B1", "--path", "vendor/lib/AGENTS.md"]);
+    assert_eq!(code, 0, "{text}");
+    assert!(text.contains("inside the submodule vendor/lib and no budget names it explicitly"), "{text}");
+}
+
 #[test]
 fn g2_generated_copies_skip_asset_checks_and_their_sources_must_exist() {
     let r = common::repo();
