@@ -81,7 +81,8 @@ fn c163_dir_reaches_shell_next_undo_and_fix_hints() {
     let next = v["next"].as_str().unwrap();
     assert!(next.starts_with("git -C .. status") || next.starts_with("cd .. && "), "{v}");
     // A check fix hint keeps -C too.
-    let p = common::md_files(r.path()).into_iter().find(|p| p.to_string_lossy().contains("cart")).unwrap();
+    // The document by its own path: the export above wrote a copy whose name also holds "cart".
+    let p = r.path().join(common::doc_path(&r, &d));
     let t = std::fs::read_to_string(&p).unwrap();
     std::fs::write(&p, t.replacen(&d, &format!("{d}x"), 1)).unwrap();
     let mut c = r.spec();

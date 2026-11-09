@@ -590,13 +590,12 @@ fn c187_writes_in_one_second_never_share_or_overwrite_a_trash_folder() {
     let p = s["path"].as_str().unwrap().to_string();
     r.write(&p, &(r.read(&p) + "\nmy own line\n"));
     let mine = r.read(&p);
-    // Folders already taken for the next few seconds: the write must pick another name.
-    let out = std::process::Command::new("date").args(["-u", "+%s"]).output().unwrap();
-    let now: i64 = String::from_utf8_lossy(&out.stdout).trim().parse().unwrap();
-    for t in now..now + 5 {
-        let o =
-            std::process::Command::new("date").args(["-u", "-d", &format!("@{t}"), "+%Y%m%d%H%M%S"]).output().unwrap();
-        r.write(&format!(".specfold/trash/{}/keep.txt", String::from_utf8_lossy(&o.stdout).trim()), "old");
+    // Folders already taken for the next minute: the write must pick another name. Stamps come
+    // from the library, not date(1): BSD date has no -d @<seconds>.
+    let mut stamp = specfold_core::model::stamp::now_stamp();
+    for _ in 0..60 {
+        r.write(&format!(".specfold/trash/{stamp}/keep.txt"), "old");
+        stamp = specfold_core::model::stamp::next_stamp(&stamp).unwrap();
     }
     let undo = |text: &str| {
         let (code, v) = r.json(&["edit", &id, "--append", "--text", text, "--write"]);
