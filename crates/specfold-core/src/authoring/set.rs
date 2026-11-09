@@ -7,6 +7,9 @@ use crate::model::markdown::frontmatter::edit;
 use crate::model::stamp;
 use anyhow::{Result, anyhow, bail};
 use serde_json::{Map, Value};
+use shape::Shape;
+
+mod shape;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Op {
@@ -56,7 +59,7 @@ fn target<'a>(map: &'a mut Map<String, Value>, key: &str) -> (&'a mut Map<String
 /// Frontmatter keys that hold one value.
 const SCALAR_KEYS: &[&str] = &["id", "title", "status", "owner", "created", "updated", "source_rev"];
 
-fn apply_one(map: &mut Map<String, Value>, a: &Assign) {
+fn apply_one(map: &mut Map<String, Value>, a: &Assign, shape: Shape) {
     // C109: `key=[a, b]` is a list, written the way YAML writes one.
     // C200: a single-value key keeps `[x, y]` as text (the writer quotes it), not a list.
     let scalar = SCALAR_KEYS.contains(&a.key.as_str());
@@ -95,7 +98,8 @@ fn apply_one(map: &mut Map<String, Value>, a: &Assign) {
             m.insert(k, Value::Array(items.into_iter().filter(|s| !s.is_empty()).map(Value::String).collect()));
         }
         (Op::Set, false) => {
-            m.insert(k, Value::String(value));
+            let v = shape::value(shape, value, m.get(&k));
+            m.insert(k, v);
         }
         (Op::Add, _) => {
             let list = m.entry(k).or_insert_with(|| Value::Array(vec![]));
@@ -209,10 +213,13 @@ fn plan_with(c: &Corpus, idx: usize, assigns: &[Assign], successor_pending: bool
         let ordered = edit::ordered(std::mem::take(m));
         *m = ordered;
     };
-    let same = edit::rewrite(&text, |m| {
+    let apply_all = |m: &mut Map<String, Value>| {
         for a in assigns {
-            apply_one(m, a);
+            apply_one(m, a, shape::of(ty, &a.key));
         }
+    };
+    let same = edit::rewrite(&text, |m| {
+        apply_all(m);
         order(m);
     })? == edit::rewrite(&text, order)?;
     if same {
@@ -220,9 +227,7 @@ fn plan_with(c: &Corpus, idx: usize, assigns: &[Assign], successor_pending: bool
     }
     let mut after = Map::new();
     let new = edit::rewrite(&text, |m| {
-        for a in assigns {
-            apply_one(m, a);
-        }
+        apply_all(m);
         if !assigns.iter().any(|a| a.key == "updated") {
             m.insert("updated".into(), Value::String(stamp::now_value()));
         }
@@ -298,6 +303,16 @@ fn refuse(c: &Corpus, idx: usize, ty: &crate::model::TypeDef, a: &Assign, succes
     if a.key == "updated" && matches!(a.op, Op::Set) && a.value.trim().is_empty() {
         bail!("updated is required and cannot be emptied; give a date: spec set {} updated=today --write", d.id);
     }
+    let blank = a.value.trim().is_empty();
+    if shape::of(ty, &a.key) == Shape::Integer && matches!(a.op, Op::Set) && !blank && a.value.parse::<u64>().is_err() {
+        let w = crate::suggest::shell::word(&d.id);
+        bail!(
+            "{} takes a whole number, and '{}' is not one; next: spec set {w} {}=<number> --write",
+            a.key,
+            a.value,
+            a.key
+        );
+    }
     if a.key == "rel.supersedes" && !matches!(a.op, Op::Remove) {
         for v in a.value.split(',').map(|v| v.trim().trim_matches(['[', ']', '"'])).filter(|v| !v.is_empty()) {
             if let Some(old) = c.docs.iter().position(|o| o.id.to_string() == v && o.id.ty == d.id.ty) {
@@ -353,20 +368,24 @@ fn refuse(c: &Corpus, idx: usize, ty: &crate::model::TypeDef, a: &Assign, succes
 mod tests {
     use super::*;
 
+    fn apply(m: &mut Map<String, Value>, s: &str) {
+        apply_one(m, &Assign::parse(s).unwrap(), Shape::Infer);
+    }
+
     #[test]
     fn parses_and_applies() {
         let mut m = Map::new();
-        apply_one(&mut m, &Assign::parse("rel.implements+=sot:a/b").unwrap());
-        apply_one(&mut m, &Assign::parse("rel.implements+=sot:a/b").unwrap());
-        apply_one(&mut m, &Assign::parse("approvers=[kim, lee]").unwrap());
+        apply(&mut m, "rel.implements+=sot:a/b");
+        apply(&mut m, "rel.implements+=sot:a/b");
+        apply(&mut m, "approvers=[kim, lee]");
         assert_eq!(m["approvers"], serde_json::json!(["kim", "lee"]), "C109");
-        apply_one(&mut m, &Assign::parse("tags=x, y").unwrap());
-        apply_one(&mut m, &Assign::parse("phase=P3").unwrap());
+        apply(&mut m, "tags=x, y");
+        apply(&mut m, "phase=P3");
         assert_eq!(m["rel"]["implements"], serde_json::json!(["sot:a/b"]));
         assert_eq!(m["tags"], serde_json::json!(["x", "y"]));
-        apply_one(&mut m, &Assign::parse("tags-=x").unwrap());
-        apply_one(&mut m, &Assign::parse("rel.affects=a").unwrap());
-        apply_one(&mut m, &Assign::parse("rel.affects=").unwrap());
+        apply(&mut m, "tags-=x");
+        apply(&mut m, "rel.affects=a");
+        apply(&mut m, "rel.affects=");
         assert!(m["rel"].get("affects").is_none());
         assert_eq!(m["tags"], serde_json::json!(["y"]));
         assert!(Assign::parse("=x").is_err());

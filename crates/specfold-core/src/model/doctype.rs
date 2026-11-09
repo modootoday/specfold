@@ -53,6 +53,9 @@ pub enum FieldKind {
     UrlOrLink,
 }
 
+/// Frontmatter fields read as whole numbers: `verify_timeout_ms` overrides `[verify] timeout_ms`.
+pub const INTEGER_FIELDS: &[&str] = &["verify_timeout_ms"];
+
 /// Values that stand for "not decided yet": rejected where a status requires the field (S8).
 pub fn default_placeholders() -> Vec<String> {
     ["TBD", "Pending", "TODO", "?"].iter().map(|s| s.to_string()).collect()

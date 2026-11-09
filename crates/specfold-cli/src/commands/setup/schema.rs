@@ -54,7 +54,8 @@ fn frontmatter_schema(t: &TypeDef) -> Value {
         json!({"type": "string", "pattern": "^sha256:[0-9a-f]{12}$", "description": "source revision a translation was made from"}),
     );
     for f in &t.fields {
-        props.entry(f.clone()).or_insert(json!({}));
+        let integer = specfold_core::model::doctype::INTEGER_FIELDS.contains(&f.as_str());
+        props.entry(f.clone()).or_insert(if integer { json!({"type": "integer", "minimum": 0}) } else { json!({}) });
     }
     json!({"$schema": "https://json-schema.org/draft/2020-12/schema", "title": format!("{} frontmatter", t.name), "type": "object", "required": ["id", "title", "status", "created", "updated"], "properties": props})
 }

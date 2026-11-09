@@ -150,6 +150,10 @@ name = "scale"
 path = "tests/io/scale.rs"
 
 [[test]]
+name = "set_values"
+path = "tests/flows/set_values.rs"
+
+[[test]]
 name = "setup_flows"
 path = "tests/flows/setup_flows.rs"
 
