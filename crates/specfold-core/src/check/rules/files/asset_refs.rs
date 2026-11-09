@@ -11,7 +11,7 @@ use std::sync::OnceLock;
 
 pub struct AssetRefsExist;
 
-fn code_re() -> &'static Regex {
+pub(super) fn code_re() -> &'static Regex {
     static R: OnceLock<Regex> = OnceLock::new();
     R.get_or_init(|| Regex::new(r"`([^`\n]+)`").expect("static regex is valid"))
 }
@@ -23,7 +23,7 @@ fn link_re() -> &'static Regex {
 
 /// A token that names a file in the repository, cleaned of anchors and punctuation; None for
 /// URLs, ids, globs, placeholders, options and anything else that is not a plain path.
-fn path_token(raw: &str, linked: bool) -> Option<&str> {
+pub(super) fn path_token(raw: &str, linked: bool) -> Option<&str> {
     let t = raw.trim().trim_end_matches(['.', ',', ';']);
     let t = t.split('#').next()?;
     if t.is_empty() || t.contains(char::is_whitespace) || t.starts_with('-') {

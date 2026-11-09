@@ -39,11 +39,18 @@ impl Default for LocalSection {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ExternalRoot {
-    /// A directory outside the repository, `~` expanded.
+    /// A directory or a file, outside the repository or in it, `~` expanded.
     pub path: String,
     /// Only `cite-check` exists: report citations that no longer resolve.
     #[serde(default = "defaults::cite_check")]
     pub mode: String,
+    /// Rule V3: every backticked repository path in these files exists (a path inside a gitlink
+    /// counts when the pinned commit holds it). Off unless set.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub check_paths: bool,
+    /// Rule V3: every document id in these files resolves, bare or in `[[…]]`. Off unless set.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub ids: bool,
 }
 
 /// Another repository's documents, read-only: `<name>:<id>` in references and relations names a

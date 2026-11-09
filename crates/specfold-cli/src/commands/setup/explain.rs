@@ -23,8 +23,8 @@ const CONFIG_HELP: &[(&str, &str)] = &[
     ),
     ("[local] path", "The git-ignored directory for drafts and private notes."),
     (
-        "[external.<name>] path, mode",
-        "Directories outside the repository (an agent's memory) whose citations are checked with --external.",
+        "[external.<name>] path, mode, check_paths, ids",
+        "A directory or file, outside the repository (an agent's memory) or in it (an instruction file), whose citations are checked with --external (rule V3). check_paths = true checks its backticked repository paths (a path inside a submodule counts when the pinned commit holds it) and ids = true every document id it names, without --external; both off unless set.",
     ),
     (
         "[files] inline_max_bytes, scan_max_bytes, store",

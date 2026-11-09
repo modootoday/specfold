@@ -126,7 +126,14 @@ documents governing each file; the default `"all"` keeps asking every one.
 | --- | --- |
 | **V1** | no spec documents under public paths |
 | **V2** | committed documents do not cite local ones |
-| **V3** | external notes cite documents that exist |
+| **V3** | external sources name documents and paths that exist (warn) |
+
+V3 reads every `[external.<name>]` source, a directory or one file, outside the repository or in
+it. With `--external` it checks their `[[references]]` and spec-path citations. Per source,
+`ids = true` checks every document id written there, bare or in brackets, and `check_paths = true`
+every backticked repository path outside code blocks; a path inside a submodule counts as existing
+when the commit its gitlink pins holds it. These two run without `--external`: over the whole
+source in a full run, and over its changed files in the repository in staged and ranged runs.
 
 ## Placement and attachments
 

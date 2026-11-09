@@ -1,18 +1,16 @@
 //! V rules: private material never reaches a public path, and committed documents never depend on
-//! local ones.
+//! local ones (V3, external sources, lives in its own module).
 
 use crate::check::context::Ctx;
 use crate::check::finding::Finding;
 use crate::check::rule::{Rule, RuleInfo};
 use crate::corpus::graph::Resolution;
 use crate::model::Tier;
-use crate::model::markdown::body;
 use crate::workspace::exposure::{self, Exposed};
 use crate::workspace::walk;
 
 pub struct NotInPublic;
 pub struct NoLocalCites;
-pub struct ExternalCites;
 
 fn is_spec_file(name: &str, types: &[&str]) -> bool {
     types.iter().any(|t| name.ends_with(&format!(".{t}.md")))
@@ -89,55 +87,6 @@ impl Rule for NoLocalCites {
                         l.line,
                         format!("cites the local document {}", ctx.corpus.docs[idx].id),
                     ));
-                }
-            }
-        }
-    }
-}
-
-impl Rule for ExternalCites {
-    fn info(&self) -> &RuleInfo {
-        &RuleInfo {
-            id: "V3",
-            title: "external notes cite documents that exist",
-            explain: "External roots (an agent's memory, personal notes) are read but never checked into the graph. With --external, their [[references]] and spec-path citations are checked so stale notes can be fixed.",
-            on_commit: false,
-        }
-    }
-
-    fn run(&self, ctx: &Ctx, out: &mut Vec<Finding>) {
-        if !ctx.opts.external {
-            return;
-        }
-        let cfg = &ctx.corpus.cfg;
-        let re = cfg.path_cite_re();
-        for (name, ext) in &cfg.raw.external {
-            let dir = cfg.expand_path(&ext.path);
-            for e in walk(cfg, &dir).standard_filters(false).build().flatten() {
-                if !e.file_type().is_some_and(|t| t.is_file()) || e.path().extension().is_none_or(|x| x != "md") {
-                    continue;
-                }
-                let Ok(text) = crate::corpus::overlay::read(e.path()) else { continue };
-                let shown = format!("{name}:{}", e.path().strip_prefix(&dir).unwrap_or(e.path()).display());
-                let scan = body::scan(&text, 1, &re);
-                for l in scan.links.iter().filter(|l| l.text.contains(':') || l.text.contains('/')) {
-                    if matches!(ctx.graph.resolve(&l.text), Resolution::Missing | Resolution::MissingAnchor { .. }) {
-                        out.push(Finding::warn("V3", &shown, l.line, format!("[[{}]] names no document", l.text)));
-                    }
-                }
-                for c in &scan.path_cites {
-                    match ctx.graph.resolve(&c.text) {
-                        Resolution::Doc { idx, .. } => out.push(
-                            Finding::warn("V3", &shown, c.line, format!("cites the path {}", c.text))
-                                .fix_replace(c.text.clone(), format!("[[{}]]", ctx.corpus.docs[idx].id)),
-                        ),
-                        _ => out.push(Finding::warn(
-                            "V3",
-                            &shown,
-                            c.line,
-                            format!("cites {} which does not exist", c.text),
-                        )),
-                    }
                 }
             }
         }

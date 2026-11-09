@@ -149,6 +149,18 @@ fn blobs(repo: &Path, rev: &str, prefix: Option<&str>) -> Option<Vec<(String, St
     )
 }
 
+/// Whether the commit gitlink `link` pins holds `rest` (a path inside it): None when that cannot
+/// be told, because the submodule is not checked out or lacks the commit.
+pub fn gitlink_holds(root: &Path, link: &str, rest: &str) -> Option<bool> {
+    let sub = root.join(link);
+    if !sub.join(".git").exists() {
+        return None;
+    }
+    let pin = String::from_utf8_lossy(&git(root, &["rev-parse", &format!("HEAD:{link}")])?).trim().to_string();
+    git(&sub, &["cat-file", "-e", &format!("{pin}^{{commit}}")])?;
+    Some(git(&sub, &["cat-file", "-e", &format!("{pin}:{rest}")]).is_some())
+}
+
 /// Repository-relative paths of every gitlink (submodule) the index records.
 pub fn gitlinks(root: &Path) -> Vec<String> {
     let Some(out) = git(root, &["ls-files", "-s", "-z"]) else { return vec![] };

@@ -90,6 +90,10 @@ name = "input_edges"
 path = "tests/contract/input_edges.rs"
 
 [[test]]
+name = "external"
+path = "tests/rules/external.rs"
+
+[[test]]
 name = "limits"
 path = "tests/rules/limits.rs"
 

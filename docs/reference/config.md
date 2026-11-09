@@ -17,7 +17,7 @@ description: The spec.toml tables and what each one controls.
 | `[owners]` | the root owner, owner patterns, manifests, retired directories and `nested` independent projects |
 | `[public]` | published paths that hold no documents, and where their documents go |
 | `[local]` | the git-ignored directory for drafts and private notes |
-| `[external.<name>]` | directories outside the repository whose citations are checked |
+| `[external.<name>]` | a directory or file (an agent's memory, an instruction file) whose citations are checked with `--external` (rule V3); `check_paths = true` and `ids = true` also check its backticked repository paths and its document ids, without `--external` |
 | `[remotes.<name>]` | other repositories on disk whose documents are named `<name>:<id>`, read-only |
 
 `[spec] submodule_remotes = true` registers each `.gitmodules` submodule that has its own
