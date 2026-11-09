@@ -37,15 +37,49 @@ pub fn rewrite_keeping(
         return Ok(text.to_string());
     }
     if let Some(raw) = s.raw {
-        let patched = patch_raw(raw, &map, &new, renames);
-        if matches!(parse(Some(&patched)), Parsed::Map(m) if m == new) {
-            let head_len = text.len() - s.body.len();
-            let fence_end = &text[..head_len];
-            let start = fence_end.find(raw).unwrap_or(0);
-            return Ok(format!("{}{}{}{}", &fence_end[..start], patched, &fence_end[start + raw.len()..], s.body));
+        // Token renames first, as they keep quoting inside lists; then whole key blocks.
+        for patched in [patch_raw(raw, &map, &new, renames), patch_blocks(raw, &map, &new)] {
+            if matches!(parse(Some(&patched)), Parsed::Map(m) if m == new) {
+                let head_len = text.len() - s.body.len();
+                let fence_end = &text[..head_len];
+                let start = fence_end.find(raw).unwrap_or(0);
+                return Ok(format!("{}{}{}{}", &fence_end[..start], patched, &fence_end[start + raw.len()..], s.body));
+            }
         }
     }
     Ok(format!("{}{}", render(&new), s.body))
+}
+
+/// The top-level key a frontmatter line starts, if it starts one.
+fn top_key(line: &str) -> Option<&str> {
+    line.split_once(':').map(|(k, _)| k).filter(|k| !k.is_empty() && !k.starts_with([' ', '\t', '-', '#']))
+}
+
+/// Each top-level key whose value changed is rendered again in its place, with the indented or
+/// list lines under it; removed keys drop out and new keys go at the end.
+fn patch_blocks(raw: &str, old: &Map<String, Value>, new: &Map<String, Value>) -> String {
+    let mut out = String::with_capacity(raw.len());
+    let mut skipping = false;
+    for line in raw.split_inclusive('\n') {
+        let key = top_key(line);
+        if skipping && key.is_none() && line.starts_with([' ', '\t', '-']) {
+            continue;
+        }
+        skipping = false;
+        match key.filter(|k| old.get(*k) != new.get(*k)) {
+            Some(k) => {
+                if let Some(v) = new.get(k) {
+                    out.push_str(&one_key(k, v));
+                }
+                skipping = true;
+            }
+            None => out.push_str(line),
+        }
+    }
+    for (k, v) in new.iter().filter(|(k, _)| !old.contains_key(*k)) {
+        out.push_str(&one_key(k, v));
+    }
+    out
 }
 
 fn patch_raw(raw: &str, old: &Map<String, Value>, new: &Map<String, Value>, renames: &[(&str, &str)]) -> String {
@@ -130,6 +164,27 @@ mod tests {
         })
         .unwrap();
         assert!(out.contains("title: 'Blog rules'\n") && out.contains("id: sot:c/d\n") && out.contains("updated:"));
+    }
+
+    #[test]
+    fn keeping_changes_lists_and_maps_in_place_and_adds_keys_last() {
+        let text =
+            "---\nid: a\nverify_note: 'kept as is'\nrel:\n  derives:\n    - x\nupdated: 2026\ntags: [a]\n---\nbody\n";
+        let out = rewrite_keeping(text, &[], |m| {
+            m.insert("tags".into(), serde_json::json!(["a", "b"]));
+            m["rel"]["derives"] = serde_json::json!(["x", "y"]);
+            m.insert("decided_because".into(), Value::String("z".into()));
+        })
+        .unwrap();
+        assert_eq!(
+            out,
+            "---\nid: a\nverify_note: 'kept as is'\nrel:\n  derives: [x, y]\nupdated: 2026\ntags: [a, b]\ndecided_because: z\n---\nbody\n"
+        );
+        let out = rewrite_keeping(text, &[], |m| {
+            m.remove("rel");
+        })
+        .unwrap();
+        assert_eq!(out, "---\nid: a\nverify_note: 'kept as is'\nupdated: 2026\ntags: [a]\n---\nbody\n");
     }
 
     #[test]

@@ -209,30 +209,21 @@ fn plan_with(c: &Corpus, idx: usize, assigns: &[Assign], successor_pending: bool
     };
     let text = crate::corpus::overlay::read(&c.cfg.spec_home.join(&d.path))?;
     // C117: values that are already there change nothing, so nothing is written and `updated` stays.
-    let order = |m: &mut Map<String, Value>| {
-        let ordered = edit::ordered(std::mem::take(m));
-        *m = ordered;
-    };
     let apply_all = |m: &mut Map<String, Value>| {
         for a in assigns {
             apply_one(m, a, shape::of(ty, &a.key));
         }
     };
-    let same = edit::rewrite(&text, |m| {
-        apply_all(m);
-        order(m);
-    })? == edit::rewrite(&text, order)?;
-    if same {
+    if edit::rewrite_keeping(&text, &[], apply_all)? == text {
         return Ok(Plan::default());
     }
+    // Values change where they stand and new keys go last, so a one-value change is a one-line diff.
     let mut after = Map::new();
-    let new = edit::rewrite(&text, |m| {
+    let new = edit::rewrite_keeping(&text, &[], |m| {
         apply_all(m);
         if !assigns.iter().any(|a| a.key == "updated") {
             m.insert("updated".into(), Value::String(stamp::now_value()));
         }
-        let ordered = edit::ordered(std::mem::take(m));
-        *m = ordered;
         after = m.clone();
     })?;
     let mut p = Plan::default();

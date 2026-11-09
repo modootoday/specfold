@@ -34,6 +34,33 @@ fn set_refuses_a_numeric_field_that_is_not_a_number() {
 }
 
 #[test]
+fn set_changes_one_value_in_place_and_keeps_the_key_order() {
+    let r = common::repo();
+    let (id, path) = sot(&r);
+    let text = r.read(&path);
+    let (head, body) = text.split_once("\n---\n").unwrap();
+    let mut lines: Vec<&str> = head.lines().collect();
+    // Keys the writer would sort differently: a custom key before the common ones.
+    lines.insert(1, "verify_note: 'run it twice'");
+    lines.push("decided_because: speed");
+    r.write(&path, &format!("{}\n---\n{body}", lines.join("\n")));
+    let before = r.read(&path);
+    let (code, v) = r.json(&["set", &id, "decided_because=cost", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    let after = r.read(&path);
+    let changed: Vec<(&str, &str)> = before.lines().zip(after.lines()).filter(|(a, b)| a != b).collect();
+    assert_eq!(before.lines().count(), after.lines().count(), "{after}");
+    assert!(changed.iter().all(|(a, _)| a.starts_with("decided_because:") || a.starts_with("updated:")), "{changed:?}");
+    assert!(
+        after.contains("\nverify_note: 'run it twice'\n") && after.contains("\ndecided_because: cost\n"),
+        "{after}"
+    );
+    let (code, v) = r.json(&["set", &id, "derives=x", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    assert!(r.read(&path).ends_with(&format!("\nderives: x\n---\n{body}")), "a new key goes last: {}", r.read(&path));
+}
+
+#[test]
 fn set_infers_a_number_for_an_unknown_key_unless_it_holds_text() {
     let r = common::repo();
     let (id, path) = sot(&r);
