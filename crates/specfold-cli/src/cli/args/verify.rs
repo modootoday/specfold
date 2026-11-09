@@ -12,7 +12,8 @@ pub struct CheckArgs {
     #[arg(value_name = "FILE", conflicts_with = "write_baseline")]
     pub files: Vec<String>,
     /// Check this document with its text read from standard input (an unsaved editor buffer);
-    /// the file on disk is left alone and only its findings are reported.
+    /// the file on disk is left alone and only its findings are reported. With `--rule B1` alone
+    /// it implies `--path` for that file, so any file can be measured.
     #[arg(long, value_name = "FILE", conflicts_with = "write_baseline")]
     pub stdin_path: Option<String>,
     /// Only what the index changes (pre-commit).

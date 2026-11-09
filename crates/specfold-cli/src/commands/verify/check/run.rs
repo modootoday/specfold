@@ -57,15 +57,16 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
     }
     // C116: config warnings are a line each and not findings, so -q shows them too.
     session::show_config_warnings();
+    let paths = implied_paths(a);
     // With --path, standard input stands for one of those files, document or not.
-    let stdin_doc = a.stdin_path.as_ref().filter(|_| a.paths.is_empty());
+    let stdin_doc = a.stdin_path.as_ref().filter(|_| paths.is_empty());
     let files: Vec<String> = a.files.iter().chain(stdin_doc).cloned().collect();
     // A full run reads what git tracks; files named on the command line are read as they are.
-    let full = !a.staged && a.changed.is_none() && files.is_empty() && a.paths.is_empty();
+    let full = !a.staged && a.changed.is_none() && files.is_empty() && paths.is_empty();
     let untracked = a.include_untracked || std::env::var_os("SPECFOLD_INCLUDE_UNTRACKED").is_some_and(|v| v == "1");
     let s = if full && !untracked { session::open_tracked(g)? } else { session::open(g)? };
     let only = documents_named(&s, &files, stdin_doc.map(String::as_str))?;
-    let named = repo_paths(&s, &a.paths);
+    let named = repo_paths(&s, &paths);
     let commands = crate::cli::describe::commands().into_iter().map(|c| c.name).collect();
     let opts =
         Options { run_commands: a.run_commands, external: a.external, online: a.online, guards: a.guards, commands };
@@ -118,6 +119,17 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
         return ci_output(&cx, o);
     }
     Ok(text(&s, a, o, &report, &held, &t))
+}
+
+/// `--path`, or the `--stdin-path` file when only B1 runs: a size budget judges any file, so
+/// `--rule B1 --stdin-path AGENTS.md` means `--path AGENTS.md` rather than a document.
+fn implied_paths(a: &CheckArgs) -> Vec<String> {
+    let only_b1 = !a.rules.is_empty() && a.rules.iter().all(|r| r == "B1");
+    let unscoped = a.files.is_empty() && !a.staged && a.changed.is_none();
+    match &a.stdin_path {
+        Some(p) if a.paths.is_empty() && only_b1 && unscoped => vec![p.clone()],
+        _ => a.paths.clone(),
+    }
 }
 
 /// Holds known errors back against the baseline, keeps the named files, and adds what other

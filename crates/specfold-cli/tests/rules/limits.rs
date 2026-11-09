@@ -50,6 +50,28 @@ fn b1_text_on_stdin_is_measured_in_place_of_the_file() {
 }
 
 #[test]
+fn b1_stdin_path_alone_implies_path_for_a_file_that_is_not_a_document() {
+    let r = common::repo();
+    with_budgets(&r, "[limits.files]\n\"AGENTS.md\" = { bytes = 20 }\n");
+    r.write("AGENTS.md", "short\n");
+    let run = |text: &str| {
+        let out = r
+            .spec()
+            .args(["check", "--rule", "B1", "--stdin-path", "AGENTS.md", "--json"])
+            .write_stdin(text.to_string())
+            .output()
+            .unwrap();
+        let v: Value = serde_json::from_slice(&out.stdout).unwrap();
+        (out.status.code(), v)
+    };
+    let (code, v) = run("far too long for the budget of twenty bytes\n");
+    assert_eq!(code, Some(1), "{v}");
+    assert_eq!((v["budgets"][0]["path"].as_str(), v["budgets"][0]["over"].as_bool()), (Some("AGENTS.md"), Some(true)));
+    let (code, v) = run("short\n");
+    assert_eq!(code, Some(0), "{v}");
+}
+
+#[test]
 fn b1_an_unreadable_budget_source_is_an_error_never_a_pass() {
     let r = common::repo();
     r.write("AGENTS.md", "x\n");
