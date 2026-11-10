@@ -4,6 +4,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+#[cfg(unix)]
 use serde_json::Value;
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -138,6 +139,7 @@ fn refuses_unsafe_output_and_fails_on_unresolved() {
     assert!(!r.path().join("site").exists(), "nothing is written");
 }
 
+#[cfg(unix)]
 fn plugin(r: &common::Repo, name: &str, wants: &str) -> std::path::PathBuf {
     let seen = r.path().join(format!("{name}.json"));
     let script = r.path().join(format!("{name}.sh"));
@@ -154,6 +156,7 @@ fn plugin(r: &common::Repo, name: &str, wants: &str) -> std::path::PathBuf {
     seen
 }
 
+#[cfg(unix)]
 fn sent_docs(seen: &Path) -> Vec<Value> {
     let v: Value = serde_json::from_str(&std::fs::read_to_string(seen).unwrap()).unwrap();
     let mut docs = v["params"]["docs"].as_array().unwrap().clone();
