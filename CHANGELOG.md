@@ -3,7 +3,9 @@
 Release notes for each version are also on
 [GitHub releases](https://github.com/modootoday/specfold/releases).
 
-## 0.8.1 - unreleased
+## 0.8.1 - 2026-11-10
+
+0.8.1 is a patch release: every command, flag and spec.toml key of 0.8.0 keeps its name and meaning. The test suite now compiles and runs on Windows; some of its tests still fail there and are fixed in a later release.
 
 ### Fixed
 
