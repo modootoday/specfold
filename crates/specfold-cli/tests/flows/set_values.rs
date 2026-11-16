@@ -75,3 +75,29 @@ fn set_infers_a_number_for_an_unknown_key_unless_it_holds_text() {
     assert_eq!(code, 0, "{v}");
     assert!(r.read(&path).contains("\nretries: 4\n"), "{}", r.read(&path));
 }
+
+#[test]
+fn set_writes_a_bare_relation_key_under_rel() {
+    let r = common::repo();
+    let (id, path) = sot(&r);
+    let (code, v) = r.json(&["set", &id, "governs=services/blog", "depends_on+=sot:ws/other", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    let (_, d) = r.json(&["show", &id]);
+    let fm = &d["frontmatter"];
+    assert!(fm.get("governs").is_none() && fm.get("depends_on").is_none(), "{}", r.read(&path));
+    assert_eq!(fm["rel"]["governs"], serde_json::json!(["services/blog"]), "{d}");
+    assert_eq!(fm["rel"]["depends_on"], serde_json::json!(["sot:ws/other"]), "{d}");
+}
+
+#[test]
+fn set_folds_a_top_level_relation_into_rel_instead_of_duplicating_it() {
+    let r = common::repo();
+    let (id, path) = sot(&r);
+    r.write(&path, &r.read(&path).replacen("---\n", "---\ngoverns: services/blog\n", 1));
+    let (code, v) = r.json(&["set", &id, "governs+=libs/auth", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    let (_, d) = r.json(&["show", &id]);
+    let fm = &d["frontmatter"];
+    assert!(fm.get("governs").is_none(), "{}", r.read(&path));
+    assert_eq!(fm["rel"]["governs"], serde_json::json!(["services/shop", "services/blog", "libs/auth"]), "{d}");
+}

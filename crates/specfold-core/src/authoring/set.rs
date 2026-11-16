@@ -9,6 +9,7 @@ use anyhow::{Result, anyhow, bail};
 use serde_json::{Map, Value};
 use shape::Shape;
 
+mod relation;
 mod shape;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -173,6 +174,14 @@ fn finishing_status<'a>(asked: &str, reachable: &[&'a String]) -> Option<&'a str
     FINISHED.iter().find_map(|f| reachable.iter().find(|s| s.as_str() == *f).map(|s| s.as_str()))
 }
 
+/// `assigns` with bare relation keys (`governs=x`) moved under `rel.`, where documents keep them.
+pub fn qualify(c: &Corpus, idx: usize, assigns: &[Assign]) -> Vec<Assign> {
+    match c.cfg.registry.get(&c.docs[idx].id.ty) {
+        Some(ty) => assigns.iter().map(|a| relation::qualified(ty, a)).collect(),
+        None => assigns.to_vec(),
+    }
+}
+
 pub fn plan(c: &Corpus, idx: usize, assigns: &[Assign]) -> Result<Plan> {
     plan_with(c, idx, assigns, false)
 }
@@ -185,6 +194,8 @@ pub fn plan_superseded_by_new(c: &Corpus, idx: usize) -> Result<Plan> {
 fn plan_with(c: &Corpus, idx: usize, assigns: &[Assign], successor_pending: bool) -> Result<Plan> {
     let d = &c.docs[idx];
     let ty = c.cfg.registry.get(&d.id.ty).ok_or_else(|| anyhow!("unknown type {}", d.id.ty))?;
+    let qualified = qualify(c, idx, assigns);
+    let assigns = &qualified[..];
     for a in assigns {
         refuse(c, idx, ty, a, successor_pending)?;
     }
@@ -211,6 +222,7 @@ fn plan_with(c: &Corpus, idx: usize, assigns: &[Assign], successor_pending: bool
     // C117: values that are already there change nothing, so nothing is written and `updated` stays.
     let apply_all = |m: &mut Map<String, Value>| {
         for a in assigns {
+            relation::fold_top_level(m, &a.key);
             apply_one(m, a, shape::of(ty, &a.key));
         }
     };

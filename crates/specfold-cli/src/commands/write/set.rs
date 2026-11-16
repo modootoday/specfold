@@ -26,6 +26,7 @@ pub fn run(g: &Global, a: &SetArgs) -> Result<Output> {
         &a.assignments.join("\n"),
     )?;
     flag_assigns(&s, idx, a, &mut shown, &mut assigns)?;
+    let assigns = set::qualify(&s.corpus, idx, &assigns);
     let me = s.corpus.docs[idx].id.to_string();
     for x in &assigns {
         if x.key == "rel.exception_of"
