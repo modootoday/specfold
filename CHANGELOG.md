@@ -3,6 +3,19 @@
 Release notes for each version are also on
 [GitHub releases](https://github.com/modootoday/specfold/releases).
 
+## 0.8.2 - 2026-11-16
+
+0.8.2 is a patch release: every command, flag and spec.toml key of 0.8.1 keeps its name and meaning.
+
+### Fixed
+
+- `spec set` writes a relation key given without its `rel.` prefix (such as `governs=` or `depends_on+=`) under
+  `rel:`, where documents keep their relations, instead of as a top-level key that S1 then reported as unknown; a
+  top-level copy an earlier version wrote is folded into `rel:` rather than duplicated.
+- D1 no longer asks a change note again once it has landed: a change note answers for the range its own file is in,
+  and a committed note outside the range is not asked. Files inside a bumped submodule ask only documents whose
+  governed path is that submodule or lies inside it, not documents that govern a wider tree such as `packages/**`.
+
 ## 0.8.1 - 2026-11-10
 
 0.8.1 is a patch release: every command, flag and spec.toml key of 0.8.0 keeps its name and meaning. The test suite now compiles and runs on Windows; some of its tests still fail there and are fixed in a later release.
