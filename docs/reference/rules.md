@@ -116,6 +116,11 @@ thousands of unchanged files asks nothing; only new or different files, and file
 lacks, are asked about. `--json` lists each one under `gitlinks` with its `kind` (`split`,
 `bump`, `added`), the two commits and the `moved` and `changed` counts.
 
+Inside a pin bump only documents whose `governs` names a path at or inside the submodule are
+asked: one governing a wider tree (`governs: [vendor/**]`) is about where submodules sit, which a
+bump does not change. A `change` note is asked only in the range that adds or edits it; once it is
+committed, its change has landed and later code changes belong to another note.
+
 An overview or census that governs a whole tree (`governs: [services]`) is asked about every file
 below it, beside the narrower document. `[check] d1 = "specific"` asks only the most specific
 documents governing each file; the default `"all"` keeps asking every one.

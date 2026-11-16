@@ -37,7 +37,7 @@ impl Rule for GovernedCodeDrift {
         &RuleInfo {
             id: "D1",
             title: "changed code moves its governing document",
-            explain: "In a staged or ranged run (`spec check --staged`, `--changed`), each changed file that is not a document is matched against the explicit `rel.governs` globs of active, committed documents. A document whose governed code changed is expected to change in the same range, or to be named by a `change` note that changes in the range, or to cover a path that such a note governs (a note on the source file speaks for its test beside it); otherwise this warning lists the changed paths. Documents that govern only through their owner directory are not asked, and a full run never reports D1. Deleted files and the old paths of renamed files count as changed. A submodule pointer the change moves (a pin bump) is one change, named once per document as `<path> (pin <old>..<new>, N file(s) changed inside)` and asked of the documents that govern the files changed inside it. A submodule the change adds where the repository held files (a split) is one change too: files that moved into it with the same content are neither removed nor changed, and only the files new or different there are asked about, under the same one name. With `[check] d1 = \"specific\"` only the most specific of the documents governing a file are asked, so an overview governing a whole tree (`governs: [services]`) is not asked about a file a narrower document governs. Update the document (or its `verified_at`), link a change note already in the range (`spec set <note> rel.depends_on+=<id> --write`, the fix D1 prints when there is one), or write a change note that links it: `spec new change --title … --depends-on <id> --write` (a `[[<id>]]` link in its body works too); where the change type is disabled, the fix pins the document instead: `spec set <id> verified_at=HEAD --write`. See it with `spec check --staged --rule D1`.",
+            explain: "In a staged or ranged run (`spec check --staged`, `--changed`), each changed file that is not a document is matched against the explicit `rel.governs` globs of active, committed documents. A document whose governed code changed is expected to change in the same range, or to be named by a `change` note that changes in the range, or to cover a path that such a note governs (a note on the source file speaks for its test beside it); otherwise this warning lists the changed paths. Documents that govern only through their owner directory are not asked, and a full run never reports D1. Deleted files and the old paths of renamed files count as changed. A submodule pointer the change moves (a pin bump) is one change, named once per document as `<path> (pin <old>..<new>, N file(s) changed inside)` and asked of the documents that govern the files changed inside it. A submodule the change adds where the repository held files (a split) is one change too: files that moved into it with the same content are neither removed nor changed, and only the files new or different there are asked about, under the same one name. Inside a pin bump only documents whose `governs` names a path at or inside the submodule are asked; one governing a wider tree (`governs: [vendor/**]`) is not, since a bump keeps where the submodule sits. A `change` note is asked only in the range that adds or edits it: once committed, its change has landed. With `[check] d1 = \"specific\"` only the most specific of the documents governing a file are asked, so an overview governing a whole tree (`governs: [services]`) is not asked about a file a narrower document governs. Update the document (or its `verified_at`), link a change note already in the range (`spec set <note> rel.depends_on+=<id> --write`, the fix D1 prints when there is one), or write a change note that links it: `spec new change --title … --depends-on <id> --write` (a `[[<id>]]` link in its body works too); where the change type is disabled, the fix pins the document instead: `spec set <id> verified_at=HEAD --write`. See it with `spec check --staged --rule D1`.",
             on_commit: true,
         }
     }
@@ -72,10 +72,26 @@ impl Rule for GovernedCodeDrift {
         let index = GoverningIndex::filtered(c, |i| {
             let d = &c.docs[i];
             let explicit = d.rel().get("governs").is_some_and(|v| !v.is_empty());
-            explicit && d.tier == Tier::Committed && d.status().as_deref() == Some("active") && !skipped(d, "D1")
+            // A change note records one change: once committed, later code changes are another
+            // change's, so a note outside this range is not asked about them.
+            let landed_note = d.id.ty == "change" && !ctx.scope.touched.contains(&i);
+            explicit
+                && !landed_note
+                && d.tier == Tier::Committed
+                && d.status().as_deref() == Some("active")
+                && !skipped(d, "D1")
         });
+        let bumped = |p: &str| {
+            ctx.scope.gitlinks.iter().find(|m| m.old.is_some() && crate::paths::is_below(p, &m.path)).map(|m| &m.path)
+        };
+        let mut reach: BTreeMap<(usize, &str), bool> = BTreeMap::new();
         for (p, shown) in changed.chain(removed).filter(|(p, _)| !own.contains(&p.to_string())) {
-            let asked = index.governing(c, p);
+            let mut asked = index.governing(c, p);
+            // Inside a pin bump only claims that reach into the submodule are asked: a document
+            // governing a wider tree is about where the submodule sits, which a bump keeps.
+            if let Some(link) = bumped(p) {
+                asked.retain(|g| *reach.entry((g.idx, link.as_str())).or_insert_with(|| reaches_into(c, g.idx, link)));
+            }
             // `governing` lists the narrowest claims first.
             let top = asked.first().map(|g| g.specificity).unwrap_or(0);
             for g in asked.into_iter().filter(|g| !specific || g.specificity == top) {
@@ -126,6 +142,12 @@ impl Rule for GovernedCodeDrift {
             );
         }
     }
+}
+
+/// D1: whether document `doc` names a path at or inside gitlink `link` in its `governs`.
+fn reaches_into(c: &crate::corpus::Corpus, doc: usize, link: &str) -> bool {
+    let claims = c.docs[doc].rel().remove("governs").unwrap_or_default();
+    claims.iter().any(|g| crate::paths::is_under(&crate::workspace::placement::literal_base(g), link))
 }
 
 /// D1: whether change note `note` governs a path inside what document `doc` governs, so the note

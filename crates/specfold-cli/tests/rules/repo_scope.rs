@@ -139,3 +139,21 @@ fn d1_a_pin_bump_is_named_once_for_every_file_inside() {
     assert!(!msg.contains("src/a.rs") && !msg.contains("src/c.rs"), "{msg}");
     drop(lib);
 }
+
+#[test]
+fn d1_a_pin_bump_leaves_a_document_governing_a_wider_tree_quiet() {
+    let (r, lib, narrow) = split_repo();
+    r.commit("split");
+    let wide = r.new_doc("sot", "vendor", "Vendor layout");
+    assert_eq!(r.json(&["set", &wide, "status=active", "--write"]).0, 0);
+    r.commit("layout");
+    let sub = r.path().join("vendor/lib");
+    std::fs::write(sub.join("src/a.rs"), "fn a() { 1 }\n").unwrap();
+    git_in(&sub, &["commit", "-qam", "bump"]);
+    r.git(&["add", "vendor/lib"]);
+    let (_, v) = r.json(&["check", "--staged", "--rule", "D1"]);
+    let items = v["items"].as_array().unwrap();
+    assert_eq!(items.len(), 1, "only the document reaching into the submodule is asked: {v}");
+    assert!(items[0]["message"].as_str().unwrap().contains(&narrow), "{v}");
+    drop(lib);
+}

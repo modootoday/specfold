@@ -705,6 +705,27 @@ fn d1_a_change_note_on_a_sibling_source_speaks_for_its_test() {
 }
 
 #[test]
+fn d1_asks_a_document_again_but_not_a_change_note_that_has_landed() {
+    let r = common::repo();
+    let sot = r.new_doc("sot", "services/shop", "Cart rules");
+    assert_eq!(r.json(&["set", &sot, "status=active", "--write"]).0, 0);
+    let note = ["new", "change", "--title", "Totals round", "--governs", "services/shop/src/cart/total.rs", "--write"];
+    assert_eq!(r.json(&note).0, 0);
+    r.commit("rules and a landed note");
+    r.write("services/shop/src/cart/total.rs", "fn total() { 2 }\n");
+    r.git(&["add", "-A"]);
+    let (_, v) = r.json(&["check", "--staged", "--rule", "D1"]);
+    let items = v["items"].as_array().unwrap();
+    assert_eq!(items.len(), 1, "the rules are asked, the landed note is not: {v}");
+    assert!(items[0]["message"].as_str().unwrap().contains(&sot), "{v}");
+    let fresh = ["new", "change", "--title", "Totals round again", "--depends-on", &sot, "--write"];
+    assert_eq!(r.json(&fresh).0, 0);
+    r.git(&["add", "-A"]);
+    let (_, v) = r.json(&["check", "--staged", "--rule", "D1"]);
+    assert_eq!(v["items"].as_array().unwrap().len(), 0, "a note in the range answers for the rules: {v}");
+}
+
+#[test]
 fn a_staged_run_without_documents_says_so_in_its_summary() {
     let r = common::repo();
     r.write("services/shop/src/x.rs", "fn x() {}\n");
