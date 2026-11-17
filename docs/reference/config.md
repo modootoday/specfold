@@ -14,7 +14,7 @@ description: The spec.toml tables and what each one controls.
 | table | controls |
 | --- | --- |
 | `[spec]` | format version, the document directory name (`.spec`), and `submodule_remotes` |
-| `[owners]` | the root owner, owner patterns, manifests, retired directories and `nested` independent projects |
+| `[owners]` | the root owner, owner patterns, manifests, retired directories, `nested` independent projects and the `mount` a larger workspace gives this repository |
 | `[public]` | published paths that hold no documents, and where their documents go |
 | `[local]` | the git-ignored directory for drafts and private notes |
 | `[external.<name>]` | a directory or file (an agent's memory, an instruction file) whose citations are checked with `--external` (rule V3); `check_paths = true` and `ids = true` also check its backticked repository paths and its document ids, without `--external` |
@@ -25,6 +25,20 @@ description: The spec.toml tables and what each one controls.
 An explicit `[remotes.<name>]` of the same name wins. `spec context` on a path inside such a
 submodule shows that project's owner and documents; write them from inside the submodule. Off by
 default, so nothing changes until it is set.
+
+`[owners] mount = "<dir>"` says that a larger workspace mounts this repository at `<dir>` (a
+submodule path relative to that workspace's root, such as `services/shop`; no `..`, no leading
+`/`, no wildcard). Its documents then write `rel.governs` from the workspace root, so one document
+reads the same from both repositories: `services/shop/src/**`, not `src/**`. L10 reports an entry
+that is neither the mount nor inside it and prints the rewritten entry; L5, P1, D1 and
+`spec context` read `<dir>/<path>` as `<path>` from this repository's root. Entries in other
+projects (`<remote>:<path>`) are left alone.
+
+```toml
+[owners]
+root = "shop"
+mount = "services/shop"
+```
 
 `[public] submodules_manifest = "<file>.json"` names a manifest of which submodules are public;
 V1 then treats each public one as a published path. The manifest records the SHA-256 of

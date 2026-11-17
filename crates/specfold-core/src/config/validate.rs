@@ -44,6 +44,12 @@ pub fn loaded(path: &Path, text: &str, raw: &RawConfig) -> Result<()> {
             path.display()
         );
     }
+    if let Some(m) = raw.owners.mount.as_deref().filter(|m| mount_problem(m)) {
+        bail!(
+            "{}: [owners] mount = \"{m}\"; name the directory the parent workspace mounts this repository at, relative to that workspace's root, e.g. services/shop; next: spec explain config",
+            path.display()
+        );
+    }
     if let Some(why) = super::type_dirs::problem(raw).or_else(|| super::type_ignore::problem(raw)) {
         bail!("{}: {why}; next: spec explain config", path.display());
     }
@@ -66,6 +72,15 @@ pub fn loaded(path: &Path, text: &str, raw: &RawConfig) -> Result<()> {
         seen.push((&g.name, b));
     }
     Ok(())
+}
+
+/// A mount must be a plain relative directory: no root, no parent step, no wildcard, not empty.
+fn mount_problem(m: &str) -> bool {
+    let m = m.trim_start_matches("./").trim_end_matches('/');
+    m.is_empty()
+        || m.starts_with('/')
+        || m.contains(['*', '?', '[', '{', '\\', ':'])
+        || m.split('/').any(|s| s.is_empty() || s == "." || s == "..")
 }
 
 /// The refusal for a spec.toml whose schema is newer than this binary reads; `spec check` and

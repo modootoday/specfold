@@ -75,8 +75,11 @@ pub fn decide_local<'a>(
     governs: &[String],
     current: &'a Owner,
 ) -> Decision<'a> {
-    let local: Vec<String> =
-        governs.iter().filter(|g| !crate::workspace::projects::is_external(cfg, g)).cloned().collect();
+    let local: Vec<String> = governs
+        .iter()
+        .filter(|g| !crate::workspace::projects::is_external(cfg, g))
+        .map(|g| cfg.raw.owners.unmount(g).to_string())
+        .collect();
     if local.is_empty() && !governs.is_empty() {
         return Decision {
             owner: owners.storage_owner(current),

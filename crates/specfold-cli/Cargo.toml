@@ -106,6 +106,10 @@ name = "mcp"
 path = "tests/io/mcp.rs"
 
 [[test]]
+name = "mount"
+path = "tests/rules/mount.rs"
+
+[[test]]
 name = "outbound"
 path = "tests/io/outbound.rs"
 

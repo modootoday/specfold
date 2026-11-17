@@ -37,6 +37,11 @@ pub struct OwnersSection {
     /// and each one with a spec.toml is a read-only remote named after its last path segment.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub nested: Vec<String>,
+    /// Where a larger workspace mounts this repository (a submodule path such as `services/shop`).
+    /// `rel.governs` is then written from that workspace's root, so one document reads the same
+    /// from both repositories: it starts with the mount, which is stripped to find the code here.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mount: Option<String>,
 }
 
 impl Default for OwnersSection {
@@ -48,6 +53,7 @@ impl Default for OwnersSection {
             retired: vec![],
             pending: vec![],
             nested: vec![],
+            mount: None,
         }
     }
 }
@@ -57,6 +63,29 @@ impl OwnersSection {
     pub fn in_nested(&self, rel: &str) -> bool {
         let rel = rel.trim_start_matches("./").trim_end_matches('/');
         self.nested_dirs().any(|n| crate::paths::is_under(rel, n))
+    }
+
+    /// The mount path, without leading `./` or a trailing slash; None when none is declared.
+    pub fn mount_dir(&self) -> Option<&str> {
+        let m = self.mount.as_deref()?.trim_start_matches("./").trim_end_matches('/');
+        (!m.is_empty()).then_some(m)
+    }
+
+    /// A `governs` entry read from this repository's root: `<mount>/<rest>` becomes `<rest>` (the
+    /// mount itself the empty path); any other entry, or any entry without a mount, as written.
+    pub fn unmount<'a>(&self, governs: &'a str) -> &'a str {
+        let Some(m) = self.mount_dir() else { return governs };
+        let g = governs.trim_start_matches("./");
+        match g.strip_prefix(m) {
+            Some("") => "",
+            Some(rest) => rest.strip_prefix('/').unwrap_or(governs),
+            None => governs,
+        }
+    }
+
+    /// Whether `governs` is written from the workspace root: it is the mount or lies inside it.
+    pub fn is_mounted(&self, governs: &str) -> bool {
+        self.mount_dir().is_none_or(|m| crate::paths::is_under(governs.trim_start_matches("./"), m))
     }
 
     /// The nested project directories, without leading `./` or a trailing slash.

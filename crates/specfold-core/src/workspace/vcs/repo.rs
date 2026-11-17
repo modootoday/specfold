@@ -1,10 +1,25 @@
 //! Running git, and finding the repository that holds a path.
 
+use super::env::{Reach, command};
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
+/// git in the repository a run is rooted in.
 pub(super) fn git(root: &Path, args: &[&str]) -> Option<Vec<u8>> {
-    let out = Command::new("git").arg("-C").arg(root).args(args).output().ok()?;
+    run(root, Reach::Root, args)
+}
+
+/// git in a submodule or nested checkout below the root.
+pub(super) fn git_inner(repo: &Path, args: &[&str]) -> Option<Vec<u8>> {
+    run(repo, Reach::Inner, args)
+}
+
+/// git in the repository `nearest_repo` found: the root when `prefix` is empty, else inside it.
+pub(super) fn git_at(repo: &Path, prefix: &str, args: &[&str]) -> Option<Vec<u8>> {
+    run(repo, if prefix.is_empty() { Reach::Root } else { Reach::Inner }, args)
+}
+
+fn run(dir: &Path, reach: Reach, args: &[&str]) -> Option<Vec<u8>> {
+    let out = command(dir, reach).args(args).output().ok()?;
     if !out.status.success() {
         return None;
     }

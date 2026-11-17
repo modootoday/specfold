@@ -12,7 +12,7 @@ impl Rule for GovernsExists {
         &RuleInfo {
             id: "L5",
             title: "governed paths exist",
-            explain: "rel.governs names the code a document rules. When that code moves or is deleted the document is orphaned; update governs, move the document with `spec mv`, or archive it.",
+            explain: "rel.governs names the code a document rules. When that code moves or is deleted the document is orphaned; update governs, move the document with `spec mv`, or archive it. In a repository with `[owners] mount`, an entry `<mount>/<path>` is looked up as `<path>` from this repository's root.",
             on_commit: false,
         }
     }
@@ -26,8 +26,10 @@ impl Rule for GovernsExists {
                 if crate::workspace::projects::is_external(&ctx.corpus.cfg, &g) {
                     continue;
                 }
-                let base = g.split(['*', '?', '[', '{']).next().unwrap_or("").trim_end_matches('/');
-                let base = if g.contains(['*', '?', '[', '{']) {
+                // M1 reports an entry outside the mount; here it is looked up as written.
+                let local = ctx.corpus.cfg.raw.owners.unmount(&g);
+                let base = local.split(['*', '?', '[', '{']).next().unwrap_or("").trim_end_matches('/');
+                let base = if local.contains(['*', '?', '[', '{']) {
                     base.rsplit_once('/').map(|x| x.0).unwrap_or(base)
                 } else {
                     base

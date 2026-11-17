@@ -1,11 +1,12 @@
 //! C231: file versions a range's commits carry that its end no longer has. Each of them is
 //! pushed with the range and stays in history, so a guard over the range must read them too.
 
+use super::env::{Reach, command};
 use super::repo::git;
 use std::collections::{HashMap, HashSet};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::Path;
-use std::process::{Command, Stdio};
+use std::process::Stdio;
 
 /// One version of a file some commit in the range wrote.
 pub struct Passing {
@@ -64,9 +65,7 @@ fn end_blobs(root: &Path, rev: &str) -> HashSet<String> {
 /// Reads blobs through one `git cat-file --batch`, so a long range costs one process.
 fn cat(root: &Path, ids: &[String]) -> HashMap<String, Vec<u8>> {
     let mut map = HashMap::new();
-    let child = Command::new("git")
-        .arg("-C")
-        .arg(root)
+    let child = command(root, Reach::Root)
         .args(["cat-file", "--batch"])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())

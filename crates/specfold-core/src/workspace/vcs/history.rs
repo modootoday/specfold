@@ -1,6 +1,6 @@
 //! History: commits in a range, a file's revisions and when governed code last changed.
 
-use super::repo::{git, nearest_repo};
+use super::repo::{git, git_at, nearest_repo};
 use std::path::Path;
 
 pub struct CommitText {
@@ -66,7 +66,7 @@ pub struct Revision {
 /// Every commit that touched `path`, oldest first, following renames.
 pub fn history(root: &Path, path: &str) -> Option<Vec<Revision>> {
     let (repo, rel, prefix) = nearest_repo(root, path);
-    let out = git(&repo, &["log", "--follow", "--format=%x1e%H%x00%cs%x00%an", "--name-only", "--", &rel])?;
+    let out = git_at(&repo, &prefix, &["log", "--follow", "--format=%x1e%H%x00%cs%x00%an", "--name-only", "--", &rel])?;
     let text = String::from_utf8_lossy(&out).into_owned();
     let mut revs: Vec<Revision> = text
         .split('\u{1e}')

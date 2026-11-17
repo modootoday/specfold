@@ -4,7 +4,7 @@ use super::baseline::{held_note, write_baseline, write_ratchet};
 use super::ci::{Ctx, ci_output};
 use super::scope::{
     budget_measures, budget_out_of_scope, check_fail_on, check_rule_names, checked_range, documents_named,
-    overlay_stdin, range_of, repo_paths,
+    overlay_staged_pins, overlay_stdin, range_of, repo_paths,
 };
 use crate::cli::args::{global::Global, verify::CheckArgs};
 use crate::commands::verify::owners;
@@ -54,6 +54,11 @@ pub fn run(g: &Global, a: &CheckArgs) -> Result<Output> {
     check_rule_names("--skip", &a.skip)?;
     if let Some(p) = &a.stdin_path {
         overlay_stdin(&session::location(g), p)?;
+    }
+    if a.staged
+        && let Ok(cfg) = session::config_quiet(g)
+    {
+        overlay_staged_pins(&cfg.spec_home);
     }
     // C116: config warnings are a line each and not findings, so -q shows them too.
     session::show_config_warnings();

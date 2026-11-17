@@ -150,6 +150,14 @@ pub(super) fn overlay_stdin(loc: &session::Location, p: &str) -> Result<()> {
     Ok(())
 }
 
+/// `--staged`: documents inside a gitlink the index moves are read as that commit holds them, not
+/// as the submodule's checkout does when it sits on another commit.
+pub(super) fn overlay_staged_pins(home: &std::path::Path) {
+    for (p, text) in specfold_core::workspace::vcs::staged_pin_texts(home) {
+        specfold_core::corpus::overlay::set(home.join(p), text);
+    }
+}
+
 /// C4: the base..head a `--changed`/`--staged` run compared, as JSON and a foot line holding
 /// the resolved commits, so the same check can be rerun locally on the exact base.
 pub(super) fn checked_range(root: &std::path::Path, a: &CheckArgs) -> Option<(serde_json::Value, String)> {

@@ -49,6 +49,7 @@ disk, as before 0.8.0. `--staged`, `--changed` and files named on the command li
 | **L7** | pinned remote documents are unchanged |
 | **L8** | local Markdown links, images and `#fragments` lead somewhere (warn) |
 | **L9** | images have alt text (warn) |
+| **L10** | governed paths start with the mount, in a repository a workspace mounts (`[owners] mount`) |
 
 A reference or relation written `<name>:<id>` names a document in another repository listed
 under `[remotes.<name>]`. L1 and L3 check it when that directory is on disk, with the same type

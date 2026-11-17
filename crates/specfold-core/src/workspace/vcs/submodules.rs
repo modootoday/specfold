@@ -1,7 +1,7 @@
 //! What a change touches inside submodules: a gitlink that moves stands for the files that
 //! changed between its two commits, which only the submodule's own checkout can list.
 
-use super::repo::{git, split_nul};
+use super::repo::{git, git_inner, split_nul};
 use std::path::Path;
 
 /// Which change of the outer repository to read gitlinks from.
@@ -109,13 +109,13 @@ fn inner_changes(
     new: &str,
 ) -> Option<GitlinkMove> {
     let new = if new == ZERO {
-        String::from_utf8_lossy(&git(sub, &["rev-parse", "HEAD"])?).trim().to_string()
+        String::from_utf8_lossy(&git_inner(sub, &["rev-parse", "HEAD"])?).trim().to_string()
     } else {
         new.to_string()
     };
     let at = |p: &str| format!("{path}/{p}");
     if !added {
-        let listed = git(sub, &["diff", "--name-only", "-z", "--diff-filter=ACMR", old, &new])?;
+        let listed = git_inner(sub, &["diff", "--name-only", "-z", "--diff-filter=ACMR", old, &new])?;
         let changed = split_nul(listed).iter().map(|p| at(p)).collect();
         return Some(GitlinkMove { path: path.into(), old: Some(old.into()), new, changed, moved: vec![] });
     }
@@ -130,13 +130,14 @@ fn inner_changes(
     Some(GitlinkMove { path: path.into(), old: None, new, changed, moved })
 }
 
-/// `(path, blob)` of every file in `rev`'s tree, under `prefix` when given.
+/// `(path, blob)` of every file in `rev`'s tree, under `prefix` when given. A tree needs no
+/// index, so the outer repository and a submodule are read alike.
 fn blobs(repo: &Path, rev: &str, prefix: Option<&str>) -> Option<Vec<(String, String)>> {
     let mut args = vec!["ls-tree", "-r", "-z", "--full-tree", rev];
     if let Some(p) = prefix {
         args.extend(["--", p]);
     }
-    let entries = split_nul(git(repo, &args)?);
+    let entries = split_nul(git_inner(repo, &args)?);
     Some(
         entries
             .iter()
@@ -157,8 +158,8 @@ pub fn gitlink_holds(root: &Path, link: &str, rest: &str) -> Option<bool> {
         return None;
     }
     let pin = String::from_utf8_lossy(&git(root, &["rev-parse", &format!("HEAD:{link}")])?).trim().to_string();
-    git(&sub, &["cat-file", "-e", &format!("{pin}^{{commit}}")])?;
-    Some(git(&sub, &["cat-file", "-e", &format!("{pin}:{rest}")]).is_some())
+    git_inner(&sub, &["cat-file", "-e", &format!("{pin}^{{commit}}")])?;
+    Some(git_inner(&sub, &["cat-file", "-e", &format!("{pin}:{rest}")]).is_some())
 }
 
 /// Repository-relative paths of every gitlink (submodule) the index records.

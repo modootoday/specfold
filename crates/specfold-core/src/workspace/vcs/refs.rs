@@ -1,8 +1,9 @@
 //! Revisions: HEAD, the upstream branch, and whether a commit is in HEAD's history.
 
+use super::env::{Reach, command};
 use super::repo::git;
 use std::path::Path;
-use std::process::{Command, Stdio};
+use std::process::Stdio;
 
 /// The full hash of HEAD.
 pub fn head(root: &Path) -> Option<String> {
@@ -50,9 +51,7 @@ pub fn upstream(root: &Path) -> Option<String> {
 
 /// Whether `rev` is HEAD or one of its ancestors; None when git cannot tell (unknown revision).
 pub fn is_ancestor_of_head(root: &Path, rev: &str) -> Option<bool> {
-    let status = Command::new("git")
-        .arg("-C")
-        .arg(root)
+    let status = command(root, Reach::Root)
         .args(["merge-base", "--is-ancestor", rev, "HEAD"])
         .stderr(Stdio::null())
         .status()

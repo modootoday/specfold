@@ -1,15 +1,16 @@
 //! When each path was first added, carried across renames, from one pass over the history and
 //! cached per repository. Asking git per file with --follow costs seconds each in a long history.
 
-use super::repo::{git, nearest_repo};
+use super::repo::{git_inner, nearest_repo};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 
 fn first_adds(repo: &Path) -> HashMap<String, i64> {
     let mut seen = HashMap::new();
+    // History needs no index, so the root and a nested checkout are read alike.
     let Some(out) =
-        git(repo, &["log", "--reverse", "-M", "--diff-filter=AR", "--format=%x1e%at", "--name-status", "-z"])
+        git_inner(repo, &["log", "--reverse", "-M", "--diff-filter=AR", "--format=%x1e%at", "--name-status", "-z"])
     else {
         return seen;
     };

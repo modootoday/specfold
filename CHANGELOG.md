@@ -3,6 +3,31 @@
 Release notes for each version are also on
 [GitHub releases](https://github.com/modootoday/specfold/releases).
 
+## Unreleased
+
+### Added
+
+- `[owners] mount = "<dir>"`: the directory a larger workspace mounts this repository at. Documents then write
+  `rel.governs` from that workspace's root (`<dir>/src/**`), so one document reads the same from both repositories.
+  The value must be a relative directory with no `..`, no leading `/` and no wildcard; spec.toml is refused otherwise.
+- L10 (error, on commit): in a repository with a mount, a `rel.governs` entry that is neither the mount nor inside it
+  is reported with a fix that rewrites it as `<dir>/<path>`. Entries in other projects (`<remote>:<path>`) are left
+  alone. Before, such an entry passed here and was refused by the workspace's P1 only when it was pushed.
+- specfold-core: `workspace::vcs::staged_pin_texts`, the Markdown files of a staged gitlink as the index pins them.
+
+### Fixed
+
+- In a repository with a mount, L5 looks `<dir>/<path>` up as `<path>` from the repository root instead of warning that
+  the mount's first segment does not exist; P1, `spec mv`, `spec new`, D1 and `spec context` read governs the same way.
+- `spec check --staged` from a git hook reads gitlinks again. Git exports `GIT_DIR` and `GIT_INDEX_FILE` to hooks, and
+  every git call inside a submodule inherited them, so it read the outer repository, found nothing changed inside a
+  moved pin and checked none of its documents. Calls inside a submodule now run without the repository-local
+  variables (`git rev-parse --local-env-vars`); calls in the repository itself drop them too and keep only
+  `GIT_INDEX_FILE` (such as the temporary index of `git commit --only`) when it belongs to that repository.
+- `spec check --staged` reads a document inside a moved gitlink at the commit the index pins, not from the
+  submodule's checkout, which may sit on another commit. Reading a file "at the base" or "in the index" for a path
+  inside a submodule (`git show`) now asks the submodule at the pinned commit; it used to find nothing.
+
 ## 0.8.2 - 2026-11-16
 
 0.8.2 is a patch release: every command, flag and spec.toml key of 0.8.1 keeps its name and meaning.

@@ -21,6 +21,7 @@ pub fn catalog() -> Vec<Box<dyn Rule>> {
         Box::new(links::RelationsResolve),
         Box::new(links::AnchorsUnique),
         Box::new(links::GovernsExists),
+        Box::new(links::GovernsMounted),
         Box::new(links::LocalLinks),
         Box::new(links::ImageAlt),
         Box::new(links::CitesOutside),

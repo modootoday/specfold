@@ -250,6 +250,59 @@ fn a_staged_gitlink_brings_the_files_changed_inside_it_into_the_run() {
     assert_eq!(rules_hit(&r.json(&["check", "--changed", "HEAD", "--rule", "S3"]).1), ["S3"]);
 }
 
+/// A repository with `services/vendor` mounted as a submodule and the pin committed.
+fn with_vendor() -> (common::Repo, common::Repo) {
+    let lib = common::repo();
+    lib.write("docs/readme.md", "lib\n");
+    lib.commit("lib");
+    let r = common::repo();
+    let url = lib.path().to_str().unwrap();
+    r.git(&["-c", "protocol.file.allow=always", "submodule", "add", "-q", url, "services/vendor"]);
+    r.commit("pin vendor");
+    (r, lib)
+}
+
+fn commit_in(dir: &std::path::Path, msg: &str) {
+    for args in [vec!["add", "-A"], vec!["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", msg]] {
+        assert!(std::process::Command::new("git").args(&args).current_dir(dir).status().unwrap().success());
+    }
+}
+
+#[test]
+fn a_staged_gitlink_is_read_under_the_git_dir_and_index_a_hook_exports() {
+    let (r, _lib) = with_vendor();
+    r.write("services/vendor/.spec/notes/handoff.md", "# a note\n");
+    commit_in(&r.path().join("services/vendor"), "note");
+    r.git(&["add", "services/vendor"]);
+    let git_dir = r.path().join(".git");
+    let out = r
+        .spec()
+        .args(["check", "--staged", "--rule", "S3", "--json"])
+        .env("GIT_DIR", &git_dir)
+        .env("GIT_INDEX_FILE", git_dir.join("index"))
+        .output()
+        .unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(rules_hit(&v), ["S3"], "{v}");
+}
+
+#[test]
+fn a_staged_gitlink_document_is_read_at_the_pin_not_the_checkout() {
+    let (r, _lib) = with_vendor();
+    let sub = r.path().join("services/vendor");
+    let id = r.new_doc("plan", "services/vendor", "Vendored");
+    let p = path_of(&r, &id);
+    let good = r.read(&p);
+    r.write(&p, &good.replacen("---\n", "---\nbogus_key: 1\n", 1));
+    commit_in(&sub, "pinned with an unknown key");
+    r.git(&["add", "services/vendor"]);
+    r.write(&p, &good);
+    commit_in(&sub, "checkout moves on");
+    let (_, v) = r.json(&["check", "--staged", "--rule", "S1"]);
+    assert_eq!(rules_hit(&v), ["S1"], "{v}");
+    assert!(v.to_string().contains("bogus_key"), "{v}");
+}
+
 #[test]
 fn a_full_check_leaves_whole_tree_guards_to_spec_guard() {
     let r = common::repo();

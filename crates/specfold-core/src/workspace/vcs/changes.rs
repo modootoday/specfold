@@ -1,7 +1,7 @@
 //! What a change touches: paths in the index, since a base or in a range, the lines it adds,
 //! and file contents at a revision or in the index.
 
-use super::repo::{git, split_nul};
+use super::repo::{git, git_inner, nearest_repo, split_nul};
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -71,14 +71,36 @@ pub fn added_lines(root: &Path, base: Option<&str>) -> Option<HashMap<String, Ve
     Some(map)
 }
 
-/// The content of `path` at `rev`, if it existed there.
+/// The content of `path` at `rev`, if it existed there. A path inside a submodule is read there,
+/// at the commit `rev` pins it to, or at `rev` itself when `rev` is one of the submodule's commits.
 pub fn show(root: &Path, rev: &str, path: &str) -> Option<String> {
-    let spec = format!("{rev}:{path}");
-    git(root, &["show", &spec]).map(|b| String::from_utf8_lossy(&b).into_owned())
+    let outer = || git(root, &["show", &format!("{rev}:{path}")]);
+    let (repo, rel, prefix) = nearest_repo(root, path);
+    if prefix.is_empty() {
+        return outer().map(text);
+    }
+    let pin = pinned(root, &format!("{rev}:{}", prefix.trim_end_matches('/')));
+    let at = pin.as_deref().unwrap_or(rev);
+    git_inner(&repo, &["show", &format!("{at}:{rel}")]).or_else(outer).map(text)
 }
 
-/// The staged content of `path`.
+/// The staged content of `path`; inside a submodule, its content at the commit the index pins.
 pub fn show_staged(root: &Path, path: &str) -> Option<String> {
-    let spec = format!(":{path}");
-    git(root, &["show", &spec]).map(|b| String::from_utf8_lossy(&b).into_owned())
+    let outer = || git(root, &["show", &format!(":{path}")]);
+    let (repo, rel, prefix) = nearest_repo(root, path);
+    let Some(pin) = (!prefix.is_empty()).then(|| pinned(root, &format!(":{}", prefix.trim_end_matches('/')))).flatten()
+    else {
+        return outer().map(text);
+    };
+    git_inner(&repo, &["show", &format!("{pin}:{rel}")]).map(text)
+}
+
+/// The commit a gitlink entry names (`rev:link`, or `:link` for the index).
+fn pinned(root: &Path, spec: &str) -> Option<String> {
+    let out = git(root, &["rev-parse", "--verify", "--quiet", spec])?;
+    Some(String::from_utf8_lossy(&out).trim().to_string()).filter(|s| !s.is_empty())
+}
+
+fn text(bytes: Vec<u8>) -> String {
+    String::from_utf8_lossy(&bytes).into_owned()
 }

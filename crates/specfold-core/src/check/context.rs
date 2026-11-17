@@ -34,11 +34,15 @@ impl Ctx<'_> {
         vcs::show(&self.corpus.cfg.spec_home, base, path)
     }
 
-    /// The content being checked: the index for staged runs, the working tree otherwise.
+    /// The content being checked: the index for staged runs (inside a submodule, the commit the
+    /// index pins, else its checkout), the working tree otherwise.
     pub fn current(&self, path: &str) -> Option<String> {
         let staged = matches!(self.scope.range, super::scope::Range::Staged);
-        if staged && !self.scope.in_submodules.contains(path) {
-            return vcs::show_staged(&self.corpus.cfg.spec_home, path);
+        if staged {
+            let text = vcs::show_staged(&self.corpus.cfg.spec_home, path);
+            if text.is_some() || !self.scope.in_submodules.contains(path) {
+                return text;
+            }
         }
         crate::corpus::overlay::read(&self.corpus.cfg.spec_home.join(path)).ok()
     }

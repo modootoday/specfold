@@ -15,7 +15,10 @@ pub struct Governing {
 
 /// One `governs` entry of a document, compiled.
 struct Claim {
+    /// As written, for display.
     pattern: String,
+    /// Read from this repository's root: without the `[owners] mount` prefix.
+    local: String,
     matcher: Option<PathMatch>,
     specificity: usize,
 }
@@ -53,11 +56,11 @@ impl GoverningIndex {
                     _ => continue,
                 }
             } else {
-                Claims::Globs(globs.into_iter().map(compile).collect())
+                Claims::Globs(globs.into_iter().map(|g| compile(&c.cfg.raw.owners, g)).collect())
             };
             let pos = ix.docs.len();
             let mut keys: Vec<Option<String>> = match &claims {
-                Claims::Globs(list) => list.iter().map(|g| prefix_key(&g.pattern)).collect(),
+                Claims::Globs(list) => list.iter().map(|g| prefix_key(&g.local)).collect(),
                 Claims::Owner(o) => vec![Some(o.clone())],
             };
             keys.sort();
@@ -128,9 +131,10 @@ impl GoverningIndex {
     }
 }
 
-fn compile(pattern: String) -> Claim {
-    let specificity = literal(&pattern).len();
-    Claim { matcher: matcher(&pattern), pattern, specificity }
+fn compile(owners: &crate::config::types::OwnersSection, pattern: String) -> Claim {
+    let local = owners.unmount(&pattern).to_string();
+    let specificity = literal(&local).len();
+    Claim { matcher: matcher(&local), pattern, local, specificity }
 }
 
 /// The text of a glob before its first wildcard.
@@ -158,7 +162,7 @@ pub(crate) fn prefix_key(pattern: &str) -> Option<String> {
 /// Whether claim `g` covers something below folder `dir`: its literal part lies inside it, or it
 /// matches one of the files there.
 fn below_dir(g: &Claim, dir: &str, files: &[String]) -> bool {
-    if crate::paths::is_below(literal(&g.pattern), dir) {
+    if crate::paths::is_below(literal(&g.local), dir) {
         return true;
     }
     g.matcher.as_ref().is_some_and(|m| files.iter().any(|f| m.is_match(f)))
