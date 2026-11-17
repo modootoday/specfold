@@ -12,7 +12,7 @@ impl Rule for SupersedePairs {
         &RuleInfo {
             id: "T1",
             title: "superseded documents have exactly one successor",
-            explain: "Supersession is written once, on the new document (rel.supersedes). Once the new document takes effect (active, or the first current status after its type's initial one; a type that starts active takes effect at once), the old document's status must be superseded, and only one document may claim it. A successor still in its initial status, such as a draft, leaves the old document as it is, and so does one that ended without taking effect (rejected). `spec new --from <id>` writes the relation; when the new document starts as a draft, `spec set <new> status=active --write` marks the old one superseded in the same write. `spec set <new> rel.supersedes+=<old> --write` records it by hand.",
+            explain: "Supersession is written once, on the new document (rel.supersedes). Once the new document takes effect (active, or the first current status after its type's initial one; a type that starts active takes effect at once), the old document's status must be superseded, and only one document may claim it. A successor still in its initial status, such as a draft, leaves the old document as it is, and so does one that ended without taking effect (rejected). `spec new --from <id>` writes the relation; when the new document starts as a draft, `spec set <new> status=active --write` marks the old one superseded in the same write. `spec set <new> rel.supersedes+=<old> --write` records it by hand. In a repository with `[owners] mount`, a successor in the workspace that mounts it counts, and when that workspace is not on disk a superseded document is not asked for one.",
             on_commit: true,
         }
     }
@@ -63,7 +63,10 @@ impl Rule for SupersedePairs {
                     .fix_cmd(superseded_fix(ctx, d, &status, holding[0])),
                 );
             }
-            if successors.is_empty() && status == "superseded" {
+            // In a mounted repository the successor may be a workspace document.
+            let elsewhere =
+                || crate::workspace::remotes::superseded_in_parent(&ctx.corpus.cfg, &d.id.to_string()).unwrap_or(false);
+            if successors.is_empty() && status == "superseded" && !elsewhere() {
                 out.push(Finding::error(
                     "T1",
                     &d.path,

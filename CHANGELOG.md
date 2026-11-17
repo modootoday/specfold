@@ -3,6 +3,20 @@
 Release notes for each version are also on
 [GitHub releases](https://github.com/modootoday/specfold/releases).
 
+## Unreleased
+
+### Changed
+
+- In a repository with `[owners] mount`, L1, L3 and T1 look a target that does not resolve here up in the workspace
+  that mounts it (the repository root minus the mount, when it holds a spec.toml), with its aliases, read once and
+  only on a miss. Workspace ids, ids of other repositories the workspace holds, its slugs and its old paths then
+  resolve from a standalone check. A target the workspace lacks too is still an error; when the workspace is not on
+  disk, such targets are skipped, as targets of an absent remote are.
+- D1 does not ask a document about a package manifest or lockfile (`package.json`, `bun.lock`, `Cargo.toml`,
+  `Cargo.lock`) whose change only moves version values and the integrity hashes that follow them, unless the
+  document's text names one of the moved packages. Any other change to the file still asks.
+- specfold-core: `workspace::remotes::load_dir`, `parent`, `resolve_in_parent` and `superseded_in_parent`.
+
 ## 0.9.0 - 2026-11-17
 
 ### Added

@@ -3,6 +3,7 @@
 //! governed-code drift (D1), verify commands and generators (X1, X2, G1), translations (R1, R2)
 //! and counted numbers (N1).
 
+mod bumps;
 mod changes;
 mod commands;
 mod counts;

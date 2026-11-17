@@ -704,6 +704,54 @@ fn d1_a_change_note_on_a_sibling_source_speaks_for_its_test() {
     assert!(fix.starts_with("spec set change:") && fix.contains(&format!("rel.depends_on+={other}")), "{fix}");
 }
 
+/// A repository with a manifest and lockfile at `@acme/tool` 0.8.2, one active document governing
+/// both as a whole and one that names the package.
+fn manifests_governed() -> (common::Repo, String, String) {
+    let r = common::repo();
+    r.write(
+        "package.json",
+        "{\n  \"name\": \"app\",\n  \"devDependencies\": {\n    \"@acme/tool\": \"0.8.2\"\n  }\n}\n",
+    );
+    r.write(
+        "bun.lock",
+        "{\n  \"packages\": {\n    \"@acme/tool\": [\"@acme/tool@0.8.2\", \"\", {}, \"sha512-AAAA+b/c==\"],\n  }\n}\n",
+    );
+    let whole = r.new_doc("sot", "package.json", "Package manager");
+    let named = r.new_doc("sot", "bun.lock", "Tool adoption");
+    for (id, other) in [(&whole, "bun.lock"), (&named, "package.json")] {
+        assert_eq!(r.json(&["set", id, &format!("rel.governs+={other}"), "status=active", "--write"]).0, 0);
+    }
+    let p = r.json(&["resolve", &named]).1["path"].as_str().unwrap().to_string();
+    r.write(&p, &(r.read(&p) + "\nThe workspace runs `@acme/tool` from npm.\n"));
+    r.commit("manifests");
+    (r, whole, named)
+}
+
+fn d1_ids(r: &common::Repo) -> Vec<String> {
+    let (_, v) = r.json(&["check", "--staged", "--rule", "D1"]);
+    v["items"].as_array().unwrap().iter().map(|f| f["path"].as_str().unwrap().to_string()).collect()
+}
+
+#[test]
+fn d1_a_version_only_manifest_bump_asks_only_documents_naming_the_package() {
+    let (r, whole, named) = manifests_governed();
+    for f in ["package.json", "bun.lock"] {
+        r.write(f, &r.read(f).replace("0.8.2", "0.9.0").replace("sha512-AAAA+b/c==", "sha512-ZZZZ9="));
+    }
+    r.git(&["add", "-A"]);
+    let asked = d1_ids(&r);
+    let path = |id: &str| r.json(&["resolve", id]).1["path"].as_str().unwrap().to_string();
+    assert_eq!(asked, [path(&named)], "{asked:?}, not {whole}");
+}
+
+#[test]
+fn d1_a_dependency_added_to_a_manifest_still_asks() {
+    let (r, _, _) = manifests_governed();
+    r.write("package.json", &r.read("package.json").replace("\"0.8.2\"", "\"0.8.2\",\n    \"left\": \"1.0.0\""));
+    r.git(&["add", "-A"]);
+    assert_eq!(d1_ids(&r).len(), 2, "both documents govern package.json");
+}
+
 #[test]
 fn d1_asks_a_document_again_but_not_a_change_note_that_has_landed() {
     let r = common::repo();

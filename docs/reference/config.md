@@ -32,7 +32,9 @@ submodule path relative to that workspace's root, such as `services/shop`; no `.
 reads the same from both repositories: `services/shop/src/**`, not `src/**`. L10 reports an entry
 that is neither the mount nor inside it and prints the rewritten entry; L5, P1, D1 and
 `spec context` read `<dir>/<path>` as `<path>` from this repository's root. Entries in other
-projects (`<remote>:<path>`) are left alone.
+projects (`<remote>:<path>`) are left alone. L1, L3 and T1 look a target that is not found here
+up in that workspace (this repository's root minus `<dir>`, when it holds a spec.toml), and skip
+it when the workspace is not on disk.
 
 ```toml
 [owners]

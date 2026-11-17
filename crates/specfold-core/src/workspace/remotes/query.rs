@@ -23,6 +23,11 @@ pub fn resolve(cfg: &Config, text: &str) -> Remote {
     let Some(l) = load(cfg, &name) else {
         return Remote::Absent { path: dir(cfg, &name).unwrap_or_default(), name };
     };
+    resolve_loaded(name, &l, rest)
+}
+
+/// Resolves `rest` (`<id>[#anchor]`, or an alias) in the loaded repository `l`, named `name`.
+pub(super) fn resolve_loaded(name: String, l: &Loaded, rest: &str) -> Remote {
     let id = RefText::parse(rest).target;
     match l.graph.resolve(rest) {
         Resolution::Doc { idx, .. } => {

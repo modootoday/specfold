@@ -5,7 +5,7 @@ use crate::config::Config;
 use crate::corpus::graph::Graph;
 use crate::corpus::{Corpus, LoadOptions};
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 
 type Cache = Mutex<HashMap<PathBuf, Option<Arc<Loaded>>>>;
@@ -24,7 +24,14 @@ pub fn dir(cfg: &Config, name: &str) -> Option<PathBuf> {
 
 /// Loads the remote corpus once per process; `None` when the directory is absent.
 pub fn load(cfg: &Config, name: &str) -> Option<Arc<Loaded>> {
-    let dir = dir(cfg, name)?;
+    load_dir(&dir(cfg, name)?, name)
+}
+
+/// Loads the repository in `dir` once per process, whatever names it (a remote, the mounting
+/// workspace); `None` when the directory is absent. `name` labels the trace line.
+pub fn load_dir(dir: &Path, name: &str) -> Option<Arc<Loaded>> {
+    // One directory reached by two spellings (`../..` and a parent walk) is read once.
+    let dir = std::fs::canonicalize(dir).unwrap_or_else(|_| dir.to_path_buf());
     let mut c = cache().lock().unwrap_or_else(|e| e.into_inner());
     c.entry(dir.clone())
         .or_insert_with(|| {

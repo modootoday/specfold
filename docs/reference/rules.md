@@ -55,6 +55,11 @@ A reference or relation written `<name>:<id>` names a document in another reposi
 under `[remotes.<name>]`. L1 and L3 check it when that directory is on disk, with the same type
 rules as local targets, and skip it when the directory is absent, so a CI job without that
 checkout does not fail. `spec show <name>:<id>` reads it; nothing writes there.
+In a repository with `[owners] mount`, a reference or relation target that names nothing here, and
+a superseded document's successor (T1), are looked up in the workspace that mounts it: the
+repository root minus the mount, when it holds a spec.toml, read once with its aliases. A target it
+lacks too is an error; when that workspace is not on disk (a clone checked out on its own), such
+targets are skipped.
 L8 checks plain links offline: a relative path must exist and a `#fragment` must match a
 heading's GitHub slug (a repeat gets `-1`, `-2`) or a `{#anchor}` in the target file. URLs and
 ids are skipped, and so are targets matching `[check] link_ignore` globs.
@@ -121,6 +126,12 @@ Inside a pin bump only documents whose `governs` names a path at or inside the s
 asked: one governing a wider tree (`governs: [vendor/**]`) is about where submodules sit, which a
 bump does not change. A `change` note is asked only in the range that adds or edits it; once it is
 committed, its change has landed and later code changes belong to another note.
+
+A package manifest or lockfile (`package.json`, `bun.lock`, `Cargo.toml`, `Cargo.lock`) whose
+change only moves version values, with the integrity hashes or checksums that follow them, asks
+only the documents whose text names one of the moved packages as a whole name (`@acme/tool`, not
+`@acme/tool-linux-x64`). A document that governs the manifest as a whole is not asked about a
+version bump; adding a dependency, a script or any other line still asks it.
 
 An overview or census that governs a whole tree (`governs: [services]`) is asked about every file
 below it, beside the narrower document. `[check] d1 = "specific"` asks only the most specific

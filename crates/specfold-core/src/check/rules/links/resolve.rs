@@ -1,6 +1,6 @@
 //! L1: every [[reference]] resolves to one document.
 
-use super::targets::{ids, remote_problem};
+use super::targets::{ids, parent_problem, remote_problem};
 use crate::check::context::Ctx;
 use crate::check::finding::Finding;
 use crate::check::rule::skipped;
@@ -26,7 +26,7 @@ impl Rule for LinksResolve {
         &RuleInfo {
             id: "L1",
             title: "every [[reference]] resolves to one document",
-            explain: "Body references are written [[<id>]] or [[<id>#<anchor>]]. A reference that names nothing, an anchor that does not exist, or an alias shared by two documents is an error. A Markdown link whose target is a document id, `[text](<id>)`, is reported with the [[<id>|text]] to write instead (`spec fix --rule L1 --write` rewrites it); the built-in export rewrites the ones that resolve. An alias that resolves is accepted but reported, with the id to write instead; `spec fix --rule L1 --write` rewrites them all. [[<remote>:<id>]] names a document in a repository listed in [remotes]; it is checked when that directory is on disk and skipped when it is not.",
+            explain: "Body references are written [[<id>]] or [[<id>#<anchor>]]. A reference that names nothing, an anchor that does not exist, or an alias shared by two documents is an error. A Markdown link whose target is a document id, `[text](<id>)`, is reported with the [[<id>|text]] to write instead (`spec fix --rule L1 --write` rewrites it); the built-in export rewrites the ones that resolve. An alias that resolves is accepted but reported, with the id to write instead; `spec fix --rule L1 --write` rewrites them all. [[<remote>:<id>]] names a document in a repository listed in [remotes]; it is checked when that directory is on disk and skipped when it is not. In a repository with `[owners] mount`, a reference that names nothing here is looked up, through its aliases, in the workspace that mounts it (the repository root minus the mount, holding a spec.toml); it is an error only when that workspace lacks it too, and skipped when the workspace is not on disk.",
             on_commit: true,
         }
     }
@@ -87,6 +87,12 @@ impl Rule for LinksResolve {
                     Resolution::Missing => {
                         if let Some(msg) = remote_problem(ctx, &l.item, None) {
                             if let Some(m) = msg {
+                                out.push(Finding::error("L1", &l.path, l.line, format!("[[{}]] {m}", l.item)));
+                            }
+                            continue;
+                        }
+                        if let Some(problem) = parent_problem(ctx, &l.item, None) {
+                            if let Some(m) = problem {
                                 out.push(Finding::error("L1", &l.path, l.line, format!("[[{}]] {m}", l.item)));
                             }
                             continue;

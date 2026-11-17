@@ -1,6 +1,6 @@
 //! L3: every relation names a document of a type it may point at.
 
-use super::targets::{allowed_targets, ids, remote_problem, remote_status};
+use super::targets::{allowed_targets, ids, parent_problem, remote_problem, remote_status};
 use crate::check::context::{Ctx, key_line};
 use crate::check::finding::Finding;
 use crate::check::rule::{Rule, RuleInfo};
@@ -13,7 +13,7 @@ impl Rule for RelationsResolve {
         &RuleInfo {
             id: "L3",
             title: "relations resolve and point at the right types",
-            explain: "rel.supersedes names documents of the same type, rel.implements names rules or decisions (sot, adr, page, design), rel.evidence names evidence, research or audits, rel.depends_on, rel.translation_of and rel.exception_of name anything, and rel.governs names code paths. A target written <remote>:<id> is looked up in that repository from [remotes], with the same type rules, and skipped when its directory is absent. Other relation names are reported.",
+            explain: "rel.supersedes names documents of the same type, rel.implements names rules or decisions (sot, adr, page, design), rel.evidence names evidence, research or audits, rel.depends_on, rel.translation_of and rel.exception_of name anything, and rel.governs names code paths. A target written <remote>:<id> is looked up in that repository from [remotes], with the same type rules, and skipped when its directory is absent. In a repository with `[owners] mount`, a target not found here is looked up, with the same type rules and through its aliases, in the workspace that mounts it (the repository root minus the mount, holding a spec.toml); when that workspace is not on disk, such a target is skipped. Other relation names are reported.",
             on_commit: true,
         }
     }
@@ -59,12 +59,18 @@ impl Rule for RelationsResolve {
                             Some(Some(m)) => {
                                 out.push(Finding::error("L3", &d.path, line, format!("rel.{kind} target {t} {m}")))
                             }
-                            None => out.push(Finding::error(
-                                "L3",
-                                &d.path,
-                                line,
-                                format!("rel.{kind} target {t} names no document"),
-                            )),
+                            None => match parent_problem(ctx, &t, Some((&kind, &d.id.ty))) {
+                                Some(None) => {}
+                                Some(Some(m)) => {
+                                    out.push(Finding::error("L3", &d.path, line, format!("rel.{kind} target {t} {m}")))
+                                }
+                                None => out.push(Finding::error(
+                                    "L3",
+                                    &d.path,
+                                    line,
+                                    format!("rel.{kind} target {t} names no document"),
+                                )),
+                            },
                         },
                     }
                 }
