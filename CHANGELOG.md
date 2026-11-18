@@ -3,7 +3,7 @@
 Release notes for each version are also on
 [GitHub releases](https://github.com/modootoday/specfold/releases).
 
-## Unreleased
+## 0.10.0 - 2026-11-18
 
 ### Changed
 
