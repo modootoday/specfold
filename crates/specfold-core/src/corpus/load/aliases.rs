@@ -11,7 +11,10 @@ pub fn load(cfg: &Config) -> AliasTable {
         if line.starts_with('#') || line.trim().is_empty() {
             continue;
         }
-        if let Some((old, new)) = line.split_once('\t') {
+        // A row with an empty old name names nothing a reference could write.
+        if let Some((old, new)) = line.split_once('\t')
+            && !old.trim().is_empty()
+        {
             table.map.entry(old.trim().to_string()).or_default().push(new.trim().to_string());
         }
     }

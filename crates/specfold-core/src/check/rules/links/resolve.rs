@@ -26,7 +26,7 @@ impl Rule for LinksResolve {
         &RuleInfo {
             id: "L1",
             title: "every [[reference]] resolves to one document",
-            explain: "Body references are written [[<id>]] or [[<id>#<anchor>]]. A reference that names nothing, an anchor that does not exist, or an alias shared by two documents is an error. A Markdown link whose target is a document id, `[text](<id>)`, is reported with the [[<id>|text]] to write instead (`spec fix --rule L1 --write` rewrites it); the built-in export rewrites the ones that resolve. An alias that resolves is accepted but reported, with the id to write instead; `spec fix --rule L1 --write` rewrites them all. [[<remote>:<id>]] names a document in a repository listed in [remotes]; it is checked when that directory is on disk and skipped when it is not. In a repository with `[owners] mount`, a reference that names nothing here is looked up, through its aliases, in the workspace that mounts it (the repository root minus the mount, holding a spec.toml); it is an error only when that workspace lacks it too, and skipped when the workspace is not on disk.",
+            explain: "Body references are written [[<id>]] or [[<id>#<anchor>]]. A reference that names nothing, an anchor that does not exist, or an alias shared by two documents is an error; when the documents belong to different owners, a reference from one of those owners names its own. A Markdown link whose target is a document id, `[text](<id>)`, is reported with the [[<id>|text]] to write instead (`spec fix --rule L1 --write` rewrites it); the built-in export rewrites the ones that resolve. An alias that resolves is accepted but reported, with the id to write instead; `spec fix --rule L1 --write` rewrites them all. [[<remote>:<id>]] names a document in a repository listed in [remotes]; it is checked when that directory is on disk and skipped when it is not. In a repository with `[owners] mount`, a reference that names nothing here is looked up, through its aliases, in the workspace that mounts it (the repository root minus the mount, holding a spec.toml); it is an error only when that workspace lacks it too, and skipped when the workspace is not on disk.",
             on_commit: true,
         }
     }
@@ -37,7 +37,7 @@ impl Rule for LinksResolve {
                 continue;
             }
             for l in &d.links {
-                match ctx.graph.resolve(&l.item) {
+                match ctx.graph.resolve_from(&d.id.owner, &l.item) {
                     Resolution::Doc { idx, anchor, via_alias: true } => {
                         let mut id = ctx.corpus.docs[idx].id.to_string();
                         if let Some(a) = anchor {
@@ -134,7 +134,7 @@ fn md_id_links(ctx: &Ctx, d: &crate::model::Doc, out: &mut Vec<Finding>) {
                 continue;
             }
             let line = text[..o.span.0].matches('\n').count() + 1;
-            let resolved = ctx.graph.resolve(&o.target);
+            let resolved = ctx.graph.resolve_from(&d.id.owner, &o.target);
             // A slug id or alias is written as the canonical id, so the fix needs no second pass.
             let target = match &resolved {
                 Resolution::Doc { idx, anchor, .. } => {

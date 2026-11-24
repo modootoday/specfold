@@ -33,7 +33,7 @@ disk, as before 0.8.0. `--staged`, `--changed` and files named on the command li
 | rule | checks that |
 | --- | --- |
 | **I1** | ids are unique across every root |
-| **I2** | aliases do not shadow ids and point at one document |
+| **I2** | aliases do not shadow ids and point at one document of each owner |
 | **I3** | the alias table gains no rows |
 
 ## Links

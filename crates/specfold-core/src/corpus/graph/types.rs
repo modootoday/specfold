@@ -39,6 +39,8 @@ pub struct Graph {
     pub by_alias: HashMap<String, Vec<usize>>,
     /// Slug ids (`plan:root/payment-rollout`), resolved like aliases.
     pub by_slug: HashMap<String, Vec<usize>>,
+    /// The owner of each document, from its id.
+    pub owners: Vec<String>,
     pub anchors: Vec<HashSet<String>>,
     pub edges: Vec<Edge>,
     pub outgoing: Vec<Vec<usize>>,

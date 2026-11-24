@@ -92,6 +92,65 @@ fn fix_i2_keeps_a_shared_alias_on_the_picked_document() {
 }
 
 #[test]
+fn an_alias_each_owner_keeps_names_the_citing_owners_document() {
+    let r = common::repo();
+    let shop = r.new_doc("sot", "services/shop", "Shop series one");
+    let blog = r.new_doc("sot", "services/blog", "Blog series one");
+    for id in [&shop, &blog] {
+        let (code, v) = r.json(&["set", id, "aliases+=01", "--write"]);
+        assert_eq!(code, 0, "{v}");
+    }
+    let (_, v) = r.json(&["check", "--rule", "I2"]);
+    assert_eq!(v["warnings"], 0, "{v}");
+    let from_shop = r.new_doc("adr", "services/shop", "Cites the shop series");
+    let (code, v) = r.json(&["edit", &from_shop, "--append", "--text", "See [[01]].", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    let (_, v) = r.json(&["check", "--rule", "L1"]);
+    assert_eq!(v["errors"], 0, "{v}");
+    assert!(v.to_string().contains(&format!("is an alias of {shop}")), "{v}");
+    let from_third = r.new_doc("adr", "libs/auth", "Cites from a third owner");
+    let (code, v) = r.json(&["edit", &from_third, "--append", "--text", "See [[01]].", "--write"]);
+    assert_eq!(code, 0, "{v}");
+    let (_, v) = r.json(&["check", "--rule", "L1"]);
+    assert_eq!(v["errors"], 1, "{v}");
+    assert!(v.to_string().contains("is ambiguous"), "{v}");
+}
+
+#[test]
+fn an_alias_table_row_without_an_old_name_is_no_alias() {
+    let r = common::repo();
+    let a = r.new_doc("adr", "services/shop", "First import");
+    let b = r.new_doc("adr", "services/shop", "Second import");
+    r.write(".spec/_aliases.tsv", &format!("# old\tnew-id\n\t{a}\n\t{b}\nADR-9\t{a}\n"));
+    let (_, v) = r.json(&["check", "--rule", "I2"]);
+    assert_eq!(v["warnings"], 0, "{v}");
+    let (_, v) = r.json(&["resolve", "ADR-9"]);
+    assert_eq!(v["id"], a.as_str(), "{v}");
+}
+
+#[test]
+fn fix_i2_drops_a_shared_alias_only_within_one_owner() {
+    let r = common::repo();
+    let a = r.new_doc("adr", "services/shop", "First readme");
+    let b = r.new_doc("adr", "services/shop", "Second readme");
+    let other = r.new_doc("adr", "services/blog", "Blog readme");
+    for id in [&a, &b, &other] {
+        let (code, v) = r.json(&["set", id, "aliases+=README", "--write"]);
+        assert_eq!(code, 0, "{v}");
+    }
+    let (_, v) = r.json(&["check", "--rule", "I2"]);
+    assert_eq!(v["warnings"], 2, "{v}");
+    let (_, v) = r.json(&["show", &a]);
+    let a_path = v["path"].as_str().unwrap().to_string();
+    let (code, v) = r.json(&["fix", "--rule", "I2", "--pick", &a, "--write", &format!("{a_path}:1")]);
+    assert_eq!(code, 0, "{v}");
+    let (_, v) = r.json(&["check", "--rule", "I2"]);
+    assert_eq!(v["warnings"], 0, "{v}");
+    let (_, v) = r.json(&["show", &other]);
+    assert!(v.to_string().contains("README"), "{v}");
+}
+
+#[test]
 fn edit_adds_a_new_section_after_a_named_one() {
     let r = common::repo();
     let id = r.new_doc("plan", "services/shop", "Checkout v2");

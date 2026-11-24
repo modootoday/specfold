@@ -78,7 +78,7 @@ impl Rule for NoLocalCites {
                 continue;
             }
             for l in &d.links {
-                if let Resolution::Doc { idx, .. } = ctx.graph.resolve(&l.item)
+                if let Resolution::Doc { idx, .. } = ctx.graph.resolve_from(&d.id.owner, &l.item)
                     && ctx.corpus.docs[idx].tier == Tier::Local
                 {
                     out.push(Finding::error(

@@ -106,7 +106,7 @@ fn judge(ctx: &Ctx, memo: &mut Memo, at: (&str, usize), written: &str, target: &
             return Some(Finding::error("L6", path, line, m));
         }
     }
-    match ctx.graph.resolve(target) {
+    match ctx.graph.resolve_from(&ctx.corpus.owners.containing(path).id, target) {
         Resolution::Doc { idx, anchor, via_alias } => {
             let id = match anchor {
                 Some(a) => format!("{}#{a}", id_of(idx)),

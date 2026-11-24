@@ -51,10 +51,19 @@ fn fill_frontmatter(c: &Corpus, idx: usize, text: &str) -> Result<String> {
 
 /// Keeps `alias` on the document `keep` and removes it from every other document that carries
 /// it, in frontmatter `aliases` and in the alias table. Returns the number of files changed.
-fn drop_alias(c: &Corpus, texts: &mut BTreeMap<String, String>, alias: &str, keep: &str) -> Result<usize> {
+/// Removes `alias` from the other documents among `among` (one owner's candidates), so another
+/// owner's own alias of the same name stays.
+fn drop_alias(
+    c: &Corpus,
+    texts: &mut BTreeMap<String, String>,
+    alias: &str,
+    keep: &str,
+    among: &[String],
+) -> Result<usize> {
     let mut changed = 0;
+    let drops = |id: &str| id != keep && among.iter().any(|x| x == id);
     for d in &c.docs {
-        if d.id.to_string() == keep || !d.list_field("aliases").iter().any(|a| a == alias) {
+        if !drops(&d.id.to_string()) || !d.list_field("aliases").iter().any(|a| a == alias) {
             continue;
         }
         let Some(t) =
@@ -81,7 +90,7 @@ fn drop_alias(c: &Corpus, texts: &mut BTreeMap<String, String>, alias: &str, kee
             let n: String = t
                 .split_inclusive('\n')
                 .filter(|l| match l.trim_end().split_once('\t') {
-                    Some((old, new)) => old != alias || new.trim() == keep,
+                    Some((old, new)) => old != alias || !drops(new.trim()),
                     None => true,
                 })
                 .collect();
@@ -145,7 +154,7 @@ pub fn plan(c: &Corpus, findings: &[Finding], pick: Option<&Pick>) -> Result<(Pl
                 else {
                     continue;
                 };
-                applied += drop_alias(c, &mut texts, alias, &p.id)?;
+                applied += drop_alias(c, &mut texts, alias, &p.id, &f.candidates)?;
             }
             _ => {}
         }

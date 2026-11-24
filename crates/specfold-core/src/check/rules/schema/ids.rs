@@ -44,8 +44,8 @@ impl Rule for AliasesClean {
     fn info(&self) -> &RuleInfo {
         &RuleInfo {
             id: "I2",
-            title: "aliases do not shadow ids and point at one document",
-            explain: "Aliases carry identifiers from before an import. An alias equal to a current id would hide that document; an alias shared by two documents makes references to it ambiguous, which `spec check` reports at each use with both candidates. `spec fix --rule I2 --pick <id> --write <path>:1` keeps the alias on that document and removes it from the others (frontmatter and alias table).",
+            title: "aliases do not shadow ids and point at one document of each owner",
+            explain: "Aliases carry identifiers from before an import. An alias equal to a current id would hide that document; an alias two documents of one owner share makes references to it ambiguous, which `spec check` reports at each use with both candidates. Owners may each keep their own alias (two brands numbering their own series): a reference from one of them names its own document, and only a reference from a third owner is ambiguous. `spec fix --rule I2 --pick <id> --write <path>:1` keeps the alias on that document and removes it from the others (frontmatter and alias table).",
             on_commit: true,
         }
     }
@@ -62,7 +62,14 @@ impl Rule for AliasesClean {
                     ));
                 }
             }
-            if list.len() > 1 && list.iter().any(|&i| ctx.scope.covers(i)) {
+            let mut by_owner: std::collections::BTreeMap<&str, Vec<usize>> = Default::default();
+            for &i in list {
+                by_owner.entry(ctx.graph.owners[i].as_str()).or_default().push(i);
+            }
+            for list in by_owner.values() {
+                if list.len() < 2 || !list.iter().any(|&i| ctx.scope.covers(i)) {
+                    continue;
+                }
                 let ids: Vec<String> = list.iter().map(|&i| ctx.corpus.docs[i].id.to_string()).collect();
                 for &i in list {
                     out.push(

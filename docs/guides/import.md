@@ -83,7 +83,7 @@ Supersedes = "supersedes"
 
 ## After the move
 
-Rules **I2** and **I3** keep the alias table honest: aliases point at one document, and the
-table gains no rows. A later import that adds rows passes when one of its commits carries the
+Rules **I2** and **I3** keep the alias table honest: an alias points at one document of each
+owner (a reference from that owner names its own), and the table gains no rows. A later import that adds rows passes when one of its commits carries the
 trailer `Specfold-Import: yes` (`git commit --trailer Specfold-Import:yes`); `SPECFOLD_IMPORT=1`
 for the run still works, and is the only way for a `--staged` run, which has no message yet. `[forbid]` keeps retired layouts from coming back (rule **Z1**).

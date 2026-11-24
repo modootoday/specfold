@@ -3,6 +3,19 @@
 Release notes for each version are also on
 [GitHub releases](https://github.com/modootoday/specfold/releases).
 
+## Unreleased
+
+### Changed
+
+- Aliases are scoped by owner. When documents of different owners declare the same alias (two areas each numbering
+  their own series `01`, `02`, ...), a reference, relation or cite written inside one of those owners names that
+  owner's document (L1, L3, L6, V2 and the graph's edges); a reference from any other owner is still ambiguous and
+  an error at its use. I2 warns only when two documents of one owner share an alias, and
+  `spec fix --rule I2 --pick` removes the alias only from the picked owner's other documents and table rows, so
+  another owner's alias of the same name stays.
+- An alias table row with an empty old name is not read: it names nothing a reference could write, and it made I2
+  report one alias shared by every document such rows point at.
+
 ## 0.10.0 - 2026-11-18
 
 ### Changed

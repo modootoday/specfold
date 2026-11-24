@@ -7,6 +7,7 @@ use crate::model::RefText;
 impl Graph {
     pub fn build(c: &Corpus) -> Self {
         let mut g = Graph {
+            owners: c.docs.iter().map(|d| d.id.owner.clone()).collect(),
             anchors: vec![Default::default(); c.docs.len()],
             outgoing: vec![vec![]; c.docs.len()],
             incoming: vec![vec![]; c.docs.len()],
@@ -53,7 +54,8 @@ impl Graph {
     }
 
     fn link(&mut self, from: usize, text: &str, kind: &str) {
-        if let Resolution::Doc { idx, anchor, .. } = self.resolve(text) {
+        let owner = self.owners[from].clone();
+        if let Resolution::Doc { idx, anchor, .. } = self.resolve_from(&owner, text) {
             if idx == from {
                 return;
             }
@@ -66,6 +68,16 @@ impl Graph {
 
     /// Resolves an id, an alias, or a path to a document, checking the anchor if there is one.
     pub fn resolve(&self, text: &str) -> Resolution {
+        self.resolve_within(None, text)
+    }
+
+    /// Resolves as written by `owner`: an alias or slug several owners declare names that owner's
+    /// document when exactly one of the candidates is its own.
+    pub fn resolve_from(&self, owner: &str, text: &str) -> Resolution {
+        self.resolve_within(Some(owner), text)
+    }
+
+    fn resolve_within(&self, owner: Option<&str>, text: &str) -> Resolution {
         let r = RefText::parse(text);
         // A path written relative to the citing file (`../../.spec/…`) names the same document;
         // ids never start with a dot, so stripping these prefixes cannot change an id.
@@ -81,6 +93,13 @@ impl Graph {
             (list.clone(), true)
         } else {
             (vec![], false)
+        };
+        let candidates = match owner {
+            Some(o) if candidates.len() > 1 => {
+                let own: Vec<usize> = candidates.iter().copied().filter(|&i| self.owners[i] == o).collect();
+                if own.len() == 1 { own } else { candidates }
+            }
+            _ => candidates,
         };
         match candidates.as_slice() {
             [] => Resolution::Missing,

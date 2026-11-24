@@ -33,7 +33,7 @@ impl Rule for RelationsResolve {
                     continue;
                 }
                 for t in targets {
-                    match ctx.graph.resolve(&t) {
+                    match ctx.graph.resolve_from(&d.id.owner, &t) {
                         Resolution::Doc { idx, .. } => {
                             let ty = &ctx.corpus.docs[idx].id.ty;
                             let ok = match allowed_targets(&kind) {
