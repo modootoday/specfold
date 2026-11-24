@@ -5,6 +5,22 @@ mod common;
 
 use serde_json::Value;
 
+/// A preview with each `updated:` stamp masked: it is taken to the second, so two previews run
+/// back to back can straddle a second on a loaded host.
+fn unstamped(v: &Value) -> String {
+    let text = v.to_string();
+    let mut out = String::new();
+    let mut rest = text.as_str();
+    while let Some(at) = rest.find("updated: ") {
+        let (head, tail) = rest.split_at(at + "updated: ".len());
+        out.push_str(head);
+        out.push_str("<now>");
+        rest = tail.trim_start_matches(|c: char| c.is_ascii_digit() || matches!(c, '-' | ':' | 'T' | 'Z' | '+'));
+    }
+    out.push_str(rest);
+    out
+}
+
 /// Words of a `next` command line, with single and double quotes taken off.
 fn words(s: &str) -> Vec<String> {
     let (mut out, mut cur, mut quote, mut any, mut esc) = (vec![], String::new(), None, false, false);
@@ -98,7 +114,7 @@ fn set_previews_without_write_and_the_write_matches_the_diff() {
         assert_eq!(r.read(&path), before, "a preview writes nothing");
         previews.push(v);
     }
-    assert_eq!(previews[0]["items"], previews[1]["items"], "--dry-run is the default preview");
+    assert_eq!(unstamped(&previews[0]["items"]), unstamped(&previews[1]["items"]), "--dry-run is the default preview");
     let (code, w) = follow(&r, previews[0]["next"].as_str().unwrap());
     assert_eq!(code, 0, "{w}");
     assert_eq!(w["written"], true, "{w}");
